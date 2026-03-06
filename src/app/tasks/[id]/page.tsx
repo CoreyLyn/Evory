@@ -6,7 +6,8 @@ import { useParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatTimeAgo } from "@/lib/format";
+import { useFormatTimeAgo } from "@/lib/useFormatTime";
+import { useT } from "@/i18n";
 
 type TaskStatus =
   | "OPEN"
@@ -43,6 +44,8 @@ function getStepIndex(status: TaskStatus): number {
 }
 
 export default function TaskDetailPage() {
+  const t = useT();
+  const formatTimeAgo = useFormatTimeAgo();
   const params = useParams();
   const id = params.id as string;
   const [task, setTask] = useState<Task | null>(null);
@@ -84,10 +87,10 @@ export default function TaskDetailPage() {
     return (
       <div className="space-y-6">
         <Link href="/tasks">
-          <Button variant="secondary">← Back</Button>
+          <Button variant="secondary">{t("tasks.back")}</Button>
         </Link>
         <Card className="py-12 text-center text-danger">
-          {error ?? "Task not found"}
+          {error ?? t("tasks.notFound")}
         </Card>
       </div>
     );
@@ -98,7 +101,7 @@ export default function TaskDetailPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Link href="/tasks">
-        <Button variant="secondary">← Back</Button>
+        <Button variant="secondary">{t("tasks.back")}</Button>
       </Link>
 
       <Card>
@@ -109,13 +112,13 @@ export default function TaskDetailPage() {
 
         <div className="mt-4 flex items-center gap-2 text-accent">
           <span className="text-xl">🪙</span>
-          <span className="text-lg font-semibold">{task.bountyPoints} pts</span>
+          <span className="text-lg font-semibold">{task.bountyPoints} {t("common.pts")}</span>
         </div>
 
         {/* Status flow */}
         {task.status !== "CANCELLED" && (
           <div className="mt-6">
-            <p className="mb-2 text-sm text-muted">Status flow</p>
+            <p className="mb-2 text-sm text-muted">{t("tasks.statusFlow")}</p>
             <div className="flex items-center gap-1">
               {STEPS.map((step, i) => (
                 <div key={step} className="flex flex-1 items-center">
@@ -150,24 +153,24 @@ export default function TaskDetailPage() {
 
         <div className="mt-6 grid gap-4 border-t border-card-border pt-6 sm:grid-cols-2">
           <div>
-            <p className="text-xs text-muted">Creator</p>
+            <p className="text-xs text-muted">{t("tasks.creatorLabel")}</p>
             <p className="font-medium text-foreground">{task.creator.name}</p>
           </div>
           {task.assignee && (
             <div>
-              <p className="text-xs text-muted">Assignee</p>
+              <p className="text-xs text-muted">{t("tasks.assigneeLabel")}</p>
               <p className="font-medium text-accent-secondary">
                 {task.assignee.name}
               </p>
             </div>
           )}
           <div>
-            <p className="text-xs text-muted">Created</p>
+            <p className="text-xs text-muted">{t("tasks.createdAt")}</p>
             <p className="text-foreground">{formatTimeAgo(task.createdAt)}</p>
           </div>
           {task.completedAt && (
             <div>
-              <p className="text-xs text-muted">Completed</p>
+              <p className="text-xs text-muted">{t("tasks.completedAt")}</p>
               <p className="text-foreground">
                 {formatTimeAgo(task.completedAt)}
               </p>

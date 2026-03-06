@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatTimeAgo } from "@/lib/format";
+import { useFormatTimeAgo } from "@/lib/useFormatTime";
+import { useT } from "@/i18n";
 
 type AgentStatus =
   | "ONLINE"
@@ -41,6 +42,8 @@ const typeBadgeVariant: Record<AgentType, "default" | "success" | "muted"> = {
 };
 
 export default function AgentsPage() {
+  const t = useT();
+  const formatTimeAgo = useFormatTimeAgo();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [pagination, setPagination] = useState<{
     page: number;
@@ -78,10 +81,8 @@ export default function AgentsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Agent Directory</h1>
-        <p className="text-sm text-muted">
-          Sorted by points
-        </p>
+        <h1 className="text-2xl font-bold text-foreground">{t("agents.title")}</h1>
+        <p className="text-sm text-muted">{t("agents.sortedByPoints")}</p>
       </div>
 
       {error && (
@@ -105,7 +106,7 @@ export default function AgentsPage() {
         </div>
       ) : sortedAgents.length === 0 ? (
         <Card className="py-12 text-center text-muted">
-          No agents found.
+          {t("agents.empty")}
         </Card>
       ) : (
         <>
@@ -133,7 +134,7 @@ export default function AgentsPage() {
                 </div>
                 <div className="mt-2 flex items-center gap-2 text-accent">
                   <span>🪙</span>
-                  <span className="font-medium">{agent.points} pts</span>
+                  <span className="font-medium">{agent.points} {t("common.pts")}</span>
                 </div>
                 {agent.bio && (
                   <p className="mt-2 line-clamp-2 text-sm text-muted">
@@ -154,10 +155,10 @@ export default function AgentsPage() {
                 disabled={page <= 1}
                 className="rounded-lg border border-card-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-accent/50 disabled:opacity-50"
               >
-                Previous
+                {t("common.prevPage")}
               </button>
               <span className="text-sm text-muted">
-                Page {pagination.page} of {pagination.totalPages}
+                {t("common.pageOf", { page: pagination.page, total: pagination.totalPages })}
               </span>
               <button
                 onClick={() =>
@@ -166,7 +167,7 @@ export default function AgentsPage() {
                 disabled={page >= pagination.totalPages}
                 className="rounded-lg border border-card-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-accent/50 disabled:opacity-50"
               >
-                Next
+                {t("common.nextPage")}
               </button>
             </div>
           )}

@@ -7,6 +7,8 @@ import {
   updateAgentPosition,
   getZoneForStatus,
   getRandomPositionInZone,
+  DEFAULT_LABELS,
+  type CanvasLabels,
 } from "./office";
 
 export interface AgentData {
@@ -29,12 +31,19 @@ export class OfficeEngine {
   private lastMouseX: number = 0;
   private lastMouseY: number = 0;
   private hoveredAgent: string | null = null;
+  private labels: CanvasLabels = DEFAULT_LABELS;
+  private hudOnline: string = "Online:";
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
     this.ctx.imageSmoothingEnabled = false;
     this.setupEvents();
+  }
+
+  setLabels(labels: CanvasLabels, hudOnline?: string) {
+    this.labels = labels;
+    if (hudOnline) this.hudOnline = hudOnline;
   }
 
   private setupEvents() {
@@ -189,7 +198,7 @@ export class OfficeEngine {
     ctx.translate(this.offsetX, this.offsetY);
     ctx.scale(this.scale, this.scale);
 
-    drawOffice(ctx);
+    drawOffice(ctx, this.labels);
 
     const sortedAgents = Array.from(this.agents.values()).sort((a, b) => a.y - b.y);
 
@@ -200,16 +209,15 @@ export class OfficeEngine {
       drawNameTag(ctx, agent.x, agent.y, agent.name, agent.points, spriteScale);
     }
 
-    // HUD overlay
     ctx.restore();
 
-    // Agent count
+    // HUD overlay
     ctx.save();
     ctx.font = "12px monospace";
     ctx.fillStyle = "rgba(200, 200, 240, 0.7)";
     ctx.textAlign = "left";
     const onlineCount = Array.from(this.agents.values()).filter(a => a.status !== "OFFLINE").length;
-    ctx.fillText(`Online: ${onlineCount} / ${this.agents.size}`, 12, canvas.height - 12);
+    ctx.fillText(`${this.hudOnline} ${onlineCount} / ${this.agents.size}`, 12, canvas.height - 12);
     ctx.restore();
   }
 

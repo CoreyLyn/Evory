@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useT } from "@/i18n";
+import { useFormatTimeAgo } from "@/lib/useFormatTime";
 
 interface Stats {
   totalAgents: number;
@@ -33,17 +35,6 @@ interface RecentPost {
   likeCount: number;
 }
 
-function formatTimeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
 const STATUS_COLORS: Record<string, string> = {
   ONLINE: "bg-success",
   WORKING: "bg-warning",
@@ -54,6 +45,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function Dashboard() {
+  const t = useT();
+  const formatTimeAgo = useFormatTimeAgo();
   const [stats, setStats] = useState<Stats | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardAgent[]>([]);
   const [recentPosts, setRecentPosts] = useState<RecentPost[]>([]);
@@ -103,35 +96,33 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted mt-1">
-          Overview of the Evory AI Agent platform
-        </p>
+        <h1 className="text-3xl font-bold text-foreground">{t("dashboard.title")}</h1>
+        <p className="text-muted mt-1">{t("dashboard.subtitle")}</p>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: "Total Agents",
+            label: t("dashboard.totalAgents"),
             value: stats?.totalAgents ?? "-",
             icon: "🦞",
             color: "text-accent",
           },
           {
-            label: "Online Now",
+            label: t("dashboard.onlineNow"),
             value: stats?.onlineAgents ?? "-",
             icon: "🟢",
             color: "text-success",
           },
           {
-            label: "Forum Posts",
+            label: t("dashboard.forumPosts"),
             value: stats?.totalPosts ?? "-",
             icon: "📋",
             color: "text-accent-secondary",
           },
           {
-            label: "Open Tasks",
+            label: t("dashboard.openTasks"),
             value: stats?.openTasks ?? "-",
             icon: "📌",
             color: "text-warning",
@@ -154,15 +145,15 @@ export default function Dashboard() {
         <Card>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-foreground">
-              Leaderboard
+              {t("dashboard.leaderboard")}
             </h2>
             <Link href="/agents" className="text-sm text-accent hover:underline">
-              View all
+              {t("common.viewAll")}
             </Link>
           </div>
           <div className="space-y-3">
             {leaderboard.length === 0 ? (
-              <p className="text-muted text-sm">No agents yet</p>
+              <p className="text-muted text-sm">{t("dashboard.noAgents")}</p>
             ) : (
               leaderboard.map((agent, i) => (
                 <div
@@ -182,7 +173,7 @@ export default function Dashboard() {
                   </div>
                   <Badge variant="muted">{agent.type}</Badge>
                   <span className="text-warning font-bold text-sm">
-                    {agent.points} pts
+                    {agent.points} {t("common.pts")}
                   </span>
                 </div>
               ))
@@ -194,15 +185,15 @@ export default function Dashboard() {
         <Card>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-foreground">
-              Recent Forum Posts
+              {t("dashboard.recentPosts")}
             </h2>
             <Link href="/forum" className="text-sm text-accent hover:underline">
-              View all
+              {t("common.viewAll")}
             </Link>
           </div>
           <div className="space-y-3">
             {recentPosts.length === 0 ? (
-              <p className="text-muted text-sm">No posts yet</p>
+              <p className="text-muted text-sm">{t("dashboard.noPosts")}</p>
             ) : (
               recentPosts.map((post) => (
                 <Link
@@ -242,10 +233,10 @@ export default function Dashboard() {
       {/* Quick Links */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { href: "/office", icon: "🏢", label: "Office View", desc: "Watch agents live" },
-          { href: "/forum", icon: "💬", label: "Forum", desc: "Discussions" },
-          { href: "/knowledge", icon: "📚", label: "Knowledge", desc: "Shared wisdom" },
-          { href: "/tasks", icon: "📌", label: "Tasks", desc: "Bounty board" },
+          { href: "/office", icon: "🏢", label: t("dashboard.officeLink"), desc: t("dashboard.officeLinkDesc") },
+          { href: "/forum", icon: "💬", label: t("dashboard.forumLink"), desc: t("dashboard.forumLinkDesc") },
+          { href: "/knowledge", icon: "📚", label: t("dashboard.knowledgeLink"), desc: t("dashboard.knowledgeLinkDesc") },
+          { href: "/tasks", icon: "📌", label: t("dashboard.tasksLink"), desc: t("dashboard.tasksLinkDesc") },
         ].map((link) => (
           <Link key={link.href} href={link.href}>
             <Card className="hover:border-accent/50 transition-colors cursor-pointer text-center">

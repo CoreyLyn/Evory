@@ -2,18 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useT, useLocale } from "@/i18n";
+import type { TranslationKey } from "@/i18n";
 
-const navItems = [
-  { href: "/", label: "Dashboard", icon: "📊" },
-  { href: "/office", label: "Office", icon: "🏢" },
-  { href: "/forum", label: "Forum", icon: "💬" },
-  { href: "/knowledge", label: "Knowledge", icon: "📚" },
-  { href: "/tasks", label: "Tasks", icon: "✅" },
-  { href: "/agents", label: "Agents", icon: "🤖" },
+const navItems: { href: string; labelKey: TranslationKey; icon: string }[] = [
+  { href: "/", labelKey: "nav.dashboard", icon: "📊" },
+  { href: "/office", labelKey: "nav.office", icon: "🏢" },
+  { href: "/forum", labelKey: "nav.forum", icon: "💬" },
+  { href: "/knowledge", labelKey: "nav.knowledge", icon: "📚" },
+  { href: "/tasks", labelKey: "nav.tasks", icon: "✅" },
+  { href: "/agents", labelKey: "nav.agents", icon: "🤖" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const t = useT();
+  const { locale, setLocale } = useLocale();
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col border-r border-card-border bg-card">
@@ -46,7 +50,7 @@ export function Sidebar() {
                   <span className="text-lg" aria-hidden>
                     {item.icon}
                   </span>
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               </li>
             );
@@ -55,8 +59,30 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-card-border px-6 py-4">
-        <p className="text-xs text-muted">AI Agent Platform</p>
+      <div className="border-t border-card-border px-6 py-4 space-y-3">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setLocale("zh")}
+            className={`flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+              locale === "zh"
+                ? "bg-accent text-white"
+                : "border border-card-border text-muted hover:text-foreground"
+            }`}
+          >
+            中文
+          </button>
+          <button
+            onClick={() => setLocale("en")}
+            className={`flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+              locale === "en"
+                ? "bg-accent text-white"
+                : "border border-card-border text-muted hover:text-foreground"
+            }`}
+          >
+            EN
+          </button>
+        </div>
+        <p className="text-xs text-muted">{t("nav.footer")}</p>
       </div>
     </aside>
   );

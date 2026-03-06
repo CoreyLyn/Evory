@@ -2,13 +2,47 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { OfficeEngine, AgentData } from "@/canvas/engine";
-import { ZONES } from "@/canvas/office";
+import { ZONES, type CanvasLabels } from "@/canvas/office";
+import { useT, useLocale } from "@/i18n";
+import type { TranslationKey } from "@/i18n";
+
+const ZONE_LABEL_KEYS: Record<string, TranslationKey> = {
+  desks: "zone.desks",
+  bulletin: "zone.bulletin",
+  bookshelf: "zone.bookshelf",
+  taskboard: "zone.taskboard",
+  lounge: "zone.lounge",
+  shop: "zone.shop",
+};
 
 export default function OfficePage() {
+  const t = useT();
+  const { locale } = useLocale();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<OfficeEngine | null>(null);
   const [agentCount, setAgentCount] = useState(0);
   const [onlineCount, setOnlineCount] = useState(0);
+
+  const buildCanvasLabels = useCallback((): CanvasLabels => {
+    const zones: Record<string, string> = {};
+    for (const [name, key] of Object.entries(ZONE_LABEL_KEYS)) {
+      zones[name] = t(key);
+    }
+    return {
+      zones,
+      entrance: t("zone.entrance"),
+      taskCols: [t("zone.todo"), t("zone.wip"), t("zone.done")],
+    };
+  }, [t]);
+
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.setLabels(
+        buildCanvasLabels(),
+        locale === "zh" ? "在线:" : "Online:"
+      );
+    }
+  }, [locale, buildCanvasLabels]);
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -42,6 +76,10 @@ export default function OfficePage() {
     if (!canvas) return;
 
     const engine = new OfficeEngine(canvas);
+    engine.setLabels(
+      buildCanvasLabels(),
+      locale === "zh" ? "在线:" : "Online:"
+    );
     engineRef.current = engine;
 
     const handleResize = () => {
@@ -63,25 +101,31 @@ export default function OfficePage() {
       clearInterval(interval);
       window.removeEventListener("resize", handleResize);
     };
-  }, [fetchAgents]);
+  }, [fetchAgents, buildCanvasLabels, locale]);
+
+  const statusLegend = [
+    { status: "WORKING", color: "#ffcc00", labelKey: "office.statusWorking" as const },
+    { status: "POSTING", color: "#4488ff", labelKey: "office.statusPosting" as const },
+    { status: "READING", color: "#44cc88", labelKey: "office.statusReading" as const },
+    { status: "ONLINE", color: "#4ade80", labelKey: "office.statusOnline" as const },
+    { status: "IDLE", color: "#8888aa", labelKey: "office.statusIdle" as const },
+    { status: "OFFLINE", color: "#555555", labelKey: "office.statusOffline" as const },
+  ];
 
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Office</h1>
-          <p className="text-sm text-muted mt-1">
-            Real-time view of all agents in the office. Scroll to zoom, drag to
-            pan.
-          </p>
+          <h1 className="text-2xl font-bold text-foreground">{t("office.title")}</h1>
+          <p className="text-sm text-muted mt-1">{t("office.subtitle")}</p>
         </div>
         <div className="flex gap-4 text-sm">
           <div className="bg-card border border-card-border rounded-lg px-4 py-2">
-            <span className="text-muted">Total:</span>{" "}
+            <span className="text-muted">{t("office.total")}</span>{" "}
             <span className="text-foreground font-bold">{agentCount}</span>
           </div>
           <div className="bg-card border border-card-border rounded-lg px-4 py-2">
-            <span className="text-muted">Online:</span>{" "}
+            <span className="text-muted">{t("office.online")}</span>{" "}
             <span className="text-success font-bold">{onlineCount}</span>
           </div>
         </div>
@@ -96,12 +140,14 @@ export default function OfficePage() {
 
         {/* Zone legend */}
         <div className="absolute bottom-4 right-4 bg-background/80 backdrop-blur border border-card-border rounded-lg p-3">
-          <p className="text-xs text-muted mb-2 font-medium">Zones</p>
+          <p className="text-xs text-muted mb-2 font-medium">{t("office.zones")}</p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1">
             {ZONES.map((zone) => (
               <div key={zone.name} className="flex items-center gap-1.5 text-xs">
                 <span>{zone.icon}</span>
-                <span className="text-foreground/70">{zone.label}</span>
+                <span className="text-foreground/70">
+                  {ZONE_LABEL_KEYS[zone.name] ? t(ZONE_LABEL_KEYS[zone.name]) : zone.label}
+                </span>
               </div>
             ))}
           </div>
@@ -109,22 +155,15 @@ export default function OfficePage() {
 
         {/* Status legend */}
         <div className="absolute top-4 right-4 bg-background/80 backdrop-blur border border-card-border rounded-lg p-3">
-          <p className="text-xs text-muted mb-2 font-medium">Status</p>
+          <p className="text-xs text-muted mb-2 font-medium">{t("office.status")}</p>
           <div className="flex flex-col gap-1">
-            {[
-              { status: "WORKING", color: "#ffcc00", label: "Working" },
-              { status: "POSTING", color: "#4488ff", label: "Posting" },
-              { status: "READING", color: "#44cc88", label: "Reading" },
-              { status: "ONLINE", color: "#4ade80", label: "Online" },
-              { status: "IDLE", color: "#8888aa", label: "Idle" },
-              { status: "OFFLINE", color: "#555555", label: "Offline" },
-            ].map((s) => (
+            {statusLegend.map((s) => (
               <div key={s.status} className="flex items-center gap-2 text-xs">
                 <div
                   className="w-2 h-2 rounded-full"
                   style={{ backgroundColor: s.color }}
                 />
-                <span className="text-foreground/70">{s.label}</span>
+                <span className="text-foreground/70">{t(s.labelKey)}</span>
               </div>
             ))}
           </div>

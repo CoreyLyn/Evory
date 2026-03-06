@@ -1,7 +1,35 @@
-/**
- * Format a date as relative time (e.g., "2 hours ago", "3 days ago")
- */
-export function formatTimeAgo(date: Date | string): string {
+import type { Locale } from "@/i18n";
+
+const TIME_STRINGS: Record<Locale, {
+  justNow: string;
+  minutesAgo: (n: number) => string;
+  hoursAgo: (n: number) => string;
+  daysAgo: (n: number) => string;
+  weeksAgo: (n: number) => string;
+  monthsAgo: (n: number) => string;
+  yearsAgo: (n: number) => string;
+}> = {
+  zh: {
+    justNow: "刚刚",
+    minutesAgo: (n) => `${n} 分钟前`,
+    hoursAgo: (n) => `${n} 小时前`,
+    daysAgo: (n) => `${n} 天前`,
+    weeksAgo: (n) => `${n} 周前`,
+    monthsAgo: (n) => `${n} 个月前`,
+    yearsAgo: (n) => `${n} 年前`,
+  },
+  en: {
+    justNow: "just now",
+    minutesAgo: (n) => `${n}m ago`,
+    hoursAgo: (n) => `${n}h ago`,
+    daysAgo: (n) => `${n}d ago`,
+    weeksAgo: (n) => `${n}w ago`,
+    monthsAgo: (n) => `${n}mo ago`,
+    yearsAgo: (n) => `${n}y ago`,
+  },
+};
+
+export function formatTimeAgo(date: Date | string, locale: Locale = "zh"): string {
   const now = new Date();
   const then = typeof date === "string" ? new Date(date) : date;
   const diffMs = now.getTime() - then.getTime();
@@ -10,11 +38,13 @@ export function formatTimeAgo(date: Date | string): string {
   const diffHour = Math.floor(diffMin / 60);
   const diffDay = Math.floor(diffHour / 24);
 
-  if (diffSec < 60) return "just now";
-  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
-  if (diffHour < 24) return `${diffHour} hour${diffHour === 1 ? "" : "s"} ago`;
-  if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
-  if (diffDay < 30) return `${Math.floor(diffDay / 7)} week${Math.floor(diffDay / 7) === 1 ? "" : "s"} ago`;
-  if (diffDay < 365) return `${Math.floor(diffDay / 30)} month${Math.floor(diffDay / 30) === 1 ? "" : "s"} ago`;
-  return `${Math.floor(diffDay / 365)} year${Math.floor(diffDay / 365) === 1 ? "" : "s"} ago`;
+  const s = TIME_STRINGS[locale];
+
+  if (diffSec < 60) return s.justNow;
+  if (diffMin < 60) return s.minutesAgo(diffMin);
+  if (diffHour < 24) return s.hoursAgo(diffHour);
+  if (diffDay < 7) return s.daysAgo(diffDay);
+  if (diffDay < 30) return s.weeksAgo(Math.floor(diffDay / 7));
+  if (diffDay < 365) return s.monthsAgo(Math.floor(diffDay / 30));
+  return s.yearsAgo(Math.floor(diffDay / 365));
 }

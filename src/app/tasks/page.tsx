@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatTimeAgo } from "@/lib/format";
+import { useFormatTimeAgo } from "@/lib/useFormatTime";
+import { useT } from "@/i18n";
+import type { TranslationKey } from "@/i18n";
 
 type TaskStatus =
   | "OPEN"
@@ -23,12 +25,12 @@ type Task = {
   createdAt: string;
 };
 
-const STATUS_FILTERS: { label: string; value: TaskStatus | "ALL" }[] = [
-  { label: "All", value: "ALL" },
-  { label: "Open", value: "OPEN" },
-  { label: "Claimed", value: "CLAIMED" },
-  { label: "Completed", value: "COMPLETED" },
-  { label: "Verified", value: "VERIFIED" },
+const STATUS_FILTER_KEYS: { labelKey: TranslationKey; value: TaskStatus | "ALL" }[] = [
+  { labelKey: "tasks.filterAll", value: "ALL" },
+  { labelKey: "tasks.filterOpen", value: "OPEN" },
+  { labelKey: "tasks.filterClaimed", value: "CLAIMED" },
+  { labelKey: "tasks.filterCompleted", value: "COMPLETED" },
+  { labelKey: "tasks.filterVerified", value: "VERIFIED" },
 ];
 
 const statusBadgeVariant: Record<TaskStatus, "warning" | "default" | "muted" | "success" | "danger"> = {
@@ -40,6 +42,8 @@ const statusBadgeVariant: Record<TaskStatus, "warning" | "default" | "muted" | "
 };
 
 export default function TasksPage() {
+  const t = useT();
+  const formatTimeAgo = useFormatTimeAgo();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [pagination, setPagination] = useState<{
     total: number;
@@ -82,9 +86,9 @@ export default function TasksPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Task Board</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("tasks.title")}</h1>
         <div className="flex flex-wrap gap-2">
-          {STATUS_FILTERS.map(({ label, value }) => (
+          {STATUS_FILTER_KEYS.map(({ labelKey, value }) => (
             <button
               key={value}
               onClick={() => {
@@ -97,7 +101,7 @@ export default function TasksPage() {
                   : "border border-card-border bg-card text-muted hover:border-accent/50 hover:text-foreground"
               }`}
             >
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </div>
@@ -121,37 +125,37 @@ export default function TasksPage() {
         </div>
       ) : tasks.length === 0 ? (
         <Card className="py-12 text-center text-muted">
-          No tasks found for this filter.
+          {t("tasks.empty")}
         </Card>
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {tasks.map((t) => (
-              <Link key={t.id} href={`/tasks/${t.id}`}>
+            {tasks.map((task) => (
+              <Link key={task.id} href={`/tasks/${task.id}`}>
                 <Card className="transition-all hover:border-accent/50 hover:shadow-lg hover:shadow-accent/5">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-semibold text-foreground line-clamp-2">
-                      {t.title}
+                      {task.title}
                     </h3>
-                    <Badge variant={statusBadgeVariant[t.status]}>
-                      {t.status}
+                    <Badge variant={statusBadgeVariant[task.status]}>
+                      {task.status}
                     </Badge>
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-accent">
                     <span>🪙</span>
-                    <span className="font-medium">{t.bountyPoints} pts</span>
+                    <span className="font-medium">{task.bountyPoints} {t("common.pts")}</span>
                   </div>
                   <div className="mt-2 text-sm text-muted">
-                    by {t.creator.name}
-                    {t.assignee && (
+                    {t("tasks.creator")} {task.creator.name}
+                    {task.assignee && (
                       <span className="text-accent-secondary">
                         {" "}
-                        → {t.assignee.name}
+                        {t("tasks.assignee")} {task.assignee.name}
                       </span>
                     )}
                   </div>
                   <div className="mt-2 text-xs text-muted">
-                    {formatTimeAgo(t.createdAt)}
+                    {formatTimeAgo(task.createdAt)}
                   </div>
                 </Card>
               </Link>
@@ -165,10 +169,10 @@ export default function TasksPage() {
                 disabled={page <= 1}
                 className="rounded-lg border border-card-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-accent/50 disabled:opacity-50"
               >
-                Previous
+                {t("common.prevPage")}
               </button>
               <span className="text-sm text-muted">
-                Page {pagination.page} of {pagination.totalPages}
+                {t("common.pageOf", { page: pagination.page, total: pagination.totalPages })}
               </span>
               <button
                 onClick={() =>
@@ -177,7 +181,7 @@ export default function TasksPage() {
                 disabled={page >= pagination.totalPages}
                 className="rounded-lg border border-card-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-accent/50 disabled:opacity-50"
               >
-                Next
+                {t("common.nextPage")}
               </button>
             </div>
           )}

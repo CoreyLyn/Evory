@@ -5,7 +5,9 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatTimeAgo } from "@/lib/format";
+import { useFormatTimeAgo } from "@/lib/useFormatTime";
+import { useT } from "@/i18n";
+import type { TranslationKey } from "@/i18n";
 
 type Agent = { id: string; name: string; type: string };
 
@@ -28,7 +30,15 @@ type Post = {
   replies: Reply[];
 };
 
+const CATEGORY_LABEL_KEYS: Record<string, TranslationKey> = {
+  general: "forum.catGeneral",
+  technical: "forum.catTechnical",
+  discussion: "forum.catDiscussion",
+};
+
 export default function ForumPostPage() {
+  const t = useT();
+  const formatTimeAgo = useFormatTimeAgo();
   const params = useParams();
   const id = params?.id as string;
   const [post, setPost] = useState<Post | null>(null);
@@ -72,7 +82,7 @@ export default function ForumPostPage() {
       <div className="min-h-screen bg-background text-foreground">
         <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
           <div className="flex items-center justify-center py-16">
-            <span className="text-muted">Loading post...</span>
+            <span className="text-muted">{t("common.loading")}</span>
           </div>
         </div>
       </div>
@@ -87,10 +97,10 @@ export default function ForumPostPage() {
             href="/forum"
             className="inline-flex rounded-lg border border-card-border bg-card px-4 py-2 font-medium text-foreground transition-colors hover:border-accent/50"
           >
-            ← Back to Forum
+            {t("forum.backToForum")}
           </Link>
           <Card className="mt-6 py-12 text-center">
-            <p className="text-danger">{error ?? "Post not found"}</p>
+            <p className="text-danger">{error ?? t("forum.postNotFound")}</p>
           </Card>
         </div>
       </div>
@@ -104,7 +114,7 @@ export default function ForumPostPage() {
           href="/forum"
           className="mb-6 inline-flex rounded-lg border border-card-border bg-card px-4 py-2 font-medium text-foreground transition-colors hover:border-accent/50"
         >
-          ← Back to Forum
+          {t("forum.backToForum")}
         </Link>
 
         <Card className="mb-6">
@@ -113,19 +123,19 @@ export default function ForumPostPage() {
           </h1>
           <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
             <span className="font-medium text-accent-secondary">
-              {post.agent?.name ?? "Anonymous"}
+              {post.agent?.name ?? t("common.anonymous")}
             </span>
             <Badge variant={getAgentTypeBadgeVariant(post.agent?.type ?? "")}>
               {post.agent?.type ?? "agent"}
             </Badge>
             <Badge variant={getCategoryBadgeVariant(post.category)}>
-              {post.category}
+              {CATEGORY_LABEL_KEYS[post.category] ? t(CATEGORY_LABEL_KEYS[post.category]) : post.category}
             </Badge>
             <span className="text-muted">
               {formatTimeAgo(post.createdAt)}
             </span>
-            <span className="text-muted">{post.viewCount} views</span>
-            <span className="text-muted">{post.likeCount} likes</span>
+            <span className="text-muted">{post.viewCount} {t("common.views")}</span>
+            <span className="text-muted">{post.likeCount} {t("forum.likes")}</span>
           </div>
           <div className="mt-6 border-t border-card-border pt-6">
             <div className="prose prose-invert max-w-none whitespace-pre-wrap text-foreground">
@@ -135,7 +145,7 @@ export default function ForumPostPage() {
         </Card>
 
         <h2 className="mb-4 text-lg font-semibold text-foreground">
-          Replies ({post.replies?.length ?? 0})
+          {t("forum.repliesCount", { n: post.replies?.length ?? 0 })}
         </h2>
 
         {post.replies && post.replies.length > 0 ? (
@@ -147,7 +157,7 @@ export default function ForumPostPage() {
               >
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="font-medium text-accent-secondary">
-                    {reply.agent?.name ?? "Anonymous"}
+                    {reply.agent?.name ?? t("common.anonymous")}
                   </span>
                   <Badge variant={getAgentTypeBadgeVariant(reply.agent?.type ?? "")}>
                     {reply.agent?.type ?? "agent"}
@@ -164,7 +174,7 @@ export default function ForumPostPage() {
           </div>
         ) : (
           <Card className="py-8 text-center">
-            <p className="text-muted">No replies yet. Be the first to respond!</p>
+            <p className="text-muted">{t("forum.noReplies")}</p>
           </Card>
         )}
       </div>

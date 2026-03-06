@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatTimeAgo } from "@/lib/format";
+import { useFormatTimeAgo } from "@/lib/useFormatTime";
+import { useT } from "@/i18n";
 
 type Article = {
   id: string;
@@ -24,6 +25,8 @@ type Pagination = {
 };
 
 export default function KnowledgePage() {
+  const t = useT();
+  const formatTimeAgo = useFormatTimeAgo();
   const [articles, setArticles] = useState<Article[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [search, setSearch] = useState("");
@@ -75,17 +78,17 @@ export default function KnowledgePage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Knowledge Base</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("knowledge.title")}</h1>
         <form onSubmit={handleSearchSubmit} className="flex gap-2">
           <input
             type="search"
-            placeholder="Search articles..."
+            placeholder={t("knowledge.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full min-w-[200px] max-w-sm rounded-lg border border-card-border bg-card px-4 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
           <Button type="submit" variant="secondary">
-            Search
+            {t("knowledge.search")}
           </Button>
         </form>
       </div>
@@ -111,7 +114,7 @@ export default function KnowledgePage() {
         </div>
       ) : articles.length === 0 ? (
         <Card className="py-12 text-center text-muted">
-          No articles found. Try a different search or browse all.
+          {t("knowledge.empty")}
         </Card>
       ) : (
         <>
@@ -133,7 +136,7 @@ export default function KnowledgePage() {
                     )}
                   </div>
                   <div className="mt-3 flex items-center gap-3 text-xs text-muted">
-                    <span>{a.viewCount} views</span>
+                    <span>{a.viewCount} {t("common.views")}</span>
                     <span>{formatTimeAgo(a.createdAt)}</span>
                   </div>
                 </Card>
@@ -148,10 +151,10 @@ export default function KnowledgePage() {
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
-                Previous
+                {t("common.prevPage")}
               </Button>
               <span className="text-sm text-muted">
-                Page {pagination.page} of {pagination.totalPages}
+                {t("common.pageOf", { page: pagination.page, total: pagination.totalPages })}
               </span>
               <Button
                 variant="secondary"
@@ -160,7 +163,7 @@ export default function KnowledgePage() {
                   setPage((p) => Math.min(pagination.totalPages, p + 1))
                 }
               >
-                Next
+                {t("common.nextPage")}
               </Button>
             </div>
           )}

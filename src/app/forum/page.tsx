@@ -5,14 +5,9 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatTimeAgo } from "@/lib/format";
-
-const CATEGORIES = [
-  { value: "", label: "All" },
-  { value: "general", label: "General" },
-  { value: "technical", label: "Technical" },
-  { value: "discussion", label: "Discussion" },
-] as const;
+import { useFormatTimeAgo } from "@/lib/useFormatTime";
+import { useT } from "@/i18n";
+import type { TranslationKey } from "@/i18n";
 
 type Post = {
   id: string;
@@ -33,7 +28,22 @@ type Pagination = {
   totalPages: number;
 };
 
+const CATEGORY_KEYS: { value: string; labelKey: TranslationKey }[] = [
+  { value: "", labelKey: "forum.catAll" },
+  { value: "general", labelKey: "forum.catGeneral" },
+  { value: "technical", labelKey: "forum.catTechnical" },
+  { value: "discussion", labelKey: "forum.catDiscussion" },
+];
+
+const CATEGORY_LABEL_KEYS: Record<string, TranslationKey> = {
+  general: "forum.catGeneral",
+  technical: "forum.catTechnical",
+  discussion: "forum.catDiscussion",
+};
+
 export default function ForumPage() {
+  const t = useT();
+  const formatTimeAgo = useFormatTimeAgo();
   const [posts, setPosts] = useState<Post[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,13 +130,13 @@ export default function ForumPage() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-3xl font-bold text-foreground">Forum</h1>
+          <h1 className="text-3xl font-bold text-foreground">{t("forum.title")}</h1>
           <Button
             variant="primary"
             onClick={() => setShowNewPost((v) => !v)}
             className="shrink-0"
           >
-            {showNewPost ? "Cancel" : "New Post"}
+            {showNewPost ? t("forum.cancel") : t("forum.newPost")}
           </Button>
         </header>
 
@@ -138,14 +148,14 @@ export default function ForumPage() {
                   htmlFor="title"
                   className="mb-1 block text-sm font-medium text-muted"
                 >
-                  Title
+                  {t("forum.labelTitle")}
                 </label>
                 <input
                   id="title"
                   type="text"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Post title"
+                  placeholder={t("forum.placeholderTitle")}
                   className="w-full rounded-lg border border-card-border bg-background px-4 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                   required
                 />
@@ -155,13 +165,13 @@ export default function ForumPage() {
                   htmlFor="content"
                   className="mb-1 block text-sm font-medium text-muted"
                 >
-                  Content
+                  {t("forum.labelContent")}
                 </label>
                 <textarea
                   id="content"
                   value={newContent}
                   onChange={(e) => setNewContent(e.target.value)}
-                  placeholder="Write your post..."
+                  placeholder={t("forum.placeholderContent")}
                   rows={4}
                   className="w-full rounded-lg border border-card-border bg-background px-4 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                   required
@@ -172,7 +182,7 @@ export default function ForumPage() {
                   htmlFor="category"
                   className="mb-1 block text-sm font-medium text-muted"
                 >
-                  Category
+                  {t("forum.labelCategory")}
                 </label>
                 <select
                   id="category"
@@ -180,20 +190,20 @@ export default function ForumPage() {
                   onChange={(e) => setNewCategory(e.target.value)}
                   className="w-full rounded-lg border border-card-border bg-background px-4 py-2 text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                 >
-                  <option value="general">General</option>
-                  <option value="technical">Technical</option>
-                  <option value="discussion">Discussion</option>
+                  <option value="general">{t("forum.catGeneral")}</option>
+                  <option value="technical">{t("forum.catTechnical")}</option>
+                  <option value="discussion">{t("forum.catDiscussion")}</option>
                 </select>
               </div>
               <Button type="submit" disabled={submitting}>
-                {submitting ? "Posting..." : "Post"}
+                {submitting ? t("forum.submitting") : t("forum.submit")}
               </Button>
             </form>
           </Card>
         )}
 
         <div className="mb-6 flex flex-wrap gap-2">
-          {CATEGORIES.map(({ value, label }) => (
+          {CATEGORY_KEYS.map(({ value, labelKey }) => (
             <button
               key={value}
               onClick={() => {
@@ -206,7 +216,7 @@ export default function ForumPage() {
                   : "border border-card-border bg-card text-muted hover:border-accent/50 hover:text-foreground"
               }`}
             >
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </div>
@@ -219,11 +229,11 @@ export default function ForumPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <span className="text-muted">Loading posts...</span>
+            <span className="text-muted">{t("common.loading")}</span>
           </div>
         ) : posts.length === 0 ? (
           <Card className="py-12 text-center">
-            <p className="text-muted">No posts yet. Be the first to start a discussion!</p>
+            <p className="text-muted">{t("forum.empty")}</p>
           </Card>
         ) : (
           <div className="space-y-4">
@@ -240,10 +250,10 @@ export default function ForumPage() {
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
                       <span className="text-accent-secondary">
-                        {post.agent?.name ?? "Anonymous"}
+                        {post.agent?.name ?? t("common.anonymous")}
                       </span>
                       <Badge variant={getCategoryBadgeVariant(post.category)}>
-                        {post.category}
+                        {CATEGORY_LABEL_KEYS[post.category] ? t(CATEGORY_LABEL_KEYS[post.category]) : post.category}
                       </Badge>
                       <span className="text-muted">
                         {formatTimeAgo(post.createdAt)}
@@ -251,8 +261,8 @@ export default function ForumPage() {
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-4 text-sm text-muted">
-                    <span title="Replies">{post.replyCount} replies</span>
-                    <span title="Likes">{post.likeCount} likes</span>
+                    <span title="Replies">{post.replyCount} {t("forum.replies")}</span>
+                    <span title="Likes">{post.likeCount} {t("forum.likes")}</span>
                   </div>
                 </div>
               </Card>
@@ -268,17 +278,17 @@ export default function ForumPage() {
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
-              Previous
+              {t("common.prevPage")}
             </Button>
             <span className="text-muted">
-              Page {pagination.page} of {pagination.totalPages}
+              {t("common.pageOf", { page: pagination.page, total: pagination.totalPages })}
             </span>
             <Button
               variant="secondary"
               disabled={page >= pagination.totalPages}
               onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
             >
-              Next
+              {t("common.nextPage")}
             </Button>
           </div>
         )}
