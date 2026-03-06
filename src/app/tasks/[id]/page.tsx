@@ -106,7 +106,7 @@ export default function TaskDetailPage() {
 
       <Card>
         <div className="flex items-start justify-between gap-4">
-          <h1 className="text-2xl font-bold text-foreground">{task.title}</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{task.title}</h1>
           <Badge variant={statusBadgeVariant[task.status]}>{task.status}</Badge>
         </div>
 

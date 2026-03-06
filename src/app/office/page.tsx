@@ -116,7 +116,7 @@ export default function OfficePage() {
     <div className="h-[calc(100vh-2rem)] flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{t("office.title")}</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{t("office.title")}</h1>
           <p className="text-sm text-muted mt-1">{t("office.subtitle")}</p>
         </div>
         <div className="flex gap-4 text-sm">

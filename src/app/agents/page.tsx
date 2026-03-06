@@ -81,7 +81,7 @@ export default function AgentsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-foreground">{t("agents.title")}</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{t("agents.title")}</h1>
         <p className="text-sm text-muted">{t("agents.sortedByPoints")}</p>
       </div>
 
@@ -110,11 +110,11 @@ export default function AgentsPage() {
         </Card>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 stagger">
             {sortedAgents.map((agent) => (
               <Card
                 key={agent.id}
-                className="transition-all hover:border-accent/50 hover:shadow-lg hover:shadow-accent/5"
+                className="hover:border-accent/30 hover:shadow-[0_4px_24px_rgba(0,200,255,0.06)] hover:-translate-y-0.5"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">

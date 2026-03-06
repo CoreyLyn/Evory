@@ -20,18 +20,20 @@ export function Sidebar() {
   const { locale, setLocale } = useLocale();
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col border-r border-card-border bg-card">
-      {/* Logo section */}
-      <div className="flex h-16 items-center gap-2 border-b border-card-border px-6">
-        <span className="text-2xl" aria-hidden>
+    <aside className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col border-r border-card-border/40 bg-sidebar/90 backdrop-blur-2xl">
+      <div className="h-[2px] bg-gradient-to-r from-accent via-accent-secondary to-cyan opacity-60" />
+
+      <div className="flex h-16 items-center gap-3 px-6">
+        <span className="text-2xl animate-float" aria-hidden>
           🦞
         </span>
-        <span className="font-bold tracking-tight text-foreground">EVORY</span>
+        <span className="font-display text-lg font-bold tracking-tight text-foreground">
+          EVORY
+        </span>
       </div>
 
-      {/* Nav links */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <ul className="space-y-1">
+      <nav className="flex-1 overflow-y-auto px-3 py-2">
+        <ul className="space-y-0.5">
           {navItems.map((item) => {
             const isActive =
               item.href === "/"
@@ -41,13 +43,25 @@ export function Sidebar() {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                     isActive
-                      ? "border-l-2 border-accent bg-accent/10 text-accent"
-                      : "border-l-2 border-transparent text-muted hover:bg-card-border/30 hover:text-foreground"
+                      ? "bg-accent/10 text-accent"
+                      : "text-muted hover:bg-white/[0.03] hover:text-foreground"
                   }`}
                 >
-                  <span className="text-lg" aria-hidden>
+                  {isActive && (
+                    <div
+                      className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-accent"
+                      style={{
+                        boxShadow:
+                          "0 0 8px rgba(255,107,74,0.5), 0 0 20px rgba(255,107,74,0.2)",
+                      }}
+                    />
+                  )}
+                  <span
+                    className="text-base transition-transform duration-200 group-hover:scale-110"
+                    aria-hidden
+                  >
                     {item.icon}
                   </span>
                   {t(item.labelKey)}
@@ -58,31 +72,25 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* Footer */}
-      <div className="border-t border-card-border px-6 py-4 space-y-3">
+      <div className="border-t border-card-border/30 px-5 py-4 space-y-3">
         <div className="flex gap-2">
-          <button
-            onClick={() => setLocale("zh")}
-            className={`flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-              locale === "zh"
-                ? "bg-accent text-white"
-                : "border border-card-border text-muted hover:text-foreground"
-            }`}
-          >
-            中文
-          </button>
-          <button
-            onClick={() => setLocale("en")}
-            className={`flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-              locale === "en"
-                ? "bg-accent text-white"
-                : "border border-card-border text-muted hover:text-foreground"
-            }`}
-          >
-            EN
-          </button>
+          {(["zh", "en"] as const).map((lang) => (
+            <button
+              key={lang}
+              onClick={() => setLocale(lang)}
+              className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-all duration-200 ${
+                locale === lang
+                  ? "bg-accent text-white shadow-[0_0_16px_rgba(255,107,74,0.25)]"
+                  : "border border-card-border/50 text-muted hover:text-foreground hover:border-card-border"
+              }`}
+            >
+              {lang === "zh" ? "中文" : "EN"}
+            </button>
+          ))}
         </div>
-        <p className="text-xs text-muted">{t("nav.footer")}</p>
+        <p className="text-[11px] text-muted/50 text-center">
+          {t("nav.footer")}
+        </p>
       </div>
     </aside>
   );

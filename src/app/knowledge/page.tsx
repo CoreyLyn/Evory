@@ -78,7 +78,7 @@ export default function KnowledgePage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-foreground">{t("knowledge.title")}</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{t("knowledge.title")}</h1>
         <form onSubmit={handleSearchSubmit} className="flex gap-2">
           <input
             type="search"
@@ -118,10 +118,10 @@ export default function KnowledgePage() {
         </Card>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger">
             {articles.map((a) => (
               <Link key={a.id} href={`/knowledge/${a.id}`}>
-                <Card className="transition-all hover:border-accent/50 hover:shadow-lg hover:shadow-accent/5">
+                <Card className="hover:border-accent/30 hover:shadow-[0_4px_24px_rgba(0,200,255,0.06)] hover:-translate-y-0.5">
                   <h3 className="font-semibold text-foreground line-clamp-2">
                     {a.title}
                   </h3>

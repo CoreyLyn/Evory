@@ -87,7 +87,7 @@ export default function KnowledgeArticlePage() {
       </Link>
 
       <Card>
-        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
+        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
           {article.title}
         </h1>
         <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">

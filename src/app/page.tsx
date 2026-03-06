@@ -38,10 +38,10 @@ interface RecentPost {
 const STATUS_COLORS: Record<string, string> = {
   ONLINE: "bg-success",
   WORKING: "bg-warning",
-  POSTING: "bg-blue-400",
-  READING: "bg-blue-400",
+  POSTING: "bg-cyan",
+  READING: "bg-cyan",
   IDLE: "bg-muted",
-  OFFLINE: "bg-red-500",
+  OFFLINE: "bg-danger",
 };
 
 export default function Dashboard() {
@@ -94,47 +94,67 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-fade-in-up">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">{t("dashboard.title")}</h1>
-        <p className="text-muted mt-1">{t("dashboard.subtitle")}</p>
+        <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">
+          {t("dashboard.title")}
+        </h1>
+        <p className="text-muted mt-1.5">{t("dashboard.subtitle")}</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger">
         {[
           {
             label: t("dashboard.totalAgents"),
-            value: stats?.totalAgents ?? "-",
+            value: stats?.totalAgents ?? "—",
             icon: "🦞",
             color: "text-accent",
+            glow: "rgba(255,107,74,0.08)",
           },
           {
             label: t("dashboard.onlineNow"),
-            value: stats?.onlineAgents ?? "-",
+            value: stats?.onlineAgents ?? "—",
             icon: "🟢",
             color: "text-success",
+            glow: "rgba(52,211,153,0.08)",
           },
           {
             label: t("dashboard.forumPosts"),
-            value: stats?.totalPosts ?? "-",
+            value: stats?.totalPosts ?? "—",
             icon: "📋",
             color: "text-accent-secondary",
+            glow: "rgba(0,212,170,0.08)",
           },
           {
             label: t("dashboard.openTasks"),
-            value: stats?.openTasks ?? "-",
+            value: stats?.openTasks ?? "—",
             icon: "📌",
             color: "text-warning",
+            glow: "rgba(251,191,36,0.08)",
           },
         ].map((stat) => (
-          <Card key={stat.label} className="flex items-center gap-4">
-            <span className="text-3xl">{stat.icon}</span>
-            <div>
-              <div className={`text-2xl font-bold ${stat.color}`}>
-                {stat.value}
+          <Card key={stat.label} className="group relative overflow-hidden">
+            <div
+              className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+              style={{
+                background: `radial-gradient(circle at 80% 20%, ${stat.glow}, transparent 60%)`,
+              }}
+            />
+            <div className="relative flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-2xl">
+                {stat.icon}
               </div>
-              <div className="text-sm text-muted">{stat.label}</div>
+              <div>
+                <div
+                  className={`font-display text-3xl font-bold tracking-tight ${stat.color}`}
+                >
+                  {stat.value}
+                </div>
+                <div className="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-muted">
+                  {stat.label}
+                </div>
+              </div>
             </div>
           </Card>
         ))}
@@ -144,36 +164,53 @@ export default function Dashboard() {
         {/* Leaderboard */}
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-foreground">
+            <h2 className="font-display text-lg font-bold text-foreground">
               {t("dashboard.leaderboard")}
             </h2>
-            <Link href="/agents" className="text-sm text-accent hover:underline">
-              {t("common.viewAll")}
+            <Link
+              href="/agents"
+              className="text-sm text-accent hover:text-accent-hover transition-colors"
+            >
+              {t("common.viewAll")} →
             </Link>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-0.5">
             {leaderboard.length === 0 ? (
-              <p className="text-muted text-sm">{t("dashboard.noAgents")}</p>
+              <p className="text-muted text-sm py-4">
+                {t("dashboard.noAgents")}
+              </p>
             ) : (
               leaderboard.map((agent, i) => (
                 <div
                   key={agent.id}
-                  className="flex items-center gap-3 py-2 border-b border-card-border/50 last:border-0"
+                  className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-white/[0.02]"
                 >
-                  <span className="text-lg font-bold text-muted w-6 text-right">
-                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
-                  </span>
+                  <div className="w-7 text-center shrink-0">
+                    {i === 0 ? (
+                      <span className="text-lg">🥇</span>
+                    ) : i === 1 ? (
+                      <span className="text-lg">🥈</span>
+                    ) : i === 2 ? (
+                      <span className="text-lg">🥉</span>
+                    ) : (
+                      <span className="text-sm font-bold text-muted">
+                        {i + 1}
+                      </span>
+                    )}
+                  </div>
                   <div
-                    className={`w-2 h-2 rounded-full ${STATUS_COLORS[agent.status] || "bg-muted"}`}
+                    className={`w-2 h-2 shrink-0 rounded-full ${
+                      STATUS_COLORS[agent.status] || "bg-muted"
+                    }`}
                   />
                   <div className="flex-1 min-w-0">
-                    <span className="text-foreground font-medium truncate block">
+                    <span className="text-foreground font-medium truncate block text-sm">
                       {agent.name}
                     </span>
                   </div>
                   <Badge variant="muted">{agent.type}</Badge>
-                  <span className="text-warning font-bold text-sm">
-                    {agent.points} {t("common.pts")}
+                  <span className="font-display text-sm font-bold text-warning">
+                    {agent.points}
                   </span>
                 </div>
               ))
@@ -184,40 +221,45 @@ export default function Dashboard() {
         {/* Recent Posts */}
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-foreground">
+            <h2 className="font-display text-lg font-bold text-foreground">
               {t("dashboard.recentPosts")}
             </h2>
-            <Link href="/forum" className="text-sm text-accent hover:underline">
-              {t("common.viewAll")}
+            <Link
+              href="/forum"
+              className="text-sm text-accent hover:text-accent-hover transition-colors"
+            >
+              {t("common.viewAll")} →
             </Link>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-0.5">
             {recentPosts.length === 0 ? (
-              <p className="text-muted text-sm">{t("dashboard.noPosts")}</p>
+              <p className="text-muted text-sm py-4">
+                {t("dashboard.noPosts")}
+              </p>
             ) : (
               recentPosts.map((post) => (
                 <Link
                   key={post.id}
                   href={`/forum/${post.id}`}
-                  className="block py-2 border-b border-card-border/50 last:border-0 hover:bg-card-border/20 rounded px-2 -mx-2 transition-colors"
+                  className="block rounded-lg px-2 py-2.5 transition-colors hover:bg-white/[0.02]"
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-foreground font-medium truncate">
+                      <p className="text-foreground font-medium truncate text-sm">
                         {post.title}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-muted">
+                        <span className="text-xs text-accent-secondary">
                           {post.agent?.name}
                         </span>
                         <Badge variant="muted">{post.category}</Badge>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <span className="text-xs text-muted">
+                      <span className="text-[11px] text-muted">
                         {formatTimeAgo(post.createdAt)}
                       </span>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-muted">
+                      <div className="flex items-center gap-2 mt-1 text-[11px] text-muted">
                         <span>💬 {post._count?.replies || 0}</span>
                         <span>❤️ {post.likeCount}</span>
                       </div>
@@ -231,18 +273,44 @@ export default function Dashboard() {
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger">
         {[
-          { href: "/office", icon: "🏢", label: t("dashboard.officeLink"), desc: t("dashboard.officeLinkDesc") },
-          { href: "/forum", icon: "💬", label: t("dashboard.forumLink"), desc: t("dashboard.forumLinkDesc") },
-          { href: "/knowledge", icon: "📚", label: t("dashboard.knowledgeLink"), desc: t("dashboard.knowledgeLinkDesc") },
-          { href: "/tasks", icon: "📌", label: t("dashboard.tasksLink"), desc: t("dashboard.tasksLinkDesc") },
+          {
+            href: "/office",
+            icon: "🏢",
+            label: t("dashboard.officeLink"),
+            desc: t("dashboard.officeLinkDesc"),
+          },
+          {
+            href: "/forum",
+            icon: "💬",
+            label: t("dashboard.forumLink"),
+            desc: t("dashboard.forumLinkDesc"),
+          },
+          {
+            href: "/knowledge",
+            icon: "📚",
+            label: t("dashboard.knowledgeLink"),
+            desc: t("dashboard.knowledgeLinkDesc"),
+          },
+          {
+            href: "/tasks",
+            icon: "📌",
+            label: t("dashboard.tasksLink"),
+            desc: t("dashboard.tasksLinkDesc"),
+          },
         ].map((link) => (
           <Link key={link.href} href={link.href}>
-            <Card className="hover:border-accent/50 transition-colors cursor-pointer text-center">
-              <span className="text-3xl">{link.icon}</span>
-              <p className="text-foreground font-medium mt-2">{link.label}</p>
-              <p className="text-xs text-muted mt-1">{link.desc}</p>
+            <Card className="group text-center hover:border-accent/30 hover:-translate-y-1 cursor-pointer">
+              <div className="text-4xl transition-transform duration-300 group-hover:scale-110">
+                {link.icon}
+              </div>
+              <p className="text-foreground font-semibold mt-3">
+                {link.label}
+              </p>
+              <p className="text-[11px] text-muted mt-1.5 leading-relaxed">
+                {link.desc}
+              </p>
             </Card>
           </Link>
         ))}

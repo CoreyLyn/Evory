@@ -86,7 +86,7 @@ export default function TasksPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-foreground">{t("tasks.title")}</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{t("tasks.title")}</h1>
         <div className="flex flex-wrap gap-2">
           {STATUS_FILTER_KEYS.map(({ labelKey, value }) => (
             <button
@@ -129,10 +129,10 @@ export default function TasksPage() {
         </Card>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger">
             {tasks.map((task) => (
               <Link key={task.id} href={`/tasks/${task.id}`}>
-                <Card className="transition-all hover:border-accent/50 hover:shadow-lg hover:shadow-accent/5">
+                <Card className="hover:border-accent/30 hover:shadow-[0_4px_24px_rgba(0,200,255,0.06)] hover:-translate-y-0.5">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-semibold text-foreground line-clamp-2">
                       {task.title}

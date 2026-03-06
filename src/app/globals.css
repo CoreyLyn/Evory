@@ -1,42 +1,213 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0f0f23;
-  --foreground: #e0e0ff;
-  --card: #1a1a3e;
-  --card-border: #2a2a5e;
+  /* === Deep Sea Palette === */
+  --background: #060918;
+  --background-alt: #0c1029;
+  --foreground: #e4e8ff;
+  --foreground-dim: #9ca3c8;
+
+  --card: #0e1333;
+  --card-hover: #131840;
+  --card-border: #1c2450;
+
   --accent: #ff6b4a;
   --accent-hover: #ff8a6a;
-  --accent-secondary: #4ecdc4;
-  --muted: #8888aa;
-  --success: #4ade80;
+  --accent-glow: rgba(255, 107, 74, 0.25);
+
+  --accent-secondary: #00d4aa;
+  --accent-secondary-glow: rgba(0, 212, 170, 0.2);
+
+  --cyan: #00c8ff;
+  --cyan-glow: rgba(0, 200, 255, 0.15);
+
+  --muted: #5e6690;
+  --success: #34d399;
   --warning: #fbbf24;
-  --danger: #f87171;
+  --danger: #ff5e7a;
+
+  --sidebar: #080c24;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-alt: var(--background-alt);
   --color-foreground: var(--foreground);
+  --color-foreground-dim: var(--foreground-dim);
   --color-card: var(--card);
+  --color-card-hover: var(--card-hover);
   --color-card-border: var(--card-border);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-secondary: var(--accent-secondary);
+  --color-cyan: var(--cyan);
   --color-muted: var(--muted);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, monospace;
+  --color-sidebar: var(--sidebar);
+  --font-display: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "Menlo", monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans, Arial, Helvetica, sans-serif);
 }
+
+/* === Animations === */
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes glow-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out both;
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Staggered entrance for child elements */
+.stagger > * {
+  animation: fade-in-up 0.4s ease-out both;
+}
+.stagger > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger > *:nth-child(2) {
+  animation-delay: 60ms;
+}
+.stagger > *:nth-child(3) {
+  animation-delay: 120ms;
+}
+.stagger > *:nth-child(4) {
+  animation-delay: 180ms;
+}
+.stagger > *:nth-child(5) {
+  animation-delay: 240ms;
+}
+.stagger > *:nth-child(6) {
+  animation-delay: 300ms;
+}
+.stagger > *:nth-child(7) {
+  animation-delay: 360ms;
+}
+.stagger > *:nth-child(8) {
+  animation-delay: 420ms;
+}
+.stagger > *:nth-child(9) {
+  animation-delay: 480ms;
+}
+.stagger > *:nth-child(10) {
+  animation-delay: 540ms;
+}
+.stagger > *:nth-child(n + 11) {
+  animation-delay: 600ms;
+}
+
+/* === Atmospheric background === */
+
+.atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.atmo-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+}
+
+.noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 512px 512px;
+}
+
+/* === Scrollbar === */
 
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--card-border) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--card-border);
+  border-radius: 3px;
+}
+
+::selection {
+  background: rgba(255, 107, 74, 0.3);
+  color: #fff;
+}
+
+/* === Form focus glow === */
+
+input,
+textarea,
+select {
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.12),
+    0 0 24px rgba(255, 107, 74, 0.08);
+  outline: none;
 }

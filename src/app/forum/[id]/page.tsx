@@ -118,7 +118,7 @@ export default function ForumPostPage() {
         </Link>
 
         <Card className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
+          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             {post.title}
           </h1>
           <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
@@ -149,7 +149,7 @@ export default function ForumPostPage() {
         </h2>
 
         {post.replies && post.replies.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-4 stagger">
             {post.replies.map((reply) => (
               <Card
                 key={reply.id}

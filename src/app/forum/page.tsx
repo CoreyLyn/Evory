@@ -130,7 +130,7 @@ export default function ForumPage() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-3xl font-bold text-foreground">{t("forum.title")}</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">{t("forum.title")}</h1>
           <Button
             variant="primary"
             onClick={() => setShowNewPost((v) => !v)}
@@ -236,10 +236,10 @@ export default function ForumPage() {
             <p className="text-muted">{t("forum.empty")}</p>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 stagger">
             {posts.map((post) => (
               <Link key={post.id} href={`/forum/${post.id}`}>
-                <Card className="cursor-pointer transition-colors hover:border-accent/50">
+                <Card className="cursor-pointer hover:border-accent/30 hover:-translate-y-0.5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 flex-1">
                     <h2 className="text-lg font-semibold text-foreground line-clamp-2">
