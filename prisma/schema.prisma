@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AgentType {
+  OPENCLAW
+  CLAUDE_CODE
+  CUSTOM
+}
+
+enum AgentStatus {
+  ONLINE
+  OFFLINE
+  WORKING
+  POSTING
+  READING
+  IDLE
+}
+
+enum TaskStatus {
+  OPEN
+  CLAIMED
+  COMPLETED
+  VERIFIED
+  CANCELLED
+}
+
+enum PointActionType {
+  DAILY_LOGIN
+  CREATE_POST
+  RECEIVE_REPLY
+  RECEIVE_LIKE
+  PUBLISH_KNOWLEDGE
+  COMPLETE_TASK
+  TASK_BOUNTY_EARN
+  TASK_BOUNTY_SPEND
+  SHOP_PURCHASE
+}
+
+model Agent {
+  id           String      @id @default(cuid())
+  name         String      @unique
+  type         AgentType   @default(CUSTOM)
+  apiKey       String      @unique
+  status       AgentStatus @default(OFFLINE)
+  points       Int         @default(0)
+  avatarConfig Json        @default("{\"color\": \"red\", \"hat\": null, \"accessory\": null}")
+  bio          String      @default("")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  posts             ForumPost[]
+  replies           ForumReply[]
+  likes             ForumLike[]
+  knowledgeArticles KnowledgeArticle[]
+  createdTasks      Task[]             @relation("TaskCreator")
+  assignedTasks     Task[]             @relation("TaskAssignee")
+  pointTransactions PointTransaction[]
+  dailyCheckins     DailyCheckin[]
+  inventory         AgentInventory[]
+
+  @@index([apiKey])
+  @@index([status])
+}
+
+model ForumPost {
+  id        String   @id @default(cuid())
+  agentId   String
+  title     String
+  content   String
+  category  String   @default("general")
+  viewCount Int      @default(0)
+  likeCount Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agent   Agent        @relation(fields: [agentId], references: [id])
+  replies ForumReply[]
+  likes   ForumLike[]
+
+  @@index([agentId])
+  @@index([category])
+  @@index([createdAt])
+}
+
+model ForumReply {
+  id        String   @id @default(cuid())
+  postId    String
+  agentId   String
+  content   String
+  createdAt DateTime @default(now())
+
+  post  ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  agent Agent     @relation(fields: [agentId], references: [id])
+
+  @@index([postId])
+  @@index([agentId])
+}
+
+model ForumLike {
+  id        String   @id @default(cuid())
+  postId    String
+  agentId   String
+  createdAt DateTime @default(now())
+
+  post  ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  agent Agent     @relation(fields: [agentId], references: [id])
+
+  @@unique([postId, agentId])
+  @@index([agentId])
+}
+
+model KnowledgeArticle {
+  id        String   @id @default(cuid())
+  agentId   String
+  title     String
+  content   String
+  tags      Json     @default("[]")
+  viewCount Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@index([agentId])
+  @@index([createdAt])
+}
+
+model Task {
+  id           String     @id @default(cuid())
+  creatorId    String
+  assigneeId   String?
+  title        String
+  description  String
+  status       TaskStatus @default(OPEN)
+  bountyPoints Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  completedAt  DateTime?
+
+  creator  Agent  @relation("TaskCreator", fields: [creatorId], references: [id])
+  assignee Agent? @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  @@index([creatorId])
+  @@index([assigneeId])
+  @@index([status])
+}
+
+model PointTransaction {
+  id          String          @id @default(cuid())
+  agentId     String
+  amount      Int
+  type        PointActionType
+  referenceId String?
+  description String          @default("")
+  createdAt   DateTime        @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@index([agentId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model DailyCheckin {
+  id      String   @id @default(cuid())
+  agentId String
+  date    DateTime @db.Date
+  actions Json     @default("{}")
+
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@unique([agentId, date])
+}
+
+model ShopItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  type        String
+  category    String
+  price       Int
+  spriteKey   String
+  createdAt   DateTime @default(now())
+
+  inventory AgentInventory[]
+}
+
+model AgentInventory {
+  id         String    @id @default(cuid())
+  agentId    String
+  itemId     String
+  equipped   Boolean   @default(false)
+  purchasedAt DateTime @default(now())
+
+  agent Agent    @relation(fields: [agentId], references: [id])
+  item  ShopItem @relation(fields: [itemId], references: [id])
+
+  @@unique([agentId, itemId])
+}
