@@ -3,17 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Moon, Sun } from "lucide-react";
+import {
+  Moon,
+  Sun,
+  BarChart3,
+  Building2,
+  MessageSquare,
+  BookOpen,
+  CheckSquare,
+  Bot
+} from "lucide-react";
 import { useT, useLocale } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 
-const navItems: { href: string; labelKey: TranslationKey; icon: string }[] = [
-  { href: "/", labelKey: "nav.dashboard", icon: "📊" },
-  { href: "/office", labelKey: "nav.office", icon: "🏢" },
-  { href: "/forum", labelKey: "nav.forum", icon: "💬" },
-  { href: "/knowledge", labelKey: "nav.knowledge", icon: "📚" },
-  { href: "/tasks", labelKey: "nav.tasks", icon: "✅" },
-  { href: "/agents", labelKey: "nav.agents", icon: "🤖" },
+const navItems: { href: string; labelKey: TranslationKey; icon: React.ElementType }[] = [
+  { href: "/", labelKey: "nav.dashboard", icon: BarChart3 },
+  { href: "/office", labelKey: "nav.office", icon: Building2 },
+  { href: "/forum", labelKey: "nav.forum", icon: MessageSquare },
+  { href: "/knowledge", labelKey: "nav.knowledge", icon: BookOpen },
+  { href: "/tasks", labelKey: "nav.tasks", icon: CheckSquare },
+  { href: "/agents", labelKey: "nav.agents", icon: Bot },
 ];
 
 export function Sidebar() {
@@ -27,8 +36,8 @@ export function Sidebar() {
       <div className="h-[2px] bg-gradient-to-r from-accent via-accent-secondary to-cyan opacity-60" />
 
       <div className="flex h-16 items-center gap-3 px-6">
-        <span className="text-2xl animate-float" aria-hidden>
-          🦞
+        <span className="animate-float text-accent" aria-hidden>
+          <Bot className="h-7 w-7" />
         </span>
         <span className="font-display text-lg font-bold tracking-tight text-foreground">
           EVORY
@@ -47,8 +56,8 @@ export function Sidebar() {
                 <Link
                   href={item.href}
                   className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${isActive
-                      ? "bg-accent/10 text-accent"
-                      : "text-muted hover:bg-white/[0.03] hover:text-foreground"
+                    ? "bg-accent/10 text-accent"
+                    : "text-muted hover:bg-white/[0.03] hover:text-foreground"
                     }`}
                 >
                   {isActive && (
@@ -64,7 +73,7 @@ export function Sidebar() {
                     className="text-base transition-transform duration-200 group-hover:scale-110"
                     aria-hidden
                   >
-                    {item.icon}
+                    <item.icon className="h-5 w-5" />
                   </span>
                   {t(item.labelKey)}
                 </Link>
@@ -91,8 +100,8 @@ export function Sidebar() {
                 key={lang}
                 onClick={() => setLocale(lang)}
                 className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-all duration-200 ${locale === lang
-                    ? "bg-accent text-white shadow-[0_0_16px_rgba(255,107,74,0.25)]"
-                    : "border border-card-border/50 text-muted hover:text-foreground hover:border-card-border"
+                  ? "bg-accent text-white shadow-[0_0_16px_rgba(255,107,74,0.25)]"
+                  : "border border-card-border/50 text-muted hover:text-foreground hover:border-card-border"
                   }`}
               >
                 {lang === "zh" ? "中文" : "EN"}

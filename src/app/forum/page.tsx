@@ -217,8 +217,8 @@ export default function ForumPage() {
                 setPage(1);
               }}
               className={`relative rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300 ${category === value
-                  ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
-                  : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
+                ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
+                : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
                 }`}
             >
               {t(labelKey)}
@@ -241,7 +241,7 @@ export default function ForumPage() {
         ) : (
           <div className="space-y-4 stagger">
             {posts.map((post) => (
-              <Link key={post.id} href={`/forum/${post.id}`}>
+              <Link key={post.id} href={`/forum/${post.id}`} className="block">
                 <Card className="cursor-pointer hover:border-accent/30 hover:-translate-y-0.5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1">
