@@ -244,24 +244,42 @@ export function drawNameTag(
   y: number,
   name: string,
   points: number,
-  scale: number = 2
+  scale: number = 2,
+  engineScale: number = 1.0,
+  isHovered: boolean = false
 ) {
+  // LOD Logic: Hide tags if completely zoomed out, unless hovered
+  if (engineScale < 0.7 && !isHovered) {
+    return;
+  }
+
   const s = scale;
   ctx.save();
 
   ctx.font = `${8 * s}px monospace`;
   ctx.textAlign = "center";
 
+  // LOD Logic: Only measure and draw points if zoomed in enough, or hovered
+  const showPoints = engineScale >= 1.2 || isHovered;
+
   ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
   const textWidth = ctx.measureText(name).width;
-  ctx.fillRect(x - textWidth / 2 - 4 * s, y + 18 * s, textWidth + 8 * s, 12 * s);
 
+  // Adjust pill background height based on whether we show points
+  const bgHeight = showPoints ? 18 * s : 10 * s;
+  ctx.fillRect(x - textWidth / 2 - 4 * s, y + 18 * s, textWidth + 8 * s, bgHeight);
+
+  // Name Text
   ctx.fillStyle = "#e0e0ff";
-  ctx.fillText(name, x, y + 27 * s);
+  ctx.fillText(name, x, y + 26 * s); // Adjusted Y slightly for better centering when no points
 
-  ctx.font = `${6 * s}px monospace`;
-  ctx.fillStyle = "#ffcc00";
-  ctx.fillText(`${points}pts`, x, y + 36 * s);
+  // Points Text
+  if (showPoints) {
+    ctx.font = `${6 * s}px monospace`;
+    ctx.fillStyle = "#ffcc00"; // yellow-400 equivalent
+    // Use the actual 'points' value, plus a small diamond or star icon for flair
+    ctx.fillText(`✦ ${points}`, x, y + 34 * s);
+  }
 
   ctx.restore();
 }

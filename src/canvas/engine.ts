@@ -227,14 +227,35 @@ export class OfficeEngine {
     // Draw the cached background
     ctx.drawImage(this.bgCanvas, 0, 0, OFFICE_WIDTH, OFFICE_HEIGHT);
 
+    // Calculate Frustum Culling Viewport
+    // How much of the world is currently visible on the screen?
+    const viewWorldMinX = -this.offsetX / this.scale;
+    const viewWorldMinY = -this.offsetY / this.scale;
+    const viewWorldMaxX = viewWorldMinX + canvas.width / this.scale;
+    const viewWorldMaxY = viewWorldMinY + canvas.height / this.scale;
+
+    // Sprite drawing bounds padding (agents are roughly 60x60 max with shadows/names)
+    const renderPadding = 60;
+
     const sortedAgents = Array.from(this.agents.values()).sort((a, b) => a.y - b.y);
 
     for (const agent of sortedAgents) {
+      // Frustum Culling: Skip if completely off-screen
+      if (
+        agent.x + renderPadding < viewWorldMinX ||
+        agent.x - renderPadding > viewWorldMaxX ||
+        agent.y + renderPadding < viewWorldMinY ||
+        agent.y - renderPadding > viewWorldMaxY
+      ) {
+        continue;
+      }
+
       const isHovered = this.hoveredAgent === agent.id;
       const spriteScale = isHovered ? 2.3 : 2;
       // Pass isHovered for the selection ring and drop shadow animations
       drawLobster(ctx, agent.x, agent.y, agent.appearance, agent.status, agent.frame, spriteScale, isHovered);
-      drawNameTag(ctx, agent.x, agent.y, agent.name, agent.points, spriteScale);
+      // Pass the global engine scale and hover state for LOD (Level of Detail) rendering
+      drawNameTag(ctx, agent.x, agent.y, agent.name, agent.points, spriteScale, this.scale, isHovered);
     }
 
     ctx.restore();
