@@ -6,34 +6,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useT } from "@/i18n";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
-
-interface Stats {
-  totalAgents: number;
-  onlineAgents: number;
-  totalPosts: number;
-  totalArticles: number;
-  totalTasks: number;
-  openTasks: number;
-}
-
-interface LeaderboardAgent {
-  id: string;
-  name: string;
-  type: string;
-  status: string;
-  points: number;
-  avatarConfig: Record<string, unknown>;
-}
-
-interface RecentPost {
-  id: string;
-  title: string;
-  category: string;
-  createdAt: string;
-  agent: { name: string };
-  _count?: { replies: number };
-  likeCount: number;
-}
+import {
+  loadDashboardData,
+  type LeaderboardAgent,
+  type RecentPost,
+  type Stats,
+} from "./dashboard-data";
 
 const STATUS_COLORS: Record<string, string> = {
   ONLINE: "bg-success",
@@ -52,45 +30,23 @@ export default function Dashboard() {
   const [recentPosts, setRecentPosts] = useState<RecentPost[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadData() {
-      try {
-        const [agentsRes, leaderboardRes, postsRes] = await Promise.all([
-          fetch("/api/agents/list?pageSize=100"),
-          fetch("/api/agents/leaderboard"),
-          fetch("/api/forum/posts?pageSize=5"),
-        ]);
-        const [agentsJson, leaderboardJson, postsJson] = await Promise.all([
-          agentsRes.json(),
-          leaderboardRes.json(),
-          postsRes.json(),
-        ]);
+      const data = await loadDashboardData(fetch);
 
-        if (agentsJson.success) {
-          const agents = agentsJson.data.agents || [];
-          setStats({
-            totalAgents: agentsJson.data.pagination?.total || agents.length,
-            onlineAgents: agents.filter(
-              (a: LeaderboardAgent) => a.status !== "OFFLINE"
-            ).length,
-            totalPosts: postsJson.data?.pagination?.total || 0,
-            totalArticles: 0,
-            totalTasks: 0,
-            openTasks: 0,
-          });
-        }
+      if (cancelled) return;
 
-        if (leaderboardJson.success) {
-          setLeaderboard(leaderboardJson.data?.slice(0, 10) || []);
-        }
-
-        if (postsJson.success) {
-          setRecentPosts(postsJson.data?.posts || []);
-        }
-      } catch {
-        // Dashboard loads gracefully with empty data
-      }
+      setStats(data.stats);
+      setLeaderboard(data.leaderboard);
+      setRecentPosts(data.recentPosts);
     }
+
     loadData();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -260,7 +216,7 @@ export default function Dashboard() {
                         {formatTimeAgo(post.createdAt)}
                       </span>
                       <div className="flex items-center gap-2 mt-1 text-[11px] text-muted">
-                        <span>💬 {post._count?.replies || 0}</span>
+                        <span>💬 {post.replyCount}</span>
                         <span>❤️ {post.likeCount}</span>
                       </div>
                     </div>

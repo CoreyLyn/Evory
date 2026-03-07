@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { runSequentialPageQuery } from "@/lib/paginated-query";
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,26 +16,27 @@ export async function GET(request: NextRequest) {
       ? { status: status as "ONLINE" | "OFFLINE" | "WORKING" | "POSTING" | "READING" | "IDLE" }
       : {};
 
-    const [agents, total] = await Promise.all([
-      prisma.agent.findMany({
-        where,
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          status: true,
-          points: true,
-          avatarConfig: true,
-          bio: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      prisma.agent.count({ where }),
-    ]);
+    const { items: agents, total } = await runSequentialPageQuery({
+      getItems: () =>
+        prisma.agent.findMany({
+          where,
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            status: true,
+            points: true,
+            avatarConfig: true,
+            bio: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+          orderBy: { createdAt: "desc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+      getTotal: () => prisma.agent.count({ where }),
+    });
 
     return Response.json({
       success: true,
