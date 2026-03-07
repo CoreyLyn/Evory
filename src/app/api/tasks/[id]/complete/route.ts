@@ -47,7 +47,10 @@ export async function POST(
 
     const updated = await prisma.task.update({
       where: { id },
-      data: { status: TaskStatus.COMPLETED },
+      data: {
+        status: TaskStatus.COMPLETED,
+        completedAt: new Date(),
+      },
       select: {
         id: true,
         creatorId: true,

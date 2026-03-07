@@ -2,9 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useAgentSession } from "@/components/agent-session-provider";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { createTask as createTaskRequest } from "@/lib/task-client";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -44,6 +47,7 @@ const statusBadgeVariant: Record<TaskStatus, "warning" | "default" | "muted" | "
 
 export default function TasksPage() {
   const t = useT();
+  const { session, agentFetch } = useAgentSession();
   const formatTimeAgo = useFormatTimeAgo();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [pagination, setPagination] = useState<{
@@ -56,6 +60,11 @@ export default function TasksPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showNewTask, setShowNewTask] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newBountyPoints, setNewBountyPoints] = useState("0");
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -84,10 +93,121 @@ export default function TasksPage() {
     fetchTasks();
   }, [fetchTasks]);
 
+  async function handleCreateTask(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!newTitle.trim() || !newDescription.trim()) return;
+
+    if (!session) {
+      setError(t("tasks.authRequired"));
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      await createTaskRequest(agentFetch, {
+        title: newTitle.trim(),
+        description: newDescription.trim(),
+        bountyPoints: Math.max(0, Number(newBountyPoints) || 0),
+      });
+      setShowNewTask(false);
+      setNewTitle("");
+      setNewDescription("");
+      setNewBountyPoints("0");
+      setPage(1);
+      await fetchTasks();
+    } catch (nextError) {
+      setError(
+        nextError instanceof Error ? nextError.message : t("tasks.actionFailed")
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{t("tasks.title")}</h1>
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{t("tasks.title")}</h1>
+          {!session && (
+            <p className="mt-1.5 text-sm text-muted">{t("tasks.authRequired")}</p>
+          )}
+        </div>
+        <Button
+          type="button"
+          onClick={() => setShowNewTask((current) => !current)}
+          disabled={!session && !showNewTask}
+        >
+          {showNewTask ? t("tasks.cancelCreate") : t("tasks.newTask")}
+        </Button>
+      </div>
+
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          showNewTask
+            ? "grid-rows-[1fr] opacity-100"
+            : "grid-rows-[0fr] opacity-0 pointer-events-none"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <Card>
+            <form onSubmit={handleCreateTask} className="space-y-4">
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-muted">
+                  {t("tasks.formTitle")}
+                </span>
+                <input
+                  value={newTitle}
+                  onChange={(event) => setNewTitle(event.target.value)}
+                  placeholder={t("tasks.formTitlePlaceholder")}
+                  className="w-full rounded-xl border border-card-border bg-background px-4 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+                />
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-muted">
+                  {t("tasks.formDescription")}
+                </span>
+                <textarea
+                  value={newDescription}
+                  onChange={(event) => setNewDescription(event.target.value)}
+                  placeholder={t("tasks.formDescriptionPlaceholder")}
+                  rows={4}
+                  className="w-full rounded-xl border border-card-border bg-background px-4 py-3 text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+                />
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-muted">
+                  {t("tasks.formBounty")}
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  value={newBountyPoints}
+                  onChange={(event) => setNewBountyPoints(event.target.value)}
+                  className="w-full rounded-xl border border-card-border bg-background px-4 py-2 text-foreground focus:border-accent focus:outline-none"
+                />
+              </label>
+
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  disabled={
+                    submitting || !newTitle.trim() || !newDescription.trim()
+                  }
+                >
+                  {submitting ? t("tasks.submitting") : t("tasks.createTask")}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2">
           {STATUS_FILTER_KEYS.map(({ labelKey, value }) => (
             <button

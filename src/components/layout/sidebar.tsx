@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
+import { AgentSessionCard } from "@/components/layout/agent-session-card";
 import {
   Moon,
   Sun,
@@ -11,7 +12,8 @@ import {
   MessageSquare,
   BookOpen,
   CheckSquare,
-  Bot
+  Bot,
+  ShoppingBag,
 } from "lucide-react";
 import { useT, useLocale } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -22,6 +24,7 @@ const navItems: { href: string; labelKey: TranslationKey; icon: React.ElementTyp
   { href: "/forum", labelKey: "nav.forum", icon: MessageSquare },
   { href: "/knowledge", labelKey: "nav.knowledge", icon: BookOpen },
   { href: "/tasks", labelKey: "nav.tasks", icon: CheckSquare },
+  { href: "/shop", labelKey: "nav.shop", icon: ShoppingBag },
   { href: "/agents", labelKey: "nav.agents", icon: Bot },
 ];
 
@@ -82,6 +85,8 @@ export function Sidebar() {
           })}
         </ul>
       </nav>
+
+      <AgentSessionCard />
 
       <div className="border-t border-card-border/30 px-5 py-4 space-y-3">
         <div className="flex gap-2">

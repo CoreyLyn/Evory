@@ -1,0 +1,236 @@
+import assert from "node:assert/strict";
+import { afterEach, test } from "node:test";
+import { NextRequest } from "next/server";
+
+import prisma from "@/lib/prisma";
+import { GET as getForumPost } from "./posts/[id]/route";
+import { POST as createReply } from "./posts/[id]/replies/route";
+import { POST as toggleLike } from "./posts/[id]/like/route";
+
+const prismaClient = prisma as Record<string, unknown>;
+
+const originalMethods = {
+  agentFindUnique: prismaClient.agent.findUnique,
+  forumPostFindUnique: prismaClient.forumPost.findUnique,
+  forumPostUpdate: prismaClient.forumPost.update,
+  forumReplyCreate: prismaClient.forumReply.create,
+  forumLikeFindUnique: prismaClient.forumLike.findUnique,
+  forumLikeCreate: prismaClient.forumLike.create,
+  forumLikeDelete: prismaClient.forumLike.delete,
+  pointTransactionCreate: prismaClient.pointTransaction.create,
+  agentUpdate: prismaClient.agent.update,
+  dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
+  dailyCheckinUpsert: prismaClient.dailyCheckin.upsert,
+  dailyCheckinUpdate: prismaClient.dailyCheckin.update,
+  transaction: prismaClient.$transaction,
+};
+
+afterEach(() => {
+  prismaClient.agent.findUnique = originalMethods.agentFindUnique;
+  prismaClient.forumPost.findUnique = originalMethods.forumPostFindUnique;
+  prismaClient.forumPost.update = originalMethods.forumPostUpdate;
+  prismaClient.forumReply.create = originalMethods.forumReplyCreate;
+  prismaClient.forumLike.findUnique = originalMethods.forumLikeFindUnique;
+  prismaClient.forumLike.create = originalMethods.forumLikeCreate;
+  prismaClient.forumLike.delete = originalMethods.forumLikeDelete;
+  prismaClient.pointTransaction.create = originalMethods.pointTransactionCreate;
+  prismaClient.agent.update = originalMethods.agentUpdate;
+  prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
+  prismaClient.dailyCheckin.upsert = originalMethods.dailyCheckinUpsert;
+  prismaClient.dailyCheckin.update = originalMethods.dailyCheckinUpdate;
+  prismaClient.$transaction = originalMethods.transaction;
+});
+
+function mockAwardPointsTransaction() {
+  prismaClient.dailyCheckin.findUnique = async () => null;
+  prismaClient.pointTransaction.create = async ({ data }: { data: unknown }) => data;
+  prismaClient.agent.update = async () => ({ id: "agent-1" });
+  prismaClient.dailyCheckin.upsert = async () => ({
+    id: "checkin-1",
+    actions: {},
+  });
+  prismaClient.dailyCheckin.update = async () => ({ id: "checkin-1" });
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input === "function") {
+      return input({
+        pointTransaction: { create: prismaClient.pointTransaction.create },
+        agent: { update: prismaClient.agent.update },
+        dailyCheckin: {
+          upsert: prismaClient.dailyCheckin.upsert,
+          update: prismaClient.dailyCheckin.update,
+        },
+      });
+    }
+
+    if (Array.isArray(input)) {
+      return Promise.all(input);
+    }
+
+    return input;
+  };
+}
+
+test("forum detail returns viewerLiked when request is authenticated", async () => {
+  prismaClient.agent.findUnique = async () => ({
+    id: "viewer-1",
+    apiKey: "viewer-key",
+    name: "Viewer",
+    type: "CUSTOM",
+    status: "ONLINE",
+    points: 5,
+  });
+  prismaClient.forumPost.findUnique = async () => ({
+    id: "post-1",
+    title: "Post title",
+    content: "Post body",
+    category: "general",
+    viewCount: 1,
+    likeCount: 1,
+    createdAt: new Date().toISOString(),
+    agent: {
+      id: "author-1",
+      name: "Author",
+      type: "CUSTOM",
+      avatarConfig: {},
+    },
+    replies: [],
+  });
+  prismaClient.forumLike.findUnique = async () => ({
+    id: "like-1",
+    postId: "post-1",
+    agentId: "viewer-1",
+  });
+  prismaClient.forumPost.update = async () => ({ id: "post-1" });
+
+  const response = await getForumPost(
+    new NextRequest("http://localhost/api/forum/posts/post-1", {
+      headers: {
+        Authorization: "Bearer viewer-key",
+      },
+    }),
+    { params: Promise.resolve({ id: "post-1" }) }
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(json.data.viewerLiked, true);
+  assert.equal(json.data.likeCount, 1);
+});
+
+test("forum replies endpoint returns the created reply payload", async () => {
+  prismaClient.agent.findUnique = async () => ({
+    id: "replier-1",
+    apiKey: "reply-key",
+    name: "Replier",
+    type: "CUSTOM",
+    status: "ONLINE",
+    points: 5,
+  });
+  prismaClient.forumPost.findUnique = async () => ({
+    id: "post-1",
+    agentId: "author-1",
+  });
+  prismaClient.forumReply.create = async () => ({
+    id: "reply-1",
+    content: "I have a useful reply",
+    createdAt: new Date().toISOString(),
+    agent: {
+      id: "replier-1",
+      name: "Replier",
+      type: "CUSTOM",
+      avatarConfig: {},
+    },
+  });
+  mockAwardPointsTransaction();
+
+  const response = await createReply(
+    new NextRequest("http://localhost/api/forum/posts/post-1/replies", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer reply-key",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        content: "I have a useful reply",
+      }),
+    }),
+    { params: Promise.resolve({ id: "post-1" }) }
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(json.data.content, "I have a useful reply");
+});
+
+test("forum like endpoint toggles like state on repeated calls", async () => {
+  let liked = false;
+  let likeCount = 0;
+
+  prismaClient.agent.findUnique = async () => ({
+    id: "viewer-1",
+    apiKey: "viewer-key",
+    name: "Viewer",
+    type: "CUSTOM",
+    status: "ONLINE",
+    points: 5,
+  });
+  prismaClient.forumPost.findUnique = async () => ({
+    id: "post-1",
+    agentId: "author-1",
+    likeCount,
+  });
+  prismaClient.forumLike.findUnique = async () =>
+    liked
+      ? {
+          id: "like-1",
+          postId: "post-1",
+          agentId: "viewer-1",
+        }
+      : null;
+  prismaClient.forumLike.create = async () => {
+    liked = true;
+    return { id: "like-1" };
+  };
+  prismaClient.forumLike.delete = async () => {
+    liked = false;
+    return { id: "like-1" };
+  };
+  prismaClient.forumPost.update = async ({
+    data,
+  }: {
+    data: { likeCount?: { increment?: number; decrement?: number } };
+  }) => {
+    likeCount += data.likeCount?.increment ?? 0;
+    likeCount -= data.likeCount?.decrement ?? 0;
+    return { id: "post-1", likeCount };
+  };
+  mockAwardPointsTransaction();
+
+  const likeResponse = await toggleLike(
+    new NextRequest("http://localhost/api/forum/posts/post-1/like", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer viewer-key",
+      },
+    }),
+    { params: Promise.resolve({ id: "post-1" }) }
+  );
+  const unlikeResponse = await toggleLike(
+    new NextRequest("http://localhost/api/forum/posts/post-1/like", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer viewer-key",
+      },
+    }),
+    { params: Promise.resolve({ id: "post-1" }) }
+  );
+
+  const likedJson = await likeResponse.json();
+  const unlikedJson = await unlikeResponse.json();
+
+  assert.equal(likedJson.data.liked, true);
+  assert.equal(unlikedJson.data.liked, false);
+  assert.equal(likeCount, 0);
+});

@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
-import { awardPoints } from "@/lib/points";
 import { PointActionType, TaskStatus } from "@/generated/prisma";
 
 const AGENT_SELECT = {
@@ -9,6 +8,48 @@ const AGENT_SELECT = {
   name: true,
   avatarConfig: true,
 } as const;
+
+type TaskTransactionClient = Parameters<
+  Parameters<typeof prisma.$transaction>[0]
+>[0];
+
+async function createPointAward(
+  tx: TaskTransactionClient,
+  {
+    agentId,
+    amount,
+    type,
+    referenceId,
+    description,
+  }: {
+    agentId: string;
+    amount: number;
+    type: PointActionType;
+    referenceId: string;
+    description: string;
+  }
+) {
+  if (amount <= 0) return;
+
+  await tx.pointTransaction.create({
+    data: {
+      agentId,
+      amount,
+      type,
+      referenceId,
+      description,
+    },
+  });
+
+  await tx.agent.update({
+    where: { id: agentId },
+    data: {
+      points: {
+        increment: amount,
+      },
+    },
+  });
+}
 
 export async function POST(
   request: NextRequest,
@@ -57,42 +98,45 @@ export async function POST(
     }
 
     if (approved) {
-      if (task.assigneeId) {
-        await awardPoints(
-          task.assigneeId,
-          PointActionType.COMPLETE_TASK,
-          5,
-          task.id,
-          `Task verified: ${task.title}`
-        );
-        if (task.bountyPoints > 0) {
-          await awardPoints(
-            task.assigneeId,
-            PointActionType.TASK_BOUNTY_EARN,
-            task.bountyPoints,
-            task.id,
-            `Bounty for task: ${task.title}`
-          );
-        }
-      }
+      const updated = await prisma.$transaction(async (tx) => {
+        if (task.assigneeId) {
+          await createPointAward(tx, {
+            agentId: task.assigneeId,
+            amount: 5,
+            type: PointActionType.COMPLETE_TASK,
+            referenceId: task.id,
+            description: `Task verified: ${task.title}`,
+          });
 
-      const updated = await prisma.task.update({
-        where: { id },
-        data: { status: TaskStatus.VERIFIED },
-        select: {
-          id: true,
-          creatorId: true,
-          assigneeId: true,
-          title: true,
-          description: true,
-          status: true,
-          bountyPoints: true,
-          createdAt: true,
-          updatedAt: true,
-          completedAt: true,
-          creator: { select: AGENT_SELECT },
-          assignee: { select: AGENT_SELECT },
-        },
+          if (task.bountyPoints > 0) {
+            await createPointAward(tx, {
+              agentId: task.assigneeId,
+              amount: task.bountyPoints,
+              type: PointActionType.TASK_BOUNTY_EARN,
+              referenceId: task.id,
+              description: `Bounty for task: ${task.title}`,
+            });
+          }
+        }
+
+        return tx.task.update({
+          where: { id },
+          data: { status: TaskStatus.VERIFIED },
+          select: {
+            id: true,
+            creatorId: true,
+            assigneeId: true,
+            title: true,
+            description: true,
+            status: true,
+            bountyPoints: true,
+            createdAt: true,
+            updatedAt: true,
+            completedAt: true,
+            creator: { select: AGENT_SELECT },
+            assignee: { select: AGENT_SELECT },
+          },
+        });
       });
 
       return Response.json({ success: true, data: updated });
@@ -100,7 +144,10 @@ export async function POST(
 
     const updated = await prisma.task.update({
       where: { id },
-      data: { status: TaskStatus.CLAIMED },
+      data: {
+        status: TaskStatus.CLAIMED,
+        completedAt: null,
+      },
       select: {
         id: true,
         creatorId: true,

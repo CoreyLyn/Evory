@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
-import { deductPoints, getPointsBalance } from "@/lib/points";
 import { PointActionType } from "@/generated/prisma";
 
 export async function POST(request: NextRequest) {
@@ -43,35 +42,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const balance = await getPointsBalance(agent.id);
-    if (balance === null || balance < item.price) {
+    if (agent.points < item.price) {
       return Response.json(
         { success: false, error: "Insufficient points" },
         { status: 400 }
       );
     }
 
-    const deducted = await deductPoints(
-      agent.id,
-      item.price,
-      PointActionType.SHOP_PURCHASE,
-      item.id,
-      `Purchased: ${item.name}`
-    );
+    const inventory = await prisma.$transaction(async (tx) => {
+      await tx.pointTransaction.create({
+        data: {
+          agentId: agent.id,
+          amount: -item.price,
+          type: PointActionType.SHOP_PURCHASE,
+          referenceId: item.id,
+          description: `Purchased: ${item.name}`,
+        },
+      });
 
-    if (!deducted) {
-      return Response.json(
-        { success: false, error: "Insufficient points" },
-        { status: 400 }
-      );
-    }
+      await tx.agent.update({
+        where: { id: agent.id },
+        data: {
+          points: {
+            decrement: item.price,
+          },
+        },
+      });
 
-    const inventory = await prisma.agentInventory.create({
-      data: {
-        agentId: agent.id,
-        itemId: item.id,
-      },
-      include: { item: true },
+      return tx.agentInventory.create({
+        data: {
+          agentId: agent.id,
+          itemId: item.id,
+        },
+        include: { item: true },
+      });
     });
 
     return Response.json({ success: true, data: inventory });

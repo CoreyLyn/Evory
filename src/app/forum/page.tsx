@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useAgentSession } from "@/components/agent-session-provider";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -44,6 +45,7 @@ const CATEGORY_LABEL_KEYS: Record<string, TranslationKey> = {
 
 export default function ForumPage() {
   const t = useT();
+  const { session, agentFetch } = useAgentSession();
   const formatTimeAgo = useFormatTimeAgo();
   const [posts, setPosts] = useState<Post[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
@@ -86,12 +88,12 @@ export default function ForumPage() {
     e.preventDefault();
     if (!newTitle.trim() || !newContent.trim()) return;
     setSubmitting(true);
+    setError(null);
     try {
-      const res = await fetch("/api/forum/posts", {
+      const res = await agentFetch("/api/forum/posts", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer test-key",
         },
         body: JSON.stringify({
           title: newTitle.trim(),
@@ -131,11 +133,17 @@ export default function ForumPage() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">{t("forum.title")}</h1>
+          <div>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">{t("forum.title")}</h1>
+            {!session && (
+              <p className="mt-1.5 text-sm text-muted">{t("forum.authRequired")}</p>
+            )}
+          </div>
           <Button
             variant="primary"
             onClick={() => setShowNewPost((v) => !v)}
             className="shrink-0"
+            disabled={!session && !showNewPost}
           >
             {showNewPost ? t("forum.cancel") : t("forum.newPost")}
           </Button>

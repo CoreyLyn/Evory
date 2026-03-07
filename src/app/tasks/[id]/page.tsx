@@ -3,9 +3,15 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useAgentSession } from "@/components/agent-session-provider";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  claimTask,
+  completeTask as completeTaskRequest,
+  verifyTask as verifyTaskRequest,
+} from "@/lib/task-client";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT } from "@/i18n";
 
@@ -45,17 +51,20 @@ function getStepIndex(status: TaskStatus): number {
 
 export default function TaskDetailPage() {
   const t = useT();
+  const { session, agentFetch } = useAgentSession();
   const formatTimeAgo = useFormatTimeAgo();
   const params = useParams();
   const id = params.id as string;
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionPending, setActionPending] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     fetch(`/api/tasks/${id}`)
       .then((res) => res.json())
       .then((json) => {
@@ -63,11 +72,40 @@ export default function TaskDetailPage() {
         setTask(json.data);
       })
       .catch((e) => {
-        setError(e instanceof Error ? e.message : "Something went wrong");
+        setLoadError(e instanceof Error ? e.message : "Something went wrong");
         setTask(null);
       })
       .finally(() => setLoading(false));
   }, [id]);
+
+  async function handleAction(action: "claim" | "complete" | "approve" | "reject") {
+    if (!task) return;
+
+    if (!session) {
+      setActionError(t("tasks.authRequired"));
+      return;
+    }
+
+    setActionPending(true);
+    setActionError(null);
+
+    try {
+      const updated =
+        action === "claim"
+          ? await claimTask(agentFetch, task.id)
+          : action === "complete"
+            ? await completeTaskRequest(agentFetch, task.id)
+            : await verifyTaskRequest(agentFetch, task.id, action === "approve");
+
+      setTask(updated as Task);
+    } catch (nextError) {
+      setActionError(
+        nextError instanceof Error ? nextError.message : t("tasks.actionFailed")
+      );
+    } finally {
+      setActionPending(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -83,20 +121,32 @@ export default function TaskDetailPage() {
     );
   }
 
-  if (error || !task) {
+  if (loadError || !task) {
     return (
       <div className="space-y-6">
         <Link href="/tasks">
           <Button variant="secondary">{t("tasks.back")}</Button>
         </Link>
         <Card className="py-12 text-center text-danger">
-          {error ?? t("tasks.notFound")}
+          {loadError ?? t("tasks.notFound")}
         </Card>
       </div>
     );
   }
 
   const currentStep = getStepIndex(task.status);
+  const canClaim =
+    !!session &&
+    task.status === "OPEN" &&
+    session.agent.id !== task.creator.id;
+  const canComplete =
+    !!session &&
+    task.status === "CLAIMED" &&
+    session.agent.id === task.assignee?.id;
+  const canVerify =
+    !!session &&
+    task.status === "COMPLETED" &&
+    session.agent.id === task.creator.id;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -104,11 +154,63 @@ export default function TaskDetailPage() {
         <Button variant="secondary">{t("tasks.back")}</Button>
       </Link>
 
+      {actionError && (
+        <div className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+          {actionError}
+        </div>
+      )}
+
       <Card>
         <div className="flex items-start justify-between gap-4">
           <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{task.title}</h1>
           <Badge variant={statusBadgeVariant[task.status]}>{task.status}</Badge>
         </div>
+
+        {(canClaim || canComplete || canVerify) && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {canClaim && (
+              <Button
+                type="button"
+                onClick={() => handleAction("claim")}
+                disabled={actionPending}
+                className="px-3 py-2 text-xs"
+              >
+                {actionPending ? t("tasks.actionPending") : t("tasks.claimAction")}
+              </Button>
+            )}
+            {canComplete && (
+              <Button
+                type="button"
+                onClick={() => handleAction("complete")}
+                disabled={actionPending}
+                className="px-3 py-2 text-xs"
+              >
+                {actionPending ? t("tasks.actionPending") : t("tasks.completeAction")}
+              </Button>
+            )}
+            {canVerify && (
+              <>
+                <Button
+                  type="button"
+                  onClick={() => handleAction("approve")}
+                  disabled={actionPending}
+                  className="px-3 py-2 text-xs"
+                >
+                  {actionPending ? t("tasks.actionPending") : t("tasks.approveAction")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => handleAction("reject")}
+                  disabled={actionPending}
+                  className="px-3 py-2 text-xs"
+                >
+                  {t("tasks.rejectAction")}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="mt-4 flex items-center gap-2 text-accent">
           <span className="text-xl">🪙</span>

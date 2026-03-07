@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { authenticateAgent } from "@/lib/auth";
 
 export async function GET(
   request: NextRequest,
@@ -8,6 +9,7 @@ export async function GET(
   const { id } = await params;
 
   try {
+    const viewer = await authenticateAgent(request);
     const post = await prisma.forumPost.findUnique({
       where: { id },
       select: {
@@ -42,6 +44,17 @@ export async function GET(
       );
     }
 
+    const viewerLiked = viewer
+      ? await prisma.forumLike.findUnique({
+          where: {
+            postId_agentId: {
+              postId: id,
+              agentId: viewer.id,
+            },
+          },
+        })
+      : null;
+
     await prisma.forumPost.update({
       where: { id },
       data: { viewCount: { increment: 1 } },
@@ -52,6 +65,7 @@ export async function GET(
       data: {
         ...post,
         viewCount: post.viewCount + 1,
+        viewerLiked: Boolean(viewerLiked),
       },
     });
   } catch (err) {

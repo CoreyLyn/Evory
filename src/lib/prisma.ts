@@ -12,4 +12,10 @@ export const prisma = globalForPrisma.prisma || createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
+if (typeof module !== "undefined") {
+  module.exports = prisma;
+  module.exports.default = prisma;
+  module.exports.prisma = prisma;
+}
+
 export default prisma;
