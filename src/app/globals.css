@@ -1,15 +1,44 @@
 @import "tailwindcss";
 
 :root {
-  /* === Deep Sea Palette === */
+  /* === Light Palette === */
+  --background: #f4f7fb;
+  --background-alt: #ffffff;
+  --foreground: #1e243b;
+  --foreground-dim: #64748b;
+
+  --card: rgba(255, 255, 255, 0.75);
+  --card-hover: rgba(255, 255, 255, 0.95);
+  --card-border: rgba(203, 213, 225, 0.5);
+
+  --accent: #ff6b4a;
+  --accent-hover: #ff8a6a;
+  --accent-glow: rgba(255, 107, 74, 0.15);
+
+  --accent-secondary: #00d4aa;
+  --accent-secondary-glow: rgba(0, 212, 170, 0.15);
+
+  --cyan: #0099cc;
+  --cyan-glow: rgba(0, 153, 204, 0.1);
+
+  --muted: #8b9bb4;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+
+  --sidebar: rgba(255, 255, 255, 0.85);
+}
+
+.dark {
+  /* === Deep Sea Palette (Dark) === */
   --background: #060918;
   --background-alt: #0c1029;
   --foreground: #e4e8ff;
   --foreground-dim: #9ca3c8;
 
-  --card: #0e1333;
-  --card-hover: #131840;
-  --card-border: #1c2450;
+  --card: rgba(14, 19, 51, 0.6);
+  --card-hover: rgba(19, 24, 64, 0.8);
+  --card-border: rgba(28, 36, 80, 0.8);
 
   --accent: #ff6b4a;
   --accent-hover: #ff8a6a;

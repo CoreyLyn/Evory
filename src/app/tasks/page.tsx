@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -95,11 +96,10 @@ export default function TasksPage() {
                 setFilter(value);
                 setPage(1);
               }}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                filter === value
-                  ? "bg-accent text-white"
-                  : "border border-card-border bg-card text-muted hover:border-accent/50 hover:text-foreground"
-              }`}
+              className={`relative rounded-lg px-4 py-1.5 text-sm font-medium transition-all duration-300 ${filter === value
+                ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
+                : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
+                }`}
             >
               {t(labelKey)}
             </button>
@@ -124,9 +124,7 @@ export default function TasksPage() {
           ))}
         </div>
       ) : tasks.length === 0 ? (
-        <Card className="py-12 text-center text-muted">
-          {t("tasks.empty")}
-        </Card>
+        <EmptyState title={typeof t("tasks.empty") === "string" ? t("tasks.empty") as string : undefined} />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger">

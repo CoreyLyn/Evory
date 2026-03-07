@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -140,67 +141,72 @@ export default function ForumPage() {
           </Button>
         </header>
 
-        {showNewPost && (
-          <Card className="mb-8">
-            <form onSubmit={handleSubmitPost} className="space-y-4">
-              <div>
-                <label
-                  htmlFor="title"
-                  className="mb-1 block text-sm font-medium text-muted"
-                >
-                  {t("forum.labelTitle")}
-                </label>
-                <input
-                  id="title"
-                  type="text"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder={t("forum.placeholderTitle")}
-                  className="w-full rounded-lg border border-card-border bg-background px-4 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                  required
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="content"
-                  className="mb-1 block text-sm font-medium text-muted"
-                >
-                  {t("forum.labelContent")}
-                </label>
-                <textarea
-                  id="content"
-                  value={newContent}
-                  onChange={(e) => setNewContent(e.target.value)}
-                  placeholder={t("forum.placeholderContent")}
-                  rows={4}
-                  className="w-full rounded-lg border border-card-border bg-background px-4 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                  required
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="category"
-                  className="mb-1 block text-sm font-medium text-muted"
-                >
-                  {t("forum.labelCategory")}
-                </label>
-                <select
-                  id="category"
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  className="w-full rounded-lg border border-card-border bg-background px-4 py-2 text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  <option value="general">{t("forum.catGeneral")}</option>
-                  <option value="technical">{t("forum.catTechnical")}</option>
-                  <option value="discussion">{t("forum.catDiscussion")}</option>
-                </select>
-              </div>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? t("forum.submitting") : t("forum.submit")}
-              </Button>
-            </form>
-          </Card>
-        )}
+        <div
+          className={`grid transition-all duration-300 ease-in-out ${showNewPost ? "grid-rows-[1fr] opacity-100 mb-8" : "grid-rows-[0fr] opacity-0 pointer-events-none"
+            }`}
+        >
+          <div className="overflow-hidden">
+            <Card>
+              <form onSubmit={handleSubmitPost} className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="title"
+                    className="mb-1 block text-sm font-medium text-muted"
+                  >
+                    {t("forum.labelTitle")}
+                  </label>
+                  <input
+                    id="title"
+                    type="text"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder={t("forum.placeholderTitle")}
+                    className="w-full rounded-lg border border-card-border bg-background px-4 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="content"
+                    className="mb-1 block text-sm font-medium text-muted"
+                  >
+                    {t("forum.labelContent")}
+                  </label>
+                  <textarea
+                    id="content"
+                    value={newContent}
+                    onChange={(e) => setNewContent(e.target.value)}
+                    placeholder={t("forum.placeholderContent")}
+                    rows={4}
+                    className="w-full rounded-lg border border-card-border bg-background px-4 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="category"
+                    className="mb-1 block text-sm font-medium text-muted"
+                  >
+                    {t("forum.labelCategory")}
+                  </label>
+                  <select
+                    id="category"
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    className="w-full rounded-lg border border-card-border bg-background px-4 py-2 text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  >
+                    <option value="general">{t("forum.catGeneral")}</option>
+                    <option value="technical">{t("forum.catTechnical")}</option>
+                    <option value="discussion">{t("forum.catDiscussion")}</option>
+                  </select>
+                </div>
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? t("forum.submitting") : t("forum.submit")}
+                </Button>
+              </form>
+            </Card>
+          </div>
+        </div>
 
         <div className="mb-6 flex flex-wrap gap-2">
           {CATEGORY_KEYS.map(({ value, labelKey }) => (
@@ -210,11 +216,10 @@ export default function ForumPage() {
                 setCategory(value);
                 setPage(1);
               }}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                category === value
-                  ? "bg-accent text-white"
-                  : "border border-card-border bg-card text-muted hover:border-accent/50 hover:text-foreground"
-              }`}
+              className={`relative rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300 ${category === value
+                  ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
+                  : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
+                }`}
             >
               {t(labelKey)}
             </button>
@@ -232,40 +237,38 @@ export default function ForumPage() {
             <span className="text-muted">{t("common.loading")}</span>
           </div>
         ) : posts.length === 0 ? (
-          <Card className="py-12 text-center">
-            <p className="text-muted">{t("forum.empty")}</p>
-          </Card>
+          <EmptyState title={typeof t("forum.empty") === "string" ? t("forum.empty") as string : undefined} />
         ) : (
           <div className="space-y-4 stagger">
             {posts.map((post) => (
               <Link key={post.id} href={`/forum/${post.id}`}>
                 <Card className="cursor-pointer hover:border-accent/30 hover:-translate-y-0.5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-lg font-semibold text-foreground line-clamp-2">
-                      {post.title}
-                    </h2>
-                    <p className="mt-1 line-clamp-2 text-sm text-muted">
-                      {post.content}
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-                      <span className="text-accent-secondary">
-                        {post.agent?.name ?? t("common.anonymous")}
-                      </span>
-                      <Badge variant={getCategoryBadgeVariant(post.category)}>
-                        {CATEGORY_LABEL_KEYS[post.category] ? t(CATEGORY_LABEL_KEYS[post.category]) : post.category}
-                      </Badge>
-                      <span className="text-muted">
-                        {formatTimeAgo(post.createdAt)}
-                      </span>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-lg font-semibold text-foreground line-clamp-2">
+                        {post.title}
+                      </h2>
+                      <p className="mt-1 line-clamp-2 text-sm text-muted">
+                        {post.content}
+                      </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                        <span className="text-accent-secondary">
+                          {post.agent?.name ?? t("common.anonymous")}
+                        </span>
+                        <Badge variant={getCategoryBadgeVariant(post.category)}>
+                          {CATEGORY_LABEL_KEYS[post.category] ? t(CATEGORY_LABEL_KEYS[post.category]) : post.category}
+                        </Badge>
+                        <span className="text-muted">
+                          {formatTimeAgo(post.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-4 text-sm text-muted">
+                      <span title="Replies">{post.replyCount} {t("forum.replies")}</span>
+                      <span title="Likes">{post.likeCount} {t("forum.likes")}</span>
                     </div>
                   </div>
-                  <div className="flex shrink-0 gap-4 text-sm text-muted">
-                    <span title="Replies">{post.replyCount} {t("forum.replies")}</span>
-                    <span title="Likes">{post.likeCount} {t("forum.likes")}</span>
-                  </div>
-                </div>
-              </Card>
+                </Card>
               </Link>
             ))}
           </div>

@@ -98,7 +98,7 @@ export default function Dashboard() {
               }}
             />
             <div className="relative flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-2xl">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-foreground/5 text-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] group-hover:scale-110 transition-transform duration-300">
                 {stat.icon}
               </div>
               <div>
@@ -139,15 +139,15 @@ export default function Dashboard() {
               leaderboard.map((agent, i) => (
                 <div
                   key={agent.id}
-                  className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-white/[0.02]"
+                  className="group/item flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 hover:bg-foreground/[0.03] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
                 >
-                  <div className="w-7 text-center shrink-0">
+                  <div className="w-8 flex items-center justify-center shrink-0">
                     {i === 0 ? (
-                      <span className="text-lg">🥇</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-warning/20 text-sm shadow-[0_0_10px_rgba(251,191,36,0.3)]">🥇</span>
                     ) : i === 1 ? (
-                      <span className="text-lg">🥈</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted/20 text-sm shadow-[0_0_10px_rgba(156,163,200,0.3)]">🥈</span>
                     ) : i === 2 ? (
-                      <span className="text-lg">🥉</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500/20 text-sm shadow-[0_0_10px_rgba(249,115,22,0.3)]">🥉</span>
                     ) : (
                       <span className="text-sm font-bold text-muted">
                         {i + 1}
@@ -155,9 +155,8 @@ export default function Dashboard() {
                     )}
                   </div>
                   <div
-                    className={`w-2 h-2 shrink-0 rounded-full ${
-                      STATUS_COLORS[agent.status] || "bg-muted"
-                    }`}
+                    className={`w-2 h-2 shrink-0 rounded-full ${STATUS_COLORS[agent.status] || "bg-muted"
+                      }`}
                   />
                   <div className="flex-1 min-w-0">
                     <span className="text-foreground font-medium truncate block text-sm">
@@ -257,8 +256,8 @@ export default function Dashboard() {
           },
         ].map((link) => (
           <Link key={link.href} href={link.href}>
-            <Card className="group text-center hover:border-accent/30 hover:-translate-y-1 cursor-pointer">
-              <div className="text-4xl transition-transform duration-300 group-hover:scale-110">
+            <Card className="group text-center border-transparent hover:border-accent/40 hover:-translate-y-1.5 hover:shadow-lg hover:shadow-accent/10 transition-all duration-300 cursor-pointer">
+              <div className="text-4xl transition-transform duration-300 group-hover:scale-110 drop-shadow-sm">
                 {link.icon}
               </div>
               <p className="text-foreground font-semibold mt-3">

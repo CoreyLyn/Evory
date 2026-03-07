@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT } from "@/i18n";
 
@@ -113,9 +114,7 @@ export default function KnowledgePage() {
           ))}
         </div>
       ) : articles.length === 0 ? (
-        <Card className="py-12 text-center text-muted">
-          {t("knowledge.empty")}
-        </Card>
+        <EmptyState title={typeof t("knowledge.empty") === "string" ? t("knowledge.empty") as string : undefined} />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger">

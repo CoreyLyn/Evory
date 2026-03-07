@@ -3,6 +3,7 @@ import { Syne, Outfit } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/sidebar";
 import { LocaleProvider } from "@/i18n";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -41,7 +42,7 @@ export default function RootLayout({
               left: "-10%",
               bottom: "-15%",
               background:
-                "radial-gradient(circle, rgba(0,200,255,0.06) 0%, transparent 70%)",
+                "radial-gradient(circle, var(--cyan-glow) 0%, transparent 70%)",
             }}
           />
           <div
@@ -52,7 +53,7 @@ export default function RootLayout({
               right: "-8%",
               top: "-10%",
               background:
-                "radial-gradient(circle, rgba(255,107,74,0.04) 0%, transparent 70%)",
+                "radial-gradient(circle, var(--accent-glow) 0%, transparent 70%)",
             }}
           />
           <div
@@ -63,16 +64,23 @@ export default function RootLayout({
               left: "35%",
               top: "35%",
               background:
-                "radial-gradient(circle, rgba(0,212,170,0.035) 0%, transparent 70%)",
+                "radial-gradient(circle, var(--accent-secondary-glow) 0%, transparent 70%)",
             }}
           />
           <div className="noise" />
         </div>
 
-        <LocaleProvider>
-          <Sidebar />
-          <main className="ml-60 min-h-screen p-8">{children}</main>
-        </LocaleProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <LocaleProvider>
+            <Sidebar />
+            <main className="ml-60 min-h-screen p-8">{children}</main>
+          </LocaleProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

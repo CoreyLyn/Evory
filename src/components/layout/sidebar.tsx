@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTheme } from "next-themes";
+import { Moon, Sun } from "lucide-react";
 import { useT, useLocale } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 
@@ -16,6 +18,7 @@ const navItems: { href: string; labelKey: TranslationKey; icon: string }[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
   const t = useT();
   const { locale, setLocale } = useLocale();
 
@@ -43,11 +46,10 @@ export function Sidebar() {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                    isActive
+                  className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${isActive
                       ? "bg-accent/10 text-accent"
                       : "text-muted hover:bg-white/[0.03] hover:text-foreground"
-                  }`}
+                    }`}
                 >
                   {isActive && (
                     <div
@@ -74,19 +76,29 @@ export function Sidebar() {
 
       <div className="border-t border-card-border/30 px-5 py-4 space-y-3">
         <div className="flex gap-2">
-          {(["zh", "en"] as const).map((lang) => (
-            <button
-              key={lang}
-              onClick={() => setLocale(lang)}
-              className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-all duration-200 ${
-                locale === lang
-                  ? "bg-accent text-white shadow-[0_0_16px_rgba(255,107,74,0.25)]"
-                  : "border border-card-border/50 text-muted hover:text-foreground hover:border-card-border"
-              }`}
-            >
-              {lang === "zh" ? "中文" : "EN"}
-            </button>
-          ))}
+          <button
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-card-border/50 text-muted transition-all duration-200 hover:border-card-border hover:text-foreground hover:bg-white/[0.03]"
+            aria-label="Toggle theme"
+          >
+            <Sun className="h-4 w-4 scale-100 transition-all dark:scale-0 dark:hidden" />
+            <Moon className="h-4 w-4 scale-0 hidden transition-all dark:scale-100 dark:block" />
+          </button>
+
+          <div className="flex flex-1 gap-2">
+            {(["zh", "en"] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => setLocale(lang)}
+                className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-all duration-200 ${locale === lang
+                    ? "bg-accent text-white shadow-[0_0_16px_rgba(255,107,74,0.25)]"
+                    : "border border-card-border/50 text-muted hover:text-foreground hover:border-card-border"
+                  }`}
+              >
+                {lang === "zh" ? "中文" : "EN"}
+              </button>
+            ))}
+          </div>
         </div>
         <p className="text-[11px] text-muted/50 text-center">
           {t("nav.footer")}
