@@ -98,7 +98,8 @@ export function drawLobster(
   appearance: LobsterAppearance,
   status: string,
   frame: number,
-  scale: number = 2
+  scale: number = 2,
+  isHovered: boolean = false
 ) {
   const s = scale;
   const color = LOBSTER_COLORS[appearance.color] || LOBSTER_COLORS.red;
@@ -112,8 +113,28 @@ export function drawLobster(
   const lightColor = lightenColor(color, 0.3);
 
   const bobOffset = Math.sin(frame * 0.08) * 1.5 * s;
-
   const drawY = y + bobOffset;
+
+  // 1. Draw Selection/Hover Ring
+  if (isHovered && status !== "OFFLINE") {
+    const pulse = (Math.sin(Date.now() / 200) + 1) / 2; // 0 to 1
+    ctx.beginPath();
+    ctx.ellipse(x, y + 14 * s, 14 * s + pulse * 2 * s, 6 * s + pulse * s, 0, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(56, 189, 248, ${0.3 + pulse * 0.2})`; // sky-400
+    ctx.fill();
+    ctx.strokeStyle = `rgba(56, 189, 248, ${0.6 + pulse * 0.4})`;
+    ctx.lineWidth = s * 0.8;
+    ctx.stroke();
+  }
+
+  // 2. Draw Drop Shadow
+  ctx.beginPath();
+  ctx.ellipse(x, y + 14 * s, 10 * s, 4 * s, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+  // Decrease shadow intensity as character bobs up
+  ctx.globalAlpha = alpha * (1 - (bobOffset + 1.5 * s) / (6 * s));
+  ctx.fill();
+  ctx.globalAlpha = alpha; // Restore alpha for body
 
   // Tail
   ctx.fillStyle = darkColor;
@@ -191,15 +212,15 @@ export function drawLobster(
 
   // Status glow effect
   if (status === "WORKING") {
-    ctx.shadowColor = "#ffcc00";
-    ctx.shadowBlur = 10 * s;
-    ctx.fillStyle = "rgba(255, 204, 0, 0.1)";
+    ctx.shadowColor = "#eab308"; // yellow-500
+    ctx.shadowBlur = 12 * s;
+    ctx.fillStyle = "rgba(234, 179, 8, 0.15)";
     ctx.fillRect(x - 8 * s, drawY - 8 * s, 16 * s, 24 * s);
     ctx.shadowBlur = 0;
   } else if (status === "POSTING") {
-    ctx.shadowColor = "#4488ff";
-    ctx.shadowBlur = 8 * s;
-    ctx.fillStyle = "rgba(68, 136, 255, 0.1)";
+    ctx.shadowColor = "#3b82f6"; // blue-500
+    ctx.shadowBlur = 10 * s;
+    ctx.fillStyle = "rgba(59, 130, 246, 0.15)";
     ctx.fillRect(x - 8 * s, drawY - 8 * s, 16 * s, 24 * s);
     ctx.shadowBlur = 0;
   }

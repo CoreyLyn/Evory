@@ -54,7 +54,7 @@ export function getZoneForStatus(status: string): OfficeZone {
   }
 }
 
-export function drawOffice(ctx: CanvasRenderingContext2D, labels: CanvasLabels = DEFAULT_LABELS) {
+export function drawOffice(ctx: CanvasRenderingContext2D, labels: CanvasLabels = DEFAULT_LABELS, time: number = 0) {
   // Background with subtle radial gradient
   const bgGradient = ctx.createRadialGradient(
     OFFICE_WIDTH / 2, OFFICE_HEIGHT / 2, 100,
@@ -81,6 +81,9 @@ export function drawOffice(ctx: CanvasRenderingContext2D, labels: CanvasLabels =
   }
   ctx.stroke();
 
+  // Dynamic breathe scale (0 to 1)
+  const breathe = (Math.sin(time / 1000) + 1) / 2;
+
   // Draw Zones with Glow Effects
   for (const zone of ZONES) {
     ctx.save();
@@ -88,7 +91,7 @@ export function drawOffice(ctx: CanvasRenderingContext2D, labels: CanvasLabels =
     // Zone Background
     ctx.fillStyle = zone.color;
     ctx.shadowColor = zone.borderColor;
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = 10 + breathe * 10; // Dynamic bounding glow
     ctx.fillRect(zone.x, zone.y, zone.w, zone.h);
 
     // Reset shadow for inner elements
@@ -100,7 +103,7 @@ export function drawOffice(ctx: CanvasRenderingContext2D, labels: CanvasLabels =
     ctx.strokeRect(zone.x, zone.y, zone.w, zone.h);
 
     // Draw inner details
-    drawZoneDetails(ctx, zone, labels);
+    drawZoneDetails(ctx, zone, labels, time);
 
     // Zone UI Label Pill
     const zoneLabel = labels.zones[zone.name] ?? zone.label;
@@ -131,17 +134,17 @@ export function drawOffice(ctx: CanvasRenderingContext2D, labels: CanvasLabels =
   ctx.fillStyle = "rgba(30, 41, 59, 0.9)"; // slate-800
   ctx.fillRect(OFFICE_WIDTH / 2 - 40, OFFICE_HEIGHT - 8, 80, 8);
 
-  // Door Glow
-  ctx.shadowColor = "rgba(56, 189, 248, 0.5)"; // sky-400
-  ctx.shadowBlur = 10;
-  ctx.fillStyle = "rgba(56, 189, 248, 0.8)"; // sky-400
+  // Door Glow (Dynamic)
+  ctx.shadowColor = `rgba(56, 189, 248, ${0.4 + breathe * 0.4})`; // sky-400
+  ctx.shadowBlur = 8 + breathe * 6;
+  ctx.fillStyle = `rgba(56, 189, 248, ${0.7 + breathe * 0.3})`; // sky-400
   ctx.font = "12px system-ui, -apple-system, sans-serif";
   ctx.textAlign = "center";
   ctx.fillText(labels.entrance, OFFICE_WIDTH / 2, OFFICE_HEIGHT - 15);
   ctx.shadowBlur = 0;
 }
 
-function drawZoneDetails(ctx: CanvasRenderingContext2D, zone: OfficeZone, labels: CanvasLabels) {
+function drawZoneDetails(ctx: CanvasRenderingContext2D, zone: OfficeZone, labels: CanvasLabels, time: number = 0) {
   ctx.save();
 
   switch (zone.name) {
@@ -161,17 +164,18 @@ function drawZoneDetails(ctx: CanvasRenderingContext2D, zone: OfficeZone, labels
           ctx.fillStyle = "rgba(71, 85, 105, 0.6)";
           ctx.fillRect(dx + 25, dy + 5, 10, 8);
 
-          // Monitor screen (glowing slightly)
+          // Monitor screen (glowing dynamically)
+          const screenGlow = (Math.sin(time / 800 + col + row) + 1) / 2;
           ctx.fillStyle = "rgba(30, 41, 59, 1)";
-          ctx.shadowColor = "rgba(56, 189, 248, 0.3)";
-          ctx.shadowBlur = 5;
+          ctx.shadowColor = `rgba(56, 189, 248, ${0.2 + screenGlow * 0.3})`;
+          ctx.shadowBlur = 3 + screenGlow * 4;
           ctx.beginPath();
           ctx.roundRect(dx + 15, dy + 8, 30, 18, 2);
           ctx.fill();
           ctx.shadowBlur = 0;
 
           // Screen content line
-          ctx.fillStyle = "rgba(56, 189, 248, 0.6)";
+          ctx.fillStyle = `rgba(56, 189, 248, ${0.5 + screenGlow * 0.3})`;
           ctx.fillRect(dx + 18, dy + 12, 15, 2);
 
           ctx.fillStyle = "rgba(51, 65, 85, 0.4)"; // Reset for next desk
@@ -354,29 +358,51 @@ export function getRandomPositionInZone(zone: OfficeZone): { x: number; y: numbe
   };
 }
 
-export function updateAgentPosition(agent: AgentPosition, speed: number = 0.03): AgentPosition {
+export function updateAgentPosition(agent: AgentPosition, easeFactor: number = 0.04): AgentPosition {
   const dx = agent.targetX - agent.x;
   const dy = agent.targetY - agent.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
 
-  if (dist < 2) {
-    if (Math.random() < 0.01) {
+  // If very close, snap to target or pick new destination
+  if (dist < 1.0) {
+    if (Math.random() < 0.02) { // Slightly increased chance to roam when idle
       const zone = getZoneForStatus(agent.status);
       const newPos = getRandomPositionInZone(zone);
       return {
         ...agent,
+        x: agent.targetX,
+        y: agent.targetY,
         targetX: newPos.x,
         targetY: newPos.y,
         frame: agent.frame + 1,
       };
     }
-    return { ...agent, frame: agent.frame + 1 };
+    return { ...agent, x: agent.targetX, y: agent.targetY, frame: agent.frame + 1 };
+  }
+
+  // Easing motion: velocity decreases as distance decreases
+  let vx = dx * easeFactor;
+  let vy = dy * easeFactor;
+
+  // Enforce a minimum speed so they don't get infinitely stuck Zeno's paradox style
+  const minSpeed = 0.3;
+  const currentSpeed = Math.sqrt(vx * vx + vy * vy);
+  if (currentSpeed < minSpeed && currentSpeed > 0) {
+    vx = (vx / currentSpeed) * minSpeed;
+    vy = (vy / currentSpeed) * minSpeed;
+  }
+
+  // Max speed limit to prevent sudden teleports
+  const maxSpeed = 4.0;
+  if (currentSpeed > maxSpeed) {
+    vx = (vx / currentSpeed) * maxSpeed;
+    vy = (vy / currentSpeed) * maxSpeed;
   }
 
   return {
     ...agent,
-    x: agent.x + dx * speed,
-    y: agent.y + dy * speed,
+    x: agent.x + vx,
+    y: agent.y + vy,
     frame: agent.frame + 1,
   };
 }

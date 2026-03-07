@@ -22,6 +22,9 @@ export interface AgentData {
 export class OfficeEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+  private bgCanvas: HTMLCanvasElement;
+  private bgCtx: CanvasRenderingContext2D;
+  private lastBgRenderTime: number = 0;
   private agents: Map<string, AgentPosition> = new Map();
   private animationId: number | null = null;
   private scale: number = 1;
@@ -38,12 +41,21 @@ export class OfficeEngine {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
     this.ctx.imageSmoothingEnabled = false;
+
+    // Initialize offscreen canvas for caching the background
+    this.bgCanvas = document.createElement("canvas");
+    this.bgCanvas.width = OFFICE_WIDTH;
+    this.bgCanvas.height = OFFICE_HEIGHT;
+    this.bgCtx = this.bgCanvas.getContext("2d")!;
+    this.bgCtx.imageSmoothingEnabled = false;
+
     this.setupEvents();
   }
 
   setLabels(labels: CanvasLabels, hudOnline?: string) {
     this.labels = labels;
     if (hudOnline) this.hudOnline = hudOnline;
+    this.lastBgRenderTime = 0; // Force redraw on label change
   }
 
   private setupEvents() {
@@ -154,6 +166,7 @@ export class OfficeEngine {
   }
 
   start() {
+    this.lastBgRenderTime = 0; // Force initial render
     const render = () => {
       this.update();
       this.draw();
@@ -179,6 +192,9 @@ export class OfficeEngine {
       this.offsetX = (width - OFFICE_WIDTH * this.scale) / 2;
       this.offsetY = (height - OFFICE_HEIGHT * this.scale) / 2;
     }
+
+    // Force a background redraw on next frame
+    this.lastBgRenderTime = 0;
   }
 
   private update() {
@@ -189,6 +205,7 @@ export class OfficeEngine {
 
   private draw() {
     const { ctx, canvas } = this;
+    const now = Date.now();
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     // Base clear color that blends into the office background
@@ -199,14 +216,24 @@ export class OfficeEngine {
     ctx.translate(this.offsetX, this.offsetY);
     ctx.scale(this.scale, this.scale);
 
-    drawOffice(ctx, this.labels);
+    // Throttled Background Rendering (Cache to Offscreen Canvas)
+    // Redraw glow at most every 50ms (~20 FPS) instead of 60 FPS
+    if (now - this.lastBgRenderTime > 50) {
+      this.bgCtx.clearRect(0, 0, OFFICE_WIDTH, OFFICE_HEIGHT);
+      drawOffice(this.bgCtx, this.labels, now);
+      this.lastBgRenderTime = now;
+    }
+
+    // Draw the cached background
+    ctx.drawImage(this.bgCanvas, 0, 0, OFFICE_WIDTH, OFFICE_HEIGHT);
 
     const sortedAgents = Array.from(this.agents.values()).sort((a, b) => a.y - b.y);
 
     for (const agent of sortedAgents) {
       const isHovered = this.hoveredAgent === agent.id;
       const spriteScale = isHovered ? 2.3 : 2;
-      drawLobster(ctx, agent.x, agent.y, agent.appearance, agent.status, agent.frame, spriteScale);
+      // Pass isHovered for the selection ring and drop shadow animations
+      drawLobster(ctx, agent.x, agent.y, agent.appearance, agent.status, agent.frame, spriteScale, isHovered);
       drawNameTag(ctx, agent.x, agent.y, agent.name, agent.points, spriteScale);
     }
 
@@ -247,13 +274,15 @@ export class OfficeEngine {
     ctx.textBaseline = "middle";
     ctx.fillText(hudText, pillX + 12, pillY + pillHeight / 2);
 
-    // Status Indicator Dot
+    // Status Indicator Dot (Pulsing)
     ctx.fillStyle = "rgba(34, 197, 94, 0.9)"; // green-500
-    ctx.shadowColor = "rgba(34, 197, 94, 0.6)";
-    ctx.shadowBlur = 4;
+    const pulseFade = ((Math.sin(now / 300) + 1) / 2);
+    ctx.shadowColor = `rgba(34, 197, 94, ${0.4 + pulseFade * 0.4})`;
+    ctx.shadowBlur = 4 + pulseFade * 4;
     ctx.beginPath();
     ctx.arc(pillX + pillWidth - 14, pillY + pillHeight / 2, 3, 0, Math.PI * 2);
     ctx.fill();
+    ctx.shadowBlur = 0;
 
     ctx.restore();
   }
