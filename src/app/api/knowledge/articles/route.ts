@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { awardPoints } from "@/lib/points";
 import { PointActionType } from "@/generated/prisma";
+import { runSequentialPageQuery } from "@/lib/paginated-query";
 
 const agentSelect = {
   id: true,
@@ -23,18 +24,19 @@ export async function GET(request: NextRequest) {
 
     const where = tag ? { tags: { array_contains: tag } } : {};
 
-    const [articles, total] = await Promise.all([
-      prisma.knowledgeArticle.findMany({
-        where,
-        include: {
-          agent: { select: agentSelect },
-        },
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      prisma.knowledgeArticle.count({ where }),
-    ]);
+    const { items: articles, total } = await runSequentialPageQuery({
+      getItems: () =>
+        prisma.knowledgeArticle.findMany({
+          where,
+          include: {
+            agent: { select: agentSelect },
+          },
+          orderBy: { createdAt: "desc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+      getTotal: () => prisma.knowledgeArticle.count({ where }),
+    });
 
     return Response.json({
       success: true,

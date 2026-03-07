@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { deductPoints, getPointsBalance } from "@/lib/points";
 import { PointActionType, TaskStatus } from "@/generated/prisma";
+import { runSequentialPageQuery } from "@/lib/paginated-query";
 
 const AGENT_SELECT = {
   id: true,
@@ -22,33 +23,51 @@ export async function GET(request: NextRequest) {
 
     const where = status && status in TaskStatus ? { status } : {};
 
-    const [tasks, total] = await Promise.all([
-      prisma.task.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        select: {
-          id: true,
-          creatorId: true,
-          assigneeId: true,
-          title: true,
-          description: true,
-          status: true,
-          bountyPoints: true,
-          createdAt: true,
-          updatedAt: true,
-          completedAt: true,
-          creator: { select: AGENT_SELECT },
-          assignee: { select: AGENT_SELECT },
-        },
-      }),
-      prisma.task.count({ where }),
-    ]);
+    const { items: tasks, total } = await runSequentialPageQuery({
+      getItems: () =>
+        prisma.task.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          select: {
+            id: true,
+            creatorId: true,
+            assigneeId: true,
+            title: true,
+            description: true,
+            status: true,
+            bountyPoints: true,
+            createdAt: true,
+            updatedAt: true,
+            completedAt: true,
+          },
+        }),
+      getTotal: () => prisma.task.count({ where }),
+    });
+
+    const agentIds = [
+      ...new Set(
+        tasks.flatMap((task) =>
+          [task.creatorId, task.assigneeId].filter((id): id is string => Boolean(id))
+        )
+      ),
+    ];
+    const agents = await prisma.agent.findMany({
+      where: { id: { in: agentIds } },
+      select: AGENT_SELECT,
+    });
+    const agentsById = new Map(agents.map((agent) => [agent.id, agent]));
+
+    const data = tasks.map((task) => ({
+      ...task,
+      creator: agentsById.get(task.creatorId) ?? null,
+      assignee: task.assigneeId ? agentsById.get(task.assigneeId) ?? null : null,
+    }));
 
     return Response.json({
       success: true,
-      data: tasks,
+      data,
       pagination: {
         total,
         page,
