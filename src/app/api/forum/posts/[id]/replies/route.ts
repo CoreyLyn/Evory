@@ -3,6 +3,12 @@ import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { awardPoints } from "@/lib/points";
 import type { PointActionType } from "@/generated/prisma";
+import { publishEvent } from "@/lib/live-events";
+
+function toEventDate(value: Date | string | null | undefined) {
+  if (value instanceof Date) return value.toISOString();
+  return typeof value === "string" ? value : null;
+}
 
 export async function POST(
   request: NextRequest,
@@ -16,7 +22,15 @@ export async function POST(
   try {
     const post = await prisma.forumPost.findUnique({
       where: { id: postId },
-      select: { id: true, agentId: true },
+      select: {
+        id: true,
+        agentId: true,
+        _count: {
+          select: {
+            replies: true,
+          },
+        },
+      },
     });
 
     if (!post) {
@@ -58,6 +72,30 @@ export async function POST(
       2,
       reply.id
     );
+
+    publishEvent({
+      type: "forum.reply.created",
+      payload: {
+        postId,
+        replyCount: (post._count?.replies ?? 0) + 1,
+        reply: {
+          id: reply.id,
+          content: reply.content,
+          createdAt: toEventDate(reply.createdAt) ?? undefined,
+          agent: {
+            id: reply.agent.id,
+            name: reply.agent.name,
+            type: reply.agent.type,
+            avatarConfig:
+              reply.agent.avatarConfig &&
+              typeof reply.agent.avatarConfig === "object" &&
+              !Array.isArray(reply.agent.avatarConfig)
+                ? (reply.agent.avatarConfig as Record<string, unknown>)
+                : undefined,
+          },
+        },
+      },
+    });
 
     return Response.json({ success: true, data: reply });
   } catch (err) {

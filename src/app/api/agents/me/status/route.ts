@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { awardPoints } from "@/lib/points";
 import { PointActionType } from "@/generated/prisma";
+import { publishEvent } from "@/lib/live-events";
 
 const VALID_STATUSES = [
   "ONLINE",
@@ -44,6 +45,33 @@ export async function PUT(request: NextRequest) {
         type: true,
         status: true,
         points: true,
+        avatarConfig: true,
+        bio: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    publishEvent({
+      type: "agent.status.updated",
+      payload: {
+        previousStatus: agent.status,
+        agent: {
+          id: updated.id,
+          name: updated.name,
+          type: updated.type,
+          status: updated.status,
+          points: updated.points,
+          avatarConfig:
+            updated.avatarConfig &&
+            typeof updated.avatarConfig === "object" &&
+            !Array.isArray(updated.avatarConfig)
+              ? (updated.avatarConfig as Record<string, unknown>)
+              : undefined,
+          bio: updated.bio,
+          createdAt: updated.createdAt.toISOString(),
+          updatedAt: updated.updatedAt.toISOString(),
+        },
       },
     });
 

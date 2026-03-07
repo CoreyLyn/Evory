@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
+import {
+  createAgentFixture,
+  createForumPostFixture,
+  createForumReplyFixture,
+} from "@/test/factories";
+import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { GET as getForumPost } from "./posts/[id]/route";
 import { POST as createReply } from "./posts/[id]/replies/route";
 import { POST as toggleLike } from "./posts/[id]/like/route";
@@ -71,30 +76,21 @@ function mockAwardPointsTransaction() {
 }
 
 test("forum detail returns viewerLiked when request is authenticated", async () => {
-  prismaClient.agent.findUnique = async () => ({
-    id: "viewer-1",
-    apiKey: "viewer-key",
-    name: "Viewer",
-    type: "CUSTOM",
-    status: "ONLINE",
-    points: 5,
-  });
-  prismaClient.forumPost.findUnique = async () => ({
-    id: "post-1",
-    title: "Post title",
-    content: "Post body",
-    category: "general",
-    viewCount: 1,
-    likeCount: 1,
-    createdAt: new Date().toISOString(),
-    agent: {
-      id: "author-1",
-      name: "Author",
-      type: "CUSTOM",
-      avatarConfig: {},
-    },
-    replies: [],
-  });
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "viewer-1",
+      apiKey: "viewer-key",
+      name: "Viewer",
+    });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      likeCount: 1,
+      agent: createAgentFixture({
+        id: "author-1",
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
   prismaClient.forumLike.findUnique = async () => ({
     id: "like-1",
     postId: "post-1",
@@ -103,12 +99,10 @@ test("forum detail returns viewerLiked when request is authenticated", async () 
   prismaClient.forumPost.update = async () => ({ id: "post-1" });
 
   const response = await getForumPost(
-    new NextRequest("http://localhost/api/forum/posts/post-1", {
-      headers: {
-        Authorization: "Bearer viewer-key",
-      },
+    createRouteRequest("http://localhost/api/forum/posts/post-1", {
+      apiKey: "viewer-key",
     }),
-    { params: Promise.resolve({ id: "post-1" }) }
+    createRouteParams({ id: "post-1" })
   );
   const json = await response.json();
 
@@ -119,43 +113,29 @@ test("forum detail returns viewerLiked when request is authenticated", async () 
 });
 
 test("forum replies endpoint returns the created reply payload", async () => {
-  prismaClient.agent.findUnique = async () => ({
-    id: "replier-1",
-    apiKey: "reply-key",
-    name: "Replier",
-    type: "CUSTOM",
-    status: "ONLINE",
-    points: 5,
-  });
-  prismaClient.forumPost.findUnique = async () => ({
-    id: "post-1",
-    agentId: "author-1",
-  });
-  prismaClient.forumReply.create = async () => ({
-    id: "reply-1",
-    content: "I have a useful reply",
-    createdAt: new Date().toISOString(),
-    agent: {
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
       id: "replier-1",
+      apiKey: "reply-key",
       name: "Replier",
-      type: "CUSTOM",
-      avatarConfig: {},
-    },
-  });
+    });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+    });
+  prismaClient.forumReply.create = async () => createForumReplyFixture();
   mockAwardPointsTransaction();
 
   const response = await createReply(
-    new NextRequest("http://localhost/api/forum/posts/post-1/replies", {
+    createRouteRequest("http://localhost/api/forum/posts/post-1/replies", {
       method: "POST",
-      headers: {
-        Authorization: "Bearer reply-key",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+      apiKey: "reply-key",
+      json: {
         content: "I have a useful reply",
-      }),
+      },
     }),
-    { params: Promise.resolve({ id: "post-1" }) }
+    createRouteParams({ id: "post-1" })
   );
   const json = await response.json();
 
@@ -168,19 +148,18 @@ test("forum like endpoint toggles like state on repeated calls", async () => {
   let liked = false;
   let likeCount = 0;
 
-  prismaClient.agent.findUnique = async () => ({
-    id: "viewer-1",
-    apiKey: "viewer-key",
-    name: "Viewer",
-    type: "CUSTOM",
-    status: "ONLINE",
-    points: 5,
-  });
-  prismaClient.forumPost.findUnique = async () => ({
-    id: "post-1",
-    agentId: "author-1",
-    likeCount,
-  });
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "viewer-1",
+      apiKey: "viewer-key",
+      name: "Viewer",
+    });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+      likeCount,
+    });
   prismaClient.forumLike.findUnique = async () =>
     liked
       ? {
@@ -209,22 +188,18 @@ test("forum like endpoint toggles like state on repeated calls", async () => {
   mockAwardPointsTransaction();
 
   const likeResponse = await toggleLike(
-    new NextRequest("http://localhost/api/forum/posts/post-1/like", {
+    createRouteRequest("http://localhost/api/forum/posts/post-1/like", {
       method: "POST",
-      headers: {
-        Authorization: "Bearer viewer-key",
-      },
+      apiKey: "viewer-key",
     }),
-    { params: Promise.resolve({ id: "post-1" }) }
+    createRouteParams({ id: "post-1" })
   );
   const unlikeResponse = await toggleLike(
-    new NextRequest("http://localhost/api/forum/posts/post-1/like", {
+    createRouteRequest("http://localhost/api/forum/posts/post-1/like", {
       method: "POST",
-      headers: {
-        Authorization: "Bearer viewer-key",
-      },
+      apiKey: "viewer-key",
     }),
-    { params: Promise.resolve({ id: "post-1" }) }
+    createRouteParams({ id: "post-1" })
   );
 
   const likedJson = await likeResponse.json();

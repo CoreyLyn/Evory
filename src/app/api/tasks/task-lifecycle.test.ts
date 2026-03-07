@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
+import { createAgentFixture, createTaskFixture } from "@/test/factories";
+import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { POST as completeTask } from "./[id]/complete/route";
 import { POST as verifyTask } from "./[id]/verify/route";
 
@@ -70,41 +71,45 @@ function mockAwardPointDependencies() {
 test("complete sets completedAt when assignee submits work", async () => {
   let updateData: Record<string, unknown> | undefined;
 
-  prismaClient.agent.findUnique = async () => ({
-    id: "assignee-1",
-    apiKey: "assignee-key",
-  });
-  prismaClient.task.findUnique = async () => ({
-    id: "task-1",
-    assigneeId: "assignee-1",
-    status: "CLAIMED",
-  });
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "assignee-1",
+      apiKey: "assignee-key",
+      name: "Assignee",
+    });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      assigneeId: "assignee-1",
+      status: "CLAIMED",
+    });
   prismaClient.task.update = async ({ data }) => {
     updateData = data as Record<string, unknown>;
-    return {
+    return createTaskFixture({
       id: "task-1",
       creatorId: "creator-1",
       assigneeId: "assignee-1",
-      title: "Task title",
-      description: "Task description",
       status: data.status,
-      bountyPoints: 10,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
       completedAt: data.completedAt,
-      creator: { id: "creator-1", name: "Creator", avatarConfig: {} },
-      assignee: { id: "assignee-1", name: "Assignee", avatarConfig: {} },
-    };
+      creator: createAgentFixture({
+        id: "creator-1",
+        apiKey: "creator-key",
+        name: "Creator",
+      }),
+      assignee: createAgentFixture({
+        id: "assignee-1",
+        apiKey: "assignee-key",
+        name: "Assignee",
+      }),
+    });
   };
 
   const response = await completeTask(
-    new NextRequest("http://localhost/api/tasks/task-1/complete", {
+    createRouteRequest("http://localhost/api/tasks/task-1/complete", {
       method: "POST",
-      headers: {
-        Authorization: "Bearer assignee-key",
-      },
+      apiKey: "assignee-key",
     }),
-    { params: Promise.resolve({ id: "task-1" }) }
+    createRouteParams({ id: "task-1" })
   );
   const json = await response.json();
 
@@ -117,48 +122,49 @@ test("complete sets completedAt when assignee submits work", async () => {
 test("verify rejection returns task to CLAIMED and clears completedAt", async () => {
   let updateData: Record<string, unknown> | undefined;
 
-  prismaClient.agent.findUnique = async () => ({
-    id: "creator-1",
-    apiKey: "creator-key",
-  });
-  prismaClient.task.findUnique = async () => ({
-    id: "task-1",
-    creatorId: "creator-1",
-    assigneeId: "assignee-1",
-    title: "Task title",
-    bountyPoints: 10,
-    status: "COMPLETED",
-  });
-  prismaClient.task.update = async ({ data }) => {
-    updateData = data as Record<string, unknown>;
-    return {
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "creator-1",
+      apiKey: "creator-key",
+      name: "Creator",
+    });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
       id: "task-1",
       creatorId: "creator-1",
       assigneeId: "assignee-1",
-      title: "Task title",
-      description: "Task description",
+      status: "COMPLETED",
+    });
+  prismaClient.task.update = async ({ data }) => {
+    updateData = data as Record<string, unknown>;
+    return createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
       status: data.status,
-      bountyPoints: 10,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
       completedAt: data.completedAt ?? null,
-      creator: { id: "creator-1", name: "Creator", avatarConfig: {} },
-      assignee: { id: "assignee-1", name: "Assignee", avatarConfig: {} },
-    };
+      creator: createAgentFixture({
+        id: "creator-1",
+        apiKey: "creator-key",
+        name: "Creator",
+      }),
+      assignee: createAgentFixture({
+        id: "assignee-1",
+        apiKey: "assignee-key",
+        name: "Assignee",
+      }),
+    });
   };
 
   const response = await verifyTask(
-    new NextRequest("http://localhost/api/tasks/task-1/verify", {
+    createRouteRequest("http://localhost/api/tasks/task-1/verify", {
       method: "POST",
-      headers: {
-        Authorization: "Bearer creator-key",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+      apiKey: "creator-key",
+      json: {
         approved: false,
-      }),
+      },
     }),
-    { params: Promise.resolve({ id: "task-1" }) }
+    createRouteParams({ id: "task-1" })
   );
   const json = await response.json();
 
@@ -172,32 +178,39 @@ test("verify approval updates status and payouts inside one transaction", async 
   let transactionCalls = 0;
   const pointTransactions: Array<Record<string, unknown>> = [];
 
-  prismaClient.agent.findUnique = async () => ({
-    id: "creator-1",
-    apiKey: "creator-key",
-  });
-  prismaClient.task.findUnique = async () => ({
-    id: "task-1",
-    creatorId: "creator-1",
-    assigneeId: "assignee-1",
-    title: "Task title",
-    bountyPoints: 25,
-    status: "COMPLETED",
-  });
-  prismaClient.task.update = async () => ({
-    id: "task-1",
-    creatorId: "creator-1",
-    assigneeId: "assignee-1",
-    title: "Task title",
-    description: "Task description",
-    status: "VERIFIED",
-    bountyPoints: 25,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    completedAt: new Date().toISOString(),
-    creator: { id: "creator-1", name: "Creator", avatarConfig: {} },
-    assignee: { id: "assignee-1", name: "Assignee", avatarConfig: {} },
-  });
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "creator-1",
+      apiKey: "creator-key",
+      name: "Creator",
+    });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      bountyPoints: 25,
+      status: "COMPLETED",
+    });
+  prismaClient.task.update = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      bountyPoints: 25,
+      status: "VERIFIED",
+      completedAt: new Date().toISOString(),
+      creator: createAgentFixture({
+        id: "creator-1",
+        apiKey: "creator-key",
+        name: "Creator",
+      }),
+      assignee: createAgentFixture({
+        id: "assignee-1",
+        apiKey: "assignee-key",
+        name: "Assignee",
+      }),
+    });
   mockAwardPointDependencies();
   prismaClient.$transaction = async (input) => {
     transactionCalls += 1;
@@ -231,17 +244,14 @@ test("verify approval updates status and payouts inside one transaction", async 
   };
 
   const response = await verifyTask(
-    new NextRequest("http://localhost/api/tasks/task-1/verify", {
+    createRouteRequest("http://localhost/api/tasks/task-1/verify", {
       method: "POST",
-      headers: {
-        Authorization: "Bearer creator-key",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+      apiKey: "creator-key",
+      json: {
         approved: true,
-      }),
+      },
     }),
-    { params: Promise.resolve({ id: "task-1" }) }
+    createRouteParams({ id: "task-1" })
   );
   const json = await response.json();
 

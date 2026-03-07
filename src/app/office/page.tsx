@@ -8,6 +8,7 @@ import { useT, useLocale } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 import { Badge } from "@/components/ui/badge";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
+import type { LiveEvent, LiveEventMap } from "@/lib/live-events";
 import { Users, Activity, Layers, ActivitySquare, X, Clock, Zap } from "lucide-react";
 
 const ZONE_LABEL_KEYS: Record<string, TranslationKey> = {
@@ -25,6 +26,69 @@ type OfficeAgent = AgentData & {
   createdAt?: string;
   updatedAt?: string;
 };
+
+function normalizeAvatarConfig(value: unknown): OfficeAgent["avatarConfig"] {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as OfficeAgent["avatarConfig"];
+  }
+
+  return {
+    color: "red",
+    hat: null,
+    accessory: null,
+  };
+}
+
+function toOfficeAgent(record: Record<string, unknown>): OfficeAgent {
+  return {
+    id: String(record.id ?? ""),
+    name: String(record.name ?? ""),
+    status: String(record.status ?? "OFFLINE"),
+    points: typeof record.points === "number" ? record.points : 0,
+    type: typeof record.type === "string" ? record.type : undefined,
+    bio: typeof record.bio === "string" ? record.bio : "",
+    createdAt: typeof record.createdAt === "string" ? record.createdAt : undefined,
+    updatedAt: typeof record.updatedAt === "string" ? record.updatedAt : undefined,
+    avatarConfig: normalizeAvatarConfig(record.avatarConfig),
+  };
+}
+
+function mergeOfficeAgent(
+  current: OfficeAgent[],
+  incoming: LiveEventMap["agent.status.updated"]["agent"]
+) {
+  const nextAgent: OfficeAgent = {
+    id: incoming.id,
+    name: incoming.name,
+    status: incoming.status,
+    points: incoming.points,
+    type: incoming.type,
+    bio: incoming.bio ?? "",
+    createdAt: incoming.createdAt,
+    updatedAt: incoming.updatedAt,
+    avatarConfig: normalizeAvatarConfig(incoming.avatarConfig),
+  };
+
+  const index = current.findIndex((agent) => agent.id === incoming.id);
+
+  if (index === -1) {
+    return [...current, nextAgent];
+  }
+
+  const existing = current[index];
+  const merged: OfficeAgent = {
+    ...existing,
+    ...nextAgent,
+    avatarConfig: nextAgent.avatarConfig ?? existing.avatarConfig,
+    bio: nextAgent.bio || existing.bio,
+    createdAt: nextAgent.createdAt ?? existing.createdAt,
+    updatedAt: nextAgent.updatedAt ?? existing.updatedAt,
+  };
+
+  return current.map((agent, agentIndex) =>
+    agentIndex === index ? merged : agent
+  );
+}
 
 export default function OfficePage() {
   const t = useT();
@@ -65,23 +129,7 @@ export default function OfficePage() {
       const json = await res.json();
       if (json.success && json.data?.agents) {
         const agents: OfficeAgent[] = json.data.agents.map(
-          (a: Record<string, unknown>) => ({
-            id: a.id as string,
-            name: a.name as string,
-            status: a.status as string,
-            points: a.points as number,
-            type: typeof a.type === "string" ? a.type : undefined,
-            bio: typeof a.bio === "string" ? a.bio : "",
-            createdAt:
-              typeof a.createdAt === "string" ? a.createdAt : undefined,
-            updatedAt:
-              typeof a.updatedAt === "string" ? a.updatedAt : undefined,
-            avatarConfig: (a.avatarConfig || {
-              color: "red",
-              hat: null,
-              accessory: null,
-            }) as OfficeAgent["avatarConfig"],
-          })
+          (a: Record<string, unknown>) => toOfficeAgent(a)
         );
         engineRef.current?.updateAgents(agents);
         setAgentsList(agents);
@@ -94,6 +142,8 @@ export default function OfficePage() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    let fallbackInterval: number | null = null;
+    let eventSource: EventSource | null = null;
 
     const engine = new OfficeEngine(canvas);
     engine.setLabels(
@@ -114,19 +164,78 @@ export default function OfficePage() {
 
     handleResize();
     engine.start();
-
     const initialLoad = window.setTimeout(() => {
       void fetchAgents();
     }, 0);
-    const interval = window.setInterval(() => {
-      void fetchAgents();
-    }, 5000);
+
+    function startFallbackPolling() {
+      if (fallbackInterval !== null) return;
+      fallbackInterval = window.setInterval(() => {
+        void fetchAgents();
+      }, 5000);
+    }
+
+    function stopFallbackPolling() {
+      if (fallbackInterval === null) return;
+      clearInterval(fallbackInterval);
+      fallbackInterval = null;
+    }
+
+    if (typeof EventSource !== "undefined") {
+      eventSource = new EventSource("/api/events");
+
+      const handleOpen = () => {
+        stopFallbackPolling();
+      };
+
+      const handleLiveEvent = (message: MessageEvent<string>) => {
+        try {
+          const event = JSON.parse(message.data) as LiveEvent;
+          if (event.type !== "agent.status.updated") return;
+          const statusEvent = event as LiveEvent<"agent.status.updated">;
+
+          setAgentsList((current) => {
+            const next = mergeOfficeAgent(current, statusEvent.payload.agent);
+            engineRef.current?.updateAgents(next);
+            return next;
+          });
+        } catch {
+          // Ignore malformed events and let polling recover if needed.
+        }
+      };
+
+      eventSource.addEventListener("open", handleOpen);
+      eventSource.addEventListener(
+        "live-event",
+        handleLiveEvent as EventListener
+      );
+      eventSource.onerror = () => {
+        startFallbackPolling();
+      };
+
+      window.addEventListener("resize", handleResize);
+
+      return () => {
+        engine.stop();
+        clearTimeout(initialLoad);
+        stopFallbackPolling();
+        eventSource?.removeEventListener("open", handleOpen);
+        eventSource?.removeEventListener(
+          "live-event",
+          handleLiveEvent as EventListener
+        );
+        eventSource?.close();
+        window.removeEventListener("resize", handleResize);
+      };
+    }
+
+    startFallbackPolling();
     window.addEventListener("resize", handleResize);
 
     return () => {
       engine.stop();
       clearTimeout(initialLoad);
-      clearInterval(interval);
+      stopFallbackPolling();
       window.removeEventListener("resize", handleResize);
     };
   }, [fetchAgents, buildCanvasLabels, locale]);

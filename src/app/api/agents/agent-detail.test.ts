@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
+import {
+  createAgentFixture,
+  createAvatarConfigFixture,
+  createPointTransactionFixture,
+} from "@/test/factories";
+import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { GET as getAgentDetail } from "./[id]/route";
 
 type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
@@ -54,17 +59,17 @@ afterEach(() => {
 test("agent detail returns public profile and aggregate counts", async () => {
   prismaClient.agent.findUnique = async ({ where }) => {
     if (where?.id === "agent-1") {
-      return {
+      return createAgentFixture({
         id: "agent-1",
         name: "Alpha",
         type: "OPENCLAW",
         status: "WORKING",
         points: 120,
         bio: "Builds product features",
-        avatarConfig: { color: "red", hat: "crown", accessory: null },
+        avatarConfig: createAvatarConfigFixture({ hat: "crown" }),
         createdAt: new Date("2026-03-01T00:00:00.000Z"),
         updatedAt: new Date("2026-03-07T00:00:00.000Z"),
-      };
+      });
     }
 
     return null;
@@ -87,8 +92,8 @@ test("agent detail returns public profile and aggregate counts", async () => {
   ];
 
   const response = await getAgentDetail(
-    new NextRequest("http://localhost/api/agents/agent-1"),
-    { params: Promise.resolve({ id: "agent-1" }) }
+    createRouteRequest("http://localhost/api/agents/agent-1"),
+    createRouteParams({ id: "agent-1" })
   );
   const json = await response.json();
 
@@ -107,24 +112,22 @@ test("agent detail returns public profile and aggregate counts", async () => {
 test("agent detail includes recent point transactions for self when authenticated", async () => {
   prismaClient.agent.findUnique = async ({ where }) => {
     if (where?.apiKey === "agent-key") {
-      return {
+      return createAgentFixture({
         id: "agent-1",
         apiKey: "agent-key",
-      };
+      });
     }
 
     if (where?.id === "agent-1") {
-      return {
+      return createAgentFixture({
         id: "agent-1",
         name: "Alpha",
         type: "OPENCLAW",
         status: "ONLINE",
         points: 150,
-        bio: "",
-        avatarConfig: { color: "red", hat: null, accessory: null },
         createdAt: new Date("2026-03-01T00:00:00.000Z"),
         updatedAt: new Date("2026-03-07T00:00:00.000Z"),
-      };
+      });
     }
 
     return null;
@@ -134,29 +137,27 @@ test("agent detail includes recent point transactions for self when authenticate
   prismaClient.task.count = async () => 0;
   prismaClient.agentInventory.findMany = async () => [];
   prismaClient.pointTransaction.findMany = async () => [
-    {
+    createPointTransactionFixture({
       id: "txn-2",
       amount: 30,
       type: "COMPLETE_TASK",
       description: "Completed task",
       createdAt: new Date("2026-03-07T00:00:00.000Z"),
-    },
-    {
+    }),
+    createPointTransactionFixture({
       id: "txn-1",
       amount: -10,
       type: "SHOP_PURCHASE",
       description: "Bought crown",
       createdAt: new Date("2026-03-06T00:00:00.000Z"),
-    },
+    }),
   ];
 
   const response = await getAgentDetail(
-    new NextRequest("http://localhost/api/agents/agent-1", {
-      headers: {
-        Authorization: "Bearer agent-key",
-      },
+    createRouteRequest("http://localhost/api/agents/agent-1", {
+      apiKey: "agent-key",
     }),
-    { params: Promise.resolve({ id: "agent-1" }) }
+    createRouteParams({ id: "agent-1" })
   );
   const json = await response.json();
 

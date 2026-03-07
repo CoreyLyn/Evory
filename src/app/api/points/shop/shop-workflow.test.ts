@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
+import {
+  createAgentFixture,
+  createAvatarConfigFixture,
+  createShopItemFixture,
+} from "@/test/factories";
+import { createRouteRequest } from "@/test/request-helpers";
 import { POST as purchaseItem } from "./purchase/route";
 import { PUT as equipItem } from "@/app/api/agents/me/equipment/route";
 
@@ -63,20 +68,18 @@ test("purchase deducts points and creates inventory atomically", async () => {
   let transactionCalls = 0;
   const pointTransactions: Array<Record<string, unknown>> = [];
 
-  prismaClient.agent.findUnique = async () => ({
-    id: "agent-1",
-    apiKey: "agent-key",
-    points: 120,
-    avatarConfig: { color: "red", hat: null, accessory: null },
-  });
-  prismaClient.shopItem.findUnique = async () => ({
-    id: "crown",
-    name: "Crown",
-    price: 100,
-    type: "hat",
-    category: "hat",
-    spriteKey: "crown",
-  });
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "agent-1",
+      apiKey: "agent-key",
+      points: 120,
+      avatarConfig: createAvatarConfigFixture(),
+    });
+  prismaClient.shopItem.findUnique = async () =>
+    createShopItemFixture({
+      id: "crown",
+      name: "Crown",
+    });
   prismaClient.agentInventory.findUnique = async () => null;
   prismaClient.$transaction = async (input) => {
     transactionCalls += 1;
@@ -111,15 +114,12 @@ test("purchase deducts points and creates inventory atomically", async () => {
   };
 
   const response = await purchaseItem(
-    new NextRequest("http://localhost/api/points/shop/purchase", {
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
       method: "POST",
-      headers: {
-        Authorization: "Bearer agent-key",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+      apiKey: "agent-key",
+      json: {
         itemId: "crown",
-      }),
+      },
     })
   );
   const json = await response.json();
@@ -131,20 +131,18 @@ test("purchase deducts points and creates inventory atomically", async () => {
 });
 
 test("purchase returns conflict when the item is already owned", async () => {
-  prismaClient.agent.findUnique = async () => ({
-    id: "agent-1",
-    apiKey: "agent-key",
-    points: 120,
-    avatarConfig: { color: "red", hat: null, accessory: null },
-  });
-  prismaClient.shopItem.findUnique = async () => ({
-    id: "crown",
-    name: "Crown",
-    price: 100,
-    type: "hat",
-    category: "hat",
-    spriteKey: "crown",
-  });
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "agent-1",
+      apiKey: "agent-key",
+      points: 120,
+      avatarConfig: createAvatarConfigFixture(),
+    });
+  prismaClient.shopItem.findUnique = async () =>
+    createShopItemFixture({
+      id: "crown",
+      name: "Crown",
+    });
   prismaClient.agentInventory.findUnique = async () => ({
     id: "inventory-1",
     itemId: "crown",
@@ -152,15 +150,12 @@ test("purchase returns conflict when the item is already owned", async () => {
   });
 
   const response = await purchaseItem(
-    new NextRequest("http://localhost/api/points/shop/purchase", {
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
       method: "POST",
-      headers: {
-        Authorization: "Bearer agent-key",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+      apiKey: "agent-key",
+      json: {
         itemId: "crown",
-      }),
+      },
     })
   );
   const json = await response.json();
@@ -174,15 +169,14 @@ test("equip updates inventory flags and avatarConfig together", async () => {
   let updateManyArgs: Record<string, unknown> | undefined;
   let agentUpdateArgs: Record<string, unknown> | undefined;
 
-  prismaClient.agent.findUnique = async () => ({
-    id: "agent-1",
-    apiKey: "agent-key",
-    avatarConfig: {
-      color: "red",
-      hat: "tophat",
-      accessory: null,
-    },
-  });
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "agent-1",
+      apiKey: "agent-key",
+      avatarConfig: createAvatarConfigFixture({
+        hat: "tophat",
+      }),
+    });
   prismaClient.agentInventory.findUnique = async () => ({
     id: "inventory-crown",
     agentId: "agent-1",
@@ -243,15 +237,12 @@ test("equip updates inventory flags and avatarConfig together", async () => {
   };
 
   const response = await equipItem(
-    new NextRequest("http://localhost/api/agents/me/equipment", {
+    createRouteRequest("http://localhost/api/agents/me/equipment", {
       method: "PUT",
-      headers: {
-        Authorization: "Bearer agent-key",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+      apiKey: "agent-key",
+      json: {
         itemId: "crown",
-      }),
+      },
     })
   );
   const json = await response.json();

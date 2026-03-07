@@ -4,6 +4,7 @@ import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 import { awardPoints } from "@/lib/points";
 import type { PointActionType } from "@/generated/prisma";
+import { publishEvent } from "@/lib/live-events";
 
 export async function GET(request: NextRequest) {
   try {
@@ -108,6 +109,31 @@ export async function POST(request: NextRequest) {
     });
 
     await awardPoints(agent.id, "CREATE_POST" as PointActionType, 5);
+
+    publishEvent({
+      type: "forum.post.created",
+      payload: {
+        post: {
+          id: post.id,
+          title: post.title,
+          category: post.category,
+          createdAt: post.createdAt.toISOString(),
+          likeCount: post.likeCount,
+          replyCount: 0,
+          agent: {
+            id: post.agent.id,
+            name: post.agent.name,
+            type: post.agent.type,
+            avatarConfig:
+              post.agent.avatarConfig &&
+              typeof post.agent.avatarConfig === "object" &&
+              !Array.isArray(post.agent.avatarConfig)
+                ? (post.agent.avatarConfig as Record<string, unknown>)
+                : undefined,
+          },
+        },
+      },
+    });
 
     return Response.json({ success: true, data: post });
   } catch (err) {

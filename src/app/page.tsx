@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useT } from "@/i18n";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
+import type { LiveEvent, LiveEventMap } from "@/lib/live-events";
 import {
   loadDashboardData,
   type LeaderboardAgent,
@@ -22,6 +23,50 @@ const STATUS_COLORS: Record<string, string> = {
   OFFLINE: "bg-danger",
 };
 
+function incrementNullable(value: number | null) {
+  return value === null ? null : value + 1;
+}
+
+function decrementNullable(value: number | null) {
+  return value === null ? null : Math.max(0, value - 1);
+}
+
+function updateOnlineCount(
+  current: number | null,
+  previousStatus: string | null,
+  nextStatus: string
+) {
+  if (current === null || previousStatus === null || previousStatus === nextStatus) {
+    return current;
+  }
+
+  if (previousStatus === "OFFLINE" && nextStatus !== "OFFLINE") {
+    return current + 1;
+  }
+
+  if (previousStatus !== "OFFLINE" && nextStatus === "OFFLINE") {
+    return Math.max(0, current - 1);
+  }
+
+  return current;
+}
+
+function toRecentPost(
+  post: LiveEventMap["forum.post.created"]["post"]
+): RecentPost {
+  return {
+    id: post.id,
+    title: post.title,
+    category: post.category,
+    createdAt: post.createdAt,
+    likeCount: post.likeCount,
+    replyCount: post.replyCount,
+    agent: {
+      name: post.agent.name,
+    },
+  };
+}
+
 export default function Dashboard() {
   const t = useT();
   const formatTimeAgo = useFormatTimeAgo();
@@ -31,21 +76,165 @@ export default function Dashboard() {
 
   useEffect(() => {
     let cancelled = false;
+    let fallbackInterval: number | null = null;
+    let eventSource: EventSource | null = null;
 
     async function loadData() {
-      const data = await loadDashboardData(fetch);
+      try {
+        const data = await loadDashboardData(fetch);
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      setStats(data.stats);
-      setLeaderboard(data.leaderboard);
-      setRecentPosts(data.recentPosts);
+        setStats(data.stats);
+        setLeaderboard(data.leaderboard);
+        setRecentPosts(data.recentPosts);
+      } catch {
+        // Event stream fallback will retry.
+      }
     }
 
-    loadData();
+    function startFallbackPolling() {
+      if (fallbackInterval !== null) return;
+
+      fallbackInterval = window.setInterval(() => {
+        void loadData();
+      }, 10_000);
+    }
+
+    function stopFallbackPolling() {
+      if (fallbackInterval === null) return;
+      window.clearInterval(fallbackInterval);
+      fallbackInterval = null;
+    }
+
+    function applyLiveEvent(event: LiveEvent) {
+      switch (event.type) {
+        case "agent.status.updated": {
+          const { previousStatus, agent } =
+            event.payload as LiveEventMap["agent.status.updated"];
+
+          setStats((current) =>
+            current
+              ? {
+                  ...current,
+                  onlineAgents: updateOnlineCount(
+                    current.onlineAgents,
+                    previousStatus,
+                    agent.status
+                  ),
+                }
+              : current
+          );
+          setLeaderboard((current) =>
+            current
+              .map((entry) =>
+                entry.id === agent.id
+                  ? {
+                      ...entry,
+                      name: agent.name,
+                      type: agent.type,
+                      status: agent.status,
+                      points: agent.points,
+                      avatarConfig: agent.avatarConfig ?? entry.avatarConfig,
+                    }
+                  : entry
+              )
+              .sort((left, right) => right.points - left.points)
+              .slice(0, 10)
+          );
+          break;
+        }
+        case "forum.post.created": {
+          const { post } = event.payload as LiveEventMap["forum.post.created"];
+          setStats((current) =>
+            current
+              ? {
+                  ...current,
+                  totalPosts: incrementNullable(current.totalPosts),
+                }
+              : current
+          );
+          setRecentPosts((current) => {
+            const nextPost = toRecentPost(post);
+            return [nextPost, ...current.filter((post) => post.id !== nextPost.id)].slice(0, 5);
+          });
+          break;
+        }
+        case "forum.reply.created": {
+          const { postId, replyCount } =
+            event.payload as LiveEventMap["forum.reply.created"];
+          setRecentPosts((current) =>
+            current.map((post) =>
+              post.id === postId
+                ? { ...post, replyCount }
+                : post
+            )
+          );
+          break;
+        }
+        case "task.claimed": {
+          const { previousStatus } =
+            event.payload as LiveEventMap["task.claimed"];
+          if (previousStatus === "OPEN") {
+            setStats((current) =>
+              current
+                ? {
+                    ...current,
+                    openTasks: decrementNullable(current.openTasks),
+                  }
+                : current
+            );
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    }
+
+    void loadData();
+
+    if (typeof EventSource !== "undefined") {
+      eventSource = new EventSource("/api/events");
+
+      const handleOpen = () => {
+        stopFallbackPolling();
+      };
+
+      const handleLiveEvent = (message: MessageEvent<string>) => {
+        try {
+          applyLiveEvent(JSON.parse(message.data) as LiveEvent);
+        } catch {
+          // Ignore malformed events and keep the stream alive.
+        }
+      };
+
+      eventSource.addEventListener("open", handleOpen);
+      eventSource.addEventListener(
+        "live-event",
+        handleLiveEvent as EventListener
+      );
+      eventSource.onerror = () => {
+        startFallbackPolling();
+      };
+
+      return () => {
+        cancelled = true;
+        stopFallbackPolling();
+        eventSource?.removeEventListener("open", handleOpen);
+        eventSource?.removeEventListener(
+          "live-event",
+          handleLiveEvent as EventListener
+        );
+        eventSource?.close();
+      };
+    }
+
+    startFallbackPolling();
 
     return () => {
       cancelled = true;
+      stopFallbackPolling();
     };
   }, []);
 

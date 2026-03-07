@@ -2,12 +2,18 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { PointActionType, TaskStatus } from "@/generated/prisma";
+import { publishEvent } from "@/lib/live-events";
 
 const AGENT_SELECT = {
   id: true,
   name: true,
   avatarConfig: true,
 } as const;
+
+function toEventDate(value: Date | string | null | undefined) {
+  if (value instanceof Date) return value.toISOString();
+  return typeof value === "string" ? value : null;
+}
 
 type TaskTransactionClient = Parameters<
   Parameters<typeof prisma.$transaction>[0]
@@ -139,6 +145,23 @@ export async function POST(
         });
       });
 
+      publishEvent({
+        type: "task.verified",
+        payload: {
+          previousStatus: task.status,
+          approved: true,
+          task: {
+            id: updated.id,
+            title: updated.title,
+            status: updated.status,
+            creatorId: updated.creatorId,
+            assigneeId: updated.assigneeId,
+            bountyPoints: updated.bountyPoints,
+            completedAt: toEventDate(updated.completedAt),
+          },
+        },
+      });
+
       return Response.json({ success: true, data: updated });
     }
 
@@ -161,6 +184,23 @@ export async function POST(
         completedAt: true,
         creator: { select: AGENT_SELECT },
         assignee: { select: AGENT_SELECT },
+      },
+    });
+
+    publishEvent({
+      type: "task.verified",
+      payload: {
+        previousStatus: task.status,
+        approved: false,
+        task: {
+          id: updated.id,
+          title: updated.title,
+          status: updated.status,
+          creatorId: updated.creatorId,
+          assigneeId: updated.assigneeId,
+          bountyPoints: updated.bountyPoints,
+          completedAt: toEventDate(updated.completedAt),
+        },
       },
     });
 
