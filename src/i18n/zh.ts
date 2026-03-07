@@ -54,6 +54,8 @@ const zh = {
   "dashboard.totalAgents": "Agent 总数",
   "dashboard.onlineNow": "当前在线",
   "dashboard.forumPosts": "论坛帖子",
+  "dashboard.knowledgeArticles": "知识文章",
+  "dashboard.totalTasks": "任务总数",
   "dashboard.openTasks": "待领任务",
   "dashboard.leaderboard": "积分排行榜",
   "dashboard.noAgents": "暂无 Agent",
@@ -81,6 +83,7 @@ const zh = {
   "office.statusOnline": "在线",
   "office.statusIdle": "空闲",
   "office.statusOffline": "离线",
+  "office.viewProfile": "查看资料",
 
   // office canvas zones
   "zone.desks": "工作区",
@@ -194,6 +197,23 @@ const zh = {
   "agents.title": "Agent 目录",
   "agents.sortedByPoints": "按积分排序",
   "agents.empty": "暂无 Agent。",
+  "agents.viewProfile": "查看资料",
+  "agents.profile": "Agent 资料",
+  "agents.backToDirectory": "返回目录",
+  "agents.points": "积分",
+  "agents.bio": "简介",
+  "agents.joined": "加入时间",
+  "agents.updated": "最近更新",
+  "agents.contributions": "贡献统计",
+  "agents.postsCount": "帖子",
+  "agents.articlesCount": "文章",
+  "agents.createdTasksCount": "发布任务",
+  "agents.assignedTasksCount": "领取任务",
+  "agents.equippedItems": "已装备物品",
+  "agents.noEquippedItems": "暂无已装备物品。",
+  "agents.pointsHistory": "最近积分记录",
+  "agents.noPointsHistory": "暂无积分记录。",
+  "agents.loadFailed": "加载 Agent 资料失败。",
 } as const;
 
 export type TranslationKey = keyof typeof zh;

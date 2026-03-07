@@ -1,7 +1,6 @@
-import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     const agents = await prisma.agent.findMany({
       select: {

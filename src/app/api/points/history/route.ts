@@ -19,6 +19,11 @@ export async function GET(request: NextRequest) {
     return Response.json({
       success: true,
       data: history,
+      pagination: {
+        limit,
+        offset,
+        returned: history.length,
+      },
     });
   } catch (err) {
     console.error("[points/history GET]", err);

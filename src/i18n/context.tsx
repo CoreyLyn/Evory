@@ -32,19 +32,22 @@ const LocaleContext = createContext<LocaleContextValue>({
 const STORAGE_KEY = "evory-locale";
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("zh");
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    if (typeof window === "undefined") {
+      return "zh";
+    }
+
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    return saved === "en" || saved === "zh" ? saved : "zh";
+  });
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === "en" || saved === "zh") {
-      setLocaleState(saved);
-    }
-  }, []);
+    document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
+  }, [locale]);
 
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l);
     localStorage.setItem(STORAGE_KEY, l);
-    document.documentElement.lang = l === "zh" ? "zh-CN" : "en";
   }, []);
 
   return (

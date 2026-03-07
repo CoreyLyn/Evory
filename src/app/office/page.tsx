@@ -1,12 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { OfficeEngine, AgentData } from "@/canvas/engine";
 import { ZONES, type CanvasLabels } from "@/canvas/office";
 import { useT, useLocale } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
-
-import { Users, Activity, Layers, ActivitySquare, X, Cpu, Clock, Zap } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { useFormatTimeAgo } from "@/lib/useFormatTime";
+import { Users, Activity, Layers, ActivitySquare, X, Clock, Zap } from "lucide-react";
 
 const ZONE_LABEL_KEYS: Record<string, TranslationKey> = {
   desks: "zone.desks",
@@ -17,15 +19,21 @@ const ZONE_LABEL_KEYS: Record<string, TranslationKey> = {
   shop: "zone.shop",
 };
 
+type OfficeAgent = AgentData & {
+  type?: string;
+  bio?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export default function OfficePage() {
   const t = useT();
   const { locale } = useLocale();
+  const formatTimeAgo = useFormatTimeAgo();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<OfficeEngine | null>(null);
-  const [agentCount, setAgentCount] = useState(0);
-  const [onlineCount, setOnlineCount] = useState(0);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  const [agentsList, setAgentsList] = useState<AgentData[]>([]);
+  const [agentsList, setAgentsList] = useState<OfficeAgent[]>([]);
 
   const buildCanvasLabels = useCallback((): CanvasLabels => {
     const zones: Record<string, string> = {};
@@ -48,27 +56,34 @@ export default function OfficePage() {
     }
   }, [locale, buildCanvasLabels]);
 
+  const agentCount = agentsList.length;
+  const onlineCount = agentsList.filter((agent) => agent.status !== "OFFLINE").length;
+
   const fetchAgents = useCallback(async () => {
     try {
       const res = await fetch("/api/agents/list?pageSize=100");
       const json = await res.json();
       if (json.success && json.data?.agents) {
-        const agents: AgentData[] = json.data.agents.map(
+        const agents: OfficeAgent[] = json.data.agents.map(
           (a: Record<string, unknown>) => ({
             id: a.id as string,
             name: a.name as string,
             status: a.status as string,
             points: a.points as number,
+            type: typeof a.type === "string" ? a.type : undefined,
+            bio: typeof a.bio === "string" ? a.bio : "",
+            createdAt:
+              typeof a.createdAt === "string" ? a.createdAt : undefined,
+            updatedAt:
+              typeof a.updatedAt === "string" ? a.updatedAt : undefined,
             avatarConfig: (a.avatarConfig || {
               color: "red",
               hat: null,
               accessory: null,
-            }) as AgentData["avatarConfig"],
+            }) as OfficeAgent["avatarConfig"],
           })
         );
         engineRef.current?.updateAgents(agents);
-        setAgentCount(engineRef.current?.getAgentCount() || 0);
-        setOnlineCount(engineRef.current?.getOnlineCount() || 0);
         setAgentsList(agents);
       }
     } catch {
@@ -99,13 +114,18 @@ export default function OfficePage() {
 
     handleResize();
     engine.start();
-    fetchAgents();
 
-    const interval = setInterval(fetchAgents, 5000);
+    const initialLoad = window.setTimeout(() => {
+      void fetchAgents();
+    }, 0);
+    const interval = window.setInterval(() => {
+      void fetchAgents();
+    }, 5000);
     window.addEventListener("resize", handleResize);
 
     return () => {
       engine.stop();
+      clearTimeout(initialLoad);
       clearInterval(interval);
       window.removeEventListener("resize", handleResize);
     };
@@ -262,42 +282,73 @@ export default function OfficePage() {
                   </div>
                 </div>
 
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {agent.type && (
+                    <Badge variant="muted">{agent.type.replace(/_/g, " ")}</Badge>
+                  )}
+                </div>
+
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 gap-3 mb-5">
                   <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 flex flex-col gap-1">
-                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5"><Zap className="w-3 h-3 text-yellow-500" />积分</span>
+                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5"><Zap className="w-3 h-3 text-yellow-500" />{t("agents.points")}</span>
                     <span className="text-lg font-bold text-white leading-none">{agent.points}</span>
                   </div>
                   <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 flex flex-col gap-1">
-                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5"><ActivitySquare className="w-3 h-3 text-sky-400" />状态</span>
+                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5"><ActivitySquare className="w-3 h-3 text-sky-400" />{t("office.status")}</span>
                     <span className="text-sm font-bold leading-none mt-1" style={{ color: statusColor }}>
                       {t(statusLabelKey)}
                     </span>
                   </div>
                 </div>
 
-                {/* Mock Details List */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-sm">
-                    <Cpu className="w-4 h-4 text-slate-500" />
-                    <div className="flex flex-col">
-                      <span className="text-slate-200">处理前端渲染任务</span>
-                      <span className="text-xs text-slate-500 focus:outline-none">当前分配任务</span>
+                  {agent.bio && (
+                    <div className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-3">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
+                        {t("agents.bio")}
+                      </p>
+                      <p className="mt-2 text-sm leading-relaxed text-slate-200">
+                        {agent.bio}
+                      </p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm">
-                    <Clock className="w-4 h-4 text-slate-500" />
-                    <div className="flex flex-col">
-                      <span className="text-slate-200">2小时 15分钟</span>
-                      <span className="text-xs text-slate-500">连续在线时长</span>
+                  )}
+
+                  {agent.createdAt && (
+                    <div className="flex items-center gap-3 text-sm">
+                      <Clock className="w-4 h-4 text-slate-500" />
+                      <div className="flex flex-col">
+                        <span className="text-slate-200">
+                          {formatTimeAgo(agent.createdAt)}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {t("agents.joined")}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {agent.updatedAt && (
+                    <div className="flex items-center gap-3 text-sm">
+                      <ActivitySquare className="w-4 h-4 text-slate-500" />
+                      <div className="flex flex-col">
+                        <span className="text-slate-200">
+                          {formatTimeAgo(agent.updatedAt)}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {t("agents.updated")}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Action Button */}
-                <button className="w-full mt-6 py-2.5 rounded-xl bg-primary/10 text-primary font-medium hover:bg-primary/20 transition-colors text-sm border border-primary/20">
-                  查看完整记录
-                </button>
+                <Link
+                  href={`/agents/${agent.id}`}
+                  className="block w-full mt-6 rounded-xl border border-primary/20 bg-primary/10 py-2.5 text-center text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+                >
+                  {t("office.viewProfile")}
+                </Link>
               </div>
 
             </div>

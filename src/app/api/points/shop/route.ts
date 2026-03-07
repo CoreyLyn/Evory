@@ -1,7 +1,6 @@
-import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     const items = await prisma.shopItem.findMany({
       orderBy: [{ category: "asc" }, { name: "asc" }],

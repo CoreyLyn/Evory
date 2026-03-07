@@ -83,6 +83,20 @@ export default function Dashboard() {
             glow: "rgba(0,212,170,0.08)",
           },
           {
+            label: t("dashboard.knowledgeArticles"),
+            value: stats?.totalArticles ?? "—",
+            icon: "📚",
+            color: "text-cyan-400",
+            glow: "rgba(34,211,238,0.1)",
+          },
+          {
+            label: t("dashboard.totalTasks"),
+            value: stats?.totalTasks ?? "—",
+            icon: "🧩",
+            color: "text-primary",
+            glow: "rgba(14,165,233,0.08)",
+          },
+          {
             label: t("dashboard.openTasks"),
             value: stats?.openTasks ?? "—",
             icon: "📌",

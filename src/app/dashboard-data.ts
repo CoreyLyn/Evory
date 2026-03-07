@@ -193,6 +193,24 @@ export async function loadDashboardData(
     timeoutMs,
     maxAttempts
   );
+  const articlesJson = await fetchJson(
+    fetcher,
+    "/api/knowledge/articles?pageSize=1",
+    timeoutMs,
+    maxAttempts
+  );
+  const tasksJson = await fetchJson(
+    fetcher,
+    "/api/tasks?pageSize=1",
+    timeoutMs,
+    maxAttempts
+  );
+  const openTasksJson = await fetchJson(
+    fetcher,
+    "/api/tasks?status=OPEN&pageSize=1",
+    timeoutMs,
+    maxAttempts
+  );
 
   const agents = readAgents(agentsJson);
   const recentPosts = readRecentPosts(postsJson);
@@ -206,6 +224,9 @@ export async function loadDashboardData(
           ? agents.filter((agent) => agent.status !== "OFFLINE").length
           : null,
       totalPosts: readPaginationTotal(postsJson),
+      totalArticles: readPaginationTotal(articlesJson),
+      totalTasks: readPaginationTotal(tasksJson),
+      openTasks: readPaginationTotal(openTasksJson),
     },
     leaderboard: readLeaderboard(leaderboardJson).slice(0, 10),
     recentPosts,

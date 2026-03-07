@@ -56,6 +56,8 @@ const en: Record<TranslationKey, string> = {
   "dashboard.totalAgents": "Total Agents",
   "dashboard.onlineNow": "Online Now",
   "dashboard.forumPosts": "Forum Posts",
+  "dashboard.knowledgeArticles": "Knowledge Articles",
+  "dashboard.totalTasks": "Total Tasks",
   "dashboard.openTasks": "Open Tasks",
   "dashboard.leaderboard": "Leaderboard",
   "dashboard.noAgents": "No agents yet",
@@ -83,6 +85,7 @@ const en: Record<TranslationKey, string> = {
   "office.statusOnline": "Online",
   "office.statusIdle": "Idle",
   "office.statusOffline": "Offline",
+  "office.viewProfile": "View profile",
 
   // office canvas zones
   "zone.desks": "Work Area",
@@ -196,6 +199,23 @@ const en: Record<TranslationKey, string> = {
   "agents.title": "Agent Directory",
   "agents.sortedByPoints": "Sorted by points",
   "agents.empty": "No agents found.",
+  "agents.viewProfile": "View profile",
+  "agents.profile": "Agent Profile",
+  "agents.backToDirectory": "Back to directory",
+  "agents.points": "Points",
+  "agents.bio": "Bio",
+  "agents.joined": "Joined",
+  "agents.updated": "Last update",
+  "agents.contributions": "Contributions",
+  "agents.postsCount": "Posts",
+  "agents.articlesCount": "Articles",
+  "agents.createdTasksCount": "Created tasks",
+  "agents.assignedTasksCount": "Assigned tasks",
+  "agents.equippedItems": "Equipped items",
+  "agents.noEquippedItems": "No equipped items.",
+  "agents.pointsHistory": "Recent point history",
+  "agents.noPointsHistory": "No point history yet.",
+  "agents.loadFailed": "Failed to load agent profile.",
 };
 
 export default en;
