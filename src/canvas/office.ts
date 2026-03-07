@@ -5,6 +5,7 @@ export interface OfficeZone {
   w: number;
   h: number;
   color: string;
+  borderColor: string;
   label: string;
   icon: string;
 }
@@ -34,12 +35,12 @@ export const DEFAULT_LABELS: CanvasLabels = {
 };
 
 export const ZONES: OfficeZone[] = [
-  { name: "desks", x: 60, y: 60, w: 400, h: 280, color: "#1a1a3e", label: "工作区", icon: "💻" },
-  { name: "bulletin", x: 520, y: 60, w: 300, h: 200, color: "#2a1a1a", label: "论坛公告板", icon: "📋" },
-  { name: "bookshelf", x: 520, y: 320, w: 300, h: 200, color: "#1a2a1a", label: "知识库", icon: "📚" },
-  { name: "taskboard", x: 880, y: 60, w: 260, h: 280, color: "#2a2a1a", label: "任务板", icon: "📌" },
-  { name: "lounge", x: 60, y: 400, w: 400, h: 280, color: "#1a1a2a", label: "休息区", icon: "☕" },
-  { name: "shop", x: 880, y: 400, w: 260, h: 280, color: "#2a1a2a", label: "商店", icon: "🛒" },
+  { name: "desks", x: 60, y: 60, w: 400, h: 280, color: "rgba(30, 41, 59, 0.4)", borderColor: "rgba(96, 165, 250, 0.3)", label: "工作区", icon: "💻" },
+  { name: "bulletin", x: 520, y: 60, w: 300, h: 200, color: "rgba(63, 63, 70, 0.3)", borderColor: "rgba(161, 161, 170, 0.3)", label: "论坛公告板", icon: "📋" },
+  { name: "bookshelf", x: 520, y: 320, w: 300, h: 200, color: "rgba(20, 83, 45, 0.3)", borderColor: "rgba(74, 222, 128, 0.3)", label: "知识库", icon: "📚" },
+  { name: "taskboard", x: 880, y: 60, w: 260, h: 280, color: "rgba(49, 46, 129, 0.3)", borderColor: "rgba(129, 140, 248, 0.3)", label: "任务板", icon: "📌" },
+  { name: "lounge", x: 60, y: 400, w: 400, h: 280, color: "rgba(88, 28, 135, 0.25)", borderColor: "rgba(192, 132, 252, 0.3)", label: "休息区", icon: "☕" },
+  { name: "shop", x: 880, y: 400, w: 260, h: 280, color: "rgba(131, 24, 67, 0.25)", borderColor: "rgba(244, 114, 182, 0.3)", label: "商店", icon: "🛒" },
 ];
 
 export function getZoneForStatus(status: string): OfficeZone {
@@ -54,59 +55,90 @@ export function getZoneForStatus(status: string): OfficeZone {
 }
 
 export function drawOffice(ctx: CanvasRenderingContext2D, labels: CanvasLabels = DEFAULT_LABELS) {
-  // Floor
-  ctx.fillStyle = "#0d0d20";
+  // Background with subtle radial gradient
+  const bgGradient = ctx.createRadialGradient(
+    OFFICE_WIDTH / 2, OFFICE_HEIGHT / 2, 100,
+    OFFICE_WIDTH / 2, OFFICE_HEIGHT / 2, OFFICE_WIDTH
+  );
+  bgGradient.addColorStop(0, "#0f172a"); // slate-900
+  bgGradient.addColorStop(1, "#020617"); // slate-950
+
+  ctx.fillStyle = bgGradient;
   ctx.fillRect(0, 0, OFFICE_WIDTH, OFFICE_HEIGHT);
 
-  // Grid pattern
-  ctx.strokeStyle = "rgba(40, 40, 80, 0.3)";
-  ctx.lineWidth = 0.5;
+  // Soft Grid pattern
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.05)"; // very faint slate
+  ctx.lineWidth = 1;
+
+  ctx.beginPath();
   for (let x = 0; x < OFFICE_WIDTH; x += TILE_SIZE) {
-    ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, OFFICE_HEIGHT);
-    ctx.stroke();
   }
   for (let y = 0; y < OFFICE_HEIGHT; y += TILE_SIZE) {
-    ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(OFFICE_WIDTH, y);
-    ctx.stroke();
   }
+  ctx.stroke();
 
-  // Zones
+  // Draw Zones with Glow Effects
   for (const zone of ZONES) {
+    ctx.save();
+
+    // Zone Background
     ctx.fillStyle = zone.color;
+    ctx.shadowColor = zone.borderColor;
+    ctx.shadowBlur = 15;
     ctx.fillRect(zone.x, zone.y, zone.w, zone.h);
 
-    ctx.strokeStyle = "rgba(100, 100, 160, 0.4)";
-    ctx.lineWidth = 1;
+    // Reset shadow for inner elements
+    ctx.shadowBlur = 0;
+
+    // Zone Border
+    ctx.strokeStyle = zone.borderColor;
+    ctx.lineWidth = 1.5;
     ctx.strokeRect(zone.x, zone.y, zone.w, zone.h);
 
+    // Draw inner details
     drawZoneDetails(ctx, zone, labels);
 
-    // Zone label
+    // Zone UI Label Pill
     const zoneLabel = labels.zones[zone.name] ?? zone.label;
-    ctx.save();
-    ctx.font = "11px monospace";
-    ctx.fillStyle = "rgba(150, 150, 200, 0.6)";
+
+    ctx.fillStyle = "rgba(15, 23, 42, 0.8)"; // slate-900 bg for label
+    ctx.beginPath();
+    ctx.roundRect(zone.x + 12, zone.y + 12, 100, 24, 6);
+    ctx.fill();
+    ctx.strokeStyle = zone.borderColor;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.font = "12px system-ui, -apple-system, sans-serif";
+    ctx.fillStyle = "rgba(226, 232, 240, 0.9)"; // slate-200 text
     ctx.textAlign = "left";
-    ctx.fillText(`${zone.icon} ${zoneLabel}`, zone.x + 8, zone.y + 16);
+    ctx.textBaseline = "middle";
+    ctx.fillText(`${zone.icon} ${zoneLabel}`, zone.x + 20, zone.y + 24);
+
     ctx.restore();
   }
 
-  // Walls
-  ctx.strokeStyle = "#3a3a6e";
-  ctx.lineWidth = 3;
+  // Outer Walls
+  ctx.strokeStyle = "rgba(51, 65, 85, 0.8)"; // slate-700
+  ctx.lineWidth = 4;
   ctx.strokeRect(2, 2, OFFICE_WIDTH - 4, OFFICE_HEIGHT - 4);
 
-  // Door
-  ctx.fillStyle = "#2a2a5e";
-  ctx.fillRect(OFFICE_WIDTH / 2 - 25, OFFICE_HEIGHT - 4, 50, 6);
-  ctx.fillStyle = "#4a4a8e";
-  ctx.font = "10px monospace";
+  // Door/Entrance
+  ctx.fillStyle = "rgba(30, 41, 59, 0.9)"; // slate-800
+  ctx.fillRect(OFFICE_WIDTH / 2 - 40, OFFICE_HEIGHT - 8, 80, 8);
+
+  // Door Glow
+  ctx.shadowColor = "rgba(56, 189, 248, 0.5)"; // sky-400
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = "rgba(56, 189, 248, 0.8)"; // sky-400
+  ctx.font = "12px system-ui, -apple-system, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(labels.entrance, OFFICE_WIDTH / 2, OFFICE_HEIGHT - 8);
+  ctx.fillText(labels.entrance, OFFICE_WIDTH / 2, OFFICE_HEIGHT - 15);
+  ctx.shadowBlur = 0;
 }
 
 function drawZoneDetails(ctx: CanvasRenderingContext2D, zone: OfficeZone, labels: CanvasLabels) {
@@ -114,92 +146,184 @@ function drawZoneDetails(ctx: CanvasRenderingContext2D, zone: OfficeZone, labels
 
   switch (zone.name) {
     case "desks": {
-      ctx.fillStyle = "#2a2a4e";
+      ctx.fillStyle = "rgba(51, 65, 85, 0.4)"; // Desk base
       for (let row = 0; row < 3; row++) {
         for (let col = 0; col < 4; col++) {
-          const dx = zone.x + 30 + col * 90;
-          const dy = zone.y + 50 + row * 80;
-          ctx.fillRect(dx, dy, 60, 30);
-          ctx.fillStyle = "#333355";
-          ctx.fillRect(dx + 20, dy + 2, 20, 14);
-          ctx.fillStyle = "#1a3a2a";
-          ctx.fillRect(dx + 22, dy + 4, 16, 10);
-          ctx.fillStyle = "#2a2a4e";
+          const dx = zone.x + 40 + col * 85;
+          const dy = zone.y + 60 + row * 75;
+
+          // Desk
+          ctx.beginPath();
+          ctx.roundRect(dx, dy, 60, 35, 4);
+          ctx.fill();
+
+          // Monitor stand
+          ctx.fillStyle = "rgba(71, 85, 105, 0.6)";
+          ctx.fillRect(dx + 25, dy + 5, 10, 8);
+
+          // Monitor screen (glowing slightly)
+          ctx.fillStyle = "rgba(30, 41, 59, 1)";
+          ctx.shadowColor = "rgba(56, 189, 248, 0.3)";
+          ctx.shadowBlur = 5;
+          ctx.beginPath();
+          ctx.roundRect(dx + 15, dy + 8, 30, 18, 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // Screen content line
+          ctx.fillStyle = "rgba(56, 189, 248, 0.6)";
+          ctx.fillRect(dx + 18, dy + 12, 15, 2);
+
+          ctx.fillStyle = "rgba(51, 65, 85, 0.4)"; // Reset for next desk
         }
       }
       break;
     }
     case "bulletin": {
-      ctx.fillStyle = "#3a2a1a";
-      ctx.fillRect(zone.x + 20, zone.y + 30, zone.w - 40, zone.h - 50);
-      const noteColors = ["#ffcc44", "#ff8844", "#44cc88", "#4488ff", "#ff44aa"];
-      for (let i = 0; i < 8; i++) {
-        ctx.fillStyle = noteColors[i % noteColors.length] + "88";
-        const nx = zone.x + 30 + (i % 4) * 65;
-        const ny = zone.y + 40 + Math.floor(i / 4) * 60;
-        ctx.fillRect(nx, ny, 50, 45);
+      ctx.fillStyle = "rgba(63, 63, 70, 0.5)"; // Board background
+      ctx.beginPath();
+      ctx.roundRect(zone.x + 20, zone.y + 50, zone.w - 40, zone.h - 70, 4);
+      ctx.fill();
+
+      const noteColors = ["rgba(250, 204, 21, 0.8)", "rgba(248, 113, 113, 0.8)", "rgba(74, 222, 128, 0.8)", "rgba(96, 165, 250, 0.8)"];
+      for (let i = 0; i < 9; i++) {
+        ctx.fillStyle = noteColors[i % noteColors.length];
+        const nx = zone.x + 40 + (i % 4) * 60;
+        const ny = zone.y + 65 + Math.floor(i / 4) * 45;
+
+        ctx.shadowColor = "rgba(0,0,0,0.3)";
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
+        ctx.fillRect(nx, ny, 40, 30);
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+
+        // Pin
+        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+        ctx.beginPath();
+        ctx.arc(nx + 20, ny + 4, 1.5, 0, Math.PI * 2);
+        ctx.fill();
       }
       break;
     }
     case "bookshelf": {
       for (let row = 0; row < 3; row++) {
-        ctx.fillStyle = "#3a2a1a";
-        const sy = zone.y + 30 + row * 55;
-        ctx.fillRect(zone.x + 20, sy, zone.w - 40, 40);
-        const bookColors = ["#cc4444", "#4444cc", "#44cc44", "#cccc44", "#cc44cc", "#44cccc"];
-        for (let b = 0; b < 12; b++) {
-          ctx.fillStyle = bookColors[b % bookColors.length] + "aa";
-          ctx.fillRect(zone.x + 25 + b * 20, sy + 5, 14, 30);
+        const sy = zone.y + 50 + row * 50;
+        // Shelf plank
+        ctx.fillStyle = "rgba(63, 62, 54, 0.8)";
+        ctx.fillRect(zone.x + 20, sy + 35, zone.w - 40, 6);
+
+        const bookColors = ["rgba(239, 68, 68, 0.7)", "rgba(59, 130, 246, 0.7)", "rgba(16, 185, 129, 0.7)", "rgba(245, 158, 11, 0.7)", "rgba(139, 92, 246, 0.7)"];
+        for (let b = 0; b < 10; b++) {
+          ctx.fillStyle = bookColors[(row * 7 + b) % bookColors.length];
+          // Slight random height/width for books
+          const bw = 12 + (Math.sin(b * row) * 4);
+          const bh = 25 + (Math.cos(b * row) * 5);
+          ctx.fillRect(zone.x + 30 + b * 24, sy + 35 - bh, bw, bh);
         }
       }
       break;
     }
     case "taskboard": {
-      ctx.fillStyle = "#2a2a3e";
-      ctx.fillRect(zone.x + 15, zone.y + 30, zone.w - 30, zone.h - 50);
+      ctx.fillStyle = "rgba(30, 27, 75, 0.4)";
+      ctx.beginPath();
+      ctx.roundRect(zone.x + 15, zone.y + 50, zone.w - 30, zone.h - 70, 6);
+      ctx.fill();
+
       const cols = labels.taskCols;
+      const colColors = ["rgba(250, 204, 21, 0.3)", "rgba(56, 189, 248, 0.3)", "rgba(74, 222, 128, 0.3)"];
+
       for (let c = 0; c < 3; c++) {
-        const cx = zone.x + 20 + c * 78;
-        ctx.fillStyle = "rgba(100, 100, 160, 0.3)";
-        ctx.fillRect(cx, zone.y + 35, 70, zone.h - 65);
-        ctx.font = "8px monospace";
-        ctx.fillStyle = "rgba(150, 150, 200, 0.7)";
+        const cx = zone.x + 20 + c * 75;
+
+        // Column bg
+        ctx.fillStyle = colColors[c];
+        ctx.beginPath();
+        ctx.roundRect(cx, zone.y + 60, 65, zone.h - 90, 4);
+        ctx.fill();
+
+        // Column header
+        ctx.font = "10px system-ui, sans-serif";
+        ctx.fillStyle = "rgba(226, 232, 240, 0.8)";
         ctx.textAlign = "center";
-        ctx.fillText(cols[c], cx + 35, zone.y + 47);
-        for (let card = 0; card < 3; card++) {
-          ctx.fillStyle = "rgba(60, 60, 100, 0.6)";
-          ctx.fillRect(cx + 5, zone.y + 55 + card * 32, 60, 24);
+        ctx.fillText(cols[c], cx + 32, zone.y + 75);
+
+        // Cards
+        for (let card = 0; card < 2 + (c % 2); card++) {
+          ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; // White-ish cards
+          ctx.shadowColor = "rgba(0,0,0,0.2)";
+          ctx.shadowBlur = 3;
+          ctx.shadowOffsetY = 1;
+          ctx.beginPath();
+          ctx.roundRect(cx + 8, zone.y + 85 + card * 30, 49, 22, 3);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetY = 0;
+
+          // Card content mock
+          ctx.fillStyle = "rgba(100, 116, 139, 0.5)";
+          ctx.fillRect(cx + 12, zone.y + 90 + card * 30, 30, 3);
+          ctx.fillRect(cx + 12, zone.y + 95 + card * 30, 20, 3);
         }
       }
       break;
     }
     case "lounge": {
-      ctx.fillStyle = "#3a2a4a";
-      ctx.fillRect(zone.x + 40, zone.y + 80, 120, 50);
-      ctx.fillRect(zone.x + 35, zone.y + 75, 10, 60);
-      ctx.fillRect(zone.x + 155, zone.y + 75, 10, 60);
-      ctx.fillStyle = "#3a3a2a";
-      ctx.fillRect(zone.x + 60, zone.y + 150, 80, 40);
-      ctx.fillStyle = "#2a5a2a";
-      ctx.fillRect(zone.x + 300, zone.y + 60, 20, 30);
-      ctx.fillStyle = "#1a3a1a";
+      // Rug
+      ctx.fillStyle = "rgba(88, 28, 135, 0.2)";
       ctx.beginPath();
-      ctx.arc(zone.x + 310, zone.y + 55, 20, 0, Math.PI * 2);
+      ctx.ellipse(zone.x + 200, zone.y + 160, 100, 70, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = "rgba(100, 50, 50, 0.2)";
+
+      // Sofa
+      ctx.fillStyle = "rgba(126, 34, 206, 0.5)";
       ctx.beginPath();
-      ctx.ellipse(zone.x + 200, zone.y + 180, 80, 50, 0, 0, Math.PI * 2);
+      ctx.roundRect(zone.x + 100, zone.y + 100, 120, 40, 10);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.roundRect(zone.x + 90, zone.y + 110, 20, 40, 8); // Armrest left
+      ctx.fill();
+      ctx.beginPath();
+      ctx.roundRect(zone.x + 210, zone.y + 110, 20, 40, 8); // Armrest right
+      ctx.fill();
+
+      // Coffee Table
+      ctx.fillStyle = "rgba(63, 62, 54, 0.7)";
+      ctx.beginPath();
+      ctx.ellipse(zone.x + 160, zone.y + 180, 50, 25, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Plant
+      ctx.fillStyle = "rgba(20, 83, 45, 0.8)";
+      ctx.beginPath();
+      ctx.arc(zone.x + 330, zone.y + 80, 25, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(34, 197, 94, 0.5)";
+      ctx.beginPath();
+      ctx.arc(zone.x + 325, zone.y + 75, 15, 0, Math.PI * 2);
       ctx.fill();
       break;
     }
     case "shop": {
       for (let row = 0; row < 3; row++) {
-        ctx.fillStyle = "#3a2a3a";
-        const sy = zone.y + 35 + row * 70;
-        ctx.fillRect(zone.x + 15, sy, zone.w - 30, 50);
+        // Shelf
+        ctx.fillStyle = "rgba(83, 25, 50, 0.5)";
+        const sy = zone.y + 60 + row * 65;
+        ctx.beginPath();
+        ctx.roundRect(zone.x + 20, sy, zone.w - 40, 45, 6);
+        ctx.fill();
+
+        // Items
         for (let i = 0; i < 3; i++) {
-          ctx.fillStyle = ["#ffcc00", "#ff44aa", "#44ccff"][i] + "66";
-          ctx.fillRect(zone.x + 25 + i * 75, sy + 10, 50, 30);
+          const itemColors = ["rgba(250, 204, 21, 0.7)", "rgba(244, 114, 182, 0.7)", "rgba(56, 189, 248, 0.7)"];
+          ctx.fillStyle = itemColors[(row + i) % 3];
+
+          ctx.shadowColor = itemColors[(row + i) % 3];
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.arc(zone.x + 50 + i * 80, sy + 22, 12, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
         }
       }
       break;

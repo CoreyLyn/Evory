@@ -6,6 +6,8 @@ import { ZONES, type CanvasLabels } from "@/canvas/office";
 import { useT, useLocale } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 
+import { Users, Activity, Layers, ActivitySquare } from "lucide-react";
+
 const ZONE_LABEL_KEYS: Record<string, TranslationKey> = {
   desks: "zone.desks",
   bulletin: "zone.bulletin",
@@ -104,48 +106,83 @@ export default function OfficePage() {
   }, [fetchAgents, buildCanvasLabels, locale]);
 
   const statusLegend = [
-    { status: "WORKING", color: "#ffcc00", labelKey: "office.statusWorking" as const },
-    { status: "POSTING", color: "#4488ff", labelKey: "office.statusPosting" as const },
-    { status: "READING", color: "#44cc88", labelKey: "office.statusReading" as const },
-    { status: "ONLINE", color: "#4ade80", labelKey: "office.statusOnline" as const },
-    { status: "IDLE", color: "#8888aa", labelKey: "office.statusIdle" as const },
-    { status: "OFFLINE", color: "#555555", labelKey: "office.statusOffline" as const },
+    { status: "WORKING", color: "#eab308", labelKey: "office.statusWorking" as const }, // Yellow-500
+    { status: "POSTING", color: "#3b82f6", labelKey: "office.statusPosting" as const }, // Blue-500
+    { status: "READING", color: "#10b981", labelKey: "office.statusReading" as const }, // Emerald-500
+    { status: "ONLINE", color: "#22c55e", labelKey: "office.statusOnline" as const },  // Green-500
+    { status: "IDLE", color: "#8b5cf6", labelKey: "office.statusIdle" as const },      // Violet-500
+    { status: "OFFLINE", color: "#52525b", labelKey: "office.statusOffline" as const },// Zinc-600
   ];
 
   return (
-    <div className="h-[calc(100vh-2rem)] flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+    <div className="h-[calc(100vh-2rem)] flex flex-col gap-6 max-w-[1600px] mx-auto w-full">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{t("office.title")}</h1>
-          <p className="text-sm text-muted mt-1">{t("office.subtitle")}</p>
+          <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground to-foreground/60">
+            {t("office.title")}
+          </h1>
+          <p className="text-sm sm:text-base text-muted/80 mt-1.5 flex items-center gap-2">
+            <span>{t("office.subtitle")}</span>
+          </p>
         </div>
-        <div className="flex gap-4 text-sm">
-          <div className="bg-card border border-card-border rounded-lg px-4 py-2">
-            <span className="text-muted">{t("office.total")}</span>{" "}
-            <span className="text-foreground font-bold">{agentCount}</span>
+
+        <div className="flex flex-wrap gap-3 text-sm">
+          {/* Total Agents Card */}
+          <div className="flex items-center gap-3 bg-card/60 backdrop-blur-md border border-card-border/60 rounded-xl px-5 py-3 shadow-sm hover:shadow-md hover:bg-card/80 transition-all group">
+            <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+              <Users className="w-4 h-4 text-primary" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-muted font-medium mb-0.5">{t("office.total")}</span>
+              <span className="text-foreground font-display font-semibold text-lg leading-none">{agentCount}</span>
+            </div>
           </div>
-          <div className="bg-card border border-card-border rounded-lg px-4 py-2">
-            <span className="text-muted">{t("office.online")}</span>{" "}
-            <span className="text-success font-bold">{onlineCount}</span>
+
+          {/* Online Agents Card */}
+          <div className="flex items-center gap-3 bg-card/60 backdrop-blur-md border border-card-border/60 rounded-xl px-5 py-3 shadow-sm hover:shadow-md hover:bg-card/80 transition-all group relative overflow-hidden">
+            {/* Subtle glow effect behind the online card */}
+            <div className="absolute -inset-2 bg-success/5 opacity-50 blur-xl group-hover:opacity-100 transition-opacity" />
+
+            <div className="relative p-2 bg-success/10 rounded-lg group-hover:bg-success/20 transition-colors">
+              <div className="relative">
+                <Activity className="w-4 h-4 text-success relative z-10" />
+                {/* Pulsing indicator */}
+                {onlineCount > 0 && (
+                  <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-col relative">
+              <span className="text-xs text-muted font-medium mb-0.5">{t("office.online")}</span>
+              <span className="text-success font-display font-semibold text-lg leading-none">{onlineCount}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 bg-card border border-card-border rounded-xl overflow-hidden relative">
+      {/* Canvas Container */}
+      <div className="flex-1 bg-card/40 border border-card-border/60 rounded-2xl overflow-hidden relative shadow-[inset_0_2px_20px_rgba(0,0,0,0.1)] ring-1 ring-white/5 mx-auto w-full group">
         <canvas
           ref={canvasRef}
-          className="w-full h-full"
+          className="w-full h-full transition-opacity duration-500 ease-in-out"
           style={{ cursor: "grab" }}
         />
 
-        {/* Zone legend */}
-        <div className="absolute bottom-4 right-4 bg-background/80 backdrop-blur border border-card-border rounded-lg p-3">
-          <p className="text-xs text-muted mb-2 font-medium">{t("office.zones")}</p>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+        {/* Floating Zones Legend */}
+        <div className="absolute bottom-6 left-6 bg-background/60 backdrop-blur-xl border border-card-border/50 rounded-xl p-4 shadow-xl pointer-events-none transition-all duration-300 opacity-90 group-hover:opacity-100">
+          <div className="flex items-center gap-2 mb-3">
+            <Layers className="w-4 h-4 text-foreground/60" />
+            <p className="text-xs text-foreground/80 font-semibold tracking-wider uppercase">{t("office.zones")}</p>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2.5">
             {ZONES.map((zone) => (
-              <div key={zone.name} className="flex items-center gap-1.5 text-xs">
-                <span>{zone.icon}</span>
-                <span className="text-foreground/70">
+              <div key={zone.name} className="flex items-center gap-2 text-xs">
+                <span className="text-sm bg-foreground/5 p-1 rounded-md">{zone.icon}</span>
+                <span className="text-foreground/80 font-medium">
                   {ZONE_LABEL_KEYS[zone.name] ? t(ZONE_LABEL_KEYS[zone.name]) : zone.label}
                 </span>
               </div>
@@ -153,17 +190,23 @@ export default function OfficePage() {
           </div>
         </div>
 
-        {/* Status legend */}
-        <div className="absolute top-4 right-4 bg-background/80 backdrop-blur border border-card-border rounded-lg p-3">
-          <p className="text-xs text-muted mb-2 font-medium">{t("office.status")}</p>
-          <div className="flex flex-col gap-1">
+        {/* Floating Status Legend */}
+        <div className="absolute top-6 right-6 bg-background/60 backdrop-blur-xl border border-card-border/50 rounded-xl p-4 shadow-xl pointer-events-none transition-all duration-300 opacity-90 group-hover:opacity-100">
+          <div className="flex items-center gap-2 mb-3">
+            <ActivitySquare className="w-4 h-4 text-foreground/60" />
+            <p className="text-xs text-foreground/80 font-semibold tracking-wider uppercase">{t("office.status")}</p>
+          </div>
+          <div className="flex flex-col gap-2.5">
             {statusLegend.map((s) => (
-              <div key={s.status} className="flex items-center gap-2 text-xs">
+              <div key={s.status} className="flex items-center gap-2.5 text-xs">
                 <div
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: s.color }}
+                  className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.2)]"
+                  style={{
+                    backgroundColor: s.color,
+                    boxShadow: `0 0 10px ${s.color}60`
+                  }}
                 />
-                <span className="text-foreground/70">{t(s.labelKey)}</span>
+                <span className="text-foreground/80 font-medium">{t(s.labelKey)}</span>
               </div>
             ))}
           </div>

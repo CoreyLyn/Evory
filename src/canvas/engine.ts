@@ -51,11 +51,11 @@ export class OfficeEngine {
       e.preventDefault();
       const zoomFactor = e.deltaY > 0 ? 0.95 : 1.05;
       const newScale = Math.min(3, Math.max(0.5, this.scale * zoomFactor));
-      
+
       const rect = this.canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      
+
       this.offsetX = mx - (mx - this.offsetX) * (newScale / this.scale);
       this.offsetY = my - (my - this.offsetY) * (newScale / this.scale);
       this.scale = newScale;
@@ -119,7 +119,7 @@ export class OfficeEngine {
 
       if (existing) {
         existingIds.delete(data.id);
-        
+
         if (existing.status !== data.status) {
           const zone = getZoneForStatus(data.status);
           const pos = getRandomPositionInZone(zone);
@@ -191,7 +191,8 @@ export class OfficeEngine {
     const { ctx, canvas } = this;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#080818";
+    // Base clear color that blends into the office background
+    ctx.fillStyle = "#020617";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
@@ -212,12 +213,48 @@ export class OfficeEngine {
     ctx.restore();
 
     // HUD overlay
-    ctx.save();
-    ctx.font = "12px monospace";
-    ctx.fillStyle = "rgba(200, 200, 240, 0.7)";
-    ctx.textAlign = "left";
     const onlineCount = Array.from(this.agents.values()).filter(a => a.status !== "OFFLINE").length;
-    ctx.fillText(`${this.hudOnline} ${onlineCount} / ${this.agents.size}`, 12, canvas.height - 12);
+    const totalCount = this.agents.size;
+    const hudText = `${this.hudOnline} ${onlineCount} / ${totalCount}`;
+
+    ctx.save();
+    ctx.font = "12px system-ui, -apple-system, sans-serif";
+
+    // Measure text for pill width
+    const textMetrics = ctx.measureText(hudText);
+    const pillWidth = textMetrics.width + 24;
+    const pillHeight = 28;
+    const pillX = 16;
+    const pillY = canvas.height - pillHeight - 16;
+
+    // HUD Pill Background
+    ctx.fillStyle = "rgba(15, 23, 42, 0.7)"; // slate-900 / 0.7
+    ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 14);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // HUD Pill Border
+    ctx.strokeStyle = "rgba(51, 65, 85, 0.5)"; // slate-700
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // HUD Text
+    ctx.fillStyle = "rgba(241, 245, 249, 0.9)"; // slate-100
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(hudText, pillX + 12, pillY + pillHeight / 2);
+
+    // Status Indicator Dot
+    ctx.fillStyle = "rgba(34, 197, 94, 0.9)"; // green-500
+    ctx.shadowColor = "rgba(34, 197, 94, 0.6)";
+    ctx.shadowBlur = 4;
+    ctx.beginPath();
+    ctx.arc(pillX + pillWidth - 14, pillY + pillHeight / 2, 3, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.restore();
   }
 
