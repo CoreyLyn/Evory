@@ -36,6 +36,7 @@ export class OfficeEngine {
   private hoveredAgent: string | null = null;
   private labels: CanvasLabels = DEFAULT_LABELS;
   private hudOnline: string = "Online:";
+  private onAgentClick?: (id: string) => void;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -56,6 +57,10 @@ export class OfficeEngine {
     this.labels = labels;
     if (hudOnline) this.hudOnline = hudOnline;
     this.lastBgRenderTime = 0; // Force redraw on label change
+  }
+
+  setOnAgentClick(callback: (id: string) => void) {
+    this.onAgentClick = callback;
   }
 
   private setupEvents() {
@@ -115,6 +120,12 @@ export class OfficeEngine {
     this.canvas.addEventListener("mouseleave", () => {
       this.isDragging = false;
       this.canvas.style.cursor = "grab";
+    });
+
+    this.canvas.addEventListener("click", () => {
+      if (this.hoveredAgent && this.onAgentClick) {
+        this.onAgentClick(this.hoveredAgent);
+      }
     });
   }
 

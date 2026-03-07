@@ -6,7 +6,7 @@ import { ZONES, type CanvasLabels } from "@/canvas/office";
 import { useT, useLocale } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 
-import { Users, Activity, Layers, ActivitySquare } from "lucide-react";
+import { Users, Activity, Layers, ActivitySquare, X, Cpu, Clock, Zap } from "lucide-react";
 
 const ZONE_LABEL_KEYS: Record<string, TranslationKey> = {
   desks: "zone.desks",
@@ -24,6 +24,8 @@ export default function OfficePage() {
   const engineRef = useRef<OfficeEngine | null>(null);
   const [agentCount, setAgentCount] = useState(0);
   const [onlineCount, setOnlineCount] = useState(0);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [agentsList, setAgentsList] = useState<AgentData[]>([]);
 
   const buildCanvasLabels = useCallback((): CanvasLabels => {
     const zones: Record<string, string> = {};
@@ -67,6 +69,7 @@ export default function OfficePage() {
         engineRef.current?.updateAgents(agents);
         setAgentCount(engineRef.current?.getAgentCount() || 0);
         setOnlineCount(engineRef.current?.getOnlineCount() || 0);
+        setAgentsList(agents);
       }
     } catch {
       // Will retry on next interval
@@ -82,6 +85,9 @@ export default function OfficePage() {
       buildCanvasLabels(),
       locale === "zh" ? "在线:" : "Online:"
     );
+    engine.setOnAgentClick((id: string) => {
+      setSelectedAgentId(id);
+    });
     engineRef.current = engine;
 
     const handleResize = () => {
@@ -211,6 +217,93 @@ export default function OfficePage() {
             ))}
           </div>
         </div>
+
+        {/* Interactive Agent Detail Card Overlay */}
+        {selectedAgentId && (() => {
+          const agent = agentsList.find(a => a.id === selectedAgentId);
+          if (!agent) return null;
+
+          const statusColor = statusLegend.find(s => s.status === agent.status)?.color || "#52525b";
+          const statusLabelKey = statusLegend.find(s => s.status === agent.status)?.labelKey || "office.statusOffline";
+
+          return (
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-48 w-80 bg-slate-900/80 backdrop-blur-2xl border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-4 duration-300">
+
+              {/* Header / Banner */}
+              <div className="h-16 w-full relative" style={{ backgroundColor: `${statusColor}20` }}>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 to-transparent" />
+                <button
+                  onClick={() => setSelectedAgentId(null)}
+                  className="absolute top-3 right-3 p-1.5 rounded-full bg-slate-900/40 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors z-10"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Avatar Profile */}
+              <div className="px-6 pb-6 relative -mt-8">
+                <div className="flex items-end gap-4 mb-4">
+                  <div
+                    className="w-16 h-16 rounded-2xl border-2 border-slate-800 flex items-center justify-center shadow-lg relative bg-slate-800"
+                    style={{ boxShadow: `0 0 20px ${statusColor}40` }}
+                  >
+                    <span className="text-3xl filter drop-shadow-md">👾</span>
+                    {/* Status Dot */}
+                    <span
+                      className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-900"
+                      style={{ backgroundColor: statusColor }}
+                    />
+                  </div>
+                  <div className="pb-1">
+                    <h3 className="text-xl font-bold tracking-tight text-white m-0 leading-tight">
+                      {agent.name}
+                    </h3>
+                    <p className="text-sm text-slate-400 font-medium">#{agent.id.slice(0, 6)}</p>
+                  </div>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-3 mb-5">
+                  <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 flex flex-col gap-1">
+                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5"><Zap className="w-3 h-3 text-yellow-500" />积分</span>
+                    <span className="text-lg font-bold text-white leading-none">{agent.points}</span>
+                  </div>
+                  <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 flex flex-col gap-1">
+                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5"><ActivitySquare className="w-3 h-3 text-sky-400" />状态</span>
+                    <span className="text-sm font-bold leading-none mt-1" style={{ color: statusColor }}>
+                      {t(statusLabelKey)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Mock Details List */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 text-sm">
+                    <Cpu className="w-4 h-4 text-slate-500" />
+                    <div className="flex flex-col">
+                      <span className="text-slate-200">处理前端渲染任务</span>
+                      <span className="text-xs text-slate-500 focus:outline-none">当前分配任务</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Clock className="w-4 h-4 text-slate-500" />
+                    <div className="flex flex-col">
+                      <span className="text-slate-200">2小时 15分钟</span>
+                      <span className="text-xs text-slate-500">连续在线时长</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                <button className="w-full mt-6 py-2.5 rounded-xl bg-primary/10 text-primary font-medium hover:bg-primary/20 transition-colors text-sm border border-primary/20">
+                  查看完整记录
+                </button>
+              </div>
+
+            </div>
+          );
+        })()}
+
       </div>
     </div>
   );
