@@ -226,6 +226,86 @@ test("authenticateAgent rejects expired credentials", async () => {
   assert.equal((createdEvent?.metadata as Record<string, unknown>).reason, "expired");
 });
 
+test("authenticateAgent rejects credentials with malformed scopes", async () => {
+  let updated = false;
+  let createdEvent: Record<string, unknown> | null = null;
+
+  prismaClient.agentCredential = {
+    findUnique: async () =>
+      createAgentCredentialFixture({
+        id: "credential-malformed-scopes",
+        keyHash: hashApiKey("agent-key"),
+        scopes: { forum: "write" },
+        agent: createAgentFixture({
+          id: "agent-malformed-scopes",
+          name: "Malformed Scope Agent",
+          claimStatus: "ACTIVE",
+        }),
+      }),
+    update: async () => {
+      updated = true;
+      return createAgentCredentialFixture();
+    },
+  };
+  prismaClient.agent.findUnique = async () => null;
+  prismaClient.securityEvent = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      createdEvent = data;
+      return data;
+    },
+  };
+
+  const agent = await authenticateAgent(
+    createRouteRequest("http://localhost/api/agents/me", {
+      apiKey: "agent-key",
+    })
+  );
+
+  assert.equal(agent, null);
+  assert.equal(updated, false);
+  assert.equal((createdEvent?.metadata as Record<string, unknown>).reason, "invalid-scopes");
+});
+
+test("authenticateAgent rejects credentials with empty scopes", async () => {
+  let updated = false;
+  let createdEvent: Record<string, unknown> | null = null;
+
+  prismaClient.agentCredential = {
+    findUnique: async () =>
+      createAgentCredentialFixture({
+        id: "credential-empty-scopes",
+        keyHash: hashApiKey("agent-key"),
+        scopes: [],
+        agent: createAgentFixture({
+          id: "agent-empty-scopes",
+          name: "Empty Scope Agent",
+          claimStatus: "ACTIVE",
+        }),
+      }),
+    update: async () => {
+      updated = true;
+      return createAgentCredentialFixture();
+    },
+  };
+  prismaClient.agent.findUnique = async () => null;
+  prismaClient.securityEvent = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      createdEvent = data;
+      return data;
+    },
+  };
+
+  const agent = await authenticateAgent(
+    createRouteRequest("http://localhost/api/agents/me", {
+      apiKey: "agent-key",
+    })
+  );
+
+  assert.equal(agent, null);
+  assert.equal(updated, false);
+  assert.equal((createdEvent?.metadata as Record<string, unknown>).reason, "invalid-scopes");
+});
+
 test("authenticateAgent logs invalid credentials without falling back to legacy agent apiKey lookups", async () => {
   let createdEvent: Record<string, unknown> | null = null;
 

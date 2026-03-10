@@ -8,6 +8,17 @@ import { authenticateUser } from "@/lib/user-auth";
 
 type ClaimRoutePrismaClient = {
   agent: {
+    findUnique: (args: unknown) => Promise<{
+      id: string;
+      name: string;
+      type: string;
+      status: string;
+      points: number;
+      ownerUserId?: string | null;
+      claimStatus?: string | null;
+      claimedAt?: Date | string | null;
+      revokedAt?: Date | string | null;
+    } | null>;
     update: (args: unknown) => Promise<{
       id: string;
       name: string;
@@ -18,10 +29,12 @@ type ClaimRoutePrismaClient = {
       claimStatus?: string | null;
       claimedAt?: Date | string | null;
     }>;
+    updateMany: (args: unknown) => Promise<{ count: number }>;
   };
   agentCredential?: {
     findUnique: (args: unknown) => Promise<{
       revokedAt?: Date | string | null;
+      expiresAt?: Date | string | null;
       agent?: {
         id: string;
         name: string;
@@ -30,15 +43,52 @@ type ClaimRoutePrismaClient = {
         points: number;
         ownerUserId?: string | null;
         claimStatus?: string | null;
+        revokedAt?: Date | string | null;
       } | null;
     } | null>;
   };
   agentClaimAudit?: {
     create: (args: unknown) => Promise<unknown>;
   };
+  $transaction: <T>(
+    input: (tx: ClaimRoutePrismaClient) => Promise<T>
+  ) => Promise<T>;
 };
 
 const claimPrisma = prisma as unknown as ClaimRoutePrismaClient;
+
+function isCredentialExpired(expiresAt: Date | string | null | undefined) {
+  if (!expiresAt) {
+    return false;
+  }
+
+  const value = new Date(expiresAt);
+  if (Number.isNaN(value.getTime())) {
+    return false;
+  }
+
+  return value.getTime() <= Date.now();
+}
+
+function hasContradictoryClaimState(agent: {
+  ownerUserId?: string | null;
+  claimStatus?: string | null;
+  revokedAt?: Date | string | null;
+}) {
+  if (agent.claimStatus === "UNCLAIMED") {
+    return Boolean(agent.ownerUserId || agent.revokedAt);
+  }
+
+  if (agent.claimStatus === "ACTIVE") {
+    return !agent.ownerUserId || Boolean(agent.revokedAt);
+  }
+
+  if (agent.claimStatus === "REVOKED") {
+    return !agent.revokedAt;
+  }
+
+  return false;
+}
 
 async function resolveClaimRateLimitMetadata(
   request: NextRequest,
@@ -144,6 +194,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (isCredentialExpired(credential.expiresAt)) {
+      return Response.json(
+        { success: false, error: "Invalid API key" },
+        { status: 401 }
+      );
+    }
+
+    if (hasContradictoryClaimState(credential.agent)) {
+      return Response.json(
+        { success: false, error: "Agent state is invalid for claim" },
+        { status: 409 }
+      );
+    }
+
     if (
       credential.agent.claimStatus &&
       credential.agent.claimStatus !== "UNCLAIMED"
@@ -155,38 +219,66 @@ export async function POST(request: NextRequest) {
     }
 
     const claimedAt = new Date();
-    const updated = await claimPrisma.agent.update({
-      where: {
-        id: credential.agent.id,
-      },
-      data: {
-        ownerUserId: user.id,
-        claimStatus: "ACTIVE",
-        claimedAt,
-        revokedAt: null,
-      },
-      select: {
-        id: true,
-        name: true,
-        type: true,
-        status: true,
-        points: true,
-        ownerUserId: true,
-        claimStatus: true,
-        claimedAt: true,
-      },
+    const updated = await claimPrisma.$transaction(async (tx) => {
+      const transition = await tx.agent.updateMany({
+        where: {
+          id: credential.agent?.id,
+          ownerUserId: null,
+          claimStatus: "UNCLAIMED",
+          revokedAt: null,
+        },
+        data: {
+          ownerUserId: user.id,
+          claimStatus: "ACTIVE",
+          claimedAt,
+          revokedAt: null,
+        },
+      });
+
+      if (transition.count !== 1) {
+        return null;
+      }
+
+      const claimedAgent = await tx.agent.findUnique({
+        where: {
+          id: credential.agent?.id,
+        },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          status: true,
+          points: true,
+          ownerUserId: true,
+          claimStatus: true,
+          claimedAt: true,
+        },
+      });
+
+      if (!claimedAgent) {
+        throw new Error("Claimed agent not found after transition");
+      }
+
+      await tx.agentClaimAudit?.create({
+        data: {
+          agentId: claimedAgent.id,
+          userId: user.id,
+          action: "CLAIM",
+          metadata: {
+            source: "manual-api-key-claim",
+          },
+        },
+      });
+
+      return claimedAgent;
     });
 
-    await claimPrisma.agentClaimAudit?.create({
-      data: {
-        agentId: updated.id,
-        userId: user.id,
-        action: "CLAIM",
-        metadata: {
-          source: "manual-api-key-claim",
-        },
-      },
-    });
+    if (!updated) {
+      return Response.json(
+        { success: false, error: "Agent has already been claimed" },
+        { status: 409 }
+      );
+    }
 
     return Response.json({
       success: true,

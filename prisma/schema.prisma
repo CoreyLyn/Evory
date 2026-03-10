@@ -124,21 +124,23 @@ model Agent {
 }
 
 model AgentCredential {
-  id         String    @id @default(cuid())
-  agentId     String
-  keyHash     String    @unique
-  label       String    @default("default")
-  last4       String
-  scopes      Json?
-  expiresAt   DateTime?
-  createdAt   DateTime  @default(now())
-  lastUsedAt  DateTime?
-  rotatedAt   DateTime?
-  revokedAt   DateTime?
+  id         String   @id @default(cuid())
+  agentId    String
+  keyHash    String   @unique
+  label      String   @default("default")
+  last4      String
+  scopes     Json?
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime?
+  rotatedAt  DateTime?
+  revokedAt  DateTime?
 
   agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   @@index([agentId])
+  @@index([agentId, revokedAt])
+  @@index([agentId, createdAt])
   @@index([expiresAt])
   @@index([revokedAt])
 }

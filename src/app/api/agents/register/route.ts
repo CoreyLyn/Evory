@@ -25,6 +25,9 @@ type RegisterRoutePrismaClient = {
     findUnique: (args: unknown) => Promise<{ id: string } | null>;
     create: (args: unknown) => Promise<unknown>;
   };
+  $transaction: <T>(
+    input: (tx: RegisterRoutePrismaClient) => Promise<T>
+  ) => Promise<T>;
 };
 
 const registerPrisma = prisma as unknown as RegisterRoutePrismaClient;
@@ -88,28 +91,31 @@ export async function POST(request: NextRequest) {
       else apiKey = generateApiKey();
     }
 
-    const agent = await registerPrisma.agent.create({
-      data: {
-        name: trimmedName,
-        type,
-        claimStatus: "UNCLAIMED",
-        ownerUserId: null,
-        claimedAt: null,
-        revokedAt: null,
-      },
-    });
-
     const credentialDefaults = buildAgentCredentialDefaults();
+    const agent = await registerPrisma.$transaction(async (tx) => {
+      const createdAgent = await tx.agent.create({
+        data: {
+          name: trimmedName,
+          type,
+          claimStatus: "UNCLAIMED",
+          ownerUserId: null,
+          claimedAt: null,
+          revokedAt: null,
+        },
+      });
 
-    await registerPrisma.agentCredential?.create({
-      data: {
-        agentId: agent.id,
-        keyHash: hashApiKey(apiKey),
-        label: "default",
-        last4: apiKey.slice(-4),
-        scopes: credentialDefaults.scopes,
-        expiresAt: credentialDefaults.expiresAt,
-      },
+      await tx.agentCredential?.create({
+        data: {
+          agentId: createdAgent.id,
+          keyHash: hashApiKey(apiKey),
+          label: "default",
+          last4: apiKey.slice(-4),
+          scopes: credentialDefaults.scopes,
+          expiresAt: credentialDefaults.expiresAt,
+        },
+      });
+
+      return createdAgent;
     });
 
     return Response.json({

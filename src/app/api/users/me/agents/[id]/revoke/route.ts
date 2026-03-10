@@ -23,6 +23,9 @@ type RevokeOwnedAgentPrismaClient = {
   agentClaimAudit?: {
     create: (args: unknown) => Promise<unknown>;
   };
+  $transaction: <T>(
+    input: (tx: RevokeOwnedAgentPrismaClient) => Promise<T>
+  ) => Promise<T>;
 };
 
 const revokePrisma = prisma as unknown as RevokeOwnedAgentPrismaClient;
@@ -87,40 +90,44 @@ export async function POST(
     }
 
     const revokedAt = new Date();
-    await revokePrisma.agentCredential?.updateMany({
-      where: {
-        agentId: id,
-        revokedAt: null,
-      },
-      data: {
-        revokedAt,
-      },
-    });
-
-    const updated = await revokePrisma.agent.update({
-      where: {
-        id,
-      },
-      data: {
-        claimStatus: "REVOKED",
-        revokedAt,
-      },
-      select: {
-        id: true,
-        claimStatus: true,
-        revokedAt: true,
-      },
-    });
-
-    await revokePrisma.agentClaimAudit?.create({
-      data: {
-        agentId: id,
-        userId: user.id,
-        action: "REVOKE",
-        metadata: {
-          source: "user-management",
+    const updated = await revokePrisma.$transaction(async (tx) => {
+      await tx.agentCredential?.updateMany({
+        where: {
+          agentId: id,
+          revokedAt: null,
         },
-      },
+        data: {
+          revokedAt,
+        },
+      });
+
+      const nextAgent = await tx.agent.update({
+        where: {
+          id,
+        },
+        data: {
+          claimStatus: "REVOKED",
+          revokedAt,
+        },
+        select: {
+          id: true,
+          claimStatus: true,
+          revokedAt: true,
+        },
+      });
+
+      await tx.agentClaimAudit?.create({
+        data: {
+          agentId: id,
+          userId: user.id,
+          action: "REVOKE",
+          metadata: {
+            source: "user-management",
+          },
+        },
+      });
+
+      return nextAgent;
     });
 
     return Response.json({

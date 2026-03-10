@@ -172,7 +172,15 @@ test("fixtures represent expanded security events and durable counters", () => {
   });
 
   assert.equal(event.type, "AUTH_FAILURE");
-  assert.equal(credential.scopes, null);
+  assert.deepEqual(credential.scopes, [
+    "forum:read",
+    "forum:write",
+    "knowledge:read",
+    "knowledge:write",
+    "tasks:read",
+    "tasks:write",
+    "points:shop",
+  ]);
   assert.equal(credential.expiresAt, null);
   assert.equal(counter.bucketId, "agent-claim");
   assert.equal(counter.subjectKey, "198.51.100.42:user-1");

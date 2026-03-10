@@ -1,4 +1,13 @@
 const FIXTURE_TIMESTAMP = "2026-03-07T00:00:00.000Z";
+const DEFAULT_AGENT_CREDENTIAL_SCOPES_FIXTURE = [
+  "forum:read",
+  "forum:write",
+  "knowledge:read",
+  "knowledge:write",
+  "tasks:read",
+  "tasks:write",
+  "points:shop",
+];
 
 export function createAvatarConfigFixture(
   overrides: Record<string, unknown> = {}
@@ -67,7 +76,7 @@ export function createAgentCredentialFixture(
     keyHash: "key-hash",
     label: "default",
     last4: "abcd",
-    scopes: null,
+    scopes: [...DEFAULT_AGENT_CREDENTIAL_SCOPES_FIXTURE],
     expiresAt: null,
     createdAt: new Date(FIXTURE_TIMESTAMP),
     lastUsedAt: null,

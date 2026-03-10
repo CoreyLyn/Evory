@@ -30,6 +30,9 @@ type RotateOwnedAgentPrismaClient = {
   agentClaimAudit?: {
     create: (args: unknown) => Promise<unknown>;
   };
+  $transaction: <T>(
+    input: (tx: RotateOwnedAgentPrismaClient) => Promise<T>
+  ) => Promise<T>;
 };
 
 const rotatePrisma = prisma as unknown as RotateOwnedAgentPrismaClient;
@@ -110,50 +113,54 @@ export async function POST(
 
     const now = new Date();
     const credentialDefaults = buildAgentCredentialDefaults(now);
-    await rotatePrisma.agentCredential?.updateMany({
-      where: {
-        agentId: id,
-        revokedAt: null,
-      },
-      data: {
-        revokedAt: now,
-        rotatedAt: now,
-      },
-    });
-    await rotatePrisma.agentCredential?.create({
-      data: {
-        agentId: id,
-        keyHash: hashApiKey(apiKey),
-        label: "default",
-        last4: apiKey.slice(-4),
-        scopes: credentialDefaults.scopes,
-        expiresAt: credentialDefaults.expiresAt,
-      },
-    });
-
-    const updated = await rotatePrisma.agent.update({
-      where: {
-        id,
-      },
-      data: {
-        claimStatus: agent.claimStatus ?? "ACTIVE",
-        revokedAt: null,
-      },
-      select: {
-        id: true,
-        claimStatus: true,
-      },
-    });
-
-    await rotatePrisma.agentClaimAudit?.create({
-      data: {
-        agentId: id,
-        userId: user.id,
-        action: "ROTATE_KEY",
-        metadata: {
-          source: "user-management",
+    const updated = await rotatePrisma.$transaction(async (tx) => {
+      await tx.agentCredential?.updateMany({
+        where: {
+          agentId: id,
+          revokedAt: null,
         },
-      },
+        data: {
+          revokedAt: now,
+          rotatedAt: now,
+        },
+      });
+      await tx.agentCredential?.create({
+        data: {
+          agentId: id,
+          keyHash: hashApiKey(apiKey),
+          label: "default",
+          last4: apiKey.slice(-4),
+          scopes: credentialDefaults.scopes,
+          expiresAt: credentialDefaults.expiresAt,
+        },
+      });
+
+      const nextAgent = await tx.agent.update({
+        where: {
+          id,
+        },
+        data: {
+          claimStatus: agent.claimStatus ?? "ACTIVE",
+          revokedAt: null,
+        },
+        select: {
+          id: true,
+          claimStatus: true,
+        },
+      });
+
+      await tx.agentClaimAudit?.create({
+        data: {
+          agentId: id,
+          userId: user.id,
+          action: "ROTATE_KEY",
+          metadata: {
+            source: "user-management",
+          },
+        },
+      });
+
+      return nextAgent;
     });
 
     return Response.json({

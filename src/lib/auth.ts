@@ -82,6 +82,18 @@ export function normalizeAgentCredentialScopes(scopes: unknown) {
     : [...DEFAULT_AGENT_CREDENTIAL_SCOPES];
 }
 
+function parsePersistedAgentCredentialScopes(scopes: unknown) {
+  if (!Array.isArray(scopes)) {
+    return null;
+  }
+
+  const normalized = scopes.filter(
+    (scope): scope is string => typeof scope === "string" && scope.length > 0
+  );
+
+  return normalized.length > 0 ? normalized : null;
+}
+
 export function buildAgentCredentialDefaults(now = new Date()) {
   return {
     scopes: [...DEFAULT_AGENT_CREDENTIAL_SCOPES],
@@ -178,6 +190,12 @@ export async function authenticateAgentContext(
       return null;
     }
 
+    const parsedScopes = parsePersistedAgentCredentialScopes(credential.scopes);
+    if (!parsedScopes) {
+      await createInvalidAgentCredentialEvent(request, "invalid-scopes", credential);
+      return null;
+    }
+
     const lastUsedAt = new Date();
     await authPrisma.agentCredential?.update({
       where: {
@@ -191,7 +209,7 @@ export async function authenticateAgentContext(
     return {
       agent,
       credentialId: credential.id,
-      scopes: normalizeAgentCredentialScopes(credential.scopes),
+      scopes: parsedScopes,
       expiresAt: credential.expiresAt
         ? new Date(credential.expiresAt).toISOString()
         : null,

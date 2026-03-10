@@ -33,6 +33,7 @@ type AgentClaimPrismaMock = {
     findUnique: AsyncMethod;
     create: AsyncMethod;
     update: AsyncMethod;
+    updateMany: AsyncMethod;
     findMany: AsyncMethod;
   };
   agentCredential?: {
@@ -43,6 +44,7 @@ type AgentClaimPrismaMock = {
   agentClaimAudit?: {
     create: AsyncMethod;
   };
+  $transaction: AsyncMethod<[unknown], unknown>;
   securityEvent?: {
     create: AsyncMethod;
     findMany: AsyncMethod;
@@ -61,11 +63,13 @@ const prismaClient = prisma as unknown as AgentClaimPrismaMock;
 const originalAgentFindUnique = prismaClient.agent.findUnique;
 const originalAgentCreate = prismaClient.agent.create;
 const originalAgentUpdate = prismaClient.agent.update;
+const originalAgentUpdateMany = prismaClient.agent.updateMany;
 const originalAgentFindMany = prismaClient.agent.findMany;
 const originalCredentialCreate = prismaClient.agentCredential?.create;
 const originalCredentialFindUnique = prismaClient.agentCredential?.findUnique;
 const originalCredentialUpdateMany = prismaClient.agentCredential?.updateMany;
 const originalAuditCreate = prismaClient.agentClaimAudit?.create;
+const originalTransaction = prismaClient.$transaction;
 const originalSecurityEventCreate = prismaClient.securityEvent?.create;
 const originalSecurityEventFindMany = prismaClient.securityEvent?.findMany;
 const originalRateLimitCounter = prismaClient.rateLimitCounter;
@@ -75,6 +79,13 @@ const originalUserSessionDeleteMany = prismaClient.userSession?.deleteMany;
 beforeEach(() => {
   installRateLimitStoreMock(prismaClient);
   prismaClient.agent.findMany = async () => [];
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input(prismaClient);
+  };
   prismaClient.securityEvent = {
     create: async () => createSecurityEventFixture(),
     findMany: async () => [],
@@ -86,7 +97,9 @@ afterEach(async () => {
   prismaClient.agent.findUnique = originalAgentFindUnique;
   prismaClient.agent.create = originalAgentCreate;
   prismaClient.agent.update = originalAgentUpdate;
+  prismaClient.agent.updateMany = originalAgentUpdateMany;
   prismaClient.agent.findMany = originalAgentFindMany;
+  prismaClient.$transaction = originalTransaction;
 
   if (prismaClient.agentCredential && originalCredentialCreate) {
     prismaClient.agentCredential.create = originalCredentialCreate;
@@ -141,6 +154,17 @@ test("register creates an unclaimed agent and returns its raw api key", async ()
   let createdCredentialHash = "";
   let createdCredentialData: Record<string, unknown> | null = null;
   let createdAgentData: Record<string, unknown> | null = null;
+  let transactionCalls = 0;
+
+  prismaClient.$transaction = async (input: unknown) => {
+    transactionCalls += 1;
+
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input(prismaClient);
+  };
 
   prismaClient.agent.findUnique = async ({
     where,
@@ -200,6 +224,7 @@ test("register creates an unclaimed agent and returns its raw api key", async ()
   assert.deepEqual(json.data.credentialScopes, DEFAULT_AGENT_CREDENTIAL_SCOPES);
   assert.equal(typeof json.data.credentialExpiresAt, "string");
   assert.equal(createdAgentData?.apiKey, undefined);
+  assert.equal(transactionCalls, 1);
 });
 
 test("claim binds an unclaimed agent to the current user", async () => {
@@ -234,7 +259,8 @@ test("claim binds an unclaimed agent to the current user", async () => {
           })
         : null,
   };
-  prismaClient.agent.update = async () =>
+  prismaClient.agent.updateMany = async () => ({ count: 1 });
+  prismaClient.agent.findUnique = async () =>
     createAgentFixture({
       id: "agent-1",
       name: "Claimable Agent",
@@ -315,6 +341,117 @@ test("claim returns conflict when the agent is already claimed", async () => {
 
   assert.equal(response.status, 409);
   assert.equal(json.error, "Agent has already been claimed");
+});
+
+test("claim rejects expired credentials", async () => {
+  const token = "expired-claim-session-token";
+
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({
+              id: "user-expired-claim",
+            }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.agentCredential = {
+    create: async () => createAgentCredentialFixture(),
+    findUnique: async ({ where }: { where: { keyHash: string } }) =>
+      where.keyHash === hashApiKey("evory_expired_claim_key")
+        ? createAgentCredentialFixture({
+            keyHash: where.keyHash,
+            expiresAt: new Date("2026-03-01T00:00:00.000Z"),
+            agent: createAgentFixture({
+              id: "agent-expired-claim",
+              ownerUserId: null,
+              claimStatus: "UNCLAIMED",
+              claimedAt: null,
+            }),
+          })
+        : null,
+    updateMany: async () => ({ count: 0 }),
+  };
+
+  const response = await claimAgent(
+    createRouteRequest("http://localhost/api/agents/claim", {
+      method: "POST",
+      headers: {
+        cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        origin: "http://localhost",
+      },
+      json: {
+        apiKey: "evory_expired_claim_key",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.equal(json.error, "Invalid API key");
+});
+
+test("claim returns conflict when the conditional status transition loses the race", async () => {
+  const token = "claim-race-session-token";
+  let auditCreates = 0;
+
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({
+              id: "user-claim-race",
+            }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.agentCredential = {
+    create: async () => createAgentCredentialFixture(),
+    findUnique: async ({ where }: { where: { keyHash: string } }) =>
+      where.keyHash === hashApiKey("evory_race_key")
+        ? createAgentCredentialFixture({
+            keyHash: where.keyHash,
+            expiresAt: new Date("2026-06-01T00:00:00.000Z"),
+            agent: createAgentFixture({
+              id: "agent-race",
+              ownerUserId: null,
+              claimStatus: "UNCLAIMED",
+              claimedAt: null,
+            }),
+          })
+        : null,
+    updateMany: async () => ({ count: 0 }),
+  };
+  prismaClient.agent.updateMany = async () => ({ count: 0 });
+  prismaClient.agentClaimAudit = {
+    create: async () => {
+      auditCreates += 1;
+      return { id: "audit-race" };
+    },
+  };
+
+  const response = await claimAgent(
+    createRouteRequest("http://localhost/api/agents/claim", {
+      method: "POST",
+      headers: {
+        cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        origin: "http://localhost",
+      },
+      json: {
+        apiKey: "evory_race_key",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 409);
+  assert.equal(json.error, "Agent has already been claimed");
+  assert.equal(auditCreates, 0);
 });
 
 test("claim rejects cross-origin requests", async () => {
@@ -477,6 +614,17 @@ test("rotate-key revokes the previous credential and returns a new raw key", asy
   let createdCredentialHash = "";
   let createdCredentialData: Record<string, unknown> | null = null;
   let updatedAgentData: Record<string, unknown> | null = null;
+  let transactionCalls = 0;
+
+  prismaClient.$transaction = async (input: unknown) => {
+    transactionCalls += 1;
+
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input(prismaClient);
+  };
 
   prismaClient.userSession = {
     findUnique: async ({ where }: { where: { tokenHash: string } }) =>
@@ -555,6 +703,7 @@ test("rotate-key revokes the previous credential and returns a new raw key", asy
   assert.equal(typeof json.data.credentialExpiresAt, "string");
   assert.equal(revokedCredentialCount, 1);
   assert.equal(updatedAgentData?.apiKey, undefined);
+  assert.equal(transactionCalls, 1);
 });
 
 test("rotate-key rejects cross-origin requests", async () => {
@@ -592,6 +741,17 @@ test("rotate-key rejects cross-origin requests", async () => {
 test("revoke marks the agent as revoked for the owning user", async () => {
   const token = "revoke-session-token";
   let revokedCredentialCount = 0;
+  let transactionCalls = 0;
+
+  prismaClient.$transaction = async (input: unknown) => {
+    transactionCalls += 1;
+
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input(prismaClient);
+  };
 
   prismaClient.userSession = {
     findUnique: async ({ where }: { where: { tokenHash: string } }) =>
@@ -646,6 +806,7 @@ test("revoke marks the agent as revoked for the owning user", async () => {
   assert.equal(json.success, true);
   assert.equal(json.data.claimStatus, "REVOKED");
   assert.equal(revokedCredentialCount, 1);
+  assert.equal(transactionCalls, 1);
 });
 
 test("revoke rejects cross-origin requests", async () => {
@@ -785,14 +946,16 @@ test("claim rate limits repeated key claims for the same user and ip", async () 
         }),
       }),
   };
-  prismaClient.agent.update = async () => {
+  prismaClient.agent.updateMany = async () => {
     updateCount += 1;
-    return createAgentFixture({
+    return { count: 1 };
+  };
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
       id: `agent-${updateCount}`,
       ownerUserId: "user-rate-1",
       claimStatus: "ACTIVE",
     });
-  };
   prismaClient.agentClaimAudit = {
     create: async () => ({ id: `audit-${updateCount}` }),
   };
