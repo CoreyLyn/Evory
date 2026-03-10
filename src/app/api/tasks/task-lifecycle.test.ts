@@ -15,10 +15,13 @@ type TaskPrismaMock = {
   agent: {
     findUnique: AsyncMethod;
     update: AsyncMethod;
+    updateMany: AsyncMethod;
   };
   task: {
     findUnique: AsyncMethod;
+    findUniqueOrThrow: AsyncMethod;
     update: AsyncMethod;
+    updateMany: AsyncMethod;
   };
   pointTransaction: {
     create: AsyncMethod;
@@ -36,8 +39,11 @@ const prismaClient = prisma as unknown as TaskPrismaMock;
 const originalMethods = {
   agentFindUnique: prismaClient.agent.findUnique,
   agentUpdate: prismaClient.agent.update,
+  agentUpdateMany: prismaClient.agent.updateMany,
   taskFindUnique: prismaClient.task.findUnique,
+  taskFindUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
   taskUpdate: prismaClient.task.update,
+  taskUpdateMany: prismaClient.task.updateMany,
   pointTransactionCreate: prismaClient.pointTransaction.create,
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   dailyCheckinUpsert: prismaClient.dailyCheckin.upsert,
@@ -48,8 +54,11 @@ const originalMethods = {
 afterEach(() => {
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
   prismaClient.agent.update = originalMethods.agentUpdate;
+  prismaClient.agent.updateMany = originalMethods.agentUpdateMany;
   prismaClient.task.findUnique = originalMethods.taskFindUnique;
+  prismaClient.task.findUniqueOrThrow = originalMethods.taskFindUniqueOrThrow;
   prismaClient.task.update = originalMethods.taskUpdate;
+  prismaClient.task.updateMany = originalMethods.taskUpdateMany;
   prismaClient.pointTransaction.create = originalMethods.pointTransactionCreate;
   prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
   prismaClient.dailyCheckin.upsert = originalMethods.dailyCheckinUpsert;
@@ -135,24 +144,36 @@ test("verify rejection returns task to CLAIMED and clears completedAt", async ()
       assigneeId: "assignee-1",
       status: "COMPLETED",
     });
-  prismaClient.task.update = async ({ data }) => {
-    updateData = data as Record<string, unknown>;
-    return createTaskFixture({
-      id: "task-1",
-      creatorId: "creator-1",
-      assigneeId: "assignee-1",
-      status: data.status,
-      completedAt: data.completedAt ?? null,
-      creator: createAgentFixture({
-        id: "creator-1",
-        apiKey: "creator-key",
-        name: "Creator",
-      }),
-      assignee: createAgentFixture({
-        id: "assignee-1",
-        apiKey: "assignee-key",
-        name: "Assignee",
-      }),
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      task: {
+        updateMany: async ({ data }: { data: Record<string, unknown> }) => {
+          updateData = data;
+          return { count: 1 };
+        },
+        findUniqueOrThrow: async () =>
+          createTaskFixture({
+            id: "task-1",
+            creatorId: "creator-1",
+            assigneeId: "assignee-1",
+            status: "CLAIMED",
+            completedAt: null,
+            creator: createAgentFixture({
+              id: "creator-1",
+              apiKey: "creator-key",
+              name: "Creator",
+            }),
+            assignee: createAgentFixture({
+              id: "assignee-1",
+              apiKey: "assignee-key",
+              name: "Assignee",
+            }),
+          }),
+      },
     });
   };
 
@@ -192,7 +213,7 @@ test("verify approval updates status and payouts inside one transaction", async 
       bountyPoints: 25,
       status: "COMPLETED",
     });
-  prismaClient.task.update = async () =>
+  prismaClient.task.findUniqueOrThrow = async () =>
     createTaskFixture({
       id: "task-1",
       creatorId: "creator-1",
@@ -226,12 +247,9 @@ test("verify approval updates status and payouts inside one transaction", async 
         agent: {
           update: async () => ({ id: "assignee-1" }),
         },
-        dailyCheckin: {
-          upsert: prismaClient.dailyCheckin.upsert,
-          update: prismaClient.dailyCheckin.update,
-        },
         task: {
-          update: prismaClient.task.update,
+          updateMany: async () => ({ count: 1 }),
+          findUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
         },
       });
     }

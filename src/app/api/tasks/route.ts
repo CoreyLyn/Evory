@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
-import { deductPoints, getPointsBalance } from "@/lib/points";
 import { PointActionType, TaskStatus } from "@/generated/prisma";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 
@@ -10,6 +9,13 @@ const AGENT_SELECT = {
   name: true,
   avatarConfig: true,
 } as const;
+
+class InsufficientPointsError extends Error {
+  constructor() {
+    super("Insufficient points for bounty");
+    this.name = "InsufficientPointsError";
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -109,66 +115,79 @@ export async function POST(request: NextRequest) {
       0,
       typeof bountyInput === "number" ? Math.floor(bountyInput) : 0
     );
+    const trimmedTitle = title.trim();
+    const trimmedDescription = description.trim();
 
-    if (bountyPoints > 0) {
-      const balance = await getPointsBalance(agent.id);
-      if (balance === null || balance < bountyPoints) {
-        return Response.json(
-          {
-            success: false,
-            error: "Insufficient points for bounty",
+    const created = await prisma.$transaction(async (tx) => {
+      if (bountyPoints > 0) {
+        const reserved = await tx.agent.updateMany({
+          where: {
+            id: agent.id,
+            points: {
+              gte: bountyPoints,
+            },
           },
-          { status: 400 }
-        );
+          data: {
+            points: {
+              decrement: bountyPoints,
+            },
+          },
+        });
+
+        if (reserved.count !== 1) {
+          throw new InsufficientPointsError();
+        }
       }
-    }
 
-    const task = await prisma.task.create({
-      data: {
-        creatorId: agent.id,
-        title: title.trim(),
-        description: description.trim(),
-        bountyPoints,
-      },
-    });
+      const task = await tx.task.create({
+        data: {
+          creatorId: agent.id,
+          title: trimmedTitle,
+          description: trimmedDescription,
+          bountyPoints,
+        },
+      });
 
-    if (bountyPoints > 0) {
-      const deducted = await deductPoints(
-        agent.id,
-        bountyPoints,
-        PointActionType.TASK_BOUNTY_SPEND,
-        task.id,
-        `Bounty for task: ${task.title}`
-      );
-      if (!deducted) {
-        await prisma.task.delete({ where: { id: task.id } });
-        return Response.json(
-          { success: false, error: "Insufficient points for bounty" },
-          { status: 400 }
-        );
+      if (bountyPoints > 0) {
+        await tx.pointTransaction.create({
+          data: {
+            agentId: agent.id,
+            amount: -bountyPoints,
+            type: PointActionType.TASK_BOUNTY_SPEND,
+            referenceId: task.id,
+            description: `Bounty for task: ${trimmedTitle}`,
+          },
+        });
       }
-    }
 
-    const created = await prisma.task.findUniqueOrThrow({
-      where: { id: task.id },
-      select: {
-        id: true,
-        creatorId: true,
-        assigneeId: true,
-        title: true,
-        description: true,
-        status: true,
-        bountyPoints: true,
-        createdAt: true,
-        updatedAt: true,
-        completedAt: true,
-        creator: { select: AGENT_SELECT },
-        assignee: { select: AGENT_SELECT },
-      },
+      return tx.task.findUniqueOrThrow({
+        where: { id: task.id },
+        select: {
+          id: true,
+          creatorId: true,
+          assigneeId: true,
+          title: true,
+          description: true,
+          status: true,
+          bountyPoints: true,
+          createdAt: true,
+          updatedAt: true,
+          completedAt: true,
+          creator: { select: AGENT_SELECT },
+          assignee: { select: AGENT_SELECT },
+        },
+      });
     });
 
     return Response.json({ success: true, data: created });
   } catch (err) {
+    if (err instanceof InsufficientPointsError) {
+      return Response.json(
+        { success: false, error: err.message },
+        { status: 400 }
+      );
+    }
+
     console.error("[tasks POST]", err);
     return Response.json(
       { success: false, error: "Internal server error" },

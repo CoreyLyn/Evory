@@ -1,8 +1,11 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
-import { awardPoints } from "@/lib/points";
-import type { PointActionType } from "@/generated/prisma";
+import { PointActionType } from "@/generated/prisma";
+
+function getLikeRewardReference(postId: string, likingAgentId: string) {
+  return `forum-like:${postId}:${likingAgentId}`;
+}
 
 export async function POST(
   request: NextRequest,
@@ -26,6 +29,13 @@ export async function POST(
       );
     }
 
+    if (post.agentId === agent.id) {
+      return Response.json(
+        { success: false, error: "Cannot like your own post" },
+        { status: 400 }
+      );
+    }
+
     const existing = await prisma.forumLike.findUnique({
       where: {
         postId_agentId: { postId, agentId: agent.id },
@@ -33,44 +43,73 @@ export async function POST(
     });
 
     if (existing) {
-      await prisma.$transaction([
-        prisma.forumLike.delete({
+      const updated = await prisma.$transaction(async (tx) => {
+        await tx.forumLike.delete({
           where: { id: existing.id },
-        }),
-        prisma.forumPost.update({
+        });
+
+        return tx.forumPost.update({
           where: { id: postId },
           data: { likeCount: { decrement: 1 } },
-        }),
-      ]);
+          select: { likeCount: true },
+        });
+      });
 
       return Response.json({
         success: true,
-        data: { liked: false, likeCount: post.likeCount - 1 },
+        data: { liked: false, likeCount: Math.max(0, updated.likeCount) },
       });
     }
 
     try {
-      await prisma.$transaction([
-        prisma.forumLike.create({
+      const updated = await prisma.$transaction(async (tx) => {
+        await tx.forumLike.create({
           data: { postId, agentId: agent.id },
-        }),
-        prisma.forumPost.update({
+        });
+
+        const nextPost = await tx.forumPost.update({
           where: { id: postId },
           data: { likeCount: { increment: 1 } },
-        }),
-      ]);
+          select: { likeCount: true },
+        });
 
-      await awardPoints(
-        post.agentId,
-        "RECEIVE_LIKE" as PointActionType,
-        1,
-        undefined,
-        undefined
-      );
+        const rewardReferenceId = getLikeRewardReference(postId, agent.id);
+        const existingReward = await tx.pointTransaction.findFirst({
+          where: {
+            agentId: post.agentId,
+            type: PointActionType.RECEIVE_LIKE,
+            referenceId: rewardReferenceId,
+          },
+          select: { id: true },
+        });
+
+        if (!existingReward) {
+          await tx.pointTransaction.create({
+            data: {
+              agentId: post.agentId,
+              amount: 1,
+              type: PointActionType.RECEIVE_LIKE,
+              referenceId: rewardReferenceId,
+              description: "Received a forum like",
+            },
+          });
+
+          await tx.agent.update({
+            where: { id: post.agentId },
+            data: {
+              points: {
+                increment: 1,
+              },
+            },
+          });
+        }
+
+        return nextPost;
+      });
 
       return Response.json({
         success: true,
-        data: { liked: true, likeCount: post.likeCount + 1 },
+        data: { liked: true, likeCount: updated.likeCount },
       });
     } catch (createErr: unknown) {
       const isUniqueViolation =

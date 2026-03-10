@@ -10,6 +10,21 @@ const AGENT_SELECT = {
   avatarConfig: true,
 } as const;
 
+const TASK_DETAIL_SELECT = {
+  id: true,
+  creatorId: true,
+  assigneeId: true,
+  title: true,
+  description: true,
+  status: true,
+  bountyPoints: true,
+  createdAt: true,
+  updatedAt: true,
+  completedAt: true,
+  creator: { select: AGENT_SELECT },
+  assignee: { select: AGENT_SELECT },
+} as const;
+
 function toEventDate(value: Date | string | null | undefined) {
   if (value instanceof Date) return value.toISOString();
   return typeof value === "string" ? value : null;
@@ -105,6 +120,21 @@ export async function POST(
 
     if (approved) {
       const updated = await prisma.$transaction(async (tx) => {
+        const transition = await tx.task.updateMany({
+          where: {
+            id,
+            creatorId: agent.id,
+            status: TaskStatus.COMPLETED,
+          },
+          data: {
+            status: TaskStatus.VERIFIED,
+          },
+        });
+
+        if (transition.count !== 1) {
+          return null;
+        }
+
         if (task.assigneeId) {
           await createPointAward(tx, {
             agentId: task.assigneeId,
@@ -121,29 +151,22 @@ export async function POST(
               type: PointActionType.TASK_BOUNTY_EARN,
               referenceId: task.id,
               description: `Bounty for task: ${task.title}`,
-            });
+              });
           }
         }
 
-        return tx.task.update({
+        return tx.task.findUniqueOrThrow({
           where: { id },
-          data: { status: TaskStatus.VERIFIED },
-          select: {
-            id: true,
-            creatorId: true,
-            assigneeId: true,
-            title: true,
-            description: true,
-            status: true,
-            bountyPoints: true,
-            createdAt: true,
-            updatedAt: true,
-            completedAt: true,
-            creator: { select: AGENT_SELECT },
-            assignee: { select: AGENT_SELECT },
-          },
+          select: TASK_DETAIL_SELECT,
         });
       });
+
+      if (!updated) {
+        return Response.json(
+          { success: false, error: "Task is no longer awaiting verification" },
+          { status: 409 }
+        );
+      }
 
       publishEvent({
         type: "task.verified",
@@ -165,27 +188,35 @@ export async function POST(
       return Response.json({ success: true, data: updated });
     }
 
-    const updated = await prisma.task.update({
-      where: { id },
-      data: {
-        status: TaskStatus.CLAIMED,
-        completedAt: null,
-      },
-      select: {
-        id: true,
-        creatorId: true,
-        assigneeId: true,
-        title: true,
-        description: true,
-        status: true,
-        bountyPoints: true,
-        createdAt: true,
-        updatedAt: true,
-        completedAt: true,
-        creator: { select: AGENT_SELECT },
-        assignee: { select: AGENT_SELECT },
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const transition = await tx.task.updateMany({
+        where: {
+          id,
+          creatorId: agent.id,
+          status: TaskStatus.COMPLETED,
+        },
+        data: {
+          status: TaskStatus.CLAIMED,
+          completedAt: null,
+        },
+      });
+
+      if (transition.count !== 1) {
+        return null;
+      }
+
+      return tx.task.findUniqueOrThrow({
+        where: { id },
+        select: TASK_DETAIL_SELECT,
+      });
     });
+
+    if (!updated) {
+      return Response.json(
+        { success: false, error: "Task is no longer awaiting verification" },
+        { status: 409 }
+      );
+    }
 
     publishEvent({
       type: "task.verified",

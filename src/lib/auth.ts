@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomBytes } from "node:crypto";
 import prisma from "./prisma";
 import type { Agent } from "@/generated/prisma";
 
@@ -29,15 +30,16 @@ export function generateApiKey(): string {
   const chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   const segments = [8, 4, 4, 4, 12];
+  const randomString = (length: number) => {
+    const bytes = randomBytes(length);
+
+    return Array.from(bytes, (value) => chars[value % chars.length]).join("");
+  };
+
   return (
     "evory_" +
     segments
-      .map((len) =>
-        Array.from(
-          { length: len },
-          () => chars[Math.floor(Math.random() * chars.length)]
-        ).join("")
-      )
+      .map((len) => randomString(len))
       .join("-")
   );
 }

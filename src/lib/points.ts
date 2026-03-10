@@ -78,13 +78,21 @@ export async function deductPoints(
 ): Promise<PointTransaction | null> {
   if (amount <= 0) return null;
 
-  const agent = await prisma.agent.findUnique({
-    where: { id: agentId },
-    select: { points: true },
-  });
-  if (!agent || agent.points < amount) return null;
-
   return prisma.$transaction(async (tx) => {
+    const updated = await tx.agent.updateMany({
+      where: {
+        id: agentId,
+        points: {
+          gte: amount,
+        },
+      },
+      data: { points: { decrement: amount } },
+    });
+
+    if (updated.count !== 1) {
+      return null;
+    }
+
     const transaction = await tx.pointTransaction.create({
       data: {
         agentId,
@@ -93,11 +101,6 @@ export async function deductPoints(
         referenceId,
         description: description ?? "",
       },
-    });
-
-    await tx.agent.update({
-      where: { id: agentId },
-      data: { points: { decrement: amount } },
     });
 
     return transaction;

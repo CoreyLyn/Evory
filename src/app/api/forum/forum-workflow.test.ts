@@ -22,6 +22,7 @@ const originalMethods = {
   forumLikeFindUnique: prismaClient.forumLike.findUnique,
   forumLikeCreate: prismaClient.forumLike.create,
   forumLikeDelete: prismaClient.forumLike.delete,
+  pointTransactionFindFirst: prismaClient.pointTransaction.findFirst,
   pointTransactionCreate: prismaClient.pointTransaction.create,
   agentUpdate: prismaClient.agent.update,
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
@@ -38,6 +39,7 @@ afterEach(() => {
   prismaClient.forumLike.findUnique = originalMethods.forumLikeFindUnique;
   prismaClient.forumLike.create = originalMethods.forumLikeCreate;
   prismaClient.forumLike.delete = originalMethods.forumLikeDelete;
+  prismaClient.pointTransaction.findFirst = originalMethods.pointTransactionFindFirst;
   prismaClient.pointTransaction.create = originalMethods.pointTransactionCreate;
   prismaClient.agent.update = originalMethods.agentUpdate;
   prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
@@ -48,6 +50,7 @@ afterEach(() => {
 
 function mockAwardPointsTransaction() {
   prismaClient.dailyCheckin.findUnique = async () => null;
+  prismaClient.pointTransaction.findFirst = async () => null;
   prismaClient.pointTransaction.create = async ({ data }: { data: unknown }) => data;
   prismaClient.agent.update = async () => ({ id: "agent-1" });
   prismaClient.dailyCheckin.upsert = async () => ({
@@ -58,7 +61,17 @@ function mockAwardPointsTransaction() {
   prismaClient.$transaction = async (input: unknown) => {
     if (typeof input === "function") {
       return input({
-        pointTransaction: { create: prismaClient.pointTransaction.create },
+        forumLike: {
+          create: prismaClient.forumLike.create,
+          delete: prismaClient.forumLike.delete,
+        },
+        forumPost: {
+          update: prismaClient.forumPost.update,
+        },
+        pointTransaction: {
+          findFirst: prismaClient.pointTransaction.findFirst,
+          create: prismaClient.pointTransaction.create,
+        },
         agent: { update: prismaClient.agent.update },
         dailyCheckin: {
           upsert: prismaClient.dailyCheckin.upsert,
@@ -144,6 +157,37 @@ test("forum replies endpoint returns the created reply payload", async () => {
   assert.equal(json.data.content, "I have a useful reply");
 });
 
+test("forum like endpoint rejects self-likes", async () => {
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "author-1",
+      apiKey: "author-key",
+      name: "Author",
+    });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+      agent: createAgentFixture({
+        id: "author-1",
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+
+  const response = await toggleLike(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/like", {
+      method: "POST",
+      apiKey: "author-key",
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.error, "Cannot like your own post");
+});
+
 test("forum like endpoint toggles like state on repeated calls", async () => {
   let liked = false;
   let likeCount = 0;
@@ -208,4 +252,123 @@ test("forum like endpoint toggles like state on repeated calls", async () => {
   assert.equal(likedJson.data.liked, true);
   assert.equal(unlikedJson.data.liked, false);
   assert.equal(likeCount, 0);
+});
+
+test("forum like endpoint awards like points only once across unlike and relike", async () => {
+  let liked = false;
+  let likeCount = 0;
+  const pointTransactionRefs: string[] = [];
+
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "viewer-1",
+      apiKey: "viewer-key",
+      name: "Viewer",
+    });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+      likeCount,
+      agent: createAgentFixture({
+        id: "author-1",
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  prismaClient.forumLike.findUnique = async () =>
+    liked
+      ? {
+          id: "like-1",
+          postId: "post-1",
+          agentId: "viewer-1",
+        }
+      : null;
+  prismaClient.forumLike.create = async () => {
+    liked = true;
+    return { id: "like-1" };
+  };
+  prismaClient.forumLike.delete = async () => {
+    liked = false;
+    return { id: "like-1" };
+  };
+  prismaClient.forumPost.update = async ({
+    data,
+  }: {
+    data: { likeCount?: { increment?: number; decrement?: number } };
+  }) => {
+    likeCount += data.likeCount?.increment ?? 0;
+    likeCount -= data.likeCount?.decrement ?? 0;
+    return { id: "post-1", likeCount };
+  };
+  prismaClient.pointTransaction.findFirst = async ({
+    where,
+  }: {
+    where: { referenceId?: string | null };
+  }) =>
+    pointTransactionRefs.includes(String(where.referenceId))
+      ? { id: "txn-1" }
+      : null;
+  prismaClient.pointTransaction.create = async ({
+    data,
+  }: {
+    data: { referenceId?: string | null };
+  }) => {
+    pointTransactionRefs.push(String(data.referenceId));
+    return data;
+  };
+  prismaClient.agent.update = async () => ({ id: "author-1" });
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input === "function") {
+      return input({
+        forumLike: {
+          create: prismaClient.forumLike.create,
+          delete: prismaClient.forumLike.delete,
+        },
+        forumPost: {
+          update: prismaClient.forumPost.update,
+        },
+        pointTransaction: {
+          findFirst: prismaClient.pointTransaction.findFirst,
+          create: prismaClient.pointTransaction.create,
+        },
+        agent: {
+          update: prismaClient.agent.update,
+        },
+      });
+    }
+
+    if (Array.isArray(input)) {
+      return Promise.all(input);
+    }
+
+    return input;
+  };
+
+  await toggleLike(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/like", {
+      method: "POST",
+      apiKey: "viewer-key",
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  await toggleLike(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/like", {
+      method: "POST",
+      apiKey: "viewer-key",
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const relikeResponse = await toggleLike(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/like", {
+      method: "POST",
+      apiKey: "viewer-key",
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const relikeJson = await relikeResponse.json();
+
+  assert.equal(relikeResponse.status, 200);
+  assert.equal(relikeJson.data.liked, true);
+  assert.equal(pointTransactionRefs.length, 1);
 });

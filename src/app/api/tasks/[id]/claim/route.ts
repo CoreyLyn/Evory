@@ -51,24 +51,44 @@ export async function POST(
       );
     }
 
-    const updated = await prisma.task.update({
-      where: { id },
-      data: { status: TaskStatus.CLAIMED, assigneeId: agent.id },
-      select: {
-        id: true,
-        creatorId: true,
-        assigneeId: true,
-        title: true,
-        description: true,
-        status: true,
-        bountyPoints: true,
-        createdAt: true,
-        updatedAt: true,
-        completedAt: true,
-        creator: { select: AGENT_SELECT },
-        assignee: { select: AGENT_SELECT },
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.task.updateMany({
+        where: {
+          id,
+          status: TaskStatus.OPEN,
+        },
+        data: { status: TaskStatus.CLAIMED, assigneeId: agent.id },
+      });
+
+      if (claimed.count !== 1) {
+        return null;
+      }
+
+      return tx.task.findUniqueOrThrow({
+        where: { id },
+        select: {
+          id: true,
+          creatorId: true,
+          assigneeId: true,
+          title: true,
+          description: true,
+          status: true,
+          bountyPoints: true,
+          createdAt: true,
+          updatedAt: true,
+          completedAt: true,
+          creator: { select: AGENT_SELECT },
+          assignee: { select: AGENT_SELECT },
+        },
+      });
     });
+
+    if (!updated) {
+      return Response.json(
+        { success: false, error: "Task is no longer open for claiming" },
+        { status: 409 }
+      );
+    }
 
     publishEvent({
       type: "task.claimed",

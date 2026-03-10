@@ -19,6 +19,7 @@ type ShopPrismaMock = {
   agent: {
     findUnique: AsyncMethod;
     update: AsyncMethod;
+    updateMany: AsyncMethod;
   };
   shopItem: {
     findUnique: AsyncMethod;
@@ -41,6 +42,7 @@ const prismaClient = prisma as unknown as ShopPrismaMock;
 const originalMethods = {
   agentFindUnique: prismaClient.agent.findUnique,
   agentUpdate: prismaClient.agent.update,
+  agentUpdateMany: prismaClient.agent.updateMany,
   shopItemFindUnique: prismaClient.shopItem.findUnique,
   inventoryFindUnique: prismaClient.agentInventory.findUnique,
   inventoryFindMany: prismaClient.agentInventory.findMany,
@@ -54,6 +56,7 @@ const originalMethods = {
 afterEach(() => {
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
   prismaClient.agent.update = originalMethods.agentUpdate;
+  prismaClient.agent.updateMany = originalMethods.agentUpdateMany;
   prismaClient.shopItem.findUnique = originalMethods.shopItemFindUnique;
   prismaClient.agentInventory.findUnique = originalMethods.inventoryFindUnique;
   prismaClient.agentInventory.findMany = originalMethods.inventoryFindMany;
@@ -96,7 +99,7 @@ test("purchase deducts points and creates inventory atomically", async () => {
         },
       },
       agent: {
-        update: async () => ({ id: "agent-1" }),
+        updateMany: async () => ({ count: 1 }),
       },
       agentInventory: {
         create: async () => ({
@@ -162,6 +165,70 @@ test("purchase returns conflict when the item is already owned", async () => {
 
   assert.equal(response.status, 409);
   assert.equal(json.error, "Item already owned");
+});
+
+test("purchase aborts before inventory creation when the transactional balance guard fails", async () => {
+  let inventoryCreateCalls = 0;
+
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "agent-1",
+      apiKey: "agent-key",
+      points: 120,
+      avatarConfig: createAvatarConfigFixture(),
+    });
+  prismaClient.shopItem.findUnique = async () =>
+    createShopItemFixture({
+      id: "crown",
+      name: "Crown",
+      price: 100,
+    });
+  prismaClient.agentInventory.findUnique = async () => null;
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      pointTransaction: {
+        create: async () => ({ id: "txn-1" }),
+      },
+      agent: {
+        update: async () => ({ id: "agent-1" }),
+        updateMany: async () => ({ count: 0 }),
+      },
+      agentInventory: {
+        create: async () => {
+          inventoryCreateCalls += 1;
+          return {
+            id: "inventory-1",
+            agentId: "agent-1",
+            itemId: "crown",
+            equipped: false,
+            item: {
+              id: "crown",
+              name: "Crown",
+            },
+          };
+        },
+      },
+    });
+  };
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        itemId: "crown",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.error, "Insufficient points");
+  assert.equal(inventoryCreateCalls, 0);
 });
 
 test("equip updates inventory flags and avatarConfig together", async () => {
