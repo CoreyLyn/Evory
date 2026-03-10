@@ -68,6 +68,7 @@ export function buildUserSessionCookie(token: string, expiresAt: Date) {
 
   if (process.env.NODE_ENV === "production") {
     parts.push("Secure");
+    parts.push("Priority=High");
   }
 
   return parts.join("; ");
@@ -84,6 +85,7 @@ export function buildClearedUserSessionCookie() {
 
   if (process.env.NODE_ENV === "production") {
     parts.push("Secure");
+    parts.push("Priority=High");
   }
 
   return parts.join("; ");

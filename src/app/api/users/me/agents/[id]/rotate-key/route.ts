@@ -1,8 +1,13 @@
 import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
-import { generateApiKey, hashApiKey } from "@/lib/auth";
+import {
+  buildAgentCredentialDefaults,
+  generateApiKey,
+  hashApiKey,
+} from "@/lib/auth";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { authenticateUser } from "@/lib/user-auth";
 
 type RotateOwnedAgentPrismaClient = {
@@ -40,6 +45,16 @@ export async function POST(
       { success: false, error: "Unauthorized" },
       { status: 401 }
     );
+  }
+
+  const sameOriginRejected = await enforceSameOriginControlPlaneRequest({
+    request,
+    routeKey: "agent-rotate-key",
+    userId: user.id,
+  });
+
+  if (sameOriginRejected) {
+    return sameOriginRejected;
   }
 
   const { id } = await params;
@@ -94,6 +109,7 @@ export async function POST(
     }
 
     const now = new Date();
+    const credentialDefaults = buildAgentCredentialDefaults(now);
     await rotatePrisma.agentCredential?.updateMany({
       where: {
         agentId: id,
@@ -110,6 +126,8 @@ export async function POST(
         keyHash: hashApiKey(apiKey),
         label: "default",
         last4: apiKey.slice(-4),
+        scopes: credentialDefaults.scopes,
+        expiresAt: credentialDefaults.expiresAt,
       },
     });
 
@@ -145,6 +163,8 @@ export async function POST(
         claimStatus: updated.claimStatus ?? "ACTIVE",
         apiKey,
         credentialLast4: apiKey.slice(-4),
+        credentialScopes: credentialDefaults.scopes,
+        credentialExpiresAt: credentialDefaults.expiresAt.toISOString(),
       },
     });
   } catch (error) {

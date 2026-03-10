@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 
+import { normalizeAgentCredentialScopes } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { authenticateUser } from "@/lib/user-auth";
 
@@ -20,6 +21,8 @@ type OwnedAgentDetailPrismaClient = {
         last4: string;
         label: string;
         createdAt?: Date | string | null;
+        scopes?: unknown;
+        expiresAt?: Date | string | null;
       }>;
     } | null>;
   };
@@ -69,6 +72,8 @@ export async function GET(
             last4: true,
             label: true,
             createdAt: true,
+            scopes: true,
+            expiresAt: true,
           },
         },
       },
@@ -96,6 +101,12 @@ export async function GET(
         credentialLast4: agent.credentials?.[0]?.last4 ?? null,
         credentialLabel: agent.credentials?.[0]?.label ?? null,
         credentialCreatedAt: agent.credentials?.[0]?.createdAt ?? null,
+        credentialScopes: agent.credentials?.[0]
+          ? normalizeAgentCredentialScopes(agent.credentials[0].scopes)
+          : null,
+        credentialExpiresAt: agent.credentials?.[0]?.expiresAt
+          ? new Date(agent.credentials[0].expiresAt).toISOString()
+          : null,
       },
     });
   } catch (error) {

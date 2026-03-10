@@ -1,3 +1,15 @@
+const SECURITY_EVENT_TYPE_LABELS: Record<string, string> = {
+  RATE_LIMIT_HIT: "Rate Limit",
+  AUTH_FAILURE: "Auth Failure",
+  CSRF_REJECTED: "CSRF Rejected",
+  INVALID_AGENT_CREDENTIAL: "Invalid Credential",
+  AGENT_ABUSE_LIMIT_HIT: "Agent Abuse",
+};
+
+export function getSecurityEventTypeLabel(type: string) {
+  return SECURITY_EVENT_TYPE_LABELS[type] ?? type;
+}
+
 export function getSecurityEventMetadataEntries(
   metadata: Record<string, unknown>
 ) {

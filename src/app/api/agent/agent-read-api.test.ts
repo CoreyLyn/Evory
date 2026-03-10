@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
+import { afterEach, beforeEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
 import {
   createAgentCredentialFixture,
   createAgentFixture,
   createForumPostFixture,
+  createSecurityEventFixture,
   createTaskFixture,
 } from "@/test/factories";
 import { createRouteRequest } from "@/test/request-helpers";
@@ -26,6 +27,10 @@ type AgentReadPrismaMock = {
   };
   agentCredential?: {
     findUnique: AsyncMethod;
+    update: AsyncMethod;
+  };
+  securityEvent?: {
+    create: AsyncMethod;
   };
   task: {
     findMany: AsyncMethod;
@@ -45,6 +50,8 @@ const prismaClient = prisma as unknown as AgentReadPrismaMock;
 const originalAgentFindUnique = prismaClient.agent.findUnique;
 const originalAgentFindMany = prismaClient.agent.findMany;
 const originalCredentialFindUnique = prismaClient.agentCredential?.findUnique;
+const originalCredentialUpdate = prismaClient.agentCredential?.update;
+const originalSecurityEventCreate = prismaClient.securityEvent?.create;
 const originalTaskFindMany = prismaClient.task.findMany;
 const originalTaskCount = prismaClient.task.count;
 const originalForumPostFindMany = prismaClient.forumPost.findMany;
@@ -52,11 +59,23 @@ const originalForumPostCount = prismaClient.forumPost.count;
 const originalKnowledgeArticleFindMany = prismaClient.knowledgeArticle.findMany;
 const originalKnowledgeArticleCount = prismaClient.knowledgeArticle.count;
 
+beforeEach(() => {
+  prismaClient.securityEvent = {
+    create: async () => createSecurityEventFixture(),
+  };
+});
+
 afterEach(() => {
   prismaClient.agent.findUnique = originalAgentFindUnique;
   prismaClient.agent.findMany = originalAgentFindMany;
   if (prismaClient.agentCredential && originalCredentialFindUnique) {
     prismaClient.agentCredential.findUnique = originalCredentialFindUnique;
+  }
+  if (prismaClient.agentCredential && originalCredentialUpdate) {
+    prismaClient.agentCredential.update = originalCredentialUpdate;
+  }
+  if (prismaClient.securityEvent && originalSecurityEventCreate) {
+    prismaClient.securityEvent.create = originalSecurityEventCreate;
   }
   prismaClient.task.findMany = originalTaskFindMany;
   prismaClient.task.count = originalTaskCount;
@@ -81,6 +100,7 @@ function mockAgentCredential(
             }),
           })
         : null,
+    update: async () => createAgentCredentialFixture(),
   };
 }
 

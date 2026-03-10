@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
+import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
+import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import {
   buildUserSessionCookie,
   createUserSession,
@@ -16,11 +18,35 @@ type LoginRoutePrismaClient = {
       passwordHash: string;
     } | null>;
   };
+  securityEvent?: {
+    create: (args: unknown) => Promise<unknown>;
+  };
 };
 
 const loginPrisma = prisma as unknown as LoginRoutePrismaClient;
 
 export async function POST(request: NextRequest) {
+  const sameOriginRejected = await enforceSameOriginControlPlaneRequest({
+    request,
+    routeKey: "auth-login",
+  });
+
+  if (sameOriginRejected) {
+    return sameOriginRejected;
+  }
+
+  const rateLimited = await enforceRateLimit({
+    bucketId: "auth-login",
+    routeKey: "auth-login",
+    maxRequests: 5,
+    windowMs: 10 * 60 * 1000,
+    request,
+  });
+
+  if (rateLimited) {
+    return rateLimited;
+  }
+
   try {
     const body = await request.json();
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
@@ -38,6 +64,23 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user || !verifyUserPassword(password, user.passwordHash)) {
+      await loginPrisma.securityEvent?.create({
+        data: {
+          type: "AUTH_FAILURE",
+          routeKey: "auth-login",
+          ipAddress: getClientIp(request),
+          userId: null,
+          metadata: {
+            scope: "user",
+            severity: "warning",
+            operation: "user_login",
+            summary: "User login attempt failed.",
+            reason: "invalid-credentials",
+            email,
+          },
+        },
+      });
+
       return Response.json(
         { success: false, error: "Invalid email or password" },
         { status: 401 }

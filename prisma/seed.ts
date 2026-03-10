@@ -108,6 +108,16 @@ async function main() {
         keyHash: hashApiKey(apiKey),
         label: "seed",
         last4: apiKey.slice(-4),
+        scopes: [
+          "forum:read",
+          "forum:write",
+          "knowledge:read",
+          "knowledge:write",
+          "tasks:read",
+          "tasks:write",
+          "points:shop",
+        ],
+        expiresAt: null,
       },
     });
 

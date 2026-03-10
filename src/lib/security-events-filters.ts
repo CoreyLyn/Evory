@@ -1,3 +1,12 @@
+export const SECURITY_EVENT_TYPE_VALUES = [
+  "all",
+  "RATE_LIMIT_HIT",
+  "AUTH_FAILURE",
+  "CSRF_REJECTED",
+  "INVALID_AGENT_CREDENTIAL",
+  "AGENT_ABUSE_LIMIT_HIT",
+] as const;
+
 export const SECURITY_EVENT_SEVERITY_VALUES = [
   "all",
   "warning",
@@ -6,10 +15,22 @@ export const SECURITY_EVENT_SEVERITY_VALUES = [
 
 export const SECURITY_EVENT_ROUTE_VALUES = [
   "all",
+  "auth-signup",
+  "auth-login",
+  "auth-logout",
   "agent-register",
   "agent-claim",
   "agent-rotate-key",
   "agent-revoke",
+  "forum-post-write",
+  "forum-reply-write",
+  "forum-like-write",
+  "task-create-write",
+  "task-claim-write",
+  "task-complete-write",
+  "task-verify-write",
+  "knowledge-publish-write",
+  "shop-purchase-write",
 ] as const;
 
 export const SECURITY_EVENT_RANGE_VALUES = [
@@ -19,6 +40,8 @@ export const SECURITY_EVENT_RANGE_VALUES = [
   "30d",
 ] as const;
 
+export type SecurityEventTypeFilter =
+  (typeof SECURITY_EVENT_TYPE_VALUES)[number];
 export type SecurityEventSeverityFilter =
   (typeof SECURITY_EVENT_SEVERITY_VALUES)[number];
 export type SecurityEventRouteFilter =
@@ -27,6 +50,7 @@ export type SecurityEventRangeFilter =
   (typeof SECURITY_EVENT_RANGE_VALUES)[number];
 
 export type SecurityEventsFilters = {
+  type: SecurityEventTypeFilter;
   severity: SecurityEventSeverityFilter;
   routeKey: SecurityEventRouteFilter;
   range: SecurityEventRangeFilter;
@@ -34,6 +58,7 @@ export type SecurityEventsFilters = {
 };
 
 const DEFAULT_SECURITY_EVENTS_FILTERS: SecurityEventsFilters = {
+  type: "all",
   severity: "all",
   routeKey: "all",
   range: "all",
@@ -50,6 +75,7 @@ function isValidOption<T extends readonly string[]>(
 export function parseSecurityEventsFilters(
   searchParams: URLSearchParams | ReadonlyURLSearchParamsLike
 ): SecurityEventsFilters {
+  const type = searchParams.get("type");
   const severity = searchParams.get("severity");
   const routeKey = searchParams.get("routeKey");
   const range = searchParams.get("range");
@@ -57,6 +83,9 @@ export function parseSecurityEventsFilters(
   const parsedPage = pageParam ? Number.parseInt(pageParam, 10) : NaN;
 
   return {
+    type: isValidOption(type, SECURITY_EVENT_TYPE_VALUES)
+      ? type
+      : DEFAULT_SECURITY_EVENTS_FILTERS.type,
     severity: isValidOption(severity, SECURITY_EVENT_SEVERITY_VALUES)
       ? severity
       : DEFAULT_SECURITY_EVENTS_FILTERS.severity,
@@ -84,7 +113,8 @@ export function normalizeSecurityEventsFilters(
 
   if (
     updates.page === undefined &&
-    (updates.severity !== undefined ||
+    (updates.type !== undefined ||
+      updates.severity !== undefined ||
       updates.routeKey !== undefined ||
       updates.range !== undefined)
   ) {
@@ -106,6 +136,10 @@ export function buildSecurityEventsQueryString(
 ): string {
   const searchParams = new URLSearchParams();
   const includePage = options?.includePage ?? true;
+
+  if (filters.type !== DEFAULT_SECURITY_EVENTS_FILTERS.type) {
+    searchParams.set("type", filters.type);
+  }
 
   if (filters.severity !== DEFAULT_SECURITY_EVENTS_FILTERS.severity) {
     searchParams.set("severity", filters.severity);

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 
+import { normalizeAgentCredentialScopes } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { authenticateUser } from "@/lib/user-auth";
 
@@ -18,6 +19,8 @@ type ListOwnedAgentsPrismaClient = {
         credentials?: Array<{
           last4: string;
           label: string;
+          scopes?: unknown;
+          expiresAt?: Date | string | null;
         }>;
         claimAudits?: Array<{
           id: string;
@@ -69,6 +72,8 @@ export async function GET(request: NextRequest) {
           select: {
             last4: true,
             label: true,
+            scopes: true,
+            expiresAt: true,
           },
         },
         claimAudits: {
@@ -98,6 +103,12 @@ export async function GET(request: NextRequest) {
         lastSeenAt: agent.lastSeenAt ?? null,
         credentialLast4: agent.credentials?.[0]?.last4 ?? null,
         credentialLabel: agent.credentials?.[0]?.label ?? null,
+        credentialScopes: agent.credentials?.[0]
+          ? normalizeAgentCredentialScopes(agent.credentials[0].scopes)
+          : null,
+        credentialExpiresAt: agent.credentials?.[0]?.expiresAt
+          ? new Date(agent.credentials[0].expiresAt).toISOString()
+          : null,
         recentAudits: (agent.claimAudits ?? []).map((audit) => ({
           id: audit.id,
           action: audit.action,

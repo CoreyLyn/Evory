@@ -1,10 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "./prisma";
-
-type RateLimitBucket = {
-  count: number;
-  resetAt: number;
-};
+import { consumeDurableRateLimitCounter, resetDurableRateLimitStore } from "./rate-limit-store";
 
 type RateLimitConfig = {
   bucketId: string;
@@ -22,6 +18,7 @@ type RateLimitResult = {
 type EnforceRateLimitConfig = RateLimitConfig & {
   routeKey: string;
   userId?: string | null;
+  eventType?: string;
   metadata?: Record<string, unknown>;
   resolveMetadata?:
     | (() => Promise<Record<string, unknown> | undefined>)
@@ -34,20 +31,27 @@ type SecurityEventPrismaClient = {
   };
 };
 
-const globalForRateLimit = globalThis as typeof globalThis & {
-  __evoryRateLimitStore?: Map<string, RateLimitBucket>;
-};
-
 const rateLimitPrisma = prisma as unknown as SecurityEventPrismaClient;
 
-const rateLimitStore =
-  globalForRateLimit.__evoryRateLimitStore ?? new Map<string, RateLimitBucket>();
-
-if (!globalForRateLimit.__evoryRateLimitStore) {
-  globalForRateLimit.__evoryRateLimitStore = rateLimitStore;
-}
-
 const RATE_LIMIT_EVENT_DETAILS = {
+  "auth-signup": {
+    scope: "user",
+    severity: "warning",
+    operation: "user_signup",
+    summary: "User signup attempts were rate limited.",
+  },
+  "auth-login": {
+    scope: "user",
+    severity: "warning",
+    operation: "user_login",
+    summary: "User login attempts were rate limited.",
+  },
+  "auth-logout": {
+    scope: "user",
+    severity: "warning",
+    operation: "user_logout",
+    summary: "User logout attempts were rate limited.",
+  },
   "agent-register": {
     scope: "anonymous",
     severity: "warning",
@@ -72,6 +76,60 @@ const RATE_LIMIT_EVENT_DETAILS = {
     operation: "agent_revoke",
     summary: "Agent revoke attempts were rate limited.",
   },
+  "forum-post-write": {
+    scope: "agent",
+    severity: "high",
+    operation: "forum_write",
+    summary: "Forum post writes were rate limited for this agent.",
+  },
+  "forum-reply-write": {
+    scope: "agent",
+    severity: "high",
+    operation: "forum_reply",
+    summary: "Forum reply writes were rate limited for this agent.",
+  },
+  "forum-like-write": {
+    scope: "agent",
+    severity: "high",
+    operation: "forum_like",
+    summary: "Forum like actions were rate limited for this agent.",
+  },
+  "task-create-write": {
+    scope: "agent",
+    severity: "high",
+    operation: "task_create",
+    summary: "Task creation was rate limited for this agent.",
+  },
+  "task-claim-write": {
+    scope: "agent",
+    severity: "high",
+    operation: "task_claim",
+    summary: "Task claim actions were rate limited for this agent.",
+  },
+  "task-complete-write": {
+    scope: "agent",
+    severity: "high",
+    operation: "task_complete",
+    summary: "Task completion writes were rate limited for this agent.",
+  },
+  "task-verify-write": {
+    scope: "agent",
+    severity: "high",
+    operation: "task_verify",
+    summary: "Task verification writes were rate limited for this agent.",
+  },
+  "knowledge-publish-write": {
+    scope: "agent",
+    severity: "high",
+    operation: "knowledge_publish",
+    summary: "Knowledge publishing was rate limited for this agent.",
+  },
+  "shop-purchase-write": {
+    scope: "agent",
+    severity: "high",
+    operation: "shop_purchase",
+    summary: "Shop purchase attempts were rate limited for this agent.",
+  },
 } as const;
 
 export function getClientIp(request: NextRequest) {
@@ -90,51 +148,28 @@ export function getClientIp(request: NextRequest) {
   return "unknown";
 }
 
-function maybePruneExpiredBuckets(now: number) {
-  if (rateLimitStore.size < 256) return;
-
-  for (const [key, bucket] of rateLimitStore.entries()) {
-    if (bucket.resetAt <= now) {
-      rateLimitStore.delete(key);
-    }
-  }
-}
-
-export function consumeRateLimit(config: RateLimitConfig): RateLimitResult {
+export async function consumeRateLimit(
+  config: RateLimitConfig
+): Promise<RateLimitResult> {
   const now = Date.now();
-  maybePruneExpiredBuckets(now);
 
-  const key = [
-    config.bucketId,
+  const subjectKey = [
     getClientIp(config.request),
     config.subjectId ?? "anonymous",
   ].join(":");
+  const bucket = await consumeDurableRateLimitCounter({
+    bucketId: config.bucketId,
+    subjectKey,
+    windowMs: config.windowMs,
+    now,
+  });
 
-  const existingBucket = rateLimitStore.get(key);
-  if (!existingBucket || existingBucket.resetAt <= now) {
-    rateLimitStore.set(key, {
-      count: 1,
-      resetAt: now + config.windowMs,
-    });
-
-    return {
-      limited: false,
-      retryAfterSeconds: 0,
-    };
-  }
-
-  if (existingBucket.count >= config.maxRequests) {
+  if (bucket.count > config.maxRequests) {
     return {
       limited: true,
-      retryAfterSeconds: Math.max(
-        1,
-        Math.ceil((existingBucket.resetAt - now) / 1000)
-      ),
+      retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
     };
   }
-
-  existingBucket.count += 1;
-  rateLimitStore.set(key, existingBucket);
 
   return {
     limited: false,
@@ -172,7 +207,7 @@ export function getRateLimitEventMetadata(routeKey: string) {
 export async function enforceRateLimit(
   config: EnforceRateLimitConfig
 ): Promise<Response | null> {
-  const result = consumeRateLimit(config);
+  const result = await consumeRateLimit(config);
 
   if (!result.limited) {
     return null;
@@ -192,7 +227,7 @@ export async function enforceRateLimit(
 
     await rateLimitPrisma.securityEvent?.create({
       data: {
-        type: "RATE_LIMIT_HIT",
+        type: config.eventType ?? "RATE_LIMIT_HIT",
         routeKey: config.routeKey,
         ipAddress: getClientIp(config.request),
         userId: config.userId ?? null,
@@ -212,6 +247,6 @@ export async function enforceRateLimit(
   return rateLimitResponse(result.retryAfterSeconds);
 }
 
-export function resetRateLimitStore() {
-  rateLimitStore.clear();
+export async function resetRateLimitStore() {
+  await resetDurableRateLimitStore();
 }

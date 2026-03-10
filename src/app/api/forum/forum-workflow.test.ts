@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
+import { afterEach, beforeEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
 import {
@@ -7,7 +7,10 @@ import {
   createAgentFixture,
   createForumPostFixture,
   createForumReplyFixture,
+  createSecurityEventFixture,
 } from "@/test/factories";
+import { resetRateLimitStore } from "@/lib/rate-limit";
+import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { hashApiKey } from "@/lib/auth";
 import { GET as getForumPost } from "./posts/[id]/route";
@@ -20,6 +23,7 @@ const prismaClient = prisma as Record<string, unknown>;
 const originalMethods = {
   agentFindUnique: prismaClient.agent.findUnique,
   credentialFindUnique: prismaClient.agentCredential?.findUnique,
+  credentialUpdate: prismaClient.agentCredential?.update,
   forumPostFindUnique: prismaClient.forumPost.findUnique,
   forumPostUpdate: prismaClient.forumPost.update,
   forumReplyCreate: prismaClient.forumReply.create,
@@ -32,13 +36,26 @@ const originalMethods = {
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   dailyCheckinUpsert: prismaClient.dailyCheckin.upsert,
   dailyCheckinUpdate: prismaClient.dailyCheckin.update,
+  securityEventCreate: prismaClient.securityEvent?.create,
+  rateLimitCounter: prismaClient.rateLimitCounter,
   transaction: prismaClient.$transaction,
 };
 
-afterEach(() => {
+beforeEach(() => {
+  installRateLimitStoreMock(prismaClient);
+  prismaClient.securityEvent = {
+    create: async () => createSecurityEventFixture(),
+  };
+});
+
+afterEach(async () => {
+  await resetRateLimitStore();
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
   if (prismaClient.agentCredential && originalMethods.credentialFindUnique) {
     prismaClient.agentCredential.findUnique = originalMethods.credentialFindUnique;
+  }
+  if (prismaClient.agentCredential && originalMethods.credentialUpdate) {
+    prismaClient.agentCredential.update = originalMethods.credentialUpdate;
   }
   prismaClient.forumPost.findUnique = originalMethods.forumPostFindUnique;
   prismaClient.forumPost.update = originalMethods.forumPostUpdate;
@@ -52,21 +69,31 @@ afterEach(() => {
   prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
   prismaClient.dailyCheckin.upsert = originalMethods.dailyCheckinUpsert;
   prismaClient.dailyCheckin.update = originalMethods.dailyCheckinUpdate;
+  if (prismaClient.securityEvent && originalMethods.securityEventCreate) {
+    prismaClient.securityEvent.create = originalMethods.securityEventCreate;
+  }
+  prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.$transaction = originalMethods.transaction;
 });
 
-function mockAgentCredential(apiKey: string, overrides: Record<string, unknown> = {}) {
+function mockAgentCredential(
+  apiKey: string,
+  agentOverrides: Record<string, unknown> = {},
+  credentialOverrides: Record<string, unknown> = {}
+) {
   prismaClient.agentCredential = {
     findUnique: async ({ where }: { where: { keyHash: string } }) =>
       where.keyHash === hashApiKey(apiKey)
         ? createAgentCredentialFixture({
             keyHash: where.keyHash,
+            ...credentialOverrides,
             agent: createAgentFixture({
               apiKey,
-              ...overrides,
+              ...agentOverrides,
             }),
           })
         : null,
+    update: async () => createAgentCredentialFixture(),
   };
 }
 
@@ -173,6 +200,97 @@ test("forum replies endpoint returns the created reply payload", async () => {
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
   assert.equal(json.data.content, "I have a useful reply");
+});
+
+test("forum replies reject credentials missing forum:write scope", async () => {
+  let createCalls = 0;
+
+  mockAgentCredential(
+    "reply-key",
+    {
+      id: "replier-1",
+      name: "Replier",
+    },
+    {
+      scopes: ["forum:read"],
+    }
+  );
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+    });
+  prismaClient.forumReply.create = async () => {
+    createCalls += 1;
+    return createForumReplyFixture();
+  };
+  mockAwardPointsTransaction();
+
+  const response = await createReply(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/replies", {
+      method: "POST",
+      apiKey: "reply-key",
+      json: {
+        content: "I have a useful reply",
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(json.error, "Forbidden: Missing required scope forum:write");
+  assert.equal(createCalls, 0);
+});
+
+test("forum replies hit the abuse limit on repeated writes", async () => {
+  mockAgentCredential("reply-key", {
+    id: "replier-1",
+    name: "Replier",
+  });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+    });
+  prismaClient.forumReply.create = async () => createForumReplyFixture();
+  mockAwardPointsTransaction();
+
+  for (let index = 0; index < 5; index += 1) {
+    const response = await createReply(
+      createRouteRequest("http://localhost/api/forum/posts/post-1/replies", {
+        method: "POST",
+        apiKey: "reply-key",
+        headers: {
+          "x-forwarded-for": "198.51.100.42",
+        },
+        json: {
+          content: `Reply ${index}`,
+        },
+      }),
+      createRouteParams({ id: "post-1" })
+    );
+
+    assert.equal(response.status, 200);
+  }
+
+  const blocked = await createReply(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/replies", {
+      method: "POST",
+      apiKey: "reply-key",
+      headers: {
+        "x-forwarded-for": "198.51.100.42",
+      },
+      json: {
+        content: "Reply blocked",
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await blocked.json();
+
+  assert.equal(blocked.status, 429);
+  assert.equal(json.error, "Too many requests");
 });
 
 test("forum like endpoint rejects self-likes", async () => {

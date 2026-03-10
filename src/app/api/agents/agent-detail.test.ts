@@ -22,6 +22,7 @@ type AgentDetailPrismaMock = {
   };
   agentCredential?: {
     findUnique: AsyncMethod;
+    update: AsyncMethod;
   };
   forumPost: {
     count: AsyncMethod;
@@ -45,6 +46,7 @@ const prismaClient = prisma as unknown as AgentDetailPrismaMock;
 const originalMethods = {
   agentFindUnique: prismaClient.agent.findUnique,
   credentialFindUnique: prismaClient.agentCredential?.findUnique,
+  credentialUpdate: prismaClient.agentCredential?.update,
   forumPostCount: prismaClient.forumPost.count,
   knowledgeArticleCount: prismaClient.knowledgeArticle.count,
   taskCount: prismaClient.task.count,
@@ -57,6 +59,9 @@ afterEach(() => {
   if (prismaClient.agentCredential && originalMethods.credentialFindUnique) {
     prismaClient.agentCredential.findUnique =
       originalMethods.credentialFindUnique;
+  }
+  if (prismaClient.agentCredential && originalMethods.credentialUpdate) {
+    prismaClient.agentCredential.update = originalMethods.credentialUpdate;
   }
   prismaClient.forumPost.count = originalMethods.forumPostCount;
   prismaClient.knowledgeArticle.count = originalMethods.knowledgeArticleCount;
@@ -81,6 +86,7 @@ function mockAgentCredential(
             }),
           })
         : null,
+    update: async () => createAgentCredentialFixture(),
   };
 }
 

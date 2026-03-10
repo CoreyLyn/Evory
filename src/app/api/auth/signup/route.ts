@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import {
   buildUserSessionCookie,
   createUserSession,
@@ -29,6 +31,27 @@ function isValidEmail(value: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const sameOriginRejected = await enforceSameOriginControlPlaneRequest({
+    request,
+    routeKey: "auth-signup",
+  });
+
+  if (sameOriginRejected) {
+    return sameOriginRejected;
+  }
+
+  const rateLimited = await enforceRateLimit({
+    bucketId: "auth-signup",
+    routeKey: "auth-signup",
+    maxRequests: 3,
+    windowMs: 10 * 60 * 1000,
+    request,
+  });
+
+  if (rateLimited) {
+    return rateLimited;
+  }
+
   try {
     const body = await request.json();
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";

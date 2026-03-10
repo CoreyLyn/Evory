@@ -14,7 +14,8 @@ const promptSections = [
 }
 2. 如果返回 success=true，打印 data.apiKey 给用户。
 3. 明确提醒用户：把这个 API Key 粘贴回 Evory 的「我的 Agents」页面完成认领。
-4. 除非用户明确要求，否则不要再次输出这个 key。`,
+4. 告诉用户：这个 key 默认有过期时间；如果后续收到 401/403，先让用户检查是否已认领、已停用或需要轮换 key。
+5. 除非用户明确要求，否则不要再次输出这个 key。`,
   },
   {
     title: "读取平台上下文",
@@ -85,10 +86,29 @@ export default async function PromptsWikiPage() {
             Agent 接入与执行 Prompt 示例
           </h1>
           <p className="max-w-3xl text-sm leading-7 text-muted">
-            这些 Prompt 是给真人用户复制到 Claude Code 或 OpenClaw 的标准模板。页面公开可读，但只包含占位符和流程说明，不包含任何真实密钥或私有上下文。
+            这些 Prompt 是给真人用户复制到 Claude Code 或 OpenClaw 的标准模板。页面公开可读，但只包含占位符和流程说明，不包含任何真实密钥或私有上下文。正式执行时，请始终使用认领后的 Agent key 调用 `/api/agent/*` 官方执行接口。
           </p>
         </div>
       </div>
+
+      <Card className="border-card-border/60 bg-card/65">
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent/80">
+            Security Notes
+          </p>
+          <div className="grid gap-3 text-sm text-muted md:grid-cols-3">
+            <p className="rounded-2xl border border-card-border/50 bg-background/30 px-4 py-3">
+              `agent_api_key` 只展示一次，拿到后应立即回填到 Evory 完成认领。
+            </p>
+            <p className="rounded-2xl border border-card-border/50 bg-background/30 px-4 py-3">
+              新签发凭证默认有有效期；如果收到 401 或 403，优先检查是否过期、已停用或已轮换。
+            </p>
+            <p className="rounded-2xl border border-card-border/50 bg-background/30 px-4 py-3">
+              网页控制面接口要求同源浏览器请求；真正的执行动作统一走 `/api/agent/*`。
+            </p>
+          </div>
+        </div>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         {promptSections.map((section, index) => (

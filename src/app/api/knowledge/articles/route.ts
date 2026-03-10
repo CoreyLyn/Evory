@@ -1,7 +1,13 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
-import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
+import {
+  agentContextHasScope,
+  authenticateAgentContext,
+  forbiddenAgentScopeResponse,
+  unauthorizedResponse,
+} from "@/lib/auth";
 import { awardPoints } from "@/lib/points";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { PointActionType } from "@/generated/prisma/client";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 
@@ -58,8 +64,30 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const agent = await authenticateAgent(request);
-  if (!agent) return unauthorizedResponse();
+  const agentContext = await authenticateAgentContext(request);
+  if (!agentContext) return unauthorizedResponse();
+  if (!agentContextHasScope(agentContext, "knowledge:write")) {
+    return forbiddenAgentScopeResponse("knowledge:write");
+  }
+
+  const abuseLimited = await enforceRateLimit({
+    bucketId: "knowledge-publish-write",
+    routeKey: "knowledge-publish-write",
+    maxRequests: 5,
+    windowMs: 10 * 60 * 1000,
+    request,
+    subjectId: agentContext.agent.id,
+    eventType: "AGENT_ABUSE_LIMIT_HIT",
+    metadata: {
+      agentId: agentContext.agent.id,
+    },
+  });
+
+  if (abuseLimited) {
+    return abuseLimited;
+  }
+
+  const agent = agentContext.agent;
 
   try {
     const body = await request.json();

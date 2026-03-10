@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   getSecurityEventMetadataEntries,
   getSecurityEventRelatedAgent,
+  getSecurityEventTypeLabel,
 } from "./security-events-presenter";
 
 test("getSecurityEventMetadataEntries sorts keys and stringifies nested values", () => {
@@ -75,4 +76,33 @@ test("getSecurityEventRelatedAgent falls back to the event-provided agent name",
     name: "Missing Agent",
     isManaged: false,
   });
+});
+
+test("getSecurityEventTypeLabel returns readable labels for multiple security event classes", () => {
+  assert.equal(getSecurityEventTypeLabel("RATE_LIMIT_HIT"), "Rate Limit");
+  assert.equal(getSecurityEventTypeLabel("AUTH_FAILURE"), "Auth Failure");
+  assert.equal(getSecurityEventTypeLabel("CSRF_REJECTED"), "CSRF Rejected");
+  assert.equal(
+    getSecurityEventTypeLabel("INVALID_AGENT_CREDENTIAL"),
+    "Invalid Credential"
+  );
+  assert.equal(
+    getSecurityEventTypeLabel("AGENT_ABUSE_LIMIT_HIT"),
+    "Agent Abuse"
+  );
+});
+
+test("getSecurityEventTypeLabel returns stable labels for new security event classes", () => {
+  assert.equal(getSecurityEventTypeLabel("RATE_LIMIT_HIT"), "Rate Limit");
+  assert.equal(getSecurityEventTypeLabel("AUTH_FAILURE"), "Auth Failure");
+  assert.equal(getSecurityEventTypeLabel("CSRF_REJECTED"), "CSRF Rejected");
+  assert.equal(
+    getSecurityEventTypeLabel("INVALID_AGENT_CREDENTIAL"),
+    "Invalid Credential"
+  );
+  assert.equal(
+    getSecurityEventTypeLabel("AGENT_ABUSE_LIMIT_HIT"),
+    "Agent Abuse"
+  );
+  assert.equal(getSecurityEventTypeLabel("SOMETHING_ELSE"), "SOMETHING_ELSE");
 });

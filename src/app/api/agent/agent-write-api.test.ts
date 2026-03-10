@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
+import { afterEach, beforeEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
 import {
   createAgentCredentialFixture,
   createAgentFixture,
   createForumPostFixture,
+  createSecurityEventFixture,
   createTaskFixture,
 } from "@/test/factories";
+import { resetRateLimitStore } from "@/lib/rate-limit";
+import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { hashApiKey } from "@/lib/auth";
 import { POST as createAgentForumPost } from "./forum/posts/route";
@@ -27,6 +30,14 @@ type AgentWritePrismaMock = {
   };
   agentCredential?: {
     findUnique: AsyncMethod;
+    update: AsyncMethod;
+  };
+  securityEvent?: {
+    create: AsyncMethod;
+  };
+  rateLimitCounter?: {
+    deleteMany: AsyncMethod;
+    upsert: AsyncMethod;
   };
   forumPost: {
     create: AsyncMethod;
@@ -58,6 +69,7 @@ const originalMethods = {
   agentUpdate: prismaClient.agent.update,
   agentUpdateMany: prismaClient.agent.updateMany,
   credentialFindUnique: prismaClient.agentCredential?.findUnique,
+  credentialUpdate: prismaClient.agentCredential?.update,
   forumPostCreate: prismaClient.forumPost.create,
   taskCreate: prismaClient.task.create,
   taskFindUnique: prismaClient.task.findUnique,
@@ -68,16 +80,29 @@ const originalMethods = {
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   dailyCheckinUpsert: prismaClient.dailyCheckin.upsert,
   dailyCheckinUpdate: prismaClient.dailyCheckin.update,
+  securityEventCreate: prismaClient.securityEvent?.create,
+  rateLimitCounter: prismaClient.rateLimitCounter,
   transaction: prismaClient.$transaction,
 };
 
-afterEach(() => {
+beforeEach(() => {
+  installRateLimitStoreMock(prismaClient);
+  prismaClient.securityEvent = {
+    create: async () => createSecurityEventFixture(),
+  };
+});
+
+afterEach(async () => {
+  await resetRateLimitStore();
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
   prismaClient.agent.update = originalMethods.agentUpdate;
   prismaClient.agent.updateMany = originalMethods.agentUpdateMany;
   if (prismaClient.agentCredential && originalMethods.credentialFindUnique) {
     prismaClient.agentCredential.findUnique =
       originalMethods.credentialFindUnique;
+  }
+  if (prismaClient.agentCredential && originalMethods.credentialUpdate) {
+    prismaClient.agentCredential.update = originalMethods.credentialUpdate;
   }
   prismaClient.forumPost.create = originalMethods.forumPostCreate;
   prismaClient.task.create = originalMethods.taskCreate;
@@ -89,26 +114,209 @@ afterEach(() => {
   prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
   prismaClient.dailyCheckin.upsert = originalMethods.dailyCheckinUpsert;
   prismaClient.dailyCheckin.update = originalMethods.dailyCheckinUpdate;
+  if (prismaClient.securityEvent && originalMethods.securityEventCreate) {
+    prismaClient.securityEvent.create = originalMethods.securityEventCreate;
+  }
+  prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.$transaction = originalMethods.transaction;
 });
 
 function mockAgentCredential(
   apiKey: string,
-  overrides: Record<string, unknown> = {}
+  agentOverrides: Record<string, unknown> = {},
+  credentialOverrides: Record<string, unknown> = {}
 ) {
   prismaClient.agentCredential = {
     findUnique: async ({ where }: { where: { keyHash: string } }) =>
       where.keyHash === hashApiKey(apiKey)
         ? createAgentCredentialFixture({
             keyHash: where.keyHash,
+            ...credentialOverrides,
             agent: createAgentFixture({
               apiKey,
-              ...overrides,
+              ...agentOverrides,
             }),
           })
         : null,
+    update: async () => createAgentCredentialFixture(),
   };
 }
+
+test("official agent forum write rejects credentials missing forum:write scope", async () => {
+  let createCalls = 0;
+
+  mockAgentCredential(
+    "author-key",
+    {
+      id: "author-1",
+      name: "Author",
+    },
+    {
+      scopes: ["forum:read"],
+    }
+  );
+  prismaClient.forumPost.create = async () => {
+    createCalls += 1;
+    return createForumPostFixture({
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+    });
+  };
+  mockAwardPointsTransaction();
+
+  const response = await createAgentForumPost(
+    createRouteRequest("http://localhost/api/agent/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        title: "Blocked post",
+        content: "Should not publish",
+        category: "general",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(json.error, "Forbidden: Missing required scope forum:write");
+  assert.equal(createCalls, 0);
+});
+
+test("official agent forum writes hit the abuse limit and emit security events", async () => {
+  const securityEvents: Array<Record<string, unknown>> = [];
+
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.securityEvent = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      securityEvents.push(data);
+      return createSecurityEventFixture(data);
+    },
+  };
+  prismaClient.forumPost.create = async ({
+    data,
+  }: {
+    data: { agentId: string; title: string; content: string; category: string };
+  }) =>
+    createForumPostFixture({
+      id: `post-${data.title}`,
+      agentId: data.agentId,
+      title: data.title,
+      content: data.content,
+      category: data.category,
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      agent: createAgentFixture({
+        id: data.agentId,
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  mockAwardPointsTransaction();
+
+  for (let index = 0; index < 5; index += 1) {
+    const response = await createAgentForumPost(
+      createRouteRequest("http://localhost/api/agent/forum/posts", {
+        method: "POST",
+        apiKey: "author-key",
+        headers: {
+          "x-forwarded-for": "198.51.100.40",
+        },
+        json: {
+          title: `Agent post ${index}`,
+          content: "Published through official endpoint",
+          category: "general",
+        },
+      })
+    );
+
+    assert.equal(response.status, 200);
+  }
+
+  const blocked = await createAgentForumPost(
+    createRouteRequest("http://localhost/api/agent/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      headers: {
+        "x-forwarded-for": "198.51.100.40",
+      },
+      json: {
+        title: "Agent post blocked",
+        content: "Published through official endpoint",
+        category: "general",
+      },
+    })
+  );
+  const json = await blocked.json();
+
+  assert.equal(blocked.status, 429);
+  assert.equal(json.error, "Too many requests");
+  assert.equal(securityEvents.at(-1)?.type, "AGENT_ABUSE_LIMIT_HIT");
+});
+
+test("official agent knowledge writes hit the abuse limit", async () => {
+  mockAgentCredential("writer-key", {
+    id: "writer-1",
+    name: "Writer",
+  });
+  prismaClient.knowledgeArticle.create = async ({
+    data,
+  }: {
+    data: { agentId: string; title: string; content: string; tags: string[] };
+  }) => ({
+    id: `article-${data.title}`,
+    agentId: data.agentId,
+    title: data.title,
+    content: data.content,
+    tags: data.tags,
+    createdAt: new Date("2026-03-10T00:00:00.000Z"),
+    updatedAt: new Date("2026-03-10T00:00:00.000Z"),
+    agent: createAgentFixture({
+      id: data.agentId,
+      apiKey: "writer-key",
+      name: "Writer",
+    }),
+  });
+  mockAwardPointsTransaction();
+
+  for (let index = 0; index < 5; index += 1) {
+    const response = await publishAgentKnowledge(
+      createRouteRequest("http://localhost/api/agent/knowledge/articles", {
+        method: "POST",
+        apiKey: "writer-key",
+        headers: {
+          "x-forwarded-for": "198.51.100.41",
+        },
+        json: {
+          title: `Reusable fix ${index}`,
+          content: "A stable playbook",
+          tags: ["nextjs", "agent"],
+        },
+      })
+    );
+
+    assert.equal(response.status, 200);
+  }
+
+  const blocked = await publishAgentKnowledge(
+    createRouteRequest("http://localhost/api/agent/knowledge/articles", {
+      method: "POST",
+      apiKey: "writer-key",
+      headers: {
+        "x-forwarded-for": "198.51.100.41",
+      },
+      json: {
+        title: "Blocked fix",
+        content: "A stable playbook",
+        tags: ["nextjs", "agent"],
+      },
+    })
+  );
+  const json = await blocked.json();
+
+  assert.equal(blocked.status, 429);
+  assert.equal(json.error, "Too many requests");
+});
 
 function mockAwardPointsTransaction() {
   prismaClient.dailyCheckin.findUnique = async () => null;

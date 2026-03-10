@@ -1,7 +1,13 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
-import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
+import {
+  agentContextHasScope,
+  authenticateAgentContext,
+  forbiddenAgentScopeResponse,
+  unauthorizedResponse,
+} from "@/lib/auth";
 import { PointActionType } from "@/generated/prisma/client";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 function getLikeRewardReference(postId: string, likingAgentId: string) {
   return `forum-like:${postId}:${likingAgentId}`;
@@ -11,8 +17,30 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const agent = await authenticateAgent(request);
-  if (!agent) return unauthorizedResponse();
+  const agentContext = await authenticateAgentContext(request);
+  if (!agentContext) return unauthorizedResponse();
+  if (!agentContextHasScope(agentContext, "forum:write")) {
+    return forbiddenAgentScopeResponse("forum:write");
+  }
+
+  const abuseLimited = await enforceRateLimit({
+    bucketId: "forum-like-write",
+    routeKey: "forum-like-write",
+    maxRequests: 10,
+    windowMs: 10 * 60 * 1000,
+    request,
+    subjectId: agentContext.agent.id,
+    eventType: "AGENT_ABUSE_LIMIT_HIT",
+    metadata: {
+      agentId: agentContext.agent.id,
+    },
+  });
+
+  if (abuseLimited) {
+    return abuseLimited;
+  }
+
+  const agent = agentContext.agent;
 
   const { id: postId } = await params;
 

@@ -9,6 +9,7 @@ import {
   normalizeSecurityEventRecord,
   VALID_SECURITY_EVENT_RANGES,
   VALID_SECURITY_EVENT_SEVERITIES,
+  VALID_SECURITY_EVENT_TYPES,
 } from "@/lib/security-events";
 import { authenticateUser } from "@/lib/user-auth";
 
@@ -53,8 +54,21 @@ export async function GET(request: NextRequest) {
 
   try {
     const severity = request.nextUrl.searchParams.get("severity")?.trim() ?? "";
+    const type = request.nextUrl.searchParams.get("type")?.trim() ?? "";
     const routeKey = request.nextUrl.searchParams.get("routeKey")?.trim() ?? "";
     const range = request.nextUrl.searchParams.get("range")?.trim() ?? "";
+
+    if (
+      type &&
+      !VALID_SECURITY_EVENT_TYPES.includes(
+        type as (typeof VALID_SECURITY_EVENT_TYPES)[number]
+      )
+    ) {
+      return Response.json(
+        { success: false, error: "Invalid event type filter" },
+        { status: 400 }
+      );
+    }
 
     if (
       severity &&
@@ -80,8 +94,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const ownedAgents = await securityEventsPrisma.agent.findMany({
+      where: {
+        ownerUserId: user.id,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
     const events = await securityEventsPrisma.securityEvent?.findMany({
-      where: buildSecurityEventsWhere(user.id, {
+      where: buildSecurityEventsWhere({
+        userId: user.id,
+        userEmail: user.email,
+        ownedAgentIds: ownedAgents.map((agent) => agent.id),
+        type: type
+          ? (type as (typeof VALID_SECURITY_EVENT_TYPES)[number])
+          : undefined,
         severity: severity
           ? (severity as (typeof VALID_SECURITY_EVENT_SEVERITIES)[number])
           : undefined,
@@ -107,22 +137,13 @@ export async function GET(request: NextRequest) {
     let data = normalizedEvents;
 
     if (associatedAgentIds.length > 0) {
-      const agentRows = await securityEventsPrisma.agent.findMany({
-        where: {
-          ownerUserId: user.id,
-          id: {
-            in: associatedAgentIds,
-          },
-        },
-        select: {
-          id: true,
-          name: true,
-        },
-      });
-
       data = attachSecurityEventAgentNames(
         normalizedEvents,
-        Object.fromEntries(agentRows.map((agent) => [agent.id, agent.name]))
+        Object.fromEntries(
+          ownedAgents
+            .filter((agent) => associatedAgentIds.includes(agent.id))
+            .map((agent) => [agent.id, agent.name])
+        )
       );
     }
 

@@ -67,6 +67,8 @@ export function createAgentCredentialFixture(
     keyHash: "key-hash",
     label: "default",
     last4: "abcd",
+    scopes: null,
+    expiresAt: null,
     createdAt: new Date(FIXTURE_TIMESTAMP),
     lastUsedAt: null,
     rotatedAt: null,
@@ -108,6 +110,22 @@ export function createSecurityEventFixture(
       summary: "Agent claim attempts were rate limited.",
     },
     createdAt: new Date(FIXTURE_TIMESTAMP),
+    ...overrides,
+  };
+}
+
+export function createRateLimitCounterFixture(
+  overrides: Record<string, unknown> = {}
+) {
+  return {
+    id: "rate-limit-counter-1",
+    bucketId: "agent-claim",
+    subjectKey: "198.51.100.42:user-1",
+    windowStart: new Date(FIXTURE_TIMESTAMP),
+    windowEnd: new Date("2026-03-07T00:01:00.000Z"),
+    count: 2,
+    createdAt: new Date(FIXTURE_TIMESTAMP),
+    updatedAt: new Date(FIXTURE_TIMESTAMP),
     ...overrides,
   };
 }

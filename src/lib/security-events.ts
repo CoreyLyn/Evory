@@ -1,8 +1,16 @@
 import { getRateLimitEventMetadata } from "@/lib/rate-limit";
 
+export const VALID_SECURITY_EVENT_TYPES = [
+  "RATE_LIMIT_HIT",
+  "AUTH_FAILURE",
+  "CSRF_REJECTED",
+  "INVALID_AGENT_CREDENTIAL",
+  "AGENT_ABUSE_LIMIT_HIT",
+] as const;
 export const VALID_SECURITY_EVENT_SEVERITIES = ["warning", "high"] as const;
 export const VALID_SECURITY_EVENT_RANGES = ["24h", "7d", "30d"] as const;
 
+export type SecurityEventApiType = (typeof VALID_SECURITY_EVENT_TYPES)[number];
 export type SecurityEventApiSeverity =
   (typeof VALID_SECURITY_EVENT_SEVERITIES)[number];
 export type SecurityEventApiRange = (typeof VALID_SECURITY_EVENT_RANGES)[number];
@@ -45,43 +53,123 @@ export function getSecurityEventRangeStart(range: SecurityEventApiRange) {
   }
 }
 
-export function buildSecurityEventsWhere(
-  userId: string,
-  filters: {
-    severity?: SecurityEventApiSeverity;
-    routeKey?: string;
-    range?: SecurityEventApiRange;
+export function buildSecurityEventsWhere(config: {
+  userId: string;
+  userEmail?: string | null;
+  ownedAgentIds?: string[];
+  type?: SecurityEventApiType;
+  severity?: SecurityEventApiSeverity;
+  routeKey?: string;
+  range?: SecurityEventApiRange;
+}) {
+  const visibilityClauses: Record<string, unknown>[] = [
+    {
+      userId: config.userId,
+    },
+  ];
+
+  if (config.userEmail) {
+    visibilityClauses.push({
+      type: "AUTH_FAILURE",
+      metadata: {
+        path: ["email"],
+        equals: config.userEmail,
+      },
+    });
   }
-) {
-  const where: Record<string, unknown> = {
-    userId,
+
+  for (const agentId of config.ownedAgentIds ?? []) {
+    visibilityClauses.push({
+      metadata: {
+        path: ["agentId"],
+        equals: agentId,
+      },
+    });
+  }
+
+  const andClauses: Record<string, unknown>[] = [
+    {
+      OR: visibilityClauses,
+    },
+  ];
+
+  if (config.type) {
+    andClauses.push({
+      type: config.type,
+    });
+  }
+
+  if (config.routeKey) {
+    andClauses.push({
+      routeKey: config.routeKey,
+    });
+  }
+
+  if (config.severity) {
+    andClauses.push({
+      metadata: {
+        path: ["severity"],
+        equals: config.severity,
+      },
+    });
+  }
+
+  if (config.range) {
+    andClauses.push({
+      createdAt: {
+        gte: getSecurityEventRangeStart(config.range),
+      },
+    });
+  }
+
+  return {
+    AND: andClauses,
   };
+}
 
-  if (filters.routeKey) {
-    where.routeKey = filters.routeKey;
+function getSecurityEventFallbackMetadata(event: SecurityEventRecord) {
+  if (event.type === "RATE_LIMIT_HIT" || event.type === "AGENT_ABUSE_LIMIT_HIT") {
+    return getRateLimitEventMetadata(event.routeKey);
   }
 
-  if (filters.severity) {
-    where.metadata = {
-      path: ["severity"],
-      equals: filters.severity,
-    };
+  switch (event.type) {
+    case "AUTH_FAILURE":
+      return {
+        scope: "user",
+        severity: "warning",
+        operation: "auth_failure",
+        summary: "Authentication attempt failed.",
+      };
+    case "CSRF_REJECTED":
+      return {
+        scope: "user",
+        severity: "high",
+        operation: "same_origin_guard",
+        summary:
+          "Control-plane mutation request was rejected by same-origin protection.",
+      };
+    case "INVALID_AGENT_CREDENTIAL":
+      return {
+        scope: "credential",
+        severity: "warning",
+        operation: "agent_auth",
+        summary: "Agent credential was rejected during authentication.",
+      };
+    default:
+      return {
+        scope: "unknown",
+        severity: "warning",
+        operation: event.type.toLowerCase(),
+        summary: "Security event recorded.",
+      };
   }
-
-  if (filters.range) {
-    where.createdAt = {
-      gte: getSecurityEventRangeStart(filters.range),
-    };
-  }
-
-  return where;
 }
 
 export function normalizeSecurityEventRecord(
   event: SecurityEventRecord
 ): NormalizedSecurityEventRecord {
   const metadata = event.metadata ?? {};
-  const fallback = getRateLimitEventMetadata(event.routeKey);
+  const fallback = getSecurityEventFallbackMetadata(event);
 
   return {
     id: event.id,
@@ -156,6 +244,7 @@ export function buildSecurityEventsCsv(
     "agentName",
     "ipAddress",
     "retryAfterSeconds",
+    "reason",
     "summary",
   ];
 
@@ -171,6 +260,7 @@ export function buildSecurityEventsCsv(
       event.agentName,
       event.ipAddress,
       event.retryAfterSeconds,
+      typeof event.metadata.reason === "string" ? event.metadata.reason : null,
       event.summary,
     ]
       .map((value) => escapeCsvCell(value))

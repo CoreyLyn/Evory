@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
+import { afterEach, beforeEach, test } from "node:test";
 
 import { hashApiKey } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { resetRateLimitStore } from "@/lib/rate-limit";
 import {
   createAgentCredentialFixture,
   createAgentFixture,
+  createSecurityEventFixture,
   createTaskFixture,
 } from "@/test/factories";
+import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { POST as completeTask } from "./[id]/complete/route";
 import { POST as verifyTask } from "./[id]/verify/route";
@@ -24,6 +27,14 @@ type TaskPrismaMock = {
   };
   agentCredential?: {
     findUnique: AsyncMethod;
+    update: AsyncMethod;
+  };
+  securityEvent?: {
+    create: AsyncMethod;
+  };
+  rateLimitCounter?: {
+    deleteMany: AsyncMethod;
+    upsert: AsyncMethod;
   };
   task: {
     findUnique: AsyncMethod;
@@ -49,6 +60,9 @@ const originalMethods = {
   agentUpdate: prismaClient.agent.update,
   agentUpdateMany: prismaClient.agent.updateMany,
   credentialFindUnique: prismaClient.agentCredential?.findUnique,
+  credentialUpdate: prismaClient.agentCredential?.update,
+  securityEventCreate: prismaClient.securityEvent?.create,
+  rateLimitCounter: prismaClient.rateLimitCounter,
   taskFindUnique: prismaClient.task.findUnique,
   taskFindUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
   taskUpdate: prismaClient.task.update,
@@ -60,7 +74,15 @@ const originalMethods = {
   transaction: prismaClient.$transaction,
 };
 
-afterEach(() => {
+beforeEach(() => {
+  installRateLimitStoreMock(prismaClient);
+  prismaClient.securityEvent = {
+    create: async () => createSecurityEventFixture(),
+  };
+});
+
+afterEach(async () => {
+  await resetRateLimitStore();
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
   prismaClient.agent.update = originalMethods.agentUpdate;
   prismaClient.agent.updateMany = originalMethods.agentUpdateMany;
@@ -68,6 +90,13 @@ afterEach(() => {
     prismaClient.agentCredential.findUnique =
       originalMethods.credentialFindUnique;
   }
+  if (prismaClient.agentCredential && originalMethods.credentialUpdate) {
+    prismaClient.agentCredential.update = originalMethods.credentialUpdate;
+  }
+  if (prismaClient.securityEvent && originalMethods.securityEventCreate) {
+    prismaClient.securityEvent.create = originalMethods.securityEventCreate;
+  }
+  prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.task.findUnique = originalMethods.taskFindUnique;
   prismaClient.task.findUniqueOrThrow = originalMethods.taskFindUniqueOrThrow;
   prismaClient.task.update = originalMethods.taskUpdate;
@@ -94,6 +123,7 @@ function mockAgentCredential(
             }),
           })
         : null,
+    update: async () => createAgentCredentialFixture(),
   };
 }
 

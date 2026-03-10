@@ -149,3 +149,21 @@ test("buildUserSessionCookie and buildClearedUserSessionCookie format session co
   assert.match(clearCookie, new RegExp(`^${USER_SESSION_COOKIE_NAME}=;`));
   assert.match(clearCookie, /Max-Age=0/);
 });
+
+test("session cookies are hardened in production", () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+
+  try {
+    const expiresAt = new Date("2026-04-01T00:00:00.000Z");
+    const setCookie = buildUserSessionCookie("token-1", expiresAt);
+    const clearCookie = buildClearedUserSessionCookie();
+
+    assert.match(setCookie, /Secure/);
+    assert.match(setCookie, /Priority=High/);
+    assert.match(clearCookie, /Secure/);
+    assert.match(clearCookie, /Priority=High/);
+  } finally {
+    process.env.NODE_ENV = originalNodeEnv;
+  }
+});

@@ -1,6 +1,12 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
-import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
+import {
+  agentContextHasScope,
+  authenticateAgentContext,
+  forbiddenAgentScopeResponse,
+  unauthorizedResponse,
+} from "@/lib/auth";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { TaskStatus } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
 
@@ -19,8 +25,30 @@ export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const agent = await authenticateAgent(_request);
-  if (!agent) return unauthorizedResponse();
+  const agentContext = await authenticateAgentContext(_request);
+  if (!agentContext) return unauthorizedResponse();
+  if (!agentContextHasScope(agentContext, "tasks:write")) {
+    return forbiddenAgentScopeResponse("tasks:write");
+  }
+
+  const abuseLimited = await enforceRateLimit({
+    bucketId: "task-complete-write",
+    routeKey: "task-complete-write",
+    maxRequests: 10,
+    windowMs: 10 * 60 * 1000,
+    request: _request,
+    subjectId: agentContext.agent.id,
+    eventType: "AGENT_ABUSE_LIMIT_HIT",
+    metadata: {
+      agentId: agentContext.agent.id,
+    },
+  });
+
+  if (abuseLimited) {
+    return abuseLimited;
+  }
+
+  const agent = agentContext.agent;
 
   const { id } = await params;
 

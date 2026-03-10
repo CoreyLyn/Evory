@@ -14,11 +14,13 @@ import {
   SECURITY_EVENT_RANGE_VALUES,
   SECURITY_EVENT_ROUTE_VALUES,
   SECURITY_EVENT_SEVERITY_VALUES,
+  SECURITY_EVENT_TYPE_VALUES,
   type SecurityEventsFilters,
 } from "@/lib/security-events-filters";
 import {
   getSecurityEventMetadataEntries,
   getSecurityEventRelatedAgent,
+  getSecurityEventTypeLabel,
 } from "@/lib/security-events-presenter";
 
 type UserSummary = {
@@ -78,6 +80,17 @@ const SECURITY_ROUTE_OPTIONS = SECURITY_EVENT_ROUTE_VALUES.map((value) => ({
   label: string;
 }>;
 
+const SECURITY_TYPE_OPTIONS = SECURITY_EVENT_TYPE_VALUES.map((value) => ({
+  value,
+  label:
+    value === "all"
+      ? "全部类型"
+      : getSecurityEventTypeLabel(value),
+})) as ReadonlyArray<{
+  value: (typeof SECURITY_EVENT_TYPE_VALUES)[number];
+  label: string;
+}>;
+
 const SECURITY_RANGE_OPTIONS = SECURITY_EVENT_RANGE_VALUES.map((value) => ({
   value,
   label: value === "all" ? "全部时间" : value,
@@ -107,6 +120,7 @@ export default function ManageAgentsPage() {
   const [securityEventsLoadingMore, setSecurityEventsLoadingMore] = useState(false);
   const [securityFiltersReady, setSecurityFiltersReady] = useState(false);
   const [securityFilters, setSecurityFilters] = useState<SecurityEventsFilters>({
+    type: "all",
     severity: "all",
     routeKey: "all",
     range: "all",
@@ -121,6 +135,10 @@ export default function ManageAgentsPage() {
       page: String(page),
     });
 
+    if (securityFilters.type !== "all") {
+      securityEventParams.set("type", securityFilters.type);
+    }
+
     if (securityFilters.severity !== "all") {
       securityEventParams.set("severity", securityFilters.severity);
     }
@@ -134,7 +152,12 @@ export default function ManageAgentsPage() {
     }
 
     return securityEventParams;
-  }, [securityFilters.range, securityFilters.routeKey, securityFilters.severity]);
+  }, [
+    securityFilters.range,
+    securityFilters.routeKey,
+    securityFilters.severity,
+    securityFilters.type,
+  ]);
 
   const loadSecurityEventsPage = useCallback(async (page: number, mode: "replace" | "append") => {
     const securityEventsResponse = await fetch(
@@ -628,14 +651,37 @@ export default function ManageAgentsPage() {
               Security Events
             </p>
             <h2 className="mt-1 font-display text-2xl font-semibold text-foreground">
-              最近的限流命中
+              最近的安全事件
             </h2>
             <p className="mt-2 text-sm text-muted">
-              这里只展示与你账号关联的敏感操作限流记录。匿名注册命中会在服务端记录，但不会出现在个人控制台。
+              这里只展示与你账号关联的认证、同源保护、Agent 滥用限制和生命周期风险事件。匿名注册命中会在服务端记录，但不会出现在个人控制台。
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <span>类型</span>
+              <select
+                value={securityFilters.type}
+                onChange={(event) => {
+                  setSecurityEventsPage(1);
+                  setSecurityFilters((current) =>
+                    normalizeSecurityEventsFilters(current, {
+                      type:
+                        event.target.value as (typeof SECURITY_EVENT_TYPE_VALUES)[number],
+                    })
+                  );
+                }}
+                className="rounded-xl border border-card-border/60 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none"
+              >
+                {SECURITY_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <label className="flex items-center gap-2 text-sm text-muted">
               <span>级别</span>
               <select
@@ -723,7 +769,7 @@ export default function ManageAgentsPage() {
           </div>
 
           {securityEvents.length === 0 ? (
-            <p className="text-sm text-muted">最近没有新的限流命中记录。</p>
+            <p className="text-sm text-muted">最近没有新的安全事件记录。</p>
           ) : (
             <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
               <div className="space-y-3">
@@ -751,6 +797,9 @@ export default function ManageAgentsPage() {
                                 : "border border-amber-500/20 bg-amber-500/10 text-amber-300"
                             }`}>
                               {event.severity}
+                            </span>
+                            <span className="rounded-full border border-card-border/60 bg-card/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
+                              {getSecurityEventTypeLabel(event.type)}
                             </span>
                           </div>
                           <p className="mt-1 text-xs text-muted">
@@ -811,6 +860,14 @@ export default function ManageAgentsPage() {
                       </p>
                       <p className="mt-1 text-sm text-foreground">
                         {selectedSecurityEvent.createdAt ?? "暂无时间"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-card-border/50 bg-card/60 px-4 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted/50">
+                        Event Type
+                      </p>
+                      <p className="mt-1 text-sm text-foreground">
+                        {getSecurityEventTypeLabel(selectedSecurityEvent.type)}
                       </p>
                     </div>
                     <div className="rounded-2xl border border-card-border/50 bg-card/60 px-4 py-3">

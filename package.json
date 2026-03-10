@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import tsx --test $(find src \\( -name '*.test.ts' -o -name '*.test.tsx' \\) -print)",
+    "test": "node --import tsx --test --test-concurrency=1 $(find src \\( -name '*.test.ts' -o -name '*.test.tsx' \\) -print)",
     "db:migrate": "npx prisma migrate dev",
     "db:push": "npx prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",

@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
+import { afterEach, beforeEach, test } from "node:test";
 
 import { hashApiKey } from "@/lib/auth";
+import { resetRateLimitStore } from "@/lib/rate-limit";
 import prisma from "@/lib/prisma";
 import {
   createAgentCredentialFixture,
   createAgentFixture,
+  createSecurityEventFixture,
   createTaskFixture,
 } from "@/test/factories";
+import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { POST as claimTask } from "./[id]/claim/route";
 import { POST as verifyTask } from "./[id]/verify/route";
@@ -25,6 +28,14 @@ type GuardPrismaMock = {
   };
   agentCredential?: {
     findUnique: AsyncMethod;
+    update: AsyncMethod;
+  };
+  securityEvent?: {
+    create: AsyncMethod;
+  };
+  rateLimitCounter?: {
+    deleteMany: AsyncMethod;
+    upsert: AsyncMethod;
   };
   task: {
     findUnique: AsyncMethod;
@@ -46,16 +57,27 @@ const originalMethods = {
   agentUpdate: prismaClient.agent.update,
   agentUpdateMany: prismaClient.agent.updateMany,
   credentialFindUnique: prismaClient.agentCredential?.findUnique,
+  credentialUpdate: prismaClient.agentCredential?.update,
   taskFindUnique: prismaClient.task.findUnique,
   taskFindUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
   taskCreate: prismaClient.task.create,
   taskUpdateMany: prismaClient.task.updateMany,
   taskDelete: prismaClient.task.delete,
   pointTransactionCreate: prismaClient.pointTransaction.create,
+  securityEventCreate: prismaClient.securityEvent?.create,
+  rateLimitCounter: prismaClient.rateLimitCounter,
   transaction: prismaClient.$transaction,
 };
 
-afterEach(() => {
+beforeEach(() => {
+  installRateLimitStoreMock(prismaClient);
+  prismaClient.securityEvent = {
+    create: async () => createSecurityEventFixture(),
+  };
+});
+
+afterEach(async () => {
+  await resetRateLimitStore();
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
   prismaClient.agent.update = originalMethods.agentUpdate;
   prismaClient.agent.updateMany = originalMethods.agentUpdateMany;
@@ -63,30 +85,40 @@ afterEach(() => {
     prismaClient.agentCredential.findUnique =
       originalMethods.credentialFindUnique;
   }
+  if (prismaClient.agentCredential && originalMethods.credentialUpdate) {
+    prismaClient.agentCredential.update = originalMethods.credentialUpdate;
+  }
   prismaClient.task.findUnique = originalMethods.taskFindUnique;
   prismaClient.task.findUniqueOrThrow = originalMethods.taskFindUniqueOrThrow;
   prismaClient.task.create = originalMethods.taskCreate;
   prismaClient.task.updateMany = originalMethods.taskUpdateMany;
   prismaClient.task.delete = originalMethods.taskDelete;
   prismaClient.pointTransaction.create = originalMethods.pointTransactionCreate;
+  if (prismaClient.securityEvent && originalMethods.securityEventCreate) {
+    prismaClient.securityEvent.create = originalMethods.securityEventCreate;
+  }
+  prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.$transaction = originalMethods.transaction;
 });
 
 function mockAgentCredential(
   apiKey: string,
-  overrides: Record<string, unknown> = {}
+  agentOverrides: Record<string, unknown> = {},
+  credentialOverrides: Record<string, unknown> = {}
 ) {
   prismaClient.agentCredential = {
     findUnique: async ({ where }: { where: { keyHash: string } }) =>
       where.keyHash === hashApiKey(apiKey)
         ? createAgentCredentialFixture({
             keyHash: where.keyHash,
+            ...credentialOverrides,
             agent: createAgentFixture({
               apiKey,
-              ...overrides,
+              ...agentOverrides,
             }),
           })
         : null,
+    update: async () => createAgentCredentialFixture(),
   };
 }
 
@@ -293,4 +325,133 @@ test("task creation rejects unclaimed agents before business logic runs", async 
   assert.equal(response.status, 401);
   assert.equal(json.error, "Unauthorized: Invalid or missing API key");
   assert.equal(taskCreateCalls, 0);
+});
+
+test("task creation rejects credentials missing tasks:write scope", async () => {
+  let taskCreateCalls = 0;
+
+  mockAgentCredential(
+    "creator-key",
+    {
+      id: "creator-1",
+      name: "Creator",
+      points: 100,
+    },
+    {
+      scopes: ["tasks:read"],
+    }
+  );
+  prismaClient.task.create = async () => {
+    taskCreateCalls += 1;
+    return { id: "task-1" };
+  };
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      return input;
+    }
+
+    return input({
+      agent: {
+        updateMany: async () => ({ count: 1 }),
+      },
+      pointTransaction: {
+        create: async () => ({ id: "txn-1" }),
+      },
+      task: {
+        create: prismaClient.task.create,
+        findUniqueOrThrow: async () => createTaskFixture(),
+      },
+    });
+  };
+
+  const response = await createTask(
+    createRouteRequest("http://localhost/api/tasks", {
+      method: "POST",
+      apiKey: "creator-key",
+      json: {
+        title: "Scoped task",
+        description: "Should not write",
+        bountyPoints: 0,
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(json.error, "Forbidden: Missing required scope tasks:write");
+  assert.equal(taskCreateCalls, 0);
+});
+
+test("task creation hits the abuse limit on repeated writes", async () => {
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+    points: 100,
+  });
+  prismaClient.task.create = async ({ data }: { data: Record<string, unknown> }) => ({
+    id: `task-${data.title}`,
+  });
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      return input;
+    }
+
+    return input({
+      agent: {
+        updateMany: async () => ({ count: 1 }),
+      },
+      pointTransaction: {
+        create: async () => ({ id: "txn-1" }),
+      },
+      task: {
+        create: prismaClient.task.create,
+        findUniqueOrThrow: async () =>
+          createTaskFixture({
+            id: "task-1",
+            creatorId: "creator-1",
+            assigneeId: null,
+            status: "OPEN",
+            bountyPoints: 0,
+          }),
+      },
+    });
+  };
+
+  for (let index = 0; index < 5; index += 1) {
+    const response = await createTask(
+      createRouteRequest("http://localhost/api/tasks", {
+        method: "POST",
+        apiKey: "creator-key",
+        headers: {
+          "x-forwarded-for": "198.51.100.51",
+        },
+        json: {
+          title: `Task ${index}`,
+          description: "Repeated create",
+          bountyPoints: 0,
+        },
+      })
+    );
+
+    assert.equal(response.status, 200);
+  }
+
+  const blocked = await createTask(
+    createRouteRequest("http://localhost/api/tasks", {
+      method: "POST",
+      apiKey: "creator-key",
+      headers: {
+        "x-forwarded-for": "198.51.100.51",
+      },
+      json: {
+        title: "Blocked task",
+        description: "Repeated create",
+        bountyPoints: 0,
+      },
+    })
+  );
+  const json = await blocked.json();
+
+  assert.equal(blocked.status, 429);
+  assert.equal(json.error, "Too many requests");
 });

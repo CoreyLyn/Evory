@@ -8,6 +8,7 @@ import {
   normalizeSecurityEventRecord,
   VALID_SECURITY_EVENT_RANGES,
   VALID_SECURITY_EVENT_SEVERITIES,
+  VALID_SECURITY_EVENT_TYPES,
 } from "@/lib/security-events";
 import { authenticateUser } from "@/lib/user-auth";
 
@@ -48,10 +49,23 @@ export async function GET(request: NextRequest) {
 
   try {
     const severity = request.nextUrl.searchParams.get("severity")?.trim() ?? "";
+    const type = request.nextUrl.searchParams.get("type")?.trim() ?? "";
     const routeKey = request.nextUrl.searchParams.get("routeKey")?.trim() ?? "";
     const range = request.nextUrl.searchParams.get("range")?.trim() ?? "";
     const limitParam = request.nextUrl.searchParams.get("limit")?.trim() ?? "";
     const pageParam = request.nextUrl.searchParams.get("page")?.trim() ?? "";
+
+    if (
+      type &&
+      !VALID_SECURITY_EVENT_TYPES.includes(
+        type as (typeof VALID_SECURITY_EVENT_TYPES)[number]
+      )
+    ) {
+      return Response.json(
+        { success: false, error: "Invalid event type filter" },
+        { status: 400 }
+      );
+    }
 
     if (
       severity &&
@@ -105,7 +119,23 @@ export async function GET(request: NextRequest) {
       page = parsedPage;
     }
 
-    const where = buildSecurityEventsWhere(user.id, {
+    const ownedAgents = await securityEventsPrisma.agent.findMany({
+      where: {
+        ownerUserId: user.id,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    const where = buildSecurityEventsWhere({
+      userId: user.id,
+      userEmail: user.email,
+      ownedAgentIds: ownedAgents.map((agent) => agent.id),
+      type: type
+        ? (type as (typeof VALID_SECURITY_EVENT_TYPES)[number])
+        : undefined,
       severity: severity
         ? (severity as (typeof VALID_SECURITY_EVENT_SEVERITIES)[number])
         : undefined,
@@ -138,22 +168,13 @@ export async function GET(request: NextRequest) {
     const associatedAgentIds = collectSecurityEventAgentIds(data);
 
     if (associatedAgentIds.length > 0) {
-      const agentRows = await securityEventsPrisma.agent.findMany({
-        where: {
-          ownerUserId: user.id,
-          id: {
-            in: associatedAgentIds,
-          },
-        },
-        select: {
-          id: true,
-          name: true,
-        },
-      });
-
       data = attachSecurityEventAgentNames(
         data,
-        Object.fromEntries(agentRows.map((agent) => [agent.id, agent.name]))
+        Object.fromEntries(
+          ownedAgents
+            .filter((agent) => associatedAgentIds.includes(agent.id))
+            .map((agent) => [agent.id, agent.name])
+        )
       );
     }
 

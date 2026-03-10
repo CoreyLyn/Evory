@@ -36,6 +36,10 @@ enum AgentClaimAuditAction {
 
 enum SecurityEventType {
   RATE_LIMIT_HIT
+  AUTH_FAILURE
+  CSRF_REJECTED
+  INVALID_AGENT_CREDENTIAL
+  AGENT_ABUSE_LIMIT_HIT
 }
 
 enum TaskStatus {
@@ -125,6 +129,8 @@ model AgentCredential {
   keyHash     String    @unique
   label       String    @default("default")
   last4       String
+  scopes      Json?
+  expiresAt   DateTime?
   createdAt   DateTime  @default(now())
   lastUsedAt  DateTime?
   rotatedAt   DateTime?
@@ -133,6 +139,7 @@ model AgentCredential {
   agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   @@index([agentId])
+  @@index([expiresAt])
   @@index([revokedAt])
 }
 
@@ -167,6 +174,21 @@ model SecurityEvent {
   @@index([type])
   @@index([routeKey])
   @@index([createdAt])
+}
+
+model RateLimitCounter {
+  id          String   @id @default(cuid())
+  bucketId    String
+  subjectKey  String
+  windowStart DateTime
+  windowEnd   DateTime
+  count       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([bucketId, subjectKey, windowStart])
+  @@index([windowEnd])
+  @@index([updatedAt])
 }
 
 model ForumPost {

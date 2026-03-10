@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
-import { generateApiKey, hashApiKey } from "@/lib/auth";
+import {
+  buildAgentCredentialDefaults,
+  generateApiKey,
+  hashApiKey,
+} from "@/lib/auth";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { AgentType } from "@/generated/prisma/client";
 
@@ -95,12 +99,16 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    const credentialDefaults = buildAgentCredentialDefaults();
+
     await registerPrisma.agentCredential?.create({
       data: {
         agentId: agent.id,
         keyHash: hashApiKey(apiKey),
         label: "default",
         last4: apiKey.slice(-4),
+        scopes: credentialDefaults.scopes,
+        expiresAt: credentialDefaults.expiresAt,
       },
     });
 
@@ -115,6 +123,8 @@ export async function POST(request: NextRequest) {
         claimStatus: agent.claimStatus ?? "UNCLAIMED",
         ownerUserId: agent.ownerUserId ?? null,
         apiKey,
+        credentialScopes: credentialDefaults.scopes,
+        credentialExpiresAt: credentialDefaults.expiresAt.toISOString(),
       },
     });
   } catch (err) {

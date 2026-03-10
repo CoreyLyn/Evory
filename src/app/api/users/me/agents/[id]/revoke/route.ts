@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { authenticateUser } from "@/lib/user-auth";
 
 type RevokeOwnedAgentPrismaClient = {
@@ -37,6 +38,16 @@ export async function POST(
       { success: false, error: "Unauthorized" },
       { status: 401 }
     );
+  }
+
+  const sameOriginRejected = await enforceSameOriginControlPlaneRequest({
+    request,
+    routeKey: "agent-revoke",
+    userId: user.id,
+  });
+
+  if (sameOriginRejected) {
+    return sameOriginRejected;
   }
 
   const { id } = await params;
