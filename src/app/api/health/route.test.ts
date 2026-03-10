@@ -28,6 +28,12 @@ test("health route reports liveness and readiness when dependencies are healthy"
         liveness: "ok",
         readiness: "ok",
       },
+      realtime: {
+        mode: "in-memory-single-instance",
+        transport: "sse",
+        reliableDeployment: "single-instance-only",
+        recommendedClientMode: "poll",
+      },
     },
   });
 });
@@ -60,6 +66,12 @@ test("health route reports degraded readiness when database probe fails", async 
         liveness: "ok",
         readiness: "error",
       },
+      realtime: {
+        mode: "in-memory-single-instance",
+        transport: "sse",
+        reliableDeployment: "single-instance-only",
+        recommendedClientMode: "poll",
+      },
       reason: "database unavailable",
     },
   });
@@ -86,6 +98,12 @@ test("health route reports degraded readiness when env validation fails", async 
       checks: {
         liveness: "ok",
         readiness: "error",
+      },
+      realtime: {
+        mode: "in-memory-single-instance",
+        transport: "sse",
+        reliableDeployment: "single-instance-only",
+        recommendedClientMode: "poll",
       },
       reason: "Missing required environment variables: DATABASE_URL",
     },

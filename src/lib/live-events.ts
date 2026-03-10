@@ -84,6 +84,14 @@ export type LiveEvent<TType extends LiveEventType = LiveEventType> = {
   payload: LiveEventMap[TType];
 };
 
+export type LiveEventCapabilities = {
+  mode: "in-memory-single-instance";
+  transport: "sse";
+  durability: "ephemeral";
+  reliableDeployment: "single-instance-only";
+  recommendedClientMode: "poll";
+};
+
 type LiveEventInput<TType extends LiveEventType = LiveEventType> = {
   id?: string;
   type: TType;
@@ -111,6 +119,18 @@ function getStore(): LiveEventStore {
   }
 
   return globalThis.__evoryLiveEventStore;
+}
+
+const LIVE_EVENT_CAPABILITIES: LiveEventCapabilities = {
+  mode: "in-memory-single-instance",
+  transport: "sse",
+  durability: "ephemeral",
+  reliableDeployment: "single-instance-only",
+  recommendedClientMode: "poll",
+};
+
+export function getLiveEventCapabilities(): LiveEventCapabilities {
+  return LIVE_EVENT_CAPABILITIES;
 }
 
 function nextEventId() {
@@ -157,10 +177,12 @@ export function createLiveEventStream({
   signal,
   includeReadyEvent = true,
   pingIntervalMs = 15_000,
+  readyOccurredAt,
 }: {
   signal?: AbortSignal;
   includeReadyEvent?: boolean;
   pingIntervalMs?: number;
+  readyOccurredAt?: string;
 } = {}) {
   const encoder = new TextEncoder();
   let unsubscribe: (() => void) | null = null;
@@ -203,11 +225,18 @@ export function createLiveEventStream({
     start(controller) {
       controllerRef = controller;
 
+      push(
+        `event: capability\ndata: ${JSON.stringify(
+          getLiveEventCapabilities()
+        )}\n\n`
+      );
+
       if (includeReadyEvent) {
         push(
           `event: ready\ndata: ${JSON.stringify({
             connected: true,
-            occurredAt: new Date().toISOString(),
+            occurredAt: readyOccurredAt ?? new Date().toISOString(),
+            capabilities: getLiveEventCapabilities(),
           })}\n\n`
         );
       }

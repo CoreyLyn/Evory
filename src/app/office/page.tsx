@@ -9,6 +9,10 @@ import type { TranslationKey } from "@/i18n";
 import { Badge } from "@/components/ui/badge";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import type { LiveEvent, LiveEventMap } from "@/lib/live-events";
+import {
+  getRealtimeClientMode,
+  parseRealtimeCapabilitiesEvent,
+} from "@/lib/realtime-client";
 import { Users, Activity, Layers, ActivitySquare, X, Clock, Zap } from "lucide-react";
 
 const ZONE_LABEL_KEYS: Record<string, TranslationKey> = {
@@ -167,6 +171,7 @@ export default function OfficePage() {
     const initialLoad = window.setTimeout(() => {
       void fetchAgents();
     }, 0);
+    startFallbackPolling();
 
     function startFallbackPolling() {
       if (fallbackInterval !== null) return;
@@ -184,8 +189,16 @@ export default function OfficePage() {
     if (typeof EventSource !== "undefined") {
       eventSource = new EventSource("/api/events");
 
-      const handleOpen = () => {
-        stopFallbackPolling();
+      const handleCapability = (message: MessageEvent<string>) => {
+        const capabilities = parseRealtimeCapabilitiesEvent(message.data);
+        if (!capabilities) return;
+
+        if (getRealtimeClientMode(capabilities) === "stream") {
+          stopFallbackPolling();
+          return;
+        }
+
+        startFallbackPolling();
       };
 
       const handleLiveEvent = (message: MessageEvent<string>) => {
@@ -204,7 +217,10 @@ export default function OfficePage() {
         }
       };
 
-      eventSource.addEventListener("open", handleOpen);
+      eventSource.addEventListener(
+        "capability",
+        handleCapability as EventListener
+      );
       eventSource.addEventListener(
         "live-event",
         handleLiveEvent as EventListener
@@ -219,7 +235,10 @@ export default function OfficePage() {
         engine.stop();
         clearTimeout(initialLoad);
         stopFallbackPolling();
-        eventSource?.removeEventListener("open", handleOpen);
+        eventSource?.removeEventListener(
+          "capability",
+          handleCapability as EventListener
+        );
         eventSource?.removeEventListener(
           "live-event",
           handleLiveEvent as EventListener
@@ -228,8 +247,6 @@ export default function OfficePage() {
         window.removeEventListener("resize", handleResize);
       };
     }
-
-    startFallbackPolling();
     window.addEventListener("resize", handleResize);
 
     return () => {

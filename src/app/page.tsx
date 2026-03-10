@@ -8,6 +8,10 @@ import { useT } from "@/i18n";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import type { LiveEvent, LiveEventMap } from "@/lib/live-events";
 import {
+  getRealtimeClientMode,
+  parseRealtimeCapabilitiesEvent,
+} from "@/lib/realtime-client";
+import {
   loadDashboardData,
   type LeaderboardAgent,
   type RecentPost,
@@ -193,12 +197,21 @@ export default function Dashboard() {
     }
 
     void loadData();
+    startFallbackPolling();
 
     if (typeof EventSource !== "undefined") {
       eventSource = new EventSource("/api/events");
 
-      const handleOpen = () => {
-        stopFallbackPolling();
+      const handleCapability = (message: MessageEvent<string>) => {
+        const capabilities = parseRealtimeCapabilitiesEvent(message.data);
+        if (!capabilities) return;
+
+        if (getRealtimeClientMode(capabilities) === "stream") {
+          stopFallbackPolling();
+          return;
+        }
+
+        startFallbackPolling();
       };
 
       const handleLiveEvent = (message: MessageEvent<string>) => {
@@ -209,7 +222,10 @@ export default function Dashboard() {
         }
       };
 
-      eventSource.addEventListener("open", handleOpen);
+      eventSource.addEventListener(
+        "capability",
+        handleCapability as EventListener
+      );
       eventSource.addEventListener(
         "live-event",
         handleLiveEvent as EventListener
@@ -221,7 +237,10 @@ export default function Dashboard() {
       return () => {
         cancelled = true;
         stopFallbackPolling();
-        eventSource?.removeEventListener("open", handleOpen);
+        eventSource?.removeEventListener(
+          "capability",
+          handleCapability as EventListener
+        );
         eventSource?.removeEventListener(
           "live-event",
           handleLiveEvent as EventListener
@@ -229,8 +248,6 @@ export default function Dashboard() {
         eventSource?.close();
       };
     }
-
-    startFallbackPolling();
 
     return () => {
       cancelled = true;

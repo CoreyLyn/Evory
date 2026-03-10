@@ -5,6 +5,7 @@ import {
   loadProductionEnvironment,
   type ProductionEnvironment,
 } from "@/lib/production-runtime";
+import { getLiveEventCapabilities } from "@/lib/live-events";
 
 type HealthDependencies = {
   loadEnvironment?: () => ProductionEnvironment;
@@ -36,6 +37,13 @@ export function createHealthGetHandler(dependencies: HealthDependencies = {}) {
                 liveness: "ok",
                 readiness: "error",
               },
+              realtime: {
+                mode: getLiveEventCapabilities().mode,
+                transport: getLiveEventCapabilities().transport,
+                reliableDeployment: getLiveEventCapabilities().reliableDeployment,
+                recommendedClientMode:
+                  getLiveEventCapabilities().recommendedClientMode,
+              },
               reason: readiness.error,
             },
           },
@@ -52,6 +60,13 @@ export function createHealthGetHandler(dependencies: HealthDependencies = {}) {
             liveness: "ok",
             readiness: "ok",
           },
+          realtime: {
+            mode: getLiveEventCapabilities().mode,
+            transport: getLiveEventCapabilities().transport,
+            reliableDeployment: getLiveEventCapabilities().reliableDeployment,
+            recommendedClientMode:
+              getLiveEventCapabilities().recommendedClientMode,
+          },
         },
       });
     } catch (error) {
@@ -65,6 +80,13 @@ export function createHealthGetHandler(dependencies: HealthDependencies = {}) {
             checks: {
               liveness: "ok",
               readiness: "error",
+            },
+            realtime: {
+              mode: getLiveEventCapabilities().mode,
+              transport: getLiveEventCapabilities().transport,
+              reliableDeployment: getLiveEventCapabilities().reliableDeployment,
+              recommendedClientMode:
+                getLiveEventCapabilities().recommendedClientMode,
             },
             reason:
               error instanceof Error ? error.message : "Unknown startup error",

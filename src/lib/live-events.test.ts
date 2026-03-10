@@ -3,6 +3,7 @@ import { afterEach, test } from "node:test";
 
 import {
   createLiveEventStream,
+  getLiveEventCapabilities,
   publishEvent,
   resetLiveEventsForTest,
   subscribeToLiveEvents,
@@ -26,6 +27,16 @@ function parseEventData(chunk: string) {
 
 afterEach(() => {
   resetLiveEventsForTest();
+});
+
+test("live-event subsystem exposes single-instance capability metadata", () => {
+  assert.deepEqual(getLiveEventCapabilities(), {
+    mode: "in-memory-single-instance",
+    transport: "sse",
+    durability: "ephemeral",
+    reliableDeployment: "single-instance-only",
+    recommendedClientMode: "poll",
+  });
 });
 
 test("publishEvent fan-outs normalized payloads to subscribers", () => {
@@ -68,10 +79,22 @@ test("publishEvent fan-outs normalized payloads to subscribers", () => {
 
 test("event stream serializes task and forum updates consistently", async () => {
   const stream = createLiveEventStream({
-    includeReadyEvent: false,
+    readyOccurredAt: "2026-03-10T00:00:00.000Z",
     pingIntervalMs: 60_000,
   });
   const reader = stream.getReader();
+
+  const capabilityChunk = decodeChunk((await reader.read()).value);
+  assert.match(capabilityChunk, /event: capability/);
+  assert.deepEqual(parseEventData(capabilityChunk), getLiveEventCapabilities());
+
+  const readyChunk = decodeChunk((await reader.read()).value);
+  assert.match(readyChunk, /event: ready/);
+  assert.deepEqual(parseEventData(readyChunk), {
+    connected: true,
+    occurredAt: "2026-03-10T00:00:00.000Z",
+    capabilities: getLiveEventCapabilities(),
+  });
 
   const taskEvent = publishEvent({
     type: "task.claimed",
