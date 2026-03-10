@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
 import { generateApiKey, hashApiKey } from "@/lib/auth";
+import { consumeRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { authenticateUser } from "@/lib/user-auth";
 
 type RotateOwnedAgentPrismaClient = {
@@ -39,6 +40,18 @@ export async function POST(
       { success: false, error: "Unauthorized" },
       { status: 401 }
     );
+  }
+
+  const rateLimit = consumeRateLimit({
+    bucketId: "agent-rotate-key",
+    maxRequests: 5,
+    windowMs: 10 * 60 * 1000,
+    request,
+    subjectId: user.id,
+  });
+
+  if (rateLimit.limited) {
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
   }
 
   try {

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
 import { hashApiKey } from "@/lib/auth";
+import { consumeRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { authenticateUser } from "@/lib/user-auth";
 
 type ClaimRoutePrismaClient = {
@@ -46,6 +47,18 @@ export async function POST(request: NextRequest) {
       { success: false, error: "Unauthorized" },
       { status: 401 }
     );
+  }
+
+  const rateLimit = consumeRateLimit({
+    bucketId: "agent-claim",
+    maxRequests: 5,
+    windowMs: 10 * 60 * 1000,
+    request,
+    subjectId: user.id,
+  });
+
+  if (rateLimit.limited) {
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
   }
 
   try {

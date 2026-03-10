@@ -3,6 +3,7 @@ import { afterEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
 import { hashApiKey } from "@/lib/auth";
+import { resetRateLimitStore } from "@/lib/rate-limit";
 import { USER_SESSION_COOKIE_NAME, hashSessionToken } from "@/lib/user-auth";
 import {
   createAgentCredentialFixture,
@@ -57,6 +58,7 @@ const originalUserSessionFindUnique = prismaClient.userSession?.findUnique;
 const originalUserSessionDeleteMany = prismaClient.userSession?.deleteMany;
 
 afterEach(() => {
+  resetRateLimitStore();
   prismaClient.agent.findUnique = originalAgentFindUnique;
   prismaClient.agent.create = originalAgentCreate;
   prismaClient.agent.update = originalAgentUpdate;
@@ -501,4 +503,279 @@ test("revoke marks the agent as revoked for the owning user", async () => {
   assert.equal(json.success, true);
   assert.equal(json.data.claimStatus, "REVOKED");
   assert.equal(revokedCredentialCount, 1);
+});
+
+test("register rate limits repeated self-registration attempts from the same ip", async () => {
+  let createCount = 0;
+
+  prismaClient.agent.findUnique = async () => null;
+  prismaClient.agent.create = async () => {
+    createCount += 1;
+    return createAgentFixture({
+      id: `agent-${createCount}`,
+      name: `Rate Limited Agent ${createCount}`,
+      ownerUserId: null,
+      claimStatus: "UNCLAIMED",
+      claimedAt: null,
+      status: "OFFLINE",
+      points: 0,
+    });
+  };
+  prismaClient.agentCredential = {
+    create: async () => createAgentCredentialFixture(),
+    findUnique: async () => null,
+  };
+
+  for (let index = 0; index < 3; index += 1) {
+    const response = await registerAgent(
+      createRouteRequest("http://localhost/api/agents/register", {
+        method: "POST",
+        headers: {
+          "x-forwarded-for": "198.51.100.10",
+        },
+        json: {
+          name: `Rate Limited Agent ${index}`,
+          type: "CUSTOM",
+        },
+      })
+    );
+
+    assert.equal(response.status, 200);
+  }
+
+  const blocked = await registerAgent(
+    createRouteRequest("http://localhost/api/agents/register", {
+      method: "POST",
+      headers: {
+        "x-forwarded-for": "198.51.100.10",
+      },
+      json: {
+        name: "Rate Limited Agent blocked",
+        type: "CUSTOM",
+      },
+    })
+  );
+  const json = await blocked.json();
+
+  assert.equal(blocked.status, 429);
+  assert.equal(json.error, "Too many requests");
+  assert.equal(typeof json.retryAfterSeconds, "number");
+  assert.equal(createCount, 3);
+});
+
+test("claim rate limits repeated key claims for the same user and ip", async () => {
+  const token = "claim-rate-limit-token";
+  let updateCount = 0;
+
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({ id: "user-rate-1" }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.agentCredential = {
+    create: async () => createAgentCredentialFixture(),
+    findUnique: async ({ where }: { where: { keyHash: string } }) =>
+      createAgentCredentialFixture({
+        keyHash: where.keyHash,
+        agent: createAgentFixture({
+          id: `agent-${updateCount + 1}`,
+          ownerUserId: null,
+          claimStatus: "UNCLAIMED",
+          claimedAt: null,
+        }),
+      }),
+  };
+  prismaClient.agent.update = async () => {
+    updateCount += 1;
+    return createAgentFixture({
+      id: `agent-${updateCount}`,
+      ownerUserId: "user-rate-1",
+      claimStatus: "ACTIVE",
+    });
+  };
+  prismaClient.agentClaimAudit = {
+    create: async () => ({ id: `audit-${updateCount}` }),
+  };
+
+  for (let index = 0; index < 5; index += 1) {
+    const response = await claimAgent(
+      createRouteRequest("http://localhost/api/agents/claim", {
+        method: "POST",
+        headers: {
+          cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+          "x-forwarded-for": "198.51.100.11",
+        },
+        json: {
+          apiKey: `evory_claim_rate_key_${index}`,
+        },
+      })
+    );
+
+    assert.equal(response.status, 200);
+  }
+
+  const blocked = await claimAgent(
+    createRouteRequest("http://localhost/api/agents/claim", {
+      method: "POST",
+      headers: {
+        cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        "x-forwarded-for": "198.51.100.11",
+      },
+      json: {
+        apiKey: "evory_claim_rate_key_blocked",
+      },
+    })
+  );
+  const json = await blocked.json();
+
+  assert.equal(blocked.status, 429);
+  assert.equal(json.error, "Too many requests");
+  assert.equal(typeof json.retryAfterSeconds, "number");
+  assert.equal(updateCount, 5);
+});
+
+test("rotate-key rate limits repeated credential rotations for the same user and ip", async () => {
+  const token = "rotate-rate-limit-token";
+  let updateCount = 0;
+
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({ id: "user-rate-2" }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "agent-rotate-rate",
+      ownerUserId: "user-rate-2",
+      claimStatus: "ACTIVE",
+    });
+  prismaClient.agent.update = async () => {
+    updateCount += 1;
+    return createAgentFixture({
+      id: "agent-rotate-rate",
+      ownerUserId: "user-rate-2",
+      claimStatus: "ACTIVE",
+    });
+  };
+  prismaClient.agentCredential = {
+    create: async () => createAgentCredentialFixture(),
+    findUnique: async () => null,
+    updateMany: async () => ({ count: 1 }),
+  };
+  prismaClient.agentClaimAudit = {
+    create: async () => ({ id: `audit-${updateCount}` }),
+  };
+
+  for (let index = 0; index < 5; index += 1) {
+    const response = await rotateOwnedAgentKey(
+      createRouteRequest("http://localhost/api/users/me/agents/agent-rotate-rate/rotate-key", {
+        method: "POST",
+        headers: {
+          cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+          "x-forwarded-for": "198.51.100.12",
+        },
+      }),
+      { params: Promise.resolve({ id: "agent-rotate-rate" }) }
+    );
+
+    assert.equal(response.status, 200);
+  }
+
+  const blocked = await rotateOwnedAgentKey(
+    createRouteRequest("http://localhost/api/users/me/agents/agent-rotate-rate/rotate-key", {
+      method: "POST",
+      headers: {
+        cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        "x-forwarded-for": "198.51.100.12",
+      },
+    }),
+    { params: Promise.resolve({ id: "agent-rotate-rate" }) }
+  );
+  const json = await blocked.json();
+
+  assert.equal(blocked.status, 429);
+  assert.equal(json.error, "Too many requests");
+  assert.equal(typeof json.retryAfterSeconds, "number");
+  assert.equal(updateCount, 5);
+});
+
+test("revoke rate limits repeated revocations for the same user and ip", async () => {
+  const token = "revoke-rate-limit-token";
+  let updateCount = 0;
+
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({ id: "user-rate-3" }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "agent-revoke-rate",
+      ownerUserId: "user-rate-3",
+      claimStatus: "ACTIVE",
+    });
+  prismaClient.agent.update = async () => {
+    updateCount += 1;
+    return createAgentFixture({
+      id: "agent-revoke-rate",
+      ownerUserId: "user-rate-3",
+      claimStatus: "REVOKED",
+      revokedAt: "2026-03-10T00:00:00.000Z",
+    });
+  };
+  prismaClient.agentCredential = {
+    create: async () => createAgentCredentialFixture(),
+    findUnique: async () => null,
+    updateMany: async () => ({ count: 1 }),
+  };
+  prismaClient.agentClaimAudit = {
+    create: async () => ({ id: `audit-${updateCount}` }),
+  };
+
+  for (let index = 0; index < 5; index += 1) {
+    const response = await revokeOwnedAgent(
+      createRouteRequest("http://localhost/api/users/me/agents/agent-revoke-rate/revoke", {
+        method: "POST",
+        headers: {
+          cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+          "x-forwarded-for": "198.51.100.13",
+        },
+      }),
+      { params: Promise.resolve({ id: "agent-revoke-rate" }) }
+    );
+
+    assert.equal(response.status, 200);
+  }
+
+  const blocked = await revokeOwnedAgent(
+    createRouteRequest("http://localhost/api/users/me/agents/agent-revoke-rate/revoke", {
+      method: "POST",
+      headers: {
+        cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        "x-forwarded-for": "198.51.100.13",
+      },
+    }),
+    { params: Promise.resolve({ id: "agent-revoke-rate" }) }
+  );
+  const json = await blocked.json();
+
+  assert.equal(blocked.status, 429);
+  assert.equal(json.error, "Too many requests");
+  assert.equal(typeof json.retryAfterSeconds, "number");
+  assert.equal(updateCount, 5);
 });

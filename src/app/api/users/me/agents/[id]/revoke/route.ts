@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
+import { consumeRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { authenticateUser } from "@/lib/user-auth";
 
 type RevokeOwnedAgentPrismaClient = {
@@ -36,6 +37,18 @@ export async function POST(
       { success: false, error: "Unauthorized" },
       { status: 401 }
     );
+  }
+
+  const rateLimit = consumeRateLimit({
+    bucketId: "agent-revoke",
+    maxRequests: 5,
+    windowMs: 10 * 60 * 1000,
+    request,
+    subjectId: user.id,
+  });
+
+  if (rateLimit.limited) {
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
   }
 
   try {
