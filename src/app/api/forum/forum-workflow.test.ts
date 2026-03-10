@@ -11,6 +11,7 @@ import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { GET as getForumPost } from "./posts/[id]/route";
 import { POST as createReply } from "./posts/[id]/replies/route";
 import { POST as toggleLike } from "./posts/[id]/like/route";
+import { POST as createPost } from "./posts/route";
 
 const prismaClient = prisma as Record<string, unknown>;
 
@@ -371,4 +372,38 @@ test("forum like endpoint awards like points only once across unlike and relike"
   assert.equal(relikeResponse.status, 200);
   assert.equal(relikeJson.data.liked, true);
   assert.equal(pointTransactionRefs.length, 1);
+});
+
+test("forum post creation rejects unclaimed agents before insertion", async () => {
+  let createCalls = 0;
+
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "author-1",
+      apiKey: "author-key",
+      ownerUserId: null,
+      claimStatus: "UNCLAIMED",
+      claimedAt: null,
+    });
+  prismaClient.forumPost.create = async () => {
+    createCalls += 1;
+    return createForumPostFixture();
+  };
+
+  const response = await createPost(
+    createRouteRequest("http://localhost/api/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        title: "Unauthorized post",
+        content: "Should not be created",
+        category: "general",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.equal(json.error, "Unauthorized: Invalid or missing API key");
+  assert.equal(createCalls, 0);
 });

@@ -1,8 +1,27 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
-import { generateApiKey } from "@/lib/auth";
-import { awardPoints } from "@/lib/points";
-import { AgentType, PointActionType } from "@/generated/prisma";
+import { generateApiKey, hashApiKey } from "@/lib/auth";
+import { AgentType } from "@/generated/prisma";
+
+type RegisterRoutePrismaClient = {
+  agent: {
+    findUnique: (args: unknown) => Promise<{ id: string } | null>;
+    create: (args: unknown) => Promise<{
+      id: string;
+      name: string;
+      type: string;
+      status: string;
+      points: number;
+      claimStatus?: string | null;
+      ownerUserId?: string | null;
+    }>;
+  };
+  agentCredential?: {
+    create: (args: unknown) => Promise<unknown>;
+  };
+};
+
+const registerPrisma = prisma as unknown as RegisterRoutePrismaClient;
 
 const VALID_TYPES = ["OPENCLAW", "CLAUDE_CODE", "CUSTOM"] as const;
 
@@ -30,7 +49,7 @@ export async function POST(request: NextRequest) {
       ? (typeInput as (typeof VALID_TYPES)[number])
       : AgentType.CUSTOM;
 
-    const existing = await prisma.agent.findUnique({
+    const existing = await registerPrisma.agent.findUnique({
       where: { name: trimmedName },
     });
 
@@ -44,31 +63,46 @@ export async function POST(request: NextRequest) {
     let apiKey = generateApiKey();
     let isUnique = false;
     while (!isUnique) {
-      const collision = await prisma.agent.findUnique({
+      const collision = await registerPrisma.agent.findUnique({
         where: { apiKey },
       });
       if (!collision) isUnique = true;
       else apiKey = generateApiKey();
     }
 
-    const agent = await prisma.agent.create({
+    const agent = await registerPrisma.agent.create({
       data: {
         name: trimmedName,
         type,
         apiKey,
+        claimStatus: "UNCLAIMED",
+        ownerUserId: null,
+        claimedAt: null,
+        revokedAt: null,
       },
     });
 
-    await awardPoints(agent.id, PointActionType.DAILY_LOGIN);
-
-    const updated = await prisma.agent.findUniqueOrThrow({
-      where: { id: agent.id },
-      select: { id: true, name: true, type: true, apiKey: true, points: true },
+    await registerPrisma.agentCredential?.create({
+      data: {
+        agentId: agent.id,
+        keyHash: hashApiKey(apiKey),
+        label: "default",
+        last4: apiKey.slice(-4),
+      },
     });
 
     return Response.json({
       success: true,
-      data: updated,
+      data: {
+        id: agent.id,
+        name: agent.name,
+        type: agent.type,
+        status: agent.status,
+        points: agent.points,
+        claimStatus: agent.claimStatus ?? "UNCLAIMED",
+        ownerUserId: agent.ownerUserId ?? null,
+        apiKey,
+      },
     });
   } catch (err) {
     console.error("[agents/register]", err);

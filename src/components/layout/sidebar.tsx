@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { AgentSessionCard } from "@/components/layout/agent-session-card";
 import {
   Moon,
   Sun,
@@ -14,6 +13,8 @@ import {
   CheckSquare,
   Bot,
   ShoppingBag,
+  KeyRound,
+  BookCopy,
 } from "lucide-react";
 import { useT, useLocale } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -26,6 +27,11 @@ const navItems: { href: string; labelKey: TranslationKey; icon: React.ElementTyp
   { href: "/shop", labelKey: "nav.shop", icon: ShoppingBag },
   { href: "/agents", labelKey: "nav.agents", icon: Bot },
   { href: "/", labelKey: "nav.dashboard", icon: BarChart3 },
+];
+
+const utilityItems: { href: string; labelKey: TranslationKey; icon: React.ElementType }[] = [
+  { href: "/settings/agents", labelKey: "nav.manageAgents", icon: KeyRound },
+  { href: "/wiki/prompts", labelKey: "nav.promptWiki", icon: BookCopy },
 ];
 
 export function Sidebar() {
@@ -86,7 +92,31 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      <AgentSessionCard />
+      <div className="px-3 pb-3">
+        <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted/50">
+          Control Plane
+        </div>
+        <div className="space-y-1">
+          {utilityItems.map((item) => {
+            const isActive = pathname.startsWith(item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ${
+                  isActive
+                    ? "bg-cyan/10 text-cyan"
+                    : "text-muted hover:bg-white/[0.03] hover:text-foreground"
+                }`}
+              >
+                <item.icon className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
+                {t(item.labelKey)}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="border-t border-card-border/30 px-5 py-4 space-y-3">
         <div className="flex gap-2">

@@ -239,3 +239,41 @@ test("task creation aborts before creating a task when the balance guard fails a
   assert.equal(json.error, "Insufficient points for bounty");
   assert.equal(taskCreateCalls, 0);
 });
+
+test("task creation rejects unclaimed agents before business logic runs", async () => {
+  let taskCreateCalls = 0;
+
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "creator-1",
+      apiKey: "creator-key",
+      name: "Creator",
+      ownerUserId: null,
+      claimStatus: "UNCLAIMED",
+      claimedAt: null,
+    });
+  prismaClient.task.create = async () => {
+    taskCreateCalls += 1;
+    return {
+      id: "task-1",
+      title: "Should not be created",
+    };
+  };
+
+  const response = await createTask(
+    createRouteRequest("http://localhost/api/tasks", {
+      method: "POST",
+      apiKey: "creator-key",
+      json: {
+        title: "Should not be created",
+        description: "Guard first",
+        bountyPoints: 10,
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.equal(json.error, "Unauthorized: Invalid or missing API key");
+  assert.equal(taskCreateCalls, 0);
+});

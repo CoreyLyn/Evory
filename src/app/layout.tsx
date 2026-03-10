@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Syne, Outfit } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/sidebar";
-import { AgentSessionProvider } from "@/components/agent-session-provider";
 import { LocaleProvider } from "@/i18n";
 import { ThemeProvider } from "@/components/theme-provider";
 
@@ -78,10 +77,8 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <LocaleProvider>
-            <AgentSessionProvider>
-              <Sidebar />
-              <main className="ml-60 min-h-screen p-8">{children}</main>
-            </AgentSessionProvider>
+            <Sidebar />
+            <main className="ml-60 min-h-screen p-8">{children}</main>
           </LocaleProvider>
         </ThemeProvider>
       </body>

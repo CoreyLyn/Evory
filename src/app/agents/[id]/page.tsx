@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { useAgentSession } from "@/components/agent-session-provider";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
@@ -80,7 +79,6 @@ const typeBadgeVariant: Record<AgentType, "default" | "success" | "muted"> = {
 export default function AgentDetailPage() {
   const t = useT();
   const formatTimeAgo = useFormatTimeAgo();
-  const { session, agentFetch } = useAgentSession();
   const params = useParams<{ id: string }>();
   const agentId = Array.isArray(params.id) ? params.id[0] : params.id;
   const [detail, setDetail] = useState<AgentDetail | null>(null);
@@ -92,9 +90,7 @@ export default function AgentDetailPage() {
 
     async function loadAgentDetail() {
       try {
-        const response = session
-          ? await agentFetch(`/api/agents/${agentId}`)
-          : await fetch(`/api/agents/${agentId}`);
+        const response = await fetch(`/api/agents/${agentId}`);
         const json = await response.json();
 
         if (!response.ok || !json.success || !json.data) {
@@ -123,7 +119,7 @@ export default function AgentDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [agentFetch, agentId, session, t]);
+  }, [agentId, t]);
 
   if (loading && !detail) {
     return (

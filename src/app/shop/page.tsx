@@ -1,17 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useAgentSession } from "@/components/agent-session-provider";
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  equipInventoryItem,
-  fetchAgentInventory,
-  fetchPointsBalance,
-  fetchShopItems,
-  purchaseShopItem,
-} from "@/lib/shop-client";
+import { fetchShopItems } from "@/lib/shop-client";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 
@@ -25,13 +19,6 @@ type ShopItem = {
   spriteKey: string;
 };
 
-type InventoryItem = {
-  id: string;
-  itemId: string;
-  equipped: boolean;
-  item: ShopItem;
-};
-
 const SHOP_CATEGORY_KEYS: Record<string, TranslationKey> = {
   skin: "shop.category.skin",
   hat: "shop.category.hat",
@@ -40,13 +27,9 @@ const SHOP_CATEGORY_KEYS: Record<string, TranslationKey> = {
 
 export default function ShopPage() {
   const t = useT();
-  const { session, agentFetch, refreshAgent } = useAgentSession();
   const [items, setItems] = useState<ShopItem[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [balance, setBalance] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actionItemId, setActionItemId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,19 +42,6 @@ export default function ShopPage() {
         const catalog = await fetchShopItems();
         if (cancelled) return;
         setItems(catalog as ShopItem[]);
-
-        if (session) {
-          const [nextBalance, nextInventory] = await Promise.all([
-            fetchPointsBalance(agentFetch),
-            fetchAgentInventory(agentFetch),
-          ]);
-          if (cancelled) return;
-          setBalance(nextBalance);
-          setInventory(nextInventory as InventoryItem[]);
-        } else {
-          setBalance(null);
-          setInventory([]);
-        }
       } catch (nextError) {
         if (cancelled) return;
         setError(
@@ -87,12 +57,7 @@ export default function ShopPage() {
     return () => {
       cancelled = true;
     };
-  }, [agentFetch, session, t]);
-
-  const inventoryByItemId = useMemo(
-    () => new Map(inventory.map((entry) => [entry.itemId, entry])),
-    [inventory]
-  );
+  }, [t]);
   const groupedItems = useMemo(() => {
     const groups = new Map<string, ShopItem[]>();
 
@@ -105,60 +70,6 @@ export default function ShopPage() {
     return [...groups.entries()];
   }, [items]);
 
-  async function reloadAgentState() {
-    if (!session) return;
-
-    const [nextBalance, nextInventory] = await Promise.all([
-      fetchPointsBalance(agentFetch),
-      fetchAgentInventory(agentFetch),
-      refreshAgent(),
-    ]);
-    setBalance(nextBalance);
-    setInventory(nextInventory as InventoryItem[]);
-  }
-
-  async function handlePurchase(itemId: string) {
-    if (!session) {
-      setError(t("shop.authRequired"));
-      return;
-    }
-
-    setActionItemId(itemId);
-    setError(null);
-
-    try {
-      await purchaseShopItem(agentFetch, itemId);
-      await reloadAgentState();
-    } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : t("shop.actionFailed")
-      );
-    } finally {
-      setActionItemId(null);
-    }
-  }
-
-  async function handleEquip(itemId: string) {
-    if (!session) {
-      setError(t("shop.authRequired"));
-      return;
-    }
-
-    setActionItemId(itemId);
-    setError(null);
-
-    try {
-      await equipInventoryItem(agentFetch, itemId);
-      await reloadAgentState();
-    } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : t("shop.actionFailed")
-      );
-    } finally {
-      setActionItemId(null);
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -167,7 +78,7 @@ export default function ShopPage() {
             {t("shop.title")}
           </h1>
           <p className="mt-1.5 text-sm text-muted">
-            {session ? t("shop.subtitle") : t("shop.authRequired")}
+            {t("control.shopReadOnly")}
           </p>
         </div>
         <Card className="p-4 sm:min-w-[180px]">
@@ -175,10 +86,31 @@ export default function ShopPage() {
             {t("shop.balance")}
           </p>
           <p className="mt-2 font-display text-2xl font-bold text-warning">
-            {balance ?? "—"}
+            —
           </p>
         </Card>
       </div>
+
+      <Card className="border-card-border/60 bg-card/70">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan/80">
+              {t("control.title")}
+            </p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+              {t("control.shopReadOnly")}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/settings/agents">
+              <Button variant="secondary">{t("control.manageAgents")}</Button>
+            </Link>
+            <Link href="/wiki/prompts">
+              <Button variant="ghost">{t("control.promptWiki")}</Button>
+            </Link>
+          </div>
+        </div>
+      </Card>
 
       {error && (
         <div className="rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-danger">
@@ -212,9 +144,6 @@ export default function ShopPage() {
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {categoryItems.map((item) => {
-                const owned = inventoryByItemId.get(item.id);
-                const isBusy = actionItemId === item.id;
-
                 return (
                   <Card
                     key={item.id}
@@ -242,36 +171,16 @@ export default function ShopPage() {
 
                       <div className="mt-4 flex flex-wrap gap-2">
                         <Badge variant="muted">{item.type}</Badge>
-                        {owned && <Badge variant="success">{t("shop.owned")}</Badge>}
-                        {owned?.equipped && (
-                          <Badge variant="default">{t("shop.equipped")}</Badge>
-                        )}
+                        <Badge variant="warning">{t("shop.price")} {item.price}</Badge>
                       </div>
                     </div>
 
                     <div className="flex justify-end">
-                      {!owned ? (
-                        <Button
-                          type="button"
-                          disabled={!session || isBusy}
-                          onClick={() => handlePurchase(item.id)}
-                        >
-                          {isBusy ? t("shop.purchasing") : t("shop.purchase")}
+                      <Link href="/wiki/prompts">
+                        <Button type="button" variant="secondary">
+                          {t("control.promptWiki")}
                         </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant={owned.equipped ? "secondary" : "primary"}
-                          disabled={!session || isBusy || owned.equipped}
-                          onClick={() => handleEquip(item.id)}
-                        >
-                          {owned.equipped
-                            ? t("shop.equipped")
-                            : isBusy
-                              ? t("shop.equipping")
-                              : t("shop.equip")}
-                        </Button>
-                      )}
+                      </Link>
                     </div>
                   </Card>
                 );

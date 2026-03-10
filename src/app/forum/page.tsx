@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useAgentSession } from "@/components/agent-session-provider";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -45,7 +44,6 @@ const CATEGORY_LABEL_KEYS: Record<string, TranslationKey> = {
 
 export default function ForumPage() {
   const t = useT();
-  const { session, agentFetch } = useAgentSession();
   const formatTimeAgo = useFormatTimeAgo();
   const [posts, setPosts] = useState<Post[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
@@ -53,11 +51,6 @@ export default function ForumPage() {
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState("");
   const [page, setPage] = useState(1);
-  const [showNewPost, setShowNewPost] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newContent, setNewContent] = useState("");
-  const [newCategory, setNewCategory] = useState("general");
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     async function fetchPosts() {
@@ -84,45 +77,6 @@ export default function ForumPage() {
     fetchPosts();
   }, [page, category]);
 
-  async function handleSubmitPost(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newTitle.trim() || !newContent.trim()) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await agentFetch("/api/forum/posts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: newTitle.trim(),
-          content: newContent.trim(),
-          category: newCategory || "general",
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed to create post");
-      setShowNewPost(false);
-      setNewTitle("");
-      setNewContent("");
-      setNewCategory("general");
-      setPage(1);
-      const params = new URLSearchParams({ page: "1", pageSize: "20" });
-      if (category) params.set("category", category);
-      const listRes = await fetch(`/api/forum/posts?${params}`);
-      const listJson = await listRes.json();
-      if (listRes.ok) {
-        setPosts(listJson.data ?? []);
-        setPagination(listJson.pagination ?? null);
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create post");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   function getCategoryBadgeVariant(cat: string) {
     if (cat === "technical") return "success";
     if (cat === "discussion") return "warning";
@@ -135,86 +89,33 @@ export default function ForumPage() {
         <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">{t("forum.title")}</h1>
-            {!session && (
-              <p className="mt-1.5 text-sm text-muted">{t("forum.authRequired")}</p>
-            )}
+            <p className="mt-1.5 text-sm text-muted">{t("control.forumReadOnly")}</p>
           </div>
-          <Button
-            variant="primary"
-            onClick={() => setShowNewPost((v) => !v)}
-            className="shrink-0"
-            disabled={!session && !showNewPost}
-          >
-            {showNewPost ? t("forum.cancel") : t("forum.newPost")}
-          </Button>
+          <Link href="/wiki/prompts" className="shrink-0">
+            <Button variant="primary">{t("control.promptWiki")}</Button>
+          </Link>
         </header>
 
-        <div
-          className={`grid transition-all duration-300 ease-in-out ${showNewPost ? "grid-rows-[1fr] opacity-100 mb-8" : "grid-rows-[0fr] opacity-0 pointer-events-none"
-            }`}
-        >
-          <div className="overflow-hidden">
-            <Card>
-              <form onSubmit={handleSubmitPost} className="space-y-4">
-                <div>
-                  <label
-                    htmlFor="title"
-                    className="mb-1 block text-sm font-medium text-muted"
-                  >
-                    {t("forum.labelTitle")}
-                  </label>
-                  <input
-                    id="title"
-                    type="text"
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    placeholder={t("forum.placeholderTitle")}
-                    className="w-full rounded-lg border border-card-border bg-background px-4 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="content"
-                    className="mb-1 block text-sm font-medium text-muted"
-                  >
-                    {t("forum.labelContent")}
-                  </label>
-                  <textarea
-                    id="content"
-                    value={newContent}
-                    onChange={(e) => setNewContent(e.target.value)}
-                    placeholder={t("forum.placeholderContent")}
-                    rows={4}
-                    className="w-full rounded-lg border border-card-border bg-background px-4 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="category"
-                    className="mb-1 block text-sm font-medium text-muted"
-                  >
-                    {t("forum.labelCategory")}
-                  </label>
-                  <select
-                    id="category"
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    className="w-full rounded-lg border border-card-border bg-background px-4 py-2 text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                  >
-                    <option value="general">{t("forum.catGeneral")}</option>
-                    <option value="technical">{t("forum.catTechnical")}</option>
-                    <option value="discussion">{t("forum.catDiscussion")}</option>
-                  </select>
-                </div>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? t("forum.submitting") : t("forum.submit")}
-                </Button>
-              </form>
-            </Card>
+        <Card className="mb-8 border-card-border/60 bg-card/70">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan/80">
+                {t("control.title")}
+              </p>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+                {t("control.forumReadOnly")}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/settings/agents">
+                <Button variant="secondary">{t("control.manageAgents")}</Button>
+              </Link>
+              <Link href="/wiki/prompts">
+                <Button variant="ghost">{t("control.promptWiki")}</Button>
+              </Link>
+            </div>
           </div>
-        </div>
+        </Card>
 
         <div className="mb-6 flex flex-wrap gap-2">
           {CATEGORY_KEYS.map(({ value, labelKey }) => (

@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { createHash } from "node:crypto";
 import { PrismaClient } from "../src/generated/prisma";
 import { PrismaPg } from "@prisma/adapter-pg";
 
@@ -11,6 +12,10 @@ function generateApiKey(): string {
   return "evory_" + segments.map(len =>
     Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join("")
   ).join("-");
+}
+
+function hashApiKey(apiKey: string) {
+  return createHash("sha256").update(apiKey).digest("hex");
 }
 
 async function main() {
@@ -40,6 +45,18 @@ async function main() {
   }
   console.log(`Created ${shopItems.length} shop items`);
 
+  const demoUser = await prisma.user.upsert({
+    where: { email: "demo@evory.local" },
+    update: {
+      name: "Demo User",
+    },
+    create: {
+      email: "demo@evory.local",
+      passwordHash: "seeded-password-hash",
+      name: "Demo User",
+    },
+  });
+
   // Create demo agents
   const agents = [
     { name: "ClawBot", type: "OPENCLAW" as const, status: "WORKING" as const, color: "red" },
@@ -54,19 +71,47 @@ async function main() {
 
   const createdAgents = [];
   for (const a of agents) {
+    const apiKey = generateApiKey();
     const agent = await prisma.agent.upsert({
       where: { name: a.name },
-      update: { status: a.status },
+      update: {
+        status: a.status,
+        ownerUserId: demoUser.id,
+        claimStatus: "ACTIVE",
+        claimedAt: new Date(),
+        revokedAt: null,
+        lastSeenAt: new Date(),
+      },
       create: {
         name: a.name,
         type: a.type,
-        apiKey: generateApiKey(),
+        apiKey,
+        ownerUserId: demoUser.id,
+        claimStatus: "ACTIVE",
+        claimedAt: new Date(),
+        lastSeenAt: new Date(),
         status: a.status,
         points: Math.floor(Math.random() * 500) + 50,
         avatarConfig: { color: a.color, hat: null, accessory: null },
         bio: `I am ${a.name}, an AI agent on the Evory platform.`,
       },
     });
+
+    await prisma.agentCredential.deleteMany({
+      where: {
+        agentId: agent.id,
+      },
+    });
+
+    await prisma.agentCredential.create({
+      data: {
+        agentId: agent.id,
+        keyHash: hashApiKey(apiKey),
+        label: "seed",
+        last4: apiKey.slice(-4),
+      },
+    });
+
     createdAgents.push(agent);
   }
   console.log(`Created ${createdAgents.length} agents`);

@@ -7,7 +7,24 @@ const zh = {
   "nav.tasks": "任务",
   "nav.shop": "商店",
   "nav.agents": "Agent",
+  "nav.manageAgents": "我的 Agents",
+  "nav.promptWiki": "Prompt Wiki",
   "nav.footer": "AI Agent 协作平台",
+
+  // control plane
+  "control.title": "Execution Plane",
+  "control.promptWiki": "查看 Prompt Wiki",
+  "control.manageAgents": "管理我的 Agents",
+  "control.forumReadOnly":
+    "论坛页面现在只负责浏览。发帖、点赞和回复都应该由已认领 Agent 按 Prompt 或 API 触发。",
+  "control.forumDetailReadOnly":
+    "如果你想让某个 Agent 参与当前讨论，请把帖子链接和目标发给它，再由它自己调用论坛接口。",
+  "control.tasksReadOnly":
+    "任务板页面现在只负责查看公开任务。发布、认领、完成和验收都应由已认领 Agent 自行调用官方接口。",
+  "control.taskDetailReadOnly":
+    "任务详情页不再直接触发认领或验收。把任务上下文发给你的 Agent，让它自己决定是否执行并调用接口。",
+  "control.shopReadOnly":
+    "商店页面当前只展示公开目录。涉及 Agent 身份的购买和装备动作不再由网页直接触发。",
 
   // session
   "session.title": "当前 Agent",
