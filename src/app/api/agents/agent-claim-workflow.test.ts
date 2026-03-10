@@ -911,3 +911,107 @@ test("security events endpoint returns the current user's recent rate-limit hits
   assert.equal(json.data[0].retryAfterSeconds, 120);
   assert.equal(json.data[0].summary, "Agent claim attempts were rate limited.");
 });
+
+test("security events endpoint applies severity, routeKey, and limit filters", async () => {
+  const token = "security-events-filter-token";
+  let findManyArgs: Record<string, unknown> | null = null;
+
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({
+              id: "user-security-filter-1",
+              email: "security-filter@example.com",
+            }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.securityEvent = {
+    create: async () => createSecurityEventFixture(),
+    findMany: async (args: Record<string, unknown>) => {
+      findManyArgs = args;
+      return [
+        createSecurityEventFixture({
+          routeKey: "agent-revoke",
+          metadata: {
+            scope: "credential",
+            severity: "high",
+            operation: "agent_revoke",
+            summary: "Agent revoke attempts were rate limited.",
+            retryAfterSeconds: 90,
+          },
+        }),
+      ];
+    },
+  };
+
+  const response = await listSecurityEvents(
+    createRouteRequest(
+      "http://localhost/api/users/me/security-events?severity=high&routeKey=agent-revoke&limit=2",
+      {
+        headers: {
+          cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        },
+      }
+    )
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal((findManyArgs?.where as Record<string, unknown>).userId, "user-security-filter-1");
+  assert.equal((findManyArgs?.where as Record<string, unknown>).routeKey, "agent-revoke");
+  assert.deepEqual(
+    (findManyArgs?.where as Record<string, unknown>).metadata,
+    {
+      path: ["severity"],
+      equals: "high",
+    }
+  );
+  assert.equal(findManyArgs?.take, 2);
+  assert.equal(json.data[0].severity, "high");
+  assert.equal(json.data[0].routeKey, "agent-revoke");
+});
+
+test("security events endpoint rejects invalid severity filters", async () => {
+  const token = "security-events-invalid-filter-token";
+
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({
+              id: "user-security-invalid-1",
+              email: "security-invalid@example.com",
+            }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.securityEvent = {
+    create: async () => createSecurityEventFixture(),
+    findMany: async () => {
+      throw new Error("should not query when severity is invalid");
+    },
+  };
+
+  const response = await listSecurityEvents(
+    createRouteRequest(
+      "http://localhost/api/users/me/security-events?severity=critical",
+      {
+        headers: {
+          cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        },
+      }
+    )
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Invalid severity filter");
+});

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,20 @@ type SecurityEventItem = {
   createdAt: string | null;
 };
 
+const SECURITY_SEVERITY_OPTIONS = [
+  { value: "all", label: "全部级别" },
+  { value: "warning", label: "Warning" },
+  { value: "high", label: "High" },
+] as const;
+
+const SECURITY_ROUTE_OPTIONS = [
+  { value: "all", label: "全部路由" },
+  { value: "agent-register", label: "agent-register" },
+  { value: "agent-claim", label: "agent-claim" },
+  { value: "agent-rotate-key", label: "agent-rotate-key" },
+  { value: "agent-revoke", label: "agent-revoke" },
+] as const;
+
 export default function ManageAgentsPage() {
   const [user, setUser] = useState<UserSummary | null>(null);
   const [agents, setAgents] = useState<ManagedAgent[]>([]);
@@ -54,8 +68,14 @@ export default function ManageAgentsPage() {
   const [busyAgentId, setBusyAgentId] = useState<string | null>(null);
   const [latestIssuedKey, setLatestIssuedKey] = useState<string | null>(null);
   const [securityEvents, setSecurityEvents] = useState<SecurityEventItem[]>([]);
+  const [securitySeverityFilter, setSecuritySeverityFilter] = useState<
+    (typeof SECURITY_SEVERITY_OPTIONS)[number]["value"]
+  >("all");
+  const [securityRouteFilter, setSecurityRouteFilter] = useState<
+    (typeof SECURITY_ROUTE_OPTIONS)[number]["value"]
+  >("all");
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -72,9 +92,21 @@ export default function ManageAgentsPage() {
 
       setUser(userJson.data);
 
+      const securityEventParams = new URLSearchParams({
+        limit: "20",
+      });
+
+      if (securitySeverityFilter !== "all") {
+        securityEventParams.set("severity", securitySeverityFilter);
+      }
+
+      if (securityRouteFilter !== "all") {
+        securityEventParams.set("routeKey", securityRouteFilter);
+      }
+
       const [agentsResponse, securityEventsResponse] = await Promise.all([
         fetch("/api/users/me/agents"),
-        fetch("/api/users/me/security-events"),
+        fetch(`/api/users/me/security-events?${securityEventParams.toString()}`),
       ]);
       const [agentsJson, securityEventsJson] = await Promise.all([
         agentsResponse.json(),
@@ -96,11 +128,11 @@ export default function ManageAgentsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [securityRouteFilter, securitySeverityFilter]);
 
   useEffect(() => {
     void loadData();
-  }, []);
+  }, [loadData]);
 
   async function handleClaim(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -400,6 +432,38 @@ export default function ManageAgentsPage() {
             <p className="mt-2 text-sm text-muted">
               这里只展示与你账号关联的敏感操作限流记录。匿名注册命中会在服务端记录，但不会出现在个人控制台。
             </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <span>级别</span>
+              <select
+                value={securitySeverityFilter}
+                onChange={(event) => setSecuritySeverityFilter(event.target.value as (typeof SECURITY_SEVERITY_OPTIONS)[number]["value"])}
+                className="rounded-xl border border-card-border/60 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none"
+              >
+                {SECURITY_SEVERITY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <span>路由</span>
+              <select
+                value={securityRouteFilter}
+                onChange={(event) => setSecurityRouteFilter(event.target.value as (typeof SECURITY_ROUTE_OPTIONS)[number]["value"])}
+                className="rounded-xl border border-card-border/60 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none"
+              >
+                {SECURITY_ROUTE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {securityEvents.length === 0 ? (
