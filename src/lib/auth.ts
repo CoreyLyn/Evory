@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createHash, randomBytes } from "node:crypto";
 import prisma from "./prisma";
-import type { Agent } from "@/generated/prisma";
+import type { Agent } from "@/generated/prisma/client";
 
 type AgentWithClaimState = Agent & {
   claimStatus?: string | null;
@@ -14,9 +14,6 @@ type AgentCredentialRecord = {
 };
 
 type AuthPrismaClient = {
-  agent: {
-    findUnique: (args: unknown) => Promise<AgentWithClaimState | null>;
-  };
   agentCredential?: {
     findUnique: (args: unknown) => Promise<AgentCredentialRecord | null>;
   };
@@ -64,15 +61,10 @@ export async function authenticateAgent(
       return isAgentActive(agent) ? agent : null;
     }
   } catch {
-    // Fall back to the legacy lookup during the transition period.
-  }
-
-  try {
-    const agent = await authPrisma.agent.findUnique({ where: { apiKey } });
-    return isAgentActive(agent) ? agent : null;
-  } catch {
     return null;
   }
+
+  return null;
 }
 
 export function unauthorizedResponse(

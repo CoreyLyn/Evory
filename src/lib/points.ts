@@ -1,5 +1,5 @@
 import prisma from "./prisma";
-import type { PointActionType, PointTransaction } from "@/generated/prisma";
+import type { PointActionType, PointTransaction } from "@/generated/prisma/client";
 import { POINT_RULES, DAILY_LIMITS } from "@/types";
 
 type DailyActionKey = keyof typeof DAILY_LIMITS | "DAILY_LOGIN";

@@ -3,11 +3,13 @@ import { afterEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
 import {
+  createAgentCredentialFixture,
   createAgentFixture,
   createForumPostFixture,
   createTaskFixture,
 } from "@/test/factories";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
+import { hashApiKey } from "@/lib/auth";
 import { POST as createAgentForumPost } from "./forum/posts/route";
 import { POST as publishAgentKnowledge } from "./knowledge/articles/route";
 import { POST as claimAgentTask } from "./tasks/[id]/claim/route";
@@ -22,6 +24,9 @@ type AgentWritePrismaMock = {
     findUnique: AsyncMethod;
     update: AsyncMethod;
     updateMany: AsyncMethod;
+  };
+  agentCredential?: {
+    findUnique: AsyncMethod;
   };
   forumPost: {
     create: AsyncMethod;
@@ -52,6 +57,7 @@ const originalMethods = {
   agentFindUnique: prismaClient.agent.findUnique,
   agentUpdate: prismaClient.agent.update,
   agentUpdateMany: prismaClient.agent.updateMany,
+  credentialFindUnique: prismaClient.agentCredential?.findUnique,
   forumPostCreate: prismaClient.forumPost.create,
   taskCreate: prismaClient.task.create,
   taskFindUnique: prismaClient.task.findUnique,
@@ -69,6 +75,10 @@ afterEach(() => {
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
   prismaClient.agent.update = originalMethods.agentUpdate;
   prismaClient.agent.updateMany = originalMethods.agentUpdateMany;
+  if (prismaClient.agentCredential && originalMethods.credentialFindUnique) {
+    prismaClient.agentCredential.findUnique =
+      originalMethods.credentialFindUnique;
+  }
   prismaClient.forumPost.create = originalMethods.forumPostCreate;
   prismaClient.task.create = originalMethods.taskCreate;
   prismaClient.task.findUnique = originalMethods.taskFindUnique;
@@ -81,6 +91,24 @@ afterEach(() => {
   prismaClient.dailyCheckin.update = originalMethods.dailyCheckinUpdate;
   prismaClient.$transaction = originalMethods.transaction;
 });
+
+function mockAgentCredential(
+  apiKey: string,
+  overrides: Record<string, unknown> = {}
+) {
+  prismaClient.agentCredential = {
+    findUnique: async ({ where }: { where: { keyHash: string } }) =>
+      where.keyHash === hashApiKey(apiKey)
+        ? createAgentCredentialFixture({
+            keyHash: where.keyHash,
+            agent: createAgentFixture({
+              apiKey,
+              ...overrides,
+            }),
+          })
+        : null,
+  };
+}
 
 function mockAwardPointsTransaction() {
   prismaClient.dailyCheckin.findUnique = async () => null;
@@ -123,12 +151,10 @@ function mockAwardPointsTransaction() {
 }
 
 test("claimed agent can create a forum post via the official agent forum endpoint", async () => {
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "author-1",
-      apiKey: "author-key",
-      name: "Author",
-    });
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
   prismaClient.forumPost.create = async ({
     data,
   }: {
@@ -170,14 +196,12 @@ test("claimed agent can create a forum post via the official agent forum endpoin
 test("unclaimed agents cannot use the official agent forum write endpoint", async () => {
   let createCalls = 0;
 
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "author-1",
-      apiKey: "author-key",
-      ownerUserId: null,
-      claimStatus: "UNCLAIMED",
-      claimedAt: null,
-    });
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    ownerUserId: null,
+    claimStatus: "UNCLAIMED",
+    claimedAt: null,
+  });
   prismaClient.forumPost.create = async () => {
     createCalls += 1;
     return createForumPostFixture();
@@ -202,12 +226,10 @@ test("unclaimed agents cannot use the official agent forum write endpoint", asyn
 });
 
 test("claimed agent can publish knowledge via the official agent knowledge endpoint", async () => {
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "writer-1",
-      apiKey: "writer-key",
-      name: "Writer",
-    });
+  mockAgentCredential("writer-key", {
+    id: "writer-1",
+    name: "Writer",
+  });
   prismaClient.knowledgeArticle.create = async ({
     data,
   }: {
@@ -247,13 +269,11 @@ test("claimed agent can publish knowledge via the official agent knowledge endpo
 });
 
 test("claimed agent can create a task via the official agent task endpoint", async () => {
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "creator-1",
-      apiKey: "creator-key",
-      name: "Creator",
-      points: 100,
-    });
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+    points: 100,
+  });
   prismaClient.task.create = async () => ({
     id: "task-1",
   });
@@ -292,12 +312,10 @@ test("claimed agent can create a task via the official agent task endpoint", asy
 });
 
 test("claimed agent can claim a task via the official agent task action endpoint", async () => {
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "claimer-1",
-      apiKey: "claimer-key",
-      name: "Claimer",
-    });
+  mockAgentCredential("claimer-key", {
+    id: "claimer-1",
+    name: "Claimer",
+  });
   prismaClient.task.findUnique = async () =>
     createTaskFixture({
       id: "task-1",

@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { createHash } from "node:crypto";
-import { PrismaClient } from "../src/generated/prisma";
+import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
@@ -85,7 +85,6 @@ async function main() {
       create: {
         name: a.name,
         type: a.type,
-        apiKey,
         ownerUserId: demoUser.id,
         claimStatus: "ACTIVE",
         claimedAt: new Date(),
@@ -112,7 +111,11 @@ async function main() {
       },
     });
 
-    createdAgents.push(agent);
+    createdAgents.push({
+      id: agent.id,
+      name: agent.name,
+      apiKey,
+    });
   }
   console.log(`Created ${createdAgents.length} agents`);
 

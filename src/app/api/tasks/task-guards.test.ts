@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
+import { hashApiKey } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { createAgentFixture, createTaskFixture } from "@/test/factories";
+import {
+  createAgentCredentialFixture,
+  createAgentFixture,
+  createTaskFixture,
+} from "@/test/factories";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { POST as claimTask } from "./[id]/claim/route";
 import { POST as verifyTask } from "./[id]/verify/route";
@@ -17,6 +22,9 @@ type GuardPrismaMock = {
     findUnique: AsyncMethod;
     update: AsyncMethod;
     updateMany: AsyncMethod;
+  };
+  agentCredential?: {
+    findUnique: AsyncMethod;
   };
   task: {
     findUnique: AsyncMethod;
@@ -37,6 +45,7 @@ const originalMethods = {
   agentFindUnique: prismaClient.agent.findUnique,
   agentUpdate: prismaClient.agent.update,
   agentUpdateMany: prismaClient.agent.updateMany,
+  credentialFindUnique: prismaClient.agentCredential?.findUnique,
   taskFindUnique: prismaClient.task.findUnique,
   taskFindUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
   taskCreate: prismaClient.task.create,
@@ -50,6 +59,10 @@ afterEach(() => {
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
   prismaClient.agent.update = originalMethods.agentUpdate;
   prismaClient.agent.updateMany = originalMethods.agentUpdateMany;
+  if (prismaClient.agentCredential && originalMethods.credentialFindUnique) {
+    prismaClient.agentCredential.findUnique =
+      originalMethods.credentialFindUnique;
+  }
   prismaClient.task.findUnique = originalMethods.taskFindUnique;
   prismaClient.task.findUniqueOrThrow = originalMethods.taskFindUniqueOrThrow;
   prismaClient.task.create = originalMethods.taskCreate;
@@ -59,13 +72,29 @@ afterEach(() => {
   prismaClient.$transaction = originalMethods.transaction;
 });
 
+function mockAgentCredential(
+  apiKey: string,
+  overrides: Record<string, unknown> = {}
+) {
+  prismaClient.agentCredential = {
+    findUnique: async ({ where }: { where: { keyHash: string } }) =>
+      where.keyHash === hashApiKey(apiKey)
+        ? createAgentCredentialFixture({
+            keyHash: where.keyHash,
+            agent: createAgentFixture({
+              apiKey,
+              ...overrides,
+            }),
+          })
+        : null,
+  };
+}
+
 test("claim returns conflict when the conditional status transition loses the race", async () => {
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "claimer-1",
-      apiKey: "claimer-key",
-      name: "Claimer",
-    });
+  mockAgentCredential("claimer-key", {
+    id: "claimer-1",
+    name: "Claimer",
+  });
   prismaClient.task.findUnique = async () =>
     createTaskFixture({
       id: "task-1",
@@ -108,12 +137,10 @@ test("claim returns conflict when the conditional status transition loses the ra
 test("verify approval stops without payouts when the conditional transition loses the race", async () => {
   let pointTransactionCreates = 0;
 
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "creator-1",
-      apiKey: "creator-key",
-      name: "Creator",
-    });
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+  });
   prismaClient.task.findUnique = async () =>
     createTaskFixture({
       id: "task-1",
@@ -171,23 +198,13 @@ test("verify approval stops without payouts when the conditional transition lose
 });
 
 test("task creation aborts before creating a task when the balance guard fails at commit time", async () => {
-  let agentLookups = 0;
   let taskCreateCalls = 0;
 
-  prismaClient.agent.findUnique = async () => {
-    agentLookups += 1;
-
-    if (agentLookups === 1) {
-      return createAgentFixture({
-        id: "creator-1",
-        apiKey: "creator-key",
-        name: "Creator",
-        points: 100,
-      });
-    }
-
-    return { points: 100 };
-  };
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+    points: 100,
+  });
   prismaClient.task.create = async () => {
     taskCreateCalls += 1;
     return {

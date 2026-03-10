@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
+import { hashApiKey } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { createAgentFixture, createTaskFixture } from "@/test/factories";
+import {
+  createAgentCredentialFixture,
+  createAgentFixture,
+  createTaskFixture,
+} from "@/test/factories";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { POST as completeTask } from "./[id]/complete/route";
 import { POST as verifyTask } from "./[id]/verify/route";
@@ -16,6 +21,9 @@ type TaskPrismaMock = {
     findUnique: AsyncMethod;
     update: AsyncMethod;
     updateMany: AsyncMethod;
+  };
+  agentCredential?: {
+    findUnique: AsyncMethod;
   };
   task: {
     findUnique: AsyncMethod;
@@ -40,6 +48,7 @@ const originalMethods = {
   agentFindUnique: prismaClient.agent.findUnique,
   agentUpdate: prismaClient.agent.update,
   agentUpdateMany: prismaClient.agent.updateMany,
+  credentialFindUnique: prismaClient.agentCredential?.findUnique,
   taskFindUnique: prismaClient.task.findUnique,
   taskFindUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
   taskUpdate: prismaClient.task.update,
@@ -55,6 +64,10 @@ afterEach(() => {
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
   prismaClient.agent.update = originalMethods.agentUpdate;
   prismaClient.agent.updateMany = originalMethods.agentUpdateMany;
+  if (prismaClient.agentCredential && originalMethods.credentialFindUnique) {
+    prismaClient.agentCredential.findUnique =
+      originalMethods.credentialFindUnique;
+  }
   prismaClient.task.findUnique = originalMethods.taskFindUnique;
   prismaClient.task.findUniqueOrThrow = originalMethods.taskFindUniqueOrThrow;
   prismaClient.task.update = originalMethods.taskUpdate;
@@ -65,6 +78,24 @@ afterEach(() => {
   prismaClient.dailyCheckin.update = originalMethods.dailyCheckinUpdate;
   prismaClient.$transaction = originalMethods.transaction;
 });
+
+function mockAgentCredential(
+  apiKey: string,
+  overrides: Record<string, unknown> = {}
+) {
+  prismaClient.agentCredential = {
+    findUnique: async ({ where }: { where: { keyHash: string } }) =>
+      where.keyHash === hashApiKey(apiKey)
+        ? createAgentCredentialFixture({
+            keyHash: where.keyHash,
+            agent: createAgentFixture({
+              apiKey,
+              ...overrides,
+            }),
+          })
+        : null,
+  };
+}
 
 function mockAwardPointDependencies() {
   prismaClient.pointTransaction.create = async ({ data }) => data;
@@ -80,12 +111,10 @@ function mockAwardPointDependencies() {
 test("complete sets completedAt when assignee submits work", async () => {
   let updateData: Record<string, unknown> | undefined;
 
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "assignee-1",
-      apiKey: "assignee-key",
-      name: "Assignee",
-    });
+  mockAgentCredential("assignee-key", {
+    id: "assignee-1",
+    name: "Assignee",
+  });
   prismaClient.task.findUnique = async () =>
     createTaskFixture({
       id: "task-1",
@@ -131,12 +160,10 @@ test("complete sets completedAt when assignee submits work", async () => {
 test("verify rejection returns task to CLAIMED and clears completedAt", async () => {
   let updateData: Record<string, unknown> | undefined;
 
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "creator-1",
-      apiKey: "creator-key",
-      name: "Creator",
-    });
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+  });
   prismaClient.task.findUnique = async () =>
     createTaskFixture({
       id: "task-1",
@@ -199,12 +226,10 @@ test("verify approval updates status and payouts inside one transaction", async 
   let transactionCalls = 0;
   const pointTransactions: Array<Record<string, unknown>> = [];
 
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "creator-1",
-      apiKey: "creator-key",
-      name: "Creator",
-    });
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+  });
   prismaClient.task.findUnique = async () =>
     createTaskFixture({
       id: "task-1",

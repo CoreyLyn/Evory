@@ -7,6 +7,7 @@ import { USER_SESSION_COOKIE_NAME, hashSessionToken } from "@/lib/user-auth";
 import {
   createAgentCredentialFixture,
   createAgentFixture,
+  createAgentClaimAuditFixture,
   createUserFixture,
   createUserSessionFixture,
 } from "@/test/factories";
@@ -83,21 +84,34 @@ afterEach(() => {
 
 test("register creates an unclaimed agent and returns its raw api key", async () => {
   let createdCredentialHash = "";
+  let createdAgentData: Record<string, unknown> | null = null;
 
-  prismaClient.agent.findUnique = async ({ where }: { where: { name?: string; apiKey?: string } }) =>
-    where.name === "New Agent" || where.apiKey ? null : null;
-  prismaClient.agent.create = async ({ data }: { data: Record<string, unknown> }) =>
-    createAgentFixture({
+  prismaClient.agent.findUnique = async ({
+    where,
+  }: {
+    where: { name?: string; apiKey?: string };
+  }) => {
+    if (where.apiKey) {
+      throw new Error("legacy agent apiKey lookup should not run during registration");
+    }
+
+    return where.name === "New Agent" ? null : null;
+  };
+  prismaClient.agent.create = async ({ data }: { data: Record<string, unknown> }) => {
+    createdAgentData = data;
+
+    return createAgentFixture({
       id: "agent-1",
       name: data.name,
       type: data.type,
-      apiKey: data.apiKey,
+      apiKey: null,
       ownerUserId: null,
       claimStatus: "UNCLAIMED",
       claimedAt: null,
       status: "OFFLINE",
       points: 0,
     });
+  };
   prismaClient.agentCredential = {
     create: async ({ data }: { data: { keyHash: string } }) => {
       createdCredentialHash = data.keyHash;
@@ -124,6 +138,7 @@ test("register creates an unclaimed agent and returns its raw api key", async ()
   assert.equal(json.data.claimStatus, "UNCLAIMED");
   assert.match(json.data.apiKey, /^evory_/);
   assert.equal(createdCredentialHash, hashApiKey(json.data.apiKey));
+  assert.equal(createdAgentData?.apiKey, undefined);
 });
 
 test("claim binds an unclaimed agent to the current user", async () => {
@@ -266,6 +281,17 @@ test("owned agents list returns active agents with masked credential metadata", 
           label: "default",
         }),
       ],
+      claimAudits: [
+        createAgentClaimAuditFixture({
+          action: "ROTATE_KEY",
+          createdAt: new Date("2026-03-10T10:00:00.000Z"),
+        }),
+        createAgentClaimAuditFixture({
+          id: "audit-2",
+          action: "CLAIM",
+          createdAt: new Date("2026-03-09T10:00:00.000Z"),
+        }),
+      ],
     }),
   ];
 
@@ -282,6 +308,18 @@ test("owned agents list returns active agents with masked credential metadata", 
   assert.equal(json.success, true);
   assert.equal(json.data[0].name, "Owned Agent");
   assert.equal(json.data[0].credentialLast4, "abcd");
+  assert.deepEqual(json.data[0].recentAudits, [
+    {
+      id: "audit-1",
+      action: "ROTATE_KEY",
+      createdAt: "2026-03-10T10:00:00.000Z",
+    },
+    {
+      id: "audit-2",
+      action: "CLAIM",
+      createdAt: "2026-03-09T10:00:00.000Z",
+    },
+  ]);
 });
 
 test("owned agent detail returns the claimed agent for the current user", async () => {
@@ -332,6 +370,7 @@ test("rotate-key revokes the previous credential and returns a new raw key", asy
   const token = "rotate-session-token";
   let revokedCredentialCount = 0;
   let createdCredentialHash = "";
+  let updatedAgentData: Record<string, unknown> | null = null;
 
   prismaClient.userSession = {
     findUnique: async ({ where }: { where: { tokenHash: string } }) =>
@@ -346,6 +385,10 @@ test("rotate-key revokes the previous credential and returns a new raw key", asy
     deleteMany: async () => ({ count: 0 }),
   };
   prismaClient.agent.findUnique = async ({ where }: { where: Record<string, string> }) => {
+    if (where.apiKey) {
+      throw new Error("legacy agent apiKey lookup should not run during key rotation");
+    }
+
     if (where.id === "agent-1") {
       return createAgentFixture({
         id: "agent-1",
@@ -356,12 +399,16 @@ test("rotate-key revokes the previous credential and returns a new raw key", asy
 
     return null;
   };
-  prismaClient.agent.update = async () =>
-    createAgentFixture({
+  prismaClient.agent.update = async ({ data }: { data: Record<string, unknown> }) => {
+    updatedAgentData = data;
+
+    return createAgentFixture({
       id: "agent-1",
       ownerUserId: "user-1",
       claimStatus: "ACTIVE",
+      apiKey: null,
     });
+  };
   prismaClient.agentCredential = {
     create: async ({ data }: { data: { keyHash: string } }) => {
       createdCredentialHash = data.keyHash;
@@ -395,6 +442,7 @@ test("rotate-key revokes the previous credential and returns a new raw key", asy
   assert.match(json.data.apiKey, /^evory_/);
   assert.equal(createdCredentialHash, hashApiKey(json.data.apiKey));
   assert.equal(revokedCredentialCount, 1);
+  assert.equal(updatedAgentData?.apiKey, undefined);
 });
 
 test("revoke marks the agent as revoked for the owning user", async () => {

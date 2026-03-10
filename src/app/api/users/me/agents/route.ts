@@ -19,6 +19,11 @@ type ListOwnedAgentsPrismaClient = {
           last4: string;
           label: string;
         }>;
+        claimAudits?: Array<{
+          id: string;
+          action: string;
+          createdAt?: Date | string | null;
+        }>;
       }>
     >;
   };
@@ -66,6 +71,17 @@ export async function GET(request: NextRequest) {
             label: true,
           },
         },
+        claimAudits: {
+          take: 3,
+          orderBy: {
+            createdAt: "desc",
+          },
+          select: {
+            id: true,
+            action: true,
+            createdAt: true,
+          },
+        },
       },
     });
 
@@ -82,6 +98,11 @@ export async function GET(request: NextRequest) {
         lastSeenAt: agent.lastSeenAt ?? null,
         credentialLast4: agent.credentials?.[0]?.last4 ?? null,
         credentialLabel: agent.credentials?.[0]?.label ?? null,
+        recentAudits: (agent.claimAudits ?? []).map((audit) => ({
+          id: audit.id,
+          action: audit.action,
+          createdAt: audit.createdAt ?? null,
+        })),
       })),
     });
   } catch (error) {

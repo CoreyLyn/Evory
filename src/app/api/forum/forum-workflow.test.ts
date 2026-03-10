@@ -3,11 +3,13 @@ import { afterEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
 import {
+  createAgentCredentialFixture,
   createAgentFixture,
   createForumPostFixture,
   createForumReplyFixture,
 } from "@/test/factories";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
+import { hashApiKey } from "@/lib/auth";
 import { GET as getForumPost } from "./posts/[id]/route";
 import { POST as createReply } from "./posts/[id]/replies/route";
 import { POST as toggleLike } from "./posts/[id]/like/route";
@@ -17,6 +19,7 @@ const prismaClient = prisma as Record<string, unknown>;
 
 const originalMethods = {
   agentFindUnique: prismaClient.agent.findUnique,
+  credentialFindUnique: prismaClient.agentCredential?.findUnique,
   forumPostFindUnique: prismaClient.forumPost.findUnique,
   forumPostUpdate: prismaClient.forumPost.update,
   forumReplyCreate: prismaClient.forumReply.create,
@@ -34,6 +37,9 @@ const originalMethods = {
 
 afterEach(() => {
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
+  if (prismaClient.agentCredential && originalMethods.credentialFindUnique) {
+    prismaClient.agentCredential.findUnique = originalMethods.credentialFindUnique;
+  }
   prismaClient.forumPost.findUnique = originalMethods.forumPostFindUnique;
   prismaClient.forumPost.update = originalMethods.forumPostUpdate;
   prismaClient.forumReply.create = originalMethods.forumReplyCreate;
@@ -48,6 +54,21 @@ afterEach(() => {
   prismaClient.dailyCheckin.update = originalMethods.dailyCheckinUpdate;
   prismaClient.$transaction = originalMethods.transaction;
 });
+
+function mockAgentCredential(apiKey: string, overrides: Record<string, unknown> = {}) {
+  prismaClient.agentCredential = {
+    findUnique: async ({ where }: { where: { keyHash: string } }) =>
+      where.keyHash === hashApiKey(apiKey)
+        ? createAgentCredentialFixture({
+            keyHash: where.keyHash,
+            agent: createAgentFixture({
+              apiKey,
+              ...overrides,
+            }),
+          })
+        : null,
+  };
+}
 
 function mockAwardPointsTransaction() {
   prismaClient.dailyCheckin.findUnique = async () => null;
@@ -90,12 +111,10 @@ function mockAwardPointsTransaction() {
 }
 
 test("forum detail returns viewerLiked when request is authenticated", async () => {
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "viewer-1",
-      apiKey: "viewer-key",
-      name: "Viewer",
-    });
+  mockAgentCredential("viewer-key", {
+    id: "viewer-1",
+    name: "Viewer",
+  });
   prismaClient.forumPost.findUnique = async () =>
     createForumPostFixture({
       likeCount: 1,
@@ -127,12 +146,10 @@ test("forum detail returns viewerLiked when request is authenticated", async () 
 });
 
 test("forum replies endpoint returns the created reply payload", async () => {
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "replier-1",
-      apiKey: "reply-key",
-      name: "Replier",
-    });
+  mockAgentCredential("reply-key", {
+    id: "replier-1",
+    name: "Replier",
+  });
   prismaClient.forumPost.findUnique = async () =>
     createForumPostFixture({
       id: "post-1",
@@ -159,12 +176,10 @@ test("forum replies endpoint returns the created reply payload", async () => {
 });
 
 test("forum like endpoint rejects self-likes", async () => {
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "author-1",
-      apiKey: "author-key",
-      name: "Author",
-    });
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
   prismaClient.forumPost.findUnique = async () =>
     createForumPostFixture({
       id: "post-1",
@@ -193,12 +208,10 @@ test("forum like endpoint toggles like state on repeated calls", async () => {
   let liked = false;
   let likeCount = 0;
 
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "viewer-1",
-      apiKey: "viewer-key",
-      name: "Viewer",
-    });
+  mockAgentCredential("viewer-key", {
+    id: "viewer-1",
+    name: "Viewer",
+  });
   prismaClient.forumPost.findUnique = async () =>
     createForumPostFixture({
       id: "post-1",
@@ -260,12 +273,10 @@ test("forum like endpoint awards like points only once across unlike and relike"
   let likeCount = 0;
   const pointTransactionRefs: string[] = [];
 
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "viewer-1",
-      apiKey: "viewer-key",
-      name: "Viewer",
-    });
+  mockAgentCredential("viewer-key", {
+    id: "viewer-1",
+    name: "Viewer",
+  });
   prismaClient.forumPost.findUnique = async () =>
     createForumPostFixture({
       id: "post-1",
@@ -377,14 +388,12 @@ test("forum like endpoint awards like points only once across unlike and relike"
 test("forum post creation rejects unclaimed agents before insertion", async () => {
   let createCalls = 0;
 
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "author-1",
-      apiKey: "author-key",
-      ownerUserId: null,
-      claimStatus: "UNCLAIMED",
-      claimedAt: null,
-    });
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    ownerUserId: null,
+    claimStatus: "UNCLAIMED",
+    claimedAt: null,
+  });
   prismaClient.forumPost.create = async () => {
     createCalls += 1;
     return createForumPostFixture();

@@ -3,11 +3,13 @@ import { afterEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
 import {
+  createAgentCredentialFixture,
   createAgentFixture,
   createAvatarConfigFixture,
   createPointTransactionFixture,
 } from "@/test/factories";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
+import { hashApiKey } from "@/lib/auth";
 import { GET as getAgentDetail } from "./[id]/route";
 
 type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
@@ -16,6 +18,9 @@ type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
 
 type AgentDetailPrismaMock = {
   agent: {
+    findUnique: AsyncMethod;
+  };
+  agentCredential?: {
     findUnique: AsyncMethod;
   };
   forumPost: {
@@ -39,6 +44,7 @@ const prismaClient = prisma as unknown as AgentDetailPrismaMock;
 
 const originalMethods = {
   agentFindUnique: prismaClient.agent.findUnique,
+  credentialFindUnique: prismaClient.agentCredential?.findUnique,
   forumPostCount: prismaClient.forumPost.count,
   knowledgeArticleCount: prismaClient.knowledgeArticle.count,
   taskCount: prismaClient.task.count,
@@ -48,6 +54,10 @@ const originalMethods = {
 
 afterEach(() => {
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
+  if (prismaClient.agentCredential && originalMethods.credentialFindUnique) {
+    prismaClient.agentCredential.findUnique =
+      originalMethods.credentialFindUnique;
+  }
   prismaClient.forumPost.count = originalMethods.forumPostCount;
   prismaClient.knowledgeArticle.count = originalMethods.knowledgeArticleCount;
   prismaClient.task.count = originalMethods.taskCount;
@@ -55,6 +65,24 @@ afterEach(() => {
     originalMethods.pointTransactionFindMany;
   prismaClient.agentInventory.findMany = originalMethods.agentInventoryFindMany;
 });
+
+function mockAgentCredential(
+  apiKey: string,
+  overrides: Record<string, unknown> = {}
+) {
+  prismaClient.agentCredential = {
+    findUnique: async ({ where }: { where: { keyHash: string } }) =>
+      where.keyHash === hashApiKey(apiKey)
+        ? createAgentCredentialFixture({
+            keyHash: where.keyHash,
+            agent: createAgentFixture({
+              apiKey,
+              ...overrides,
+            }),
+          })
+        : null,
+  };
+}
 
 test("agent detail returns public profile and aggregate counts", async () => {
   prismaClient.agent.findUnique = async ({ where }) => {
@@ -110,14 +138,10 @@ test("agent detail returns public profile and aggregate counts", async () => {
 });
 
 test("agent detail includes recent point transactions for self when authenticated", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+  });
   prismaClient.agent.findUnique = async ({ where }) => {
-    if (where?.apiKey === "agent-key") {
-      return createAgentFixture({
-        id: "agent-1",
-        apiKey: "agent-key",
-      });
-    }
-
     if (where?.id === "agent-1") {
       return createAgentFixture({
         id: "agent-1",

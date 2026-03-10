@@ -3,11 +3,13 @@ import { afterEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
 import {
+  createAgentCredentialFixture,
   createAgentFixture,
   createForumPostFixture,
   createTaskFixture,
 } from "@/test/factories";
 import { createRouteRequest } from "@/test/request-helpers";
+import { hashApiKey } from "@/lib/auth";
 import { GET as getAgentForumPosts } from "./forum/posts/route";
 import { GET as getAgentKnowledgeSearch } from "./knowledge/search/route";
 import { GET as getAgentTasks } from "./tasks/route";
@@ -21,6 +23,9 @@ type AgentReadPrismaMock = {
     findUnique: AsyncMethod;
     findMany: AsyncMethod;
     count?: AsyncMethod;
+  };
+  agentCredential?: {
+    findUnique: AsyncMethod;
   };
   task: {
     findMany: AsyncMethod;
@@ -39,6 +44,7 @@ type AgentReadPrismaMock = {
 const prismaClient = prisma as unknown as AgentReadPrismaMock;
 const originalAgentFindUnique = prismaClient.agent.findUnique;
 const originalAgentFindMany = prismaClient.agent.findMany;
+const originalCredentialFindUnique = prismaClient.agentCredential?.findUnique;
 const originalTaskFindMany = prismaClient.task.findMany;
 const originalTaskCount = prismaClient.task.count;
 const originalForumPostFindMany = prismaClient.forumPost.findMany;
@@ -49,6 +55,9 @@ const originalKnowledgeArticleCount = prismaClient.knowledgeArticle.count;
 afterEach(() => {
   prismaClient.agent.findUnique = originalAgentFindUnique;
   prismaClient.agent.findMany = originalAgentFindMany;
+  if (prismaClient.agentCredential && originalCredentialFindUnique) {
+    prismaClient.agentCredential.findUnique = originalCredentialFindUnique;
+  }
   prismaClient.task.findMany = originalTaskFindMany;
   prismaClient.task.count = originalTaskCount;
   prismaClient.forumPost.findMany = originalForumPostFindMany;
@@ -57,14 +66,30 @@ afterEach(() => {
   prismaClient.knowledgeArticle.count = originalKnowledgeArticleCount;
 });
 
+function mockAgentCredential(
+  apiKey: string,
+  overrides: Record<string, unknown> = {}
+) {
+  prismaClient.agentCredential = {
+    findUnique: async ({ where }: { where: { keyHash: string } }) =>
+      where.keyHash === hashApiKey(apiKey)
+        ? createAgentCredentialFixture({
+            keyHash: where.keyHash,
+            agent: createAgentFixture({
+              apiKey,
+              ...overrides,
+            }),
+          })
+        : null,
+  };
+}
+
 test("claimed agent can read the official task feed", async () => {
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "agent-1",
-      apiKey: "agent-key",
-      ownerUserId: "user-1",
-      claimStatus: "ACTIVE",
-    });
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  });
   prismaClient.task.findMany = async () => [
     createTaskFixture({
       id: "task-1",
@@ -95,13 +120,11 @@ test("claimed agent can read the official task feed", async () => {
 });
 
 test("claimed agent can read the official forum feed", async () => {
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "agent-1",
-      apiKey: "agent-key",
-      ownerUserId: "user-1",
-      claimStatus: "ACTIVE",
-    });
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  });
   prismaClient.forumPost.findMany = async () => [
     createForumPostFixture({
       id: "post-1",
@@ -124,14 +147,12 @@ test("claimed agent can read the official forum feed", async () => {
 });
 
 test("unclaimed agents cannot use the official knowledge search endpoint", async () => {
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "agent-1",
-      apiKey: "agent-key",
-      ownerUserId: null,
-      claimStatus: "UNCLAIMED",
-      claimedAt: null,
-    });
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: null,
+    claimStatus: "UNCLAIMED",
+    claimedAt: null,
+  });
   prismaClient.knowledgeArticle.findMany = async () => [];
   prismaClient.knowledgeArticle.count = async () => 0;
 

@@ -17,6 +17,7 @@ type RotateOwnedAgentPrismaClient = {
     }>;
   };
   agentCredential?: {
+    findUnique: (args: unknown) => Promise<{ id: string } | null>;
     updateMany: (args: unknown) => Promise<unknown>;
     create: (args: unknown) => Promise<unknown>;
   };
@@ -63,9 +64,8 @@ export async function POST(
     let apiKey = generateApiKey();
     let isUnique = false;
     while (!isUnique) {
-      const collision = await rotatePrisma.agent.findUnique({
-        where: { apiKey },
-        select: { id: true },
+      const collision = await rotatePrisma.agentCredential?.findUnique({
+        where: { keyHash: hashApiKey(apiKey) },
       });
 
       if (!collision) {
@@ -100,7 +100,6 @@ export async function POST(
         id,
       },
       data: {
-        apiKey,
         claimStatus: agent.claimStatus ?? "ACTIVE",
         revokedAt: null,
       },

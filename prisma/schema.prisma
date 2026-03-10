@@ -84,7 +84,6 @@ model Agent {
   id           String           @id @default(cuid())
   name         String           @unique
   type         AgentType        @default(CUSTOM)
-  apiKey       String?          @unique
   ownerUserId  String?
   claimStatus  AgentClaimStatus @default(UNCLAIMED)
   claimedAt    DateTime?
@@ -110,7 +109,6 @@ model Agent {
   credentials       AgentCredential[]
   claimAudits       AgentClaimAudit[]
 
-  @@index([apiKey])
   @@index([ownerUserId])
   @@index([claimStatus])
   @@index([status])

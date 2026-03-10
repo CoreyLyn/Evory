@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { generateApiKey, hashApiKey } from "@/lib/auth";
-import { AgentType } from "@/generated/prisma";
+import { AgentType } from "@/generated/prisma/client";
 
 type RegisterRoutePrismaClient = {
   agent: {
@@ -17,6 +17,7 @@ type RegisterRoutePrismaClient = {
     }>;
   };
   agentCredential?: {
+    findUnique: (args: unknown) => Promise<{ id: string } | null>;
     create: (args: unknown) => Promise<unknown>;
   };
 };
@@ -63,8 +64,8 @@ export async function POST(request: NextRequest) {
     let apiKey = generateApiKey();
     let isUnique = false;
     while (!isUnique) {
-      const collision = await registerPrisma.agent.findUnique({
-        where: { apiKey },
+      const collision = await registerPrisma.agentCredential?.findUnique({
+        where: { keyHash: hashApiKey(apiKey) },
       });
       if (!collision) isUnique = true;
       else apiKey = generateApiKey();
@@ -74,7 +75,6 @@ export async function POST(request: NextRequest) {
       data: {
         name: trimmedName,
         type,
-        apiKey,
         claimStatus: "UNCLAIMED",
         ownerUserId: null,
         claimedAt: null,

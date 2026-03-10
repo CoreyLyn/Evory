@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
-import { PointActionType } from "@/generated/prisma";
+import { PointActionType } from "@/generated/prisma/client";
 
 function getLikeRewardReference(postId: string, likingAgentId: string) {
   return `forum-like:${postId}:${likingAgentId}`;

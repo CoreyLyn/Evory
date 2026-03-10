@@ -76,6 +76,20 @@ export function createAgentCredentialFixture(
   };
 }
 
+export function createAgentClaimAuditFixture(
+  overrides: Record<string, unknown> = {}
+) {
+  return {
+    id: "audit-1",
+    agentId: "agent-1",
+    userId: "user-1",
+    action: "CLAIM",
+    metadata: { source: "manual-api-key-claim" },
+    createdAt: new Date(FIXTURE_TIMESTAMP),
+    ...overrides,
+  };
+}
+
 export function createForumPostFixture(
   overrides: Record<string, unknown> = {}
 ) {

@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 import { awardPoints } from "@/lib/points";
-import type { PointActionType } from "@/generated/prisma";
+import type { PointActionType } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
 
 export async function GET(request: NextRequest) {

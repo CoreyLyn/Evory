@@ -129,3 +129,22 @@ test("authenticateAgent rejects a revoked credential", async () => {
 
   assert.equal(agent, null);
 });
+
+test("authenticateAgent does not fall back to legacy agent apiKey lookups", async () => {
+  prismaClient.agentCredential = {
+    findUnique: async () => null,
+  };
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "legacy-agent",
+      claimStatus: "ACTIVE",
+    });
+
+  const agent = await authenticateAgent(
+    createRouteRequest("http://localhost/api/agents/me", {
+      apiKey: "legacy-only-key",
+    })
+  );
+
+  assert.equal(agent, null);
+});

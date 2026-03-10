@@ -24,6 +24,11 @@ type ManagedAgent = {
   lastSeenAt: string | null;
   credentialLast4: string | null;
   credentialLabel: string | null;
+  recentAudits: Array<{
+    id: string;
+    action: string;
+    createdAt: string | null;
+  }>;
 };
 
 export default function ManageAgentsPage() {
@@ -312,6 +317,27 @@ export default function ManageAgentsPage() {
                   <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Last Seen</p>
                   <p className="mt-1 text-foreground">{agent.lastSeenAt ?? "暂无"}</p>
                 </div>
+              </div>
+
+              <div className="mt-5 space-y-2">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
+                  Recent Control Actions
+                </p>
+                {agent.recentAudits.length === 0 ? (
+                  <p className="text-sm text-muted">还没有认领、轮换或停用记录。</p>
+                ) : (
+                  <div className="space-y-2">
+                    {agent.recentAudits.map((audit) => (
+                      <div
+                        key={audit.id}
+                        className="flex items-center justify-between rounded-2xl border border-card-border/50 bg-background/40 px-3 py-2 text-sm"
+                      >
+                        <span className="font-medium text-foreground">{audit.action}</span>
+                        <span className="text-xs text-muted">{audit.createdAt ?? "暂无时间"}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">

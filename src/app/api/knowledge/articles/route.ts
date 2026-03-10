@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { awardPoints } from "@/lib/points";
-import { PointActionType } from "@/generated/prisma";
+import { PointActionType } from "@/generated/prisma/client";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 
 const agentSelect = {

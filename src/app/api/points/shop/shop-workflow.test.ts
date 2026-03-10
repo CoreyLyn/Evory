@@ -3,11 +3,13 @@ import { afterEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
 import {
+  createAgentCredentialFixture,
   createAgentFixture,
   createAvatarConfigFixture,
   createShopItemFixture,
 } from "@/test/factories";
 import { createRouteRequest } from "@/test/request-helpers";
+import { hashApiKey } from "@/lib/auth";
 import { POST as purchaseItem } from "./purchase/route";
 import { PUT as equipItem } from "@/app/api/agents/me/equipment/route";
 
@@ -20,6 +22,9 @@ type ShopPrismaMock = {
     findUnique: AsyncMethod;
     update: AsyncMethod;
     updateMany: AsyncMethod;
+  };
+  agentCredential?: {
+    findUnique: AsyncMethod;
   };
   shopItem: {
     findUnique: AsyncMethod;
@@ -43,6 +48,7 @@ const originalMethods = {
   agentFindUnique: prismaClient.agent.findUnique,
   agentUpdate: prismaClient.agent.update,
   agentUpdateMany: prismaClient.agent.updateMany,
+  credentialFindUnique: prismaClient.agentCredential?.findUnique,
   shopItemFindUnique: prismaClient.shopItem.findUnique,
   inventoryFindUnique: prismaClient.agentInventory.findUnique,
   inventoryFindMany: prismaClient.agentInventory.findMany,
@@ -57,6 +63,10 @@ afterEach(() => {
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
   prismaClient.agent.update = originalMethods.agentUpdate;
   prismaClient.agent.updateMany = originalMethods.agentUpdateMany;
+  if (prismaClient.agentCredential && originalMethods.credentialFindUnique) {
+    prismaClient.agentCredential.findUnique =
+      originalMethods.credentialFindUnique;
+  }
   prismaClient.shopItem.findUnique = originalMethods.shopItemFindUnique;
   prismaClient.agentInventory.findUnique = originalMethods.inventoryFindUnique;
   prismaClient.agentInventory.findMany = originalMethods.inventoryFindMany;
@@ -67,17 +77,33 @@ afterEach(() => {
   prismaClient.$transaction = originalMethods.transaction;
 });
 
+function mockAgentCredential(
+  apiKey: string,
+  overrides: Record<string, unknown> = {}
+) {
+  prismaClient.agentCredential = {
+    findUnique: async ({ where }: { where: { keyHash: string } }) =>
+      where.keyHash === hashApiKey(apiKey)
+        ? createAgentCredentialFixture({
+            keyHash: where.keyHash,
+            agent: createAgentFixture({
+              apiKey,
+              ...overrides,
+            }),
+          })
+        : null,
+  };
+}
+
 test("purchase deducts points and creates inventory atomically", async () => {
   let transactionCalls = 0;
   const pointTransactions: Array<Record<string, unknown>> = [];
 
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "agent-1",
-      apiKey: "agent-key",
-      points: 120,
-      avatarConfig: createAvatarConfigFixture(),
-    });
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
   prismaClient.shopItem.findUnique = async () =>
     createShopItemFixture({
       id: "crown",
@@ -134,13 +160,11 @@ test("purchase deducts points and creates inventory atomically", async () => {
 });
 
 test("purchase returns conflict when the item is already owned", async () => {
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "agent-1",
-      apiKey: "agent-key",
-      points: 120,
-      avatarConfig: createAvatarConfigFixture(),
-    });
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
   prismaClient.shopItem.findUnique = async () =>
     createShopItemFixture({
       id: "crown",
@@ -170,13 +194,11 @@ test("purchase returns conflict when the item is already owned", async () => {
 test("purchase aborts before inventory creation when the transactional balance guard fails", async () => {
   let inventoryCreateCalls = 0;
 
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "agent-1",
-      apiKey: "agent-key",
-      points: 120,
-      avatarConfig: createAvatarConfigFixture(),
-    });
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
   prismaClient.shopItem.findUnique = async () =>
     createShopItemFixture({
       id: "crown",
@@ -236,14 +258,12 @@ test("equip updates inventory flags and avatarConfig together", async () => {
   let updateManyArgs: Record<string, unknown> | undefined;
   let agentUpdateArgs: Record<string, unknown> | undefined;
 
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "agent-1",
-      apiKey: "agent-key",
-      avatarConfig: createAvatarConfigFixture({
-        hat: "tophat",
-      }),
-    });
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    avatarConfig: createAvatarConfigFixture({
+      hat: "tophat",
+    }),
+  });
   prismaClient.agentInventory.findUnique = async () => ({
     id: "inventory-crown",
     agentId: "agent-1",

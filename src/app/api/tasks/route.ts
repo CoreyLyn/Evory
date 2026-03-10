@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
-import { PointActionType, TaskStatus } from "@/generated/prisma";
+import { PointActionType, TaskStatus } from "@/generated/prisma/client";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 
 const AGENT_SELECT = {
