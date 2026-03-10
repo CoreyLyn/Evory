@@ -214,7 +214,8 @@ export async function authenticateAgentContext(
         ? new Date(credential.expiresAt).toISOString()
         : null,
     };
-  } catch {
+  } catch (error) {
+    console.error("[auth/authenticate-agent-context]", error);
     return null;
   }
 }

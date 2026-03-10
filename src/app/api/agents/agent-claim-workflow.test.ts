@@ -738,6 +738,65 @@ test("rotate-key rejects cross-origin requests", async () => {
   assert.equal(json.error, "Invalid request origin");
 });
 
+test("rotate-key rejects contradictory agent claim state", async () => {
+  const token = "rotate-invalid-state-token";
+  let transactionCalls = 0;
+
+  prismaClient.$transaction = async (input: unknown) => {
+    transactionCalls += 1;
+
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input(prismaClient);
+  };
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({ id: "user-1" }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.agent.findUnique = async (args: {
+    select?: Record<string, boolean>;
+  }) => {
+    const agent = createAgentFixture({
+      id: "agent-1",
+      ownerUserId: "user-1",
+      claimStatus: "ACTIVE",
+      revokedAt: "2026-03-10T00:00:00.000Z",
+    });
+    const select = args.select ?? {};
+
+    return {
+      ...(select.id ? { id: agent.id } : {}),
+      ...(select.ownerUserId ? { ownerUserId: agent.ownerUserId } : {}),
+      ...(select.claimStatus ? { claimStatus: agent.claimStatus } : {}),
+      ...(select.revokedAt ? { revokedAt: agent.revokedAt } : {}),
+    };
+  };
+
+  const response = await rotateOwnedAgentKey(
+    createRouteRequest("http://localhost/api/users/me/agents/agent-1/rotate-key", {
+      method: "POST",
+      headers: {
+        cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        origin: "http://localhost",
+      },
+    }),
+    { params: Promise.resolve({ id: "agent-1" }) }
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 409);
+  assert.equal(json.error, "Agent state is invalid for key rotation");
+  assert.equal(transactionCalls, 0);
+});
+
 test("revoke marks the agent as revoked for the owning user", async () => {
   const token = "revoke-session-token";
   let revokedCredentialCount = 0;
@@ -839,6 +898,102 @@ test("revoke rejects cross-origin requests", async () => {
 
   assert.equal(response.status, 403);
   assert.equal(json.error, "Invalid request origin");
+});
+
+test("revoke rejects contradictory agent claim state", async () => {
+  const token = "revoke-invalid-state-token";
+  let transactionCalls = 0;
+
+  prismaClient.$transaction = async (input: unknown) => {
+    transactionCalls += 1;
+
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input(prismaClient);
+  };
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({ id: "user-1" }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "agent-1",
+      ownerUserId: "user-1",
+      claimStatus: "ACTIVE",
+      revokedAt: "2026-03-10T00:00:00.000Z",
+    });
+
+  const response = await revokeOwnedAgent(
+    createRouteRequest("http://localhost/api/users/me/agents/agent-1/revoke", {
+      method: "POST",
+      headers: {
+        cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        origin: "http://localhost",
+      },
+    }),
+    { params: Promise.resolve({ id: "agent-1" }) }
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 409);
+  assert.equal(json.error, "Agent state is invalid for revoke");
+  assert.equal(transactionCalls, 0);
+});
+
+test("revoke rejects agents that are already revoked", async () => {
+  const token = "revoke-already-revoked-token";
+  let transactionCalls = 0;
+
+  prismaClient.$transaction = async (input: unknown) => {
+    transactionCalls += 1;
+
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input(prismaClient);
+  };
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({ id: "user-1" }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "agent-1",
+      ownerUserId: "user-1",
+      claimStatus: "REVOKED",
+      revokedAt: "2026-03-10T00:00:00.000Z",
+    });
+
+  const response = await revokeOwnedAgent(
+    createRouteRequest("http://localhost/api/users/me/agents/agent-1/revoke", {
+      method: "POST",
+      headers: {
+        cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        origin: "http://localhost",
+      },
+    }),
+    { params: Promise.resolve({ id: "agent-1" }) }
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 409);
+  assert.equal(json.error, "Agent already revoked");
+  assert.equal(transactionCalls, 0);
 });
 
 test("register rate limits repeated self-registration attempts from the same ip", async () => {

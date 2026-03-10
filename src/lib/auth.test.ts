@@ -33,6 +33,7 @@ const originalAgentFindUnique = prismaClient.agent.findUnique;
 const originalCredentialFindUnique = prismaClient.agentCredential?.findUnique;
 const originalCredentialUpdate = prismaClient.agentCredential?.update;
 const originalSecurityEventCreate = prismaClient.securityEvent?.create;
+const originalConsoleError = console.error;
 
 beforeEach(() => {
   prismaClient.securityEvent = {
@@ -42,6 +43,7 @@ beforeEach(() => {
 
 afterEach(() => {
   prismaClient.agent.findUnique = originalAgentFindUnique;
+  console.error = originalConsoleError;
 
   if (prismaClient.agentCredential && originalCredentialFindUnique) {
     prismaClient.agentCredential.findUnique = originalCredentialFindUnique;
@@ -348,4 +350,37 @@ test("authenticateAgent logs invalid credentials without falling back to legacy 
       reason: "not-found",
     },
   });
+});
+
+test("authenticateAgent logs infrastructure failures separately from invalid credentials", async () => {
+  let createdEvent = false;
+  const consoleErrors: unknown[][] = [];
+
+  console.error = (...args: unknown[]) => {
+    consoleErrors.push(args);
+  };
+  prismaClient.agentCredential = {
+    findUnique: async () => {
+      throw new Error("database unavailable");
+    },
+    update: async () => createAgentCredentialFixture(),
+  };
+  prismaClient.agent.findUnique = async () => null;
+  prismaClient.securityEvent = {
+    create: async () => {
+      createdEvent = true;
+      return { id: "security-event-1" };
+    },
+  };
+
+  const agent = await authenticateAgent(
+    createRouteRequest("http://localhost/api/agents/me", {
+      apiKey: "agent-key",
+    })
+  );
+
+  assert.equal(agent, null);
+  assert.equal(createdEvent, false);
+  assert.equal(consoleErrors.length, 1);
+  assert.equal(consoleErrors[0]?.[0], "[auth/authenticate-agent-context]");
 });

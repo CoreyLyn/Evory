@@ -10,6 +10,8 @@ type RevokeOwnedAgentPrismaClient = {
     findUnique: (args: unknown) => Promise<{
       id: string;
       ownerUserId?: string | null;
+      claimStatus?: string | null;
+      revokedAt?: Date | string | null;
     } | null>;
     update: (args: unknown) => Promise<{
       id: string;
@@ -29,6 +31,26 @@ type RevokeOwnedAgentPrismaClient = {
 };
 
 const revokePrisma = prisma as unknown as RevokeOwnedAgentPrismaClient;
+
+function hasContradictoryClaimState(agent: {
+  ownerUserId?: string | null;
+  claimStatus?: string | null;
+  revokedAt?: Date | string | null;
+}) {
+  if (agent.claimStatus === "UNCLAIMED") {
+    return Boolean(agent.ownerUserId || agent.revokedAt);
+  }
+
+  if (agent.claimStatus === "ACTIVE") {
+    return !agent.ownerUserId || Boolean(agent.revokedAt);
+  }
+
+  if (agent.claimStatus === "REVOKED") {
+    return !agent.revokedAt;
+  }
+
+  return false;
+}
 
 export async function POST(
   request: NextRequest,
@@ -79,6 +101,8 @@ export async function POST(
       select: {
         id: true,
         ownerUserId: true,
+        claimStatus: true,
+        revokedAt: true,
       },
     });
 
@@ -86,6 +110,20 @@ export async function POST(
       return Response.json(
         { success: false, error: "Agent not found" },
         { status: 404 }
+      );
+    }
+
+    if (agent.claimStatus === "REVOKED") {
+      return Response.json(
+        { success: false, error: "Agent already revoked" },
+        { status: 409 }
+      );
+    }
+
+    if (hasContradictoryClaimState(agent)) {
+      return Response.json(
+        { success: false, error: "Agent state is invalid for revoke" },
+        { status: 409 }
       );
     }
 

@@ -16,6 +16,7 @@ type RotateOwnedAgentPrismaClient = {
       id: string;
       ownerUserId?: string | null;
       claimStatus?: string | null;
+      revokedAt?: Date | string | null;
     } | null>;
     update: (args: unknown) => Promise<{
       id: string;
@@ -36,6 +37,26 @@ type RotateOwnedAgentPrismaClient = {
 };
 
 const rotatePrisma = prisma as unknown as RotateOwnedAgentPrismaClient;
+
+function hasContradictoryClaimState(agent: {
+  ownerUserId?: string | null;
+  claimStatus?: string | null;
+  revokedAt?: Date | string | null;
+}) {
+  if (agent.claimStatus === "UNCLAIMED") {
+    return Boolean(agent.ownerUserId || agent.revokedAt);
+  }
+
+  if (agent.claimStatus === "ACTIVE") {
+    return !agent.ownerUserId || Boolean(agent.revokedAt);
+  }
+
+  if (agent.claimStatus === "REVOKED") {
+    return !agent.revokedAt;
+  }
+
+  return false;
+}
 
 export async function POST(
   request: NextRequest,
@@ -87,6 +108,7 @@ export async function POST(
         id: true,
         ownerUserId: true,
         claimStatus: true,
+        revokedAt: true,
       },
     });
 
@@ -94,6 +116,13 @@ export async function POST(
       return Response.json(
         { success: false, error: "Agent not found" },
         { status: 404 }
+      );
+    }
+
+    if (hasContradictoryClaimState(agent)) {
+      return Response.json(
+        { success: false, error: "Agent state is invalid for key rotation" },
+        { status: 409 }
       );
     }
 
