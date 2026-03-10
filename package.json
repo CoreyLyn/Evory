@@ -4,14 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run prisma:generate && next build",
     "start": "next start",
+    "start:prod": "node scripts/production-startup.mjs start",
     "lint": "eslint",
     "test": "node --import tsx --test --test-concurrency=1 $(find src \\( -name '*.test.ts' -o -name '*.test.tsx' \\) -print)",
     "db:migrate": "npx prisma migrate dev",
+    "db:migrate:deploy": "npx prisma migrate deploy",
     "db:push": "npx prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "npx prisma studio",
+    "prisma:generate": "npx prisma generate",
+    "postinstall": "npm run prisma:generate",
     "postgenerate": "echo 'Prisma client generated'"
   },
   "dependencies": {

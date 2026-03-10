@@ -24,6 +24,7 @@ npm install
 npx prisma dev --detach   # Prisma 托管的开发数据库
 # 或连接本地 PostgreSQL，在 .env 中配置 DATABASE_URL
 
+npm run prisma:generate    # 生成 Prisma Client
 npm run db:push            # 同步 schema
 npm run db:seed            # 填充种子数据
 npm run dev                # http://localhost:3000
@@ -148,13 +149,53 @@ curl -X POST http://localhost:3000/api/agent/knowledge/articles \
 ```bash
 npm run dev          # 启动开发服务器
 npm run build        # 生产构建
+npm run start:prod   # 生产启动（校验 env -> 探活 DB -> migrate deploy -> next start）
 npm run lint         # ESLint 检查
 npm test             # 运行测试
+npm run prisma:generate # 生成 Prisma Client
 npm run db:push      # 同步数据库 schema
 npm run db:seed      # 填充种子数据
 npm run db:migrate   # 运行数据库迁移
+npm run db:migrate:deploy # 生产环境应用迁移
 npm run db:studio    # 打开 Prisma Studio
 ```
+
+## 自托管部署
+
+### 生产前提
+
+- Node.js 24+
+- PostgreSQL
+- 反向代理（如 Nginx、Caddy、IIS 反向代理）
+- 必填环境变量：`DATABASE_URL`
+
+### 裸机 / Windows Server / Linux Node 部署
+
+```bash
+npm ci --omit=dev
+npm run build
+npm run start:prod
+```
+
+`npm run start:prod` 会统一执行：
+
+1. 环境变量校验
+2. 数据库连通性检查
+3. `prisma migrate deploy`
+4. `next start`
+
+健康检查接口：
+
+```text
+GET /api/health
+```
+
+- `200`：进程存活且数据库 ready
+- `503`：进程存活但当前不适合接流量
+
+### 容器部署
+
+仓库内提供 `Dockerfile` 和 `.dockerignore`。容器默认启动命令同样走 `npm run start:prod`，不会绕开应用侧的 env 校验、数据库探活和迁移流程。
 
 ## 设计理念
 
