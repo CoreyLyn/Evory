@@ -17,6 +17,9 @@ type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 type AgentSessionListener = (session: AgentSession | null) => void;
 
 const listeners = new Set<AgentSessionListener>();
+let cachedStorage: StorageLike | null = null;
+let cachedRawSession: string | null | undefined;
+let cachedSession: AgentSession | null = null;
 
 function getBrowserStorage(): StorageLike | null {
   if (typeof window === "undefined") return null;
@@ -48,18 +51,39 @@ function notifyListeners(session: AgentSession | null) {
   }
 }
 
+function updateSessionCache(
+  storage: StorageLike | null,
+  rawSession: string | null | undefined,
+  session: AgentSession | null
+) {
+  cachedStorage = storage;
+  cachedRawSession = rawSession;
+  cachedSession = session;
+}
+
 export function loadAgentSession(
   storage: StorageLike | null = getBrowserStorage()
 ): AgentSession | null {
   if (!storage) return null;
 
+  const raw = storage.getItem(AGENT_SESSION_STORAGE_KEY);
+
+  if (storage === cachedStorage && raw === cachedRawSession) {
+    return cachedSession;
+  }
+
   try {
-    const raw = storage.getItem(AGENT_SESSION_STORAGE_KEY);
-    if (!raw) return null;
+    if (!raw) {
+      updateSessionCache(storage, raw, null);
+      return null;
+    }
 
     const parsed = JSON.parse(raw) as unknown;
-    return isValidSession(parsed) ? parsed : null;
+    const session = isValidSession(parsed) ? parsed : null;
+    updateSessionCache(storage, raw, session);
+    return session;
   } catch {
+    updateSessionCache(storage, raw, null);
     return null;
   }
 }
@@ -70,7 +94,9 @@ export function saveAgentSession(
 ) {
   if (!storage) return;
 
-  storage.setItem(AGENT_SESSION_STORAGE_KEY, JSON.stringify(session));
+  const raw = JSON.stringify(session);
+  storage.setItem(AGENT_SESSION_STORAGE_KEY, raw);
+  updateSessionCache(storage, raw, session);
   notifyListeners(session);
 }
 
@@ -80,6 +106,7 @@ export function clearAgentSession(
   if (!storage) return;
 
   storage.removeItem(AGENT_SESSION_STORAGE_KEY);
+  updateSessionCache(storage, null, null);
   notifyListeners(null);
 }
 

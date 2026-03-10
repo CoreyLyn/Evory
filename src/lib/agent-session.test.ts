@@ -76,6 +76,18 @@ test("loadAgentSession ignores invalid persisted payloads", () => {
   assert.equal(loadAgentSession(storage), null);
 });
 
+test("loadAgentSession reuses the same snapshot reference when storage is unchanged", () => {
+  const session = createSession();
+  const storage = createStorage({
+    [AGENT_SESSION_STORAGE_KEY]: JSON.stringify(session),
+  });
+
+  const first = loadAgentSession(storage);
+  const second = loadAgentSession(storage);
+
+  assert.equal(first, second);
+});
+
 test("subscribeAgentSession notifies listeners on save and clear", () => {
   const storage = createStorage();
   const session = createSession();
