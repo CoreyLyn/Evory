@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
     const routeKey = request.nextUrl.searchParams.get("routeKey")?.trim() ?? "";
     const range = request.nextUrl.searchParams.get("range")?.trim() ?? "";
     const limitParam = request.nextUrl.searchParams.get("limit")?.trim() ?? "";
+    const pageParam = request.nextUrl.searchParams.get("page")?.trim() ?? "";
 
     if (
       severity &&
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let take = 10;
+    let limit = 10;
     if (limitParam) {
       const parsedLimit = Number.parseInt(limitParam, 10);
 
@@ -87,7 +88,21 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      take = parsedLimit;
+      limit = parsedLimit;
+    }
+
+    let page = 1;
+    if (pageParam) {
+      const parsedPage = Number.parseInt(pageParam, 10);
+
+      if (!Number.isFinite(parsedPage) || parsedPage < 1) {
+        return Response.json(
+          { success: false, error: "Invalid page filter" },
+          { status: 400 }
+        );
+      }
+
+      page = parsedPage;
     }
 
     const where: Record<string, unknown> = {
@@ -116,7 +131,8 @@ export async function GET(request: NextRequest) {
       orderBy: {
         createdAt: "desc",
       },
-      take,
+      skip: (page - 1) * limit,
+      take: limit + 1,
       select: {
         id: true,
         type: true,
@@ -127,31 +143,42 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    const normalizedEvents = (events ?? []).map((event) => ({
+      id: event.id,
+      type: event.type,
+      routeKey: event.routeKey,
+      ipAddress: event.ipAddress,
+      metadata: event.metadata ?? {},
+      scope:
+        (event.metadata as Record<string, unknown> | null)?.scope ??
+        getRateLimitEventMetadata(event.routeKey).scope,
+      severity:
+        (event.metadata as Record<string, unknown> | null)?.severity ??
+        getRateLimitEventMetadata(event.routeKey).severity,
+      operation:
+        (event.metadata as Record<string, unknown> | null)?.operation ??
+        getRateLimitEventMetadata(event.routeKey).operation,
+      summary:
+        (event.metadata as Record<string, unknown> | null)?.summary ??
+        getRateLimitEventMetadata(event.routeKey).summary,
+      retryAfterSeconds:
+        (event.metadata as Record<string, unknown> | null)
+          ?.retryAfterSeconds ?? null,
+      createdAt: event.createdAt ?? null,
+    }));
+
+    const hasMore = normalizedEvents.length > limit;
+    const data = hasMore ? normalizedEvents.slice(0, limit) : normalizedEvents;
+
     return Response.json({
       success: true,
-      data: (events ?? []).map((event) => ({
-        id: event.id,
-        type: event.type,
-        routeKey: event.routeKey,
-        ipAddress: event.ipAddress,
-        metadata: event.metadata ?? {},
-        scope:
-          (event.metadata as Record<string, unknown> | null)?.scope ??
-          getRateLimitEventMetadata(event.routeKey).scope,
-        severity:
-          (event.metadata as Record<string, unknown> | null)?.severity ??
-          getRateLimitEventMetadata(event.routeKey).severity,
-        operation:
-          (event.metadata as Record<string, unknown> | null)?.operation ??
-          getRateLimitEventMetadata(event.routeKey).operation,
-        summary:
-          (event.metadata as Record<string, unknown> | null)?.summary ??
-          getRateLimitEventMetadata(event.routeKey).summary,
-        retryAfterSeconds:
-          (event.metadata as Record<string, unknown> | null)
-            ?.retryAfterSeconds ?? null,
-        createdAt: event.createdAt ?? null,
-      })),
+      data,
+      pagination: {
+        page,
+        limit,
+        hasMore,
+        nextPage: hasMore ? page + 1 : null,
+      },
     });
   } catch (error) {
     console.error("[users/me/security-events]", error);

@@ -971,9 +971,12 @@ test("security events endpoint applies severity, routeKey, and limit filters", a
       equals: "high",
     }
   );
-  assert.equal(findManyArgs?.take, 2);
+  assert.equal(findManyArgs?.take, 3);
+  assert.equal(findManyArgs?.skip, 0);
   assert.equal(json.data[0].severity, "high");
   assert.equal(json.data[0].routeKey, "agent-revoke");
+  assert.equal(json.pagination.page, 1);
+  assert.equal(json.pagination.limit, 2);
 });
 
 test("security events endpoint rejects invalid severity filters", async () => {
@@ -1109,4 +1112,96 @@ test("security events endpoint rejects invalid time range filters", async () => 
   assert.equal(response.status, 400);
   assert.equal(json.success, false);
   assert.equal(json.error, "Invalid time range filter");
+});
+
+test("security events endpoint applies page pagination and returns pagination metadata", async () => {
+  const token = "security-events-page-token";
+  let findManyArgs: Record<string, unknown> | null = null;
+
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({
+              id: "user-security-page-1",
+              email: "security-page@example.com",
+            }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.securityEvent = {
+    create: async () => createSecurityEventFixture(),
+    findMany: async (args: Record<string, unknown>) => {
+      findManyArgs = args;
+      return [
+        createSecurityEventFixture({ id: "security-event-1" }),
+        createSecurityEventFixture({ id: "security-event-2" }),
+        createSecurityEventFixture({ id: "security-event-3" }),
+      ];
+    },
+  };
+
+  const response = await listSecurityEvents(
+    createRouteRequest(
+      "http://localhost/api/users/me/security-events?page=2&limit=2",
+      {
+        headers: {
+          cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        },
+      }
+    )
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(findManyArgs?.skip, 2);
+  assert.equal(findManyArgs?.take, 3);
+  assert.equal(json.data.length, 2);
+  assert.equal(json.pagination.page, 2);
+  assert.equal(json.pagination.limit, 2);
+  assert.equal(json.pagination.hasMore, true);
+  assert.equal(json.pagination.nextPage, 3);
+});
+
+test("security events endpoint rejects invalid page filters", async () => {
+  const token = "security-events-invalid-page-token";
+
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({
+              id: "user-security-invalid-page-1",
+              email: "security-invalid-page@example.com",
+            }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.securityEvent = {
+    create: async () => createSecurityEventFixture(),
+    findMany: async () => {
+      throw new Error("should not query when page is invalid");
+    },
+  };
+
+  const response = await listSecurityEvents(
+    createRouteRequest(
+      "http://localhost/api/users/me/security-events?page=0",
+      {
+        headers: {
+          cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        },
+      }
+    )
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Invalid page filter");
 });

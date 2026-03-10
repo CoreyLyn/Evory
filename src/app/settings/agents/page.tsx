@@ -75,6 +75,9 @@ export default function ManageAgentsPage() {
   const [busyAgentId, setBusyAgentId] = useState<string | null>(null);
   const [latestIssuedKey, setLatestIssuedKey] = useState<string | null>(null);
   const [securityEvents, setSecurityEvents] = useState<SecurityEventItem[]>([]);
+  const [securityEventsPage, setSecurityEventsPage] = useState(1);
+  const [securityEventsHasMore, setSecurityEventsHasMore] = useState(false);
+  const [securityEventsLoadingMore, setSecurityEventsLoadingMore] = useState(false);
   const [securitySeverityFilter, setSecuritySeverityFilter] = useState<
     (typeof SECURITY_SEVERITY_OPTIONS)[number]["value"]
   >("all");
@@ -84,6 +87,45 @@ export default function ManageAgentsPage() {
   const [securityRangeFilter, setSecurityRangeFilter] = useState<
     (typeof SECURITY_RANGE_OPTIONS)[number]["value"]
   >("all");
+
+  const buildSecurityEventParams = useCallback((page: number) => {
+    const securityEventParams = new URLSearchParams({
+      limit: "20",
+      page: String(page),
+    });
+
+    if (securitySeverityFilter !== "all") {
+      securityEventParams.set("severity", securitySeverityFilter);
+    }
+
+    if (securityRouteFilter !== "all") {
+      securityEventParams.set("routeKey", securityRouteFilter);
+    }
+
+    if (securityRangeFilter !== "all") {
+      securityEventParams.set("range", securityRangeFilter);
+    }
+
+    return securityEventParams;
+  }, [securityRangeFilter, securityRouteFilter, securitySeverityFilter]);
+
+  const loadSecurityEventsPage = useCallback(async (page: number, mode: "replace" | "append") => {
+    const securityEventsResponse = await fetch(
+      `/api/users/me/security-events?${buildSecurityEventParams(page).toString()}`
+    );
+    const securityEventsJson = await securityEventsResponse.json();
+
+    if (!securityEventsResponse.ok || !securityEventsJson.success) {
+      throw new Error(securityEventsJson.error ?? "加载安全事件失败");
+    }
+
+    const nextEvents = securityEventsJson.data ?? [];
+    setSecurityEvents((currentEvents) =>
+      mode === "append" ? [...currentEvents, ...nextEvents] : nextEvents
+    );
+    setSecurityEventsPage(securityEventsJson.pagination?.page ?? page);
+    setSecurityEventsHasMore(Boolean(securityEventsJson.pagination?.hasMore));
+  }, [buildSecurityEventParams]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -97,52 +139,27 @@ export default function ManageAgentsPage() {
         setUser(null);
         setAgents([]);
         setSecurityEvents([]);
+        setSecurityEventsPage(1);
+        setSecurityEventsHasMore(false);
         return;
       }
 
       setUser(userJson.data);
-
-      const securityEventParams = new URLSearchParams({
-        limit: "20",
-      });
-
-      if (securitySeverityFilter !== "all") {
-        securityEventParams.set("severity", securitySeverityFilter);
-      }
-
-      if (securityRouteFilter !== "all") {
-        securityEventParams.set("routeKey", securityRouteFilter);
-      }
-
-      if (securityRangeFilter !== "all") {
-        securityEventParams.set("range", securityRangeFilter);
-      }
-
-      const [agentsResponse, securityEventsResponse] = await Promise.all([
-        fetch("/api/users/me/agents"),
-        fetch(`/api/users/me/security-events?${securityEventParams.toString()}`),
-      ]);
-      const [agentsJson, securityEventsJson] = await Promise.all([
-        agentsResponse.json(),
-        securityEventsResponse.json(),
-      ]);
+      const agentsResponse = await fetch("/api/users/me/agents");
+      const agentsJson = await agentsResponse.json();
 
       if (!agentsResponse.ok || !agentsJson.success) {
         throw new Error(agentsJson.error ?? "加载 Agent 列表失败");
       }
 
-      if (!securityEventsResponse.ok || !securityEventsJson.success) {
-        throw new Error(securityEventsJson.error ?? "加载安全事件失败");
-      }
-
       setAgents(agentsJson.data ?? []);
-      setSecurityEvents(securityEventsJson.data ?? []);
+      await loadSecurityEventsPage(1, "replace");
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "加载失败");
     } finally {
       setLoading(false);
     }
-  }, [securityRangeFilter, securityRouteFilter, securitySeverityFilter]);
+  }, [loadSecurityEventsPage]);
 
   useEffect(() => {
     void loadData();
@@ -221,6 +238,23 @@ export default function ManageAgentsPage() {
       setError(nextError instanceof Error ? nextError.message : "停用失败");
     } finally {
       setBusyAgentId(null);
+    }
+  }
+
+  async function handleLoadMoreSecurityEvents() {
+    if (!securityEventsHasMore || securityEventsLoadingMore) return;
+
+    setSecurityEventsLoadingMore(true);
+    setError(null);
+
+    try {
+      await loadSecurityEventsPage(securityEventsPage + 1, "append");
+    } catch (nextError) {
+      setError(
+        nextError instanceof Error ? nextError.message : "加载更多安全事件失败"
+      );
+    } finally {
+      setSecurityEventsLoadingMore(false);
     }
   }
 
@@ -498,37 +532,49 @@ export default function ManageAgentsPage() {
           {securityEvents.length === 0 ? (
             <p className="text-sm text-muted">最近没有新的限流命中记录。</p>
           ) : (
-            <div className="space-y-2">
-              {securityEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="rounded-2xl border border-card-border/50 bg-background/40 px-4 py-3"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium text-foreground">
-                          {event.summary}
+            <div className="space-y-3">
+              <div className="space-y-2">
+                {securityEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="rounded-2xl border border-card-border/50 bg-background/40 px-4 py-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium text-foreground">
+                            {event.summary}
+                          </p>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                            event.severity === "high"
+                              ? "border border-danger/20 bg-danger/10 text-danger"
+                              : "border border-amber-500/20 bg-amber-500/10 text-amber-300"
+                          }`}>
+                            {event.severity}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted">
+                          {event.operation} · {event.scope} · IP {event.ipAddress}
+                          {event.retryAfterSeconds ? ` · retry in ${event.retryAfterSeconds}s` : ""}
                         </p>
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
-                          event.severity === "high"
-                            ? "border border-danger/20 bg-danger/10 text-danger"
-                            : "border border-amber-500/20 bg-amber-500/10 text-amber-300"
-                        }`}>
-                          {event.severity}
-                        </span>
                       </div>
-                      <p className="mt-1 text-xs text-muted">
-                        {event.operation} · {event.scope} · IP {event.ipAddress}
-                        {event.retryAfterSeconds ? ` · retry in ${event.retryAfterSeconds}s` : ""}
-                      </p>
+                      <span className="text-xs text-muted">
+                        {event.createdAt ?? "暂无时间"}
+                      </span>
                     </div>
-                    <span className="text-xs text-muted">
-                      {event.createdAt ?? "暂无时间"}
-                    </span>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+
+              {securityEventsHasMore && (
+                <Button
+                  variant="secondary"
+                  disabled={securityEventsLoadingMore}
+                  onClick={() => void handleLoadMoreSecurityEvents()}
+                >
+                  {securityEventsLoadingMore ? "加载中..." : "加载更多"}
+                </Button>
+              )}
             </div>
           )}
         </div>
