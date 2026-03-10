@@ -20,6 +20,8 @@ export type NormalizedSecurityEventRecord = {
   id: string;
   type: string;
   routeKey: string;
+  agentId: string | null;
+  agentName: string | null;
   ipAddress: string;
   metadata: Record<string, unknown>;
   scope: string;
@@ -85,6 +87,8 @@ export function normalizeSecurityEventRecord(
     id: event.id,
     type: event.type,
     routeKey: event.routeKey,
+    agentId: typeof metadata.agentId === "string" ? metadata.agentId : null,
+    agentName: typeof metadata.agentName === "string" ? metadata.agentName : null,
     ipAddress: event.ipAddress,
     metadata,
     scope: String(metadata.scope ?? fallback.scope),
@@ -100,6 +104,28 @@ export function normalizeSecurityEventRecord(
         ? event.createdAt.toISOString()
         : event.createdAt ?? null,
   };
+}
+
+export function collectSecurityEventAgentIds(
+  events: NormalizedSecurityEventRecord[]
+) {
+  return Array.from(
+    new Set(
+      events
+        .map((event) => event.agentId)
+        .filter((agentId): agentId is string => Boolean(agentId))
+    )
+  );
+}
+
+export function attachSecurityEventAgentNames(
+  events: NormalizedSecurityEventRecord[],
+  agentNames: Record<string, string>
+) {
+  return events.map((event) => ({
+    ...event,
+    agentName: event.agentId ? agentNames[event.agentId] ?? event.agentName : null,
+  }));
 }
 
 function escapeCsvCell(value: string | number | null) {
@@ -126,6 +152,8 @@ export function buildSecurityEventsCsv(
     "severity",
     "scope",
     "operation",
+    "agentId",
+    "agentName",
     "ipAddress",
     "retryAfterSeconds",
     "summary",
@@ -139,6 +167,8 @@ export function buildSecurityEventsCsv(
       event.severity,
       event.scope,
       event.operation,
+      event.agentId,
+      event.agentName,
       event.ipAddress,
       event.retryAfterSeconds,
       event.summary,

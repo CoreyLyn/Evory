@@ -2,8 +2,10 @@ import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
 import {
+  attachSecurityEventAgentNames,
   buildSecurityEventsCsv,
   buildSecurityEventsWhere,
+  collectSecurityEventAgentIds,
   normalizeSecurityEventRecord,
   VALID_SECURITY_EVENT_RANGES,
   VALID_SECURITY_EVENT_SEVERITIES,
@@ -11,6 +13,14 @@ import {
 import { authenticateUser } from "@/lib/user-auth";
 
 type SecurityEventsPrismaClient = {
+  agent: {
+    findMany: (args: unknown) => Promise<
+      Array<{
+        id: string;
+        name: string;
+      }>
+    >;
+  };
   securityEvent?: {
     findMany: (args: unknown) => Promise<
       Array<{
@@ -92,18 +102,38 @@ export async function GET(request: NextRequest) {
         createdAt: true,
       },
     });
+    const normalizedEvents = (events ?? []).map(normalizeSecurityEventRecord);
+    const associatedAgentIds = collectSecurityEventAgentIds(normalizedEvents);
+    let data = normalizedEvents;
 
-    return new Response(
-      buildSecurityEventsCsv((events ?? []).map(normalizeSecurityEventRecord)),
-      {
+    if (associatedAgentIds.length > 0) {
+      const agentRows = await securityEventsPrisma.agent.findMany({
+        where: {
+          ownerUserId: user.id,
+          id: {
+            in: associatedAgentIds,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      });
+
+      data = attachSecurityEventAgentNames(
+        normalizedEvents,
+        Object.fromEntries(agentRows.map((agent) => [agent.id, agent.name]))
+      );
+    }
+
+    return new Response(buildSecurityEventsCsv(data), {
         status: 200,
         headers: {
           "Content-Type": "text/csv; charset=utf-8",
           "Content-Disposition": `attachment; filename="${buildExportFilename()}"`,
           "Cache-Control": "no-store",
         },
-      }
-    );
+      });
   } catch (error) {
     console.error("[users/me/security-events/export]", error);
     return Response.json(

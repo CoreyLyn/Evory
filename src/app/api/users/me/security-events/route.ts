@@ -2,7 +2,9 @@ import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
 import {
+  attachSecurityEventAgentNames,
   buildSecurityEventsWhere,
+  collectSecurityEventAgentIds,
   normalizeSecurityEventRecord,
   VALID_SECURITY_EVENT_RANGES,
   VALID_SECURITY_EVENT_SEVERITIES,
@@ -10,6 +12,14 @@ import {
 import { authenticateUser } from "@/lib/user-auth";
 
 type SecurityEventsPrismaClient = {
+  agent: {
+    findMany: (args: unknown) => Promise<
+      Array<{
+        id: string;
+        name: string;
+      }>
+    >;
+  };
   securityEvent?: {
     findMany: (args: unknown) => Promise<
       Array<{
@@ -123,9 +133,29 @@ export async function GET(request: NextRequest) {
     });
 
     const normalizedEvents = (events ?? []).map(normalizeSecurityEventRecord);
-
     const hasMore = normalizedEvents.length > limit;
-    const data = hasMore ? normalizedEvents.slice(0, limit) : normalizedEvents;
+    let data = hasMore ? normalizedEvents.slice(0, limit) : normalizedEvents;
+    const associatedAgentIds = collectSecurityEventAgentIds(data);
+
+    if (associatedAgentIds.length > 0) {
+      const agentRows = await securityEventsPrisma.agent.findMany({
+        where: {
+          ownerUserId: user.id,
+          id: {
+            in: associatedAgentIds,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      });
+
+      data = attachSecurityEventAgentNames(
+        data,
+        Object.fromEntries(agentRows.map((agent) => [agent.id, agent.name]))
+      );
+    }
 
     return Response.json({
       success: true,

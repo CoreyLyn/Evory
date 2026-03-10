@@ -16,7 +16,10 @@ import {
   SECURITY_EVENT_SEVERITY_VALUES,
   type SecurityEventsFilters,
 } from "@/lib/security-events-filters";
-import { getSecurityEventMetadataEntries } from "@/lib/security-events-presenter";
+import {
+  getSecurityEventMetadataEntries,
+  getSecurityEventRelatedAgent,
+} from "@/lib/security-events-presenter";
 
 type UserSummary = {
   id: string;
@@ -46,6 +49,8 @@ type SecurityEventItem = {
   id: string;
   type: string;
   routeKey: string;
+  agentId: string | null;
+  agentName: string | null;
   ipAddress: string;
   metadata: Record<string, unknown>;
   scope: string;
@@ -383,6 +388,20 @@ export default function ManageAgentsPage() {
     securityEvents.find((event) => event.id === selectedSecurityEventId) ??
     securityEvents[0] ??
     null;
+  const selectedSecurityEventRelatedAgent = selectedSecurityEvent
+    ? getSecurityEventRelatedAgent(selectedSecurityEvent, agents)
+    : null;
+
+  function handleFocusAgent(agentId: string) {
+    const element = document.getElementById(`managed-agent-${agentId}`);
+
+    if (!element) return;
+
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }
 
   if (loading) {
     return (
@@ -512,84 +531,92 @@ export default function ManageAgentsPage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {agents.map((agent) => (
-            <Card key={agent.id} className="border-card-border/60 bg-card/75">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted/60">
-                    {agent.type}
-                  </p>
-                  <h2 className="mt-1 font-display text-2xl font-semibold text-foreground">
-                    {agent.name}
-                  </h2>
-                </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                  agent.claimStatus === "REVOKED"
-                    ? "bg-danger/10 text-danger border border-danger/20"
-                    : "bg-accent/10 text-accent border border-accent/20"
-                }`}>
-                  {agent.claimStatus}
-                </span>
-              </div>
-
-              <div className="mt-4 grid gap-3 text-sm text-muted sm:grid-cols-2">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Status</p>
-                  <p className="mt-1 text-foreground">{agent.status}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Points</p>
-                  <p className="mt-1 text-foreground">{agent.points}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Key</p>
-                  <p className="mt-1 text-foreground">
-                    {agent.credentialLast4 ? `••••${agent.credentialLast4}` : "无"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Last Seen</p>
-                  <p className="mt-1 text-foreground">{agent.lastSeenAt ?? "暂无"}</p>
-                </div>
-              </div>
-
-              <div className="mt-5 space-y-2">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
-                  Recent Control Actions
-                </p>
-                {agent.recentAudits.length === 0 ? (
-                  <p className="text-sm text-muted">还没有认领、轮换或停用记录。</p>
-                ) : (
-                  <div className="space-y-2">
-                    {agent.recentAudits.map((audit) => (
-                      <div
-                        key={audit.id}
-                        className="flex items-center justify-between rounded-2xl border border-card-border/50 bg-background/40 px-3 py-2 text-sm"
-                      >
-                        <span className="font-medium text-foreground">{audit.action}</span>
-                        <span className="text-xs text-muted">{audit.createdAt ?? "暂无时间"}</span>
-                      </div>
-                    ))}
+            <div key={agent.id} id={`managed-agent-${agent.id}`}>
+              <Card
+                className={`border-card-border/60 bg-card/75 ${
+                  selectedSecurityEvent?.agentId === agent.id
+                    ? "border-accent/50 shadow-[0_0_0_1px_rgba(255,107,74,0.18)]"
+                    : ""
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted/60">
+                      {agent.type}
+                    </p>
+                    <h2 className="mt-1 font-display text-2xl font-semibold text-foreground">
+                      {agent.name}
+                    </h2>
                   </div>
-                )}
-              </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    agent.claimStatus === "REVOKED"
+                      ? "bg-danger/10 text-danger border border-danger/20"
+                      : "bg-accent/10 text-accent border border-accent/20"
+                  }`}>
+                    {agent.claimStatus}
+                  </span>
+                </div>
 
-              <div className="mt-5 flex flex-wrap gap-2">
-                <Button
-                  variant="secondary"
-                  disabled={busyAgentId === agent.id || agent.claimStatus === "REVOKED"}
-                  onClick={() => void handleRotate(agent.id)}
-                >
-                  {busyAgentId === agent.id ? "处理中..." : "轮换 Key"}
-                </Button>
-                <Button
-                  variant="danger"
-                  disabled={busyAgentId === agent.id || agent.claimStatus === "REVOKED"}
-                  onClick={() => void handleRevoke(agent.id)}
-                >
-                  停用 Agent
-                </Button>
-              </div>
-            </Card>
+                <div className="mt-4 grid gap-3 text-sm text-muted sm:grid-cols-2">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Status</p>
+                    <p className="mt-1 text-foreground">{agent.status}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Points</p>
+                    <p className="mt-1 text-foreground">{agent.points}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Key</p>
+                    <p className="mt-1 text-foreground">
+                      {agent.credentialLast4 ? `••••${agent.credentialLast4}` : "无"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Last Seen</p>
+                    <p className="mt-1 text-foreground">{agent.lastSeenAt ?? "暂无"}</p>
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-2">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
+                    Recent Control Actions
+                  </p>
+                  {agent.recentAudits.length === 0 ? (
+                    <p className="text-sm text-muted">还没有认领、轮换或停用记录。</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {agent.recentAudits.map((audit) => (
+                        <div
+                          key={audit.id}
+                          className="flex items-center justify-between rounded-2xl border border-card-border/50 bg-background/40 px-3 py-2 text-sm"
+                        >
+                          <span className="font-medium text-foreground">{audit.action}</span>
+                          <span className="text-xs text-muted">{audit.createdAt ?? "暂无时间"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Button
+                    variant="secondary"
+                    disabled={busyAgentId === agent.id || agent.claimStatus === "REVOKED"}
+                    onClick={() => void handleRotate(agent.id)}
+                  >
+                    {busyAgentId === agent.id ? "处理中..." : "轮换 Key"}
+                  </Button>
+                  <Button
+                    variant="danger"
+                    disabled={busyAgentId === agent.id || agent.claimStatus === "REVOKED"}
+                    onClick={() => void handleRevoke(agent.id)}
+                  >
+                    停用 Agent
+                  </Button>
+                </div>
+              </Card>
+            </div>
           ))}
         </div>
       )}
@@ -809,6 +836,32 @@ export default function ManageAgentsPage() {
                       <p className="mt-1 text-sm text-foreground">
                         {selectedSecurityEvent.scope} · {selectedSecurityEvent.ipAddress}
                       </p>
+                    </div>
+                    <div className="rounded-2xl border border-card-border/50 bg-card/60 px-4 py-3 sm:col-span-2">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-muted/50">
+                            Associated Agent
+                          </p>
+                          <p className="mt-1 text-sm text-foreground">
+                            {selectedSecurityEventRelatedAgent
+                              ? selectedSecurityEventRelatedAgent.name
+                              : "未关联具体 Agent"}
+                          </p>
+                        </div>
+                        {selectedSecurityEventRelatedAgent?.id &&
+                        selectedSecurityEventRelatedAgent.isManaged ? (
+                          <Button
+                            variant="secondary"
+                            type="button"
+                            onClick={() =>
+                              handleFocusAgent(selectedSecurityEventRelatedAgent.id as string)
+                            }
+                          >
+                            定位到 Agent
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
 

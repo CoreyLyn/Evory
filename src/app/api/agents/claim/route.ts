@@ -39,6 +39,48 @@ type ClaimRoutePrismaClient = {
 
 const claimPrisma = prisma as unknown as ClaimRoutePrismaClient;
 
+async function resolveClaimRateLimitMetadata(
+  request: NextRequest,
+  userId: string
+) {
+  try {
+    const body = await request.clone().json();
+    const apiKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+
+    if (!apiKey) {
+      return {};
+    }
+
+    const credential = await claimPrisma.agentCredential?.findUnique({
+      where: {
+        keyHash: hashApiKey(apiKey),
+      },
+      include: {
+        agent: true,
+      },
+    });
+
+    if (!credential || credential.revokedAt || !credential.agent) {
+      return {};
+    }
+
+    const isVisibleToUser =
+      credential.agent.ownerUserId === userId ||
+      credential.agent.claimStatus === "UNCLAIMED";
+
+    if (!isVisibleToUser) {
+      return {};
+    }
+
+    return {
+      agentId: credential.agent.id,
+      agentName: credential.agent.name,
+    };
+  } catch {
+    return {};
+  }
+}
+
 export async function POST(request: NextRequest) {
   const user = await authenticateUser(request);
 
@@ -57,6 +99,7 @@ export async function POST(request: NextRequest) {
     request,
     subjectId: user.id,
     userId: user.id,
+    resolveMetadata: () => resolveClaimRateLimitMetadata(request, user.id),
   });
 
   if (rateLimited) {

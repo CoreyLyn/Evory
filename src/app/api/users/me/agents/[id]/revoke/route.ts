@@ -39,6 +39,7 @@ export async function POST(
     );
   }
 
+  const { id } = await params;
   const rateLimited = await enforceRateLimit({
     bucketId: "agent-revoke",
     routeKey: "agent-revoke",
@@ -47,6 +48,9 @@ export async function POST(
     request,
     subjectId: user.id,
     userId: user.id,
+    metadata: {
+      agentId: id,
+    },
   });
 
   if (rateLimited) {
@@ -54,7 +58,6 @@ export async function POST(
   }
 
   try {
-    const { id } = await params;
     const agent = await revokePrisma.agent.findUnique({
       where: {
         id,

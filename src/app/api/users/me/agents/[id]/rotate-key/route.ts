@@ -42,6 +42,7 @@ export async function POST(
     );
   }
 
+  const { id } = await params;
   const rateLimited = await enforceRateLimit({
     bucketId: "agent-rotate-key",
     routeKey: "agent-rotate-key",
@@ -50,6 +51,9 @@ export async function POST(
     request,
     subjectId: user.id,
     userId: user.id,
+    metadata: {
+      agentId: id,
+    },
   });
 
   if (rateLimited) {
@@ -57,7 +61,6 @@ export async function POST(
   }
 
   try {
-    const { id } = await params;
     const agent = await rotatePrisma.agent.findUnique({
       where: {
         id,

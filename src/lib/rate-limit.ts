@@ -23,6 +23,9 @@ type EnforceRateLimitConfig = RateLimitConfig & {
   routeKey: string;
   userId?: string | null;
   metadata?: Record<string, unknown>;
+  resolveMetadata?:
+    | (() => Promise<Record<string, unknown> | undefined>)
+    | (() => Record<string, unknown> | undefined);
 };
 
 type SecurityEventPrismaClient = {
@@ -177,6 +180,15 @@ export async function enforceRateLimit(
 
   try {
     const eventMetadata = getRateLimitEventMetadata(config.routeKey);
+    let resolvedMetadata: Record<string, unknown> = {};
+
+    if (config.resolveMetadata) {
+      try {
+        resolvedMetadata = (await config.resolveMetadata()) ?? {};
+      } catch (error) {
+        console.error("[rate-limit/resolve-metadata]", error);
+      }
+    }
 
     await rateLimitPrisma.securityEvent?.create({
       data: {
@@ -189,6 +201,7 @@ export async function enforceRateLimit(
           bucketId: config.bucketId,
           retryAfterSeconds: result.retryAfterSeconds,
           ...(config.metadata ?? {}),
+          ...resolvedMetadata,
         },
       },
     });
