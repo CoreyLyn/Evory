@@ -19,6 +19,7 @@ import { POST as registerAgent } from "./register/route";
 import { GET as listOwnedAgents } from "../users/me/agents/route";
 import { GET as getOwnedAgent } from "../users/me/agents/[id]/route";
 import { GET as listSecurityEvents } from "../users/me/security-events/route";
+import { GET as exportSecurityEvents } from "../users/me/security-events/export/route";
 import { POST as revokeOwnedAgent } from "../users/me/agents/[id]/revoke/route";
 import { POST as rotateOwnedAgentKey } from "../users/me/agents/[id]/rotate-key/route";
 
@@ -1204,4 +1205,130 @@ test("security events endpoint rejects invalid page filters", async () => {
   assert.equal(response.status, 400);
   assert.equal(json.success, false);
   assert.equal(json.error, "Invalid page filter");
+});
+
+test("security events export returns filtered csv for the current user", async () => {
+  const token = "security-events-export-token";
+  let findManyArgs: Record<string, unknown> | null = null;
+  const beforeRequest = Date.now();
+
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({
+              id: "user-security-export-1",
+              email: "security-export@example.com",
+            }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.securityEvent = {
+    create: async () => createSecurityEventFixture(),
+    findMany: async (args: Record<string, unknown>) => {
+      findManyArgs = args;
+      return [
+        createSecurityEventFixture({
+          id: "security-event-export-1",
+          userId: "user-security-export-1",
+          routeKey: "agent-revoke",
+          ipAddress: "203.0.113.55",
+          createdAt: new Date("2026-03-10T09:15:00.000Z"),
+          metadata: {
+            scope: "credential",
+            severity: "high",
+            operation: "agent_revoke",
+            summary: 'Agent revoke attempts, "burst" blocked.',
+            retryAfterSeconds: 75,
+          },
+        }),
+      ];
+    },
+  };
+
+  const response = await exportSecurityEvents(
+    createRouteRequest(
+      "http://localhost/api/users/me/security-events/export?severity=high&routeKey=agent-revoke&range=24h",
+      {
+        headers: {
+          cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        },
+      }
+    )
+  );
+  const text = await response.text();
+  const afterRequest = Date.now();
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /text\/csv/);
+  assert.match(
+    response.headers.get("content-disposition") ?? "",
+    /attachment; filename="security-events-\d{4}-\d{2}-\d{2}\.csv"/
+  );
+  assert.equal((findManyArgs?.where as Record<string, unknown>).userId, "user-security-export-1");
+  assert.equal((findManyArgs?.where as Record<string, unknown>).routeKey, "agent-revoke");
+  assert.deepEqual((findManyArgs?.where as Record<string, unknown>).metadata, {
+    path: ["severity"],
+    equals: "high",
+  });
+  const createdAtFilter = (findManyArgs?.where as Record<string, unknown>).createdAt as
+    | { gte?: Date }
+    | undefined;
+  assert.ok(createdAtFilter?.gte instanceof Date);
+  const lowerBound = beforeRequest - 24 * 60 * 60 * 1000;
+  const upperBound = afterRequest - 24 * 60 * 60 * 1000;
+  assert.ok((createdAtFilter.gte?.getTime() ?? 0) >= lowerBound);
+  assert.ok((createdAtFilter.gte?.getTime() ?? 0) <= upperBound);
+  assert.equal(findManyArgs?.skip, undefined);
+  assert.equal(findManyArgs?.take, undefined);
+  assert.match(
+    text,
+    /createdAt,type,routeKey,severity,scope,operation,ipAddress,retryAfterSeconds,summary/
+  );
+  assert.match(
+    text,
+    /2026-03-10T09:15:00\.000Z,RATE_LIMIT_HIT,agent-revoke,high,credential,agent_revoke,203\.0\.113\.55,75,"Agent revoke attempts, ""burst"" blocked\."/
+  );
+});
+
+test("security events export rejects invalid severity filters", async () => {
+  const token = "security-events-export-invalid-token";
+
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({
+              id: "user-security-export-invalid-1",
+              email: "security-export-invalid@example.com",
+            }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.securityEvent = {
+    create: async () => createSecurityEventFixture(),
+    findMany: async () => {
+      throw new Error("should not query when export severity is invalid");
+    },
+  };
+
+  const response = await exportSecurityEvents(
+    createRouteRequest(
+      "http://localhost/api/users/me/security-events/export?severity=critical",
+      {
+        headers: {
+          cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        },
+      }
+    )
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Invalid severity filter");
 });

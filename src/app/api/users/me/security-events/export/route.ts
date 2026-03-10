@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
 import {
+  buildSecurityEventsCsv,
   buildSecurityEventsWhere,
   normalizeSecurityEventRecord,
   VALID_SECURITY_EVENT_RANGES,
@@ -26,6 +27,10 @@ type SecurityEventsPrismaClient = {
 
 const securityEventsPrisma = prisma as unknown as SecurityEventsPrismaClient;
 
+function buildExportFilename() {
+  return `security-events-${new Date().toISOString().slice(0, 10)}.csv`;
+}
+
 export async function GET(request: NextRequest) {
   const user = await authenticateUser(request);
 
@@ -40,8 +45,6 @@ export async function GET(request: NextRequest) {
     const severity = request.nextUrl.searchParams.get("severity")?.trim() ?? "";
     const routeKey = request.nextUrl.searchParams.get("routeKey")?.trim() ?? "";
     const range = request.nextUrl.searchParams.get("range")?.trim() ?? "";
-    const limitParam = request.nextUrl.searchParams.get("limit")?.trim() ?? "";
-    const pageParam = request.nextUrl.searchParams.get("page")?.trim() ?? "";
 
     if (
       severity &&
@@ -67,51 +70,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let limit = 10;
-    if (limitParam) {
-      const parsedLimit = Number.parseInt(limitParam, 10);
-
-      if (!Number.isFinite(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
-        return Response.json(
-          { success: false, error: "Invalid limit filter" },
-          { status: 400 }
-        );
-      }
-
-      limit = parsedLimit;
-    }
-
-    let page = 1;
-    if (pageParam) {
-      const parsedPage = Number.parseInt(pageParam, 10);
-
-      if (!Number.isFinite(parsedPage) || parsedPage < 1) {
-        return Response.json(
-          { success: false, error: "Invalid page filter" },
-          { status: 400 }
-        );
-      }
-
-      page = parsedPage;
-    }
-
-    const where = buildSecurityEventsWhere(user.id, {
-      severity: severity
-        ? (severity as (typeof VALID_SECURITY_EVENT_SEVERITIES)[number])
-        : undefined,
-      routeKey: routeKey || undefined,
-      range: range
-        ? (range as (typeof VALID_SECURITY_EVENT_RANGES)[number])
-        : undefined,
-    });
-
     const events = await securityEventsPrisma.securityEvent?.findMany({
-      where,
+      where: buildSecurityEventsWhere(user.id, {
+        severity: severity
+          ? (severity as (typeof VALID_SECURITY_EVENT_SEVERITIES)[number])
+          : undefined,
+        routeKey: routeKey || undefined,
+        range: range
+          ? (range as (typeof VALID_SECURITY_EVENT_RANGES)[number])
+          : undefined,
+      }),
       orderBy: {
         createdAt: "desc",
       },
-      skip: (page - 1) * limit,
-      take: limit + 1,
       select: {
         id: true,
         type: true,
@@ -122,23 +93,19 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const normalizedEvents = (events ?? []).map(normalizeSecurityEventRecord);
-
-    const hasMore = normalizedEvents.length > limit;
-    const data = hasMore ? normalizedEvents.slice(0, limit) : normalizedEvents;
-
-    return Response.json({
-      success: true,
-      data,
-      pagination: {
-        page,
-        limit,
-        hasMore,
-        nextPage: hasMore ? page + 1 : null,
-      },
-    });
+    return new Response(
+      buildSecurityEventsCsv((events ?? []).map(normalizeSecurityEventRecord)),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="${buildExportFilename()}"`,
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   } catch (error) {
-    console.error("[users/me/security-events]", error);
+    console.error("[users/me/security-events/export]", error);
     return Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
