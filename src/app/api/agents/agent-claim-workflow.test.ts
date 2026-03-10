@@ -1015,3 +1015,98 @@ test("security events endpoint rejects invalid severity filters", async () => {
   assert.equal(json.success, false);
   assert.equal(json.error, "Invalid severity filter");
 });
+
+test("security events endpoint applies a time range filter", async () => {
+  const token = "security-events-range-filter-token";
+  let findManyArgs: Record<string, unknown> | null = null;
+  const beforeRequest = Date.now();
+
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({
+              id: "user-security-range-1",
+              email: "security-range@example.com",
+            }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.securityEvent = {
+    create: async () => createSecurityEventFixture(),
+    findMany: async (args: Record<string, unknown>) => {
+      findManyArgs = args;
+      return [
+        createSecurityEventFixture({
+          createdAt: new Date(),
+        }),
+      ];
+    },
+  };
+
+  const response = await listSecurityEvents(
+    createRouteRequest(
+      "http://localhost/api/users/me/security-events?range=7d",
+      {
+        headers: {
+          cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        },
+      }
+    )
+  );
+  const json = await response.json();
+  const afterRequest = Date.now();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  const createdAtFilter = (findManyArgs?.where as Record<string, unknown>).createdAt as
+    | { gte?: Date }
+    | undefined;
+  assert.ok(createdAtFilter?.gte instanceof Date);
+  const lowerBound = beforeRequest - 7 * 24 * 60 * 60 * 1000;
+  const upperBound = afterRequest - 7 * 24 * 60 * 60 * 1000;
+  assert.ok((createdAtFilter.gte?.getTime() ?? 0) >= lowerBound);
+  assert.ok((createdAtFilter.gte?.getTime() ?? 0) <= upperBound);
+});
+
+test("security events endpoint rejects invalid time range filters", async () => {
+  const token = "security-events-invalid-range-token";
+
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({
+              id: "user-security-invalid-range-1",
+              email: "security-invalid-range@example.com",
+            }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.securityEvent = {
+    create: async () => createSecurityEventFixture(),
+    findMany: async () => {
+      throw new Error("should not query when range is invalid");
+    },
+  };
+
+  const response = await listSecurityEvents(
+    createRouteRequest(
+      "http://localhost/api/users/me/security-events?range=90d",
+      {
+        headers: {
+          cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+        },
+      }
+    )
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Invalid time range filter");
+});

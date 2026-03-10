@@ -59,6 +59,13 @@ const SECURITY_ROUTE_OPTIONS = [
   { value: "agent-revoke", label: "agent-revoke" },
 ] as const;
 
+const SECURITY_RANGE_OPTIONS = [
+  { value: "all", label: "全部时间" },
+  { value: "24h", label: "24h" },
+  { value: "7d", label: "7d" },
+  { value: "30d", label: "30d" },
+] as const;
+
 export default function ManageAgentsPage() {
   const [user, setUser] = useState<UserSummary | null>(null);
   const [agents, setAgents] = useState<ManagedAgent[]>([]);
@@ -73,6 +80,9 @@ export default function ManageAgentsPage() {
   >("all");
   const [securityRouteFilter, setSecurityRouteFilter] = useState<
     (typeof SECURITY_ROUTE_OPTIONS)[number]["value"]
+  >("all");
+  const [securityRangeFilter, setSecurityRangeFilter] = useState<
+    (typeof SECURITY_RANGE_OPTIONS)[number]["value"]
   >("all");
 
   const loadData = useCallback(async () => {
@@ -104,6 +114,10 @@ export default function ManageAgentsPage() {
         securityEventParams.set("routeKey", securityRouteFilter);
       }
 
+      if (securityRangeFilter !== "all") {
+        securityEventParams.set("range", securityRangeFilter);
+      }
+
       const [agentsResponse, securityEventsResponse] = await Promise.all([
         fetch("/api/users/me/agents"),
         fetch(`/api/users/me/security-events?${securityEventParams.toString()}`),
@@ -128,7 +142,7 @@ export default function ManageAgentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [securityRouteFilter, securitySeverityFilter]);
+  }, [securityRangeFilter, securityRouteFilter, securitySeverityFilter]);
 
   useEffect(() => {
     void loadData();
@@ -458,6 +472,21 @@ export default function ManageAgentsPage() {
                 className="rounded-xl border border-card-border/60 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none"
               >
                 {SECURITY_ROUTE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <span>时间</span>
+              <select
+                value={securityRangeFilter}
+                onChange={(event) => setSecurityRangeFilter(event.target.value as (typeof SECURITY_RANGE_OPTIONS)[number]["value"])}
+                className="rounded-xl border border-card-border/60 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none"
+              >
+                {SECURITY_RANGE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>

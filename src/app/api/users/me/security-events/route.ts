@@ -21,6 +21,20 @@ type SecurityEventsPrismaClient = {
 
 const securityEventsPrisma = prisma as unknown as SecurityEventsPrismaClient;
 const VALID_SECURITY_SEVERITIES = ["warning", "high"] as const;
+const VALID_SECURITY_RANGES = ["24h", "7d", "30d"] as const;
+
+function getRangeStart(range: (typeof VALID_SECURITY_RANGES)[number]) {
+  const now = Date.now();
+
+  switch (range) {
+    case "24h":
+      return new Date(now - 24 * 60 * 60 * 1000);
+    case "7d":
+      return new Date(now - 7 * 24 * 60 * 60 * 1000);
+    case "30d":
+      return new Date(now - 30 * 24 * 60 * 60 * 1000);
+  }
+}
 
 export async function GET(request: NextRequest) {
   const user = await authenticateUser(request);
@@ -35,6 +49,7 @@ export async function GET(request: NextRequest) {
   try {
     const severity = request.nextUrl.searchParams.get("severity")?.trim() ?? "";
     const routeKey = request.nextUrl.searchParams.get("routeKey")?.trim() ?? "";
+    const range = request.nextUrl.searchParams.get("range")?.trim() ?? "";
     const limitParam = request.nextUrl.searchParams.get("limit")?.trim() ?? "";
 
     if (
@@ -45,6 +60,18 @@ export async function GET(request: NextRequest) {
     ) {
       return Response.json(
         { success: false, error: "Invalid severity filter" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      range &&
+      !VALID_SECURITY_RANGES.includes(
+        range as (typeof VALID_SECURITY_RANGES)[number]
+      )
+    ) {
+      return Response.json(
+        { success: false, error: "Invalid time range filter" },
         { status: 400 }
       );
     }
@@ -75,6 +102,12 @@ export async function GET(request: NextRequest) {
       where.metadata = {
         path: ["severity"],
         equals: severity,
+      };
+    }
+
+    if (range) {
+      where.createdAt = {
+        gte: getRangeStart(range as (typeof VALID_SECURITY_RANGES)[number]),
       };
     }
 
