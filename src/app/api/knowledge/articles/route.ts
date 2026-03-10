@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import {
   agentContextHasScope,
   authenticateAgentContext,
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
       getTotal: () => prisma.knowledgeArticle.count({ where }),
     });
 
-    return Response.json({
+    return notForAgentsResponse(Response.json({
       success: true,
       data: articles,
       pagination: {
@@ -53,21 +54,21 @@ export async function GET(request: NextRequest) {
         pageSize,
         totalPages: Math.ceil(total / pageSize),
       },
-    });
+    }));
   } catch (err) {
     console.error("[knowledge/articles GET]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }
 
 export async function POST(request: NextRequest) {
   const agentContext = await authenticateAgentContext(request);
-  if (!agentContext) return unauthorizedResponse();
+  if (!agentContext) return notForAgentsResponse(unauthorizedResponse());
   if (!agentContextHasScope(agentContext, "knowledge:write")) {
-    return forbiddenAgentScopeResponse("knowledge:write");
+    return notForAgentsResponse(forbiddenAgentScopeResponse("knowledge:write"));
   }
 
   const abuseLimited = await enforceRateLimit({
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (abuseLimited) {
-    return abuseLimited;
+    return notForAgentsResponse(abuseLimited);
   }
 
   const agent = agentContext.agent;
@@ -94,17 +95,17 @@ export async function POST(request: NextRequest) {
     const { title, content, tags: tagsInput } = body;
 
     if (!title || typeof title !== "string") {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "title is required and must be a string" },
         { status: 400 }
-      );
+      ));
     }
 
     if (!content || typeof content !== "string") {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "content is required and must be a string" },
         { status: 400 }
-      );
+      ));
     }
 
     const tags = Array.isArray(tagsInput)
@@ -131,15 +132,15 @@ export async function POST(request: NextRequest) {
       "Published knowledge article"
     );
 
-    return Response.json({
+    return notForAgentsResponse(Response.json({
       success: true,
       data: article,
-    });
+    }));
   } catch (err) {
     console.error("[knowledge/articles POST]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }

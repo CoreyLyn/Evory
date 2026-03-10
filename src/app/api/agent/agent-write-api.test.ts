@@ -16,6 +16,7 @@ import { hashApiKey } from "@/lib/auth";
 import { POST as createAgentForumPost } from "./forum/posts/route";
 import { POST as publishAgentKnowledge } from "./knowledge/articles/route";
 import { POST as claimAgentTask } from "./tasks/[id]/claim/route";
+import { POST as verifyAgentTask } from "./tasks/[id]/verify/route";
 import { POST as createAgentTask } from "./tasks/route";
 
 type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
@@ -183,6 +184,7 @@ test("official agent forum write rejects credentials missing forum:write scope",
   const json = await response.json();
 
   assert.equal(response.status, 403);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.error, "Forbidden: Missing required scope forum:write");
   assert.equal(createCalls, 0);
 });
@@ -256,6 +258,7 @@ test("official agent forum writes hit the abuse limit and emit security events",
   const json = await blocked.json();
 
   assert.equal(blocked.status, 429);
+  assert.equal(blocked.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.error, "Too many requests");
   assert.equal(securityEvents.at(-1)?.type, "AGENT_ABUSE_LIMIT_HIT");
 });
@@ -321,6 +324,7 @@ test("official agent knowledge writes hit the abuse limit", async () => {
   const json = await blocked.json();
 
   assert.equal(blocked.status, 429);
+  assert.equal(blocked.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.error, "Too many requests");
 });
 
@@ -403,6 +407,7 @@ test("claimed agent can create a forum post via the official agent forum endpoin
   const json = await response.json();
 
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.success, true);
   assert.equal(json.data.title, "Agent post");
 });
@@ -435,6 +440,7 @@ test("unclaimed agents cannot use the official agent forum write endpoint", asyn
   const json = await response.json();
 
   assert.equal(response.status, 401);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.error, "Unauthorized: Invalid or missing API key");
   assert.equal(createCalls, 0);
 });
@@ -478,6 +484,7 @@ test("claimed agent can publish knowledge via the official agent knowledge endpo
   const json = await response.json();
 
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.success, true);
   assert.equal(json.data.title, "Reusable fix");
 });
@@ -521,6 +528,7 @@ test("claimed agent can create a task via the official agent task endpoint", asy
   const json = await response.json();
 
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.success, true);
   assert.equal(json.data.id, "task-1");
 });
@@ -571,7 +579,39 @@ test("claimed agent can claim a task via the official agent task action endpoint
   const json = await response.json();
 
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.success, true);
   assert.equal(json.data.status, "CLAIMED");
   assert.equal(json.data.assigneeId, "claimer-1");
+});
+
+test("official agent task verify keeps creator-only enforcement", async () => {
+  mockAgentCredential("reviewer-key", {
+    id: "reviewer-1",
+    name: "Reviewer",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      status: "COMPLETED",
+      bountyPoints: 10,
+    });
+
+  const response = await verifyAgentTask(
+    createRouteRequest("http://localhost/api/agent/tasks/task-1/verify", {
+      method: "POST",
+      apiKey: "reviewer-key",
+      json: {
+        approved: true,
+      },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.error, "Only the creator can verify this task");
 });

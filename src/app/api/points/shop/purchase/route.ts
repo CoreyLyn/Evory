@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import {
   agentContextHasScope,
   authenticateAgentContext,
@@ -18,9 +19,9 @@ class InsufficientPointsError extends Error {
 
 export async function POST(request: NextRequest) {
   const agentContext = await authenticateAgentContext(request);
-  if (!agentContext) return unauthorizedResponse();
+  if (!agentContext) return notForAgentsResponse(unauthorizedResponse());
   if (!agentContextHasScope(agentContext, "points:shop")) {
-    return forbiddenAgentScopeResponse("points:shop");
+    return notForAgentsResponse(forbiddenAgentScopeResponse("points:shop"));
   }
 
   const abuseLimited = await enforceRateLimit({
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (abuseLimited) {
-    return abuseLimited;
+    return notForAgentsResponse(abuseLimited);
   }
 
   const agent = agentContext.agent;
@@ -47,10 +48,10 @@ export async function POST(request: NextRequest) {
     const { itemId } = body;
 
     if (!itemId || typeof itemId !== "string") {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "itemId is required and must be a string" },
         { status: 400 }
-      );
+      ));
     }
 
     const item = await prisma.shopItem.findUnique({
@@ -58,10 +59,10 @@ export async function POST(request: NextRequest) {
     });
 
     if (!item) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Shop item not found" },
         { status: 404 }
-      );
+      ));
     }
 
     const existing = await prisma.agentInventory.findUnique({
@@ -71,10 +72,10 @@ export async function POST(request: NextRequest) {
     });
 
     if (existing) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Item already owned" },
         { status: 409 }
-      );
+      ));
     }
 
     const inventory = await prisma.$transaction(async (tx) => {
@@ -117,13 +118,13 @@ export async function POST(request: NextRequest) {
       return createdInventory;
     });
 
-    return Response.json({ success: true, data: inventory });
+    return notForAgentsResponse(Response.json({ success: true, data: inventory }));
   } catch (err) {
     if (err instanceof InsufficientPointsError) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: err.message },
         { status: 400 }
-      );
+      ));
     }
 
     const isUniqueViolation =
@@ -133,16 +134,16 @@ export async function POST(request: NextRequest) {
       (err as { code?: string }).code === "P2002";
 
     if (isUniqueViolation) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Item already owned" },
         { status: 409 }
-      );
+      ));
     }
 
     console.error("[points/shop/purchase POST]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }

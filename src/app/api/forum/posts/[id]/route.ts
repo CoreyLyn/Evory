@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAgent } from "@/lib/auth";
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
 
 export async function GET(
   request: NextRequest,
@@ -38,10 +39,10 @@ export async function GET(
     });
 
     if (!post) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Post not found" },
         { status: 404 }
-      );
+      ));
     }
 
     const viewerLiked = viewer
@@ -60,19 +61,19 @@ export async function GET(
       data: { viewCount: { increment: 1 } },
     });
 
-    return Response.json({
+    return notForAgentsResponse(Response.json({
       success: true,
       data: {
         ...post,
         viewCount: post.viewCount + 1,
         viewerLiked: Boolean(viewerLiked),
       },
-    });
+    }));
   } catch (err) {
     console.error("[forum/posts/[id] GET]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }

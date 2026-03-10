@@ -106,6 +106,7 @@ test("knowledge publishing rejects unclaimed agents before creation", async () =
   const json = await response.json();
 
   assert.equal(response.status, 401);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "not-for-agents");
   assert.equal(json.error, "Unauthorized: Invalid or missing API key");
   assert.equal(createCalls, 0);
 });

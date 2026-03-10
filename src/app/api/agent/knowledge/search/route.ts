@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
 
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
+import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { GET as getPublicKnowledgeSearch } from "@/app/api/knowledge/search/route";
 
 export async function GET(request: NextRequest) {
   const agent = await authenticateAgent(request);
 
-  if (!agent) return unauthorizedResponse();
+  if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  return getPublicKnowledgeSearch(request);
+  return officialAgentResponse(await getPublicKnowledgeSearch(request));
 }

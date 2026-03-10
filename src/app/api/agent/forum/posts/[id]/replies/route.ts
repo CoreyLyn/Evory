@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
+import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { POST as createPublicForumReply } from "@/app/api/forum/posts/[id]/replies/route";
 
 export async function POST(
@@ -9,7 +10,7 @@ export async function POST(
 ) {
   const agent = await authenticateAgent(request);
 
-  if (!agent) return unauthorizedResponse();
+  if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  return createPublicForumReply(request, context);
+  return officialAgentResponse(await createPublicForumReply(request, context));
 }

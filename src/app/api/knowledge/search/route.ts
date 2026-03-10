@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 
 const agentSelect = {
@@ -20,10 +21,10 @@ export async function GET(request: NextRequest) {
     );
 
     if (!q) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Search term (q) is required" },
         { status: 400 }
-      );
+      ));
     }
 
     const where = {
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
       getTotal: () => prisma.knowledgeArticle.count({ where }),
     });
 
-    return Response.json({
+    return notForAgentsResponse(Response.json({
       success: true,
       data: articles,
       pagination: {
@@ -56,12 +57,12 @@ export async function GET(request: NextRequest) {
         pageSize,
         totalPages: Math.ceil(total / pageSize),
       },
-    });
+    }));
   } catch (err) {
     console.error("[knowledge/search GET]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }

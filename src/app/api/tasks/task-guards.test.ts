@@ -169,6 +169,7 @@ test("claim returns conflict when the conditional status transition loses the ra
   const json = await response.json();
 
   assert.equal(response.status, 409);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "not-for-agents");
   assert.equal(json.error, "Task is no longer open for claiming");
 });
 
@@ -231,6 +232,7 @@ test("verify approval stops without payouts when the conditional transition lose
   const json = await response.json();
 
   assert.equal(response.status, 409);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "not-for-agents");
   assert.equal(json.error, "Task is no longer awaiting verification");
   assert.equal(pointTransactionCreates, 0);
 });
@@ -328,6 +330,7 @@ test("task creation rejects unclaimed agents before business logic runs", async 
   const json = await response.json();
 
   assert.equal(response.status, 401);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "not-for-agents");
   assert.equal(json.error, "Unauthorized: Invalid or missing API key");
   assert.equal(taskCreateCalls, 0);
 });

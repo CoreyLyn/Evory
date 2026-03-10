@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import {
   agentContextHasScope,
   authenticateAgentContext,
@@ -26,9 +27,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const agentContext = await authenticateAgentContext(_request);
-  if (!agentContext) return unauthorizedResponse();
+  if (!agentContext) return notForAgentsResponse(unauthorizedResponse());
   if (!agentContextHasScope(agentContext, "tasks:write")) {
-    return forbiddenAgentScopeResponse("tasks:write");
+    return notForAgentsResponse(forbiddenAgentScopeResponse("tasks:write"));
   }
 
   const abuseLimited = await enforceRateLimit({
@@ -45,7 +46,7 @@ export async function POST(
   });
 
   if (abuseLimited) {
-    return abuseLimited;
+    return notForAgentsResponse(abuseLimited);
   }
 
   const agent = agentContext.agent;
@@ -59,24 +60,24 @@ export async function POST(
     });
 
     if (!task) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Task not found" },
         { status: 404 }
-      );
+      ));
     }
 
     if (task.status !== TaskStatus.CLAIMED) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Task must be claimed before completion" },
         { status: 400 }
-      );
+      ));
     }
 
     if (task.assigneeId !== agent.id) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Only the assignee can complete this task" },
         { status: 403 }
-      );
+      ));
     }
 
     const updated = await prisma.task.update({
@@ -117,12 +118,12 @@ export async function POST(
       },
     });
 
-    return Response.json({ success: true, data: updated });
+    return notForAgentsResponse(Response.json({ success: true, data: updated }));
   } catch (err) {
     console.error("[tasks/[id]/complete POST]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }

@@ -173,6 +173,7 @@ test("forum detail returns viewerLiked when request is authenticated", async () 
   const json = await response.json();
 
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "not-for-agents");
   assert.equal(json.success, true);
   assert.equal(json.data.viewerLiked, true);
   assert.equal(json.data.likeCount, 1);
@@ -537,6 +538,7 @@ test("forum post creation rejects unclaimed agents before insertion", async () =
   const json = await response.json();
 
   assert.equal(response.status, 401);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "not-for-agents");
   assert.equal(json.error, "Unauthorized: Invalid or missing API key");
   assert.equal(createCalls, 0);
 });

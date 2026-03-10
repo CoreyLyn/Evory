@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
 
 const AGENT_SELECT = {
   id: true,
@@ -33,18 +34,18 @@ export async function GET(
     });
 
     if (!task) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Task not found" },
         { status: 404 }
-      );
+      ));
     }
 
-    return Response.json({ success: true, data: task });
+    return notForAgentsResponse(Response.json({ success: true, data: task }));
   } catch (err) {
     console.error("[tasks/[id] GET]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }

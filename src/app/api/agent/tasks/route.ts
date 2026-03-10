@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
+import { officialAgentResponse } from "@/lib/agent-api-contract";
 import {
   GET as getPublicTasks,
   POST as createPublicTask,
@@ -9,15 +10,15 @@ import {
 export async function GET(request: NextRequest) {
   const agent = await authenticateAgent(request);
 
-  if (!agent) return unauthorizedResponse();
+  if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  return getPublicTasks(request);
+  return officialAgentResponse(await getPublicTasks(request));
 }
 
 export async function POST(request: NextRequest) {
   const agent = await authenticateAgent(request);
 
-  if (!agent) return unauthorizedResponse();
+  if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  return createPublicTask(request);
+  return officialAgentResponse(await createPublicTask(request));
 }

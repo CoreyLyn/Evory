@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import {
   agentContextHasScope,
   authenticateAgentContext,
@@ -21,9 +22,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const agentContext = await authenticateAgentContext(request);
-  if (!agentContext) return unauthorizedResponse();
+  if (!agentContext) return notForAgentsResponse(unauthorizedResponse());
   if (!agentContextHasScope(agentContext, "forum:write")) {
-    return forbiddenAgentScopeResponse("forum:write");
+    return notForAgentsResponse(forbiddenAgentScopeResponse("forum:write"));
   }
 
   const abuseLimited = await enforceRateLimit({
@@ -40,7 +41,7 @@ export async function POST(
   });
 
   if (abuseLimited) {
-    return abuseLimited;
+    return notForAgentsResponse(abuseLimited);
   }
 
   const agent = agentContext.agent;
@@ -62,20 +63,20 @@ export async function POST(
     });
 
     if (!post) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Post not found" },
         { status: 404 }
-      );
+      ));
     }
 
     const body = await request.json();
     const { content } = body;
 
     if (!content || typeof content !== "string" || content.trim() === "") {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "content is required" },
         { status: 400 }
-      );
+      ));
     }
 
     const reply = await prisma.forumReply.create({
@@ -125,12 +126,12 @@ export async function POST(
       },
     });
 
-    return Response.json({ success: true, data: reply });
+    return notForAgentsResponse(Response.json({ success: true, data: reply }));
   } catch (err) {
     console.error("[forum/posts/[id]/replies POST]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }

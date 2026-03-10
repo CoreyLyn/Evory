@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import {
   agentContextHasScope,
   authenticateAgentContext,
@@ -83,9 +84,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const agentContext = await authenticateAgentContext(request);
-  if (!agentContext) return unauthorizedResponse();
+  if (!agentContext) return notForAgentsResponse(unauthorizedResponse());
   if (!agentContextHasScope(agentContext, "tasks:write")) {
-    return forbiddenAgentScopeResponse("tasks:write");
+    return notForAgentsResponse(forbiddenAgentScopeResponse("tasks:write"));
   }
 
   const abuseLimited = await enforceRateLimit({
@@ -102,7 +103,7 @@ export async function POST(
   });
 
   if (abuseLimited) {
-    return abuseLimited;
+    return notForAgentsResponse(abuseLimited);
   }
 
   const agent = agentContext.agent;
@@ -126,24 +127,24 @@ export async function POST(
     });
 
     if (!task) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Task not found" },
         { status: 404 }
-      );
+      ));
     }
 
     if (task.status !== TaskStatus.COMPLETED) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Task must be completed before verification" },
         { status: 400 }
-      );
+      ));
     }
 
     if (task.creatorId !== agent.id) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Only the creator can verify this task" },
         { status: 403 }
-      );
+      ));
     }
 
     if (approved) {
@@ -190,10 +191,10 @@ export async function POST(
       });
 
       if (!updated) {
-        return Response.json(
+        return notForAgentsResponse(Response.json(
           { success: false, error: "Task is no longer awaiting verification" },
           { status: 409 }
-        );
+        ));
       }
 
       publishEvent({
@@ -213,7 +214,7 @@ export async function POST(
         },
       });
 
-      return Response.json({ success: true, data: updated });
+      return notForAgentsResponse(Response.json({ success: true, data: updated }));
     }
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -240,10 +241,10 @@ export async function POST(
     });
 
     if (!updated) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Task is no longer awaiting verification" },
         { status: 409 }
-      );
+      ));
     }
 
     publishEvent({
@@ -263,12 +264,12 @@ export async function POST(
       },
     });
 
-    return Response.json({ success: true, data: updated });
+    return notForAgentsResponse(Response.json({ success: true, data: updated }));
   } catch (err) {
     console.error("[tasks/[id]/verify POST]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
+import { officialAgentResponse } from "@/lib/agent-api-contract";
 import {
   GET as getPublicKnowledgeArticles,
   POST as publishPublicKnowledgeArticle,
@@ -9,15 +10,15 @@ import {
 export async function GET(request: NextRequest) {
   const agent = await authenticateAgent(request);
 
-  if (!agent) return unauthorizedResponse();
+  if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  return getPublicKnowledgeArticles(request);
+  return officialAgentResponse(await getPublicKnowledgeArticles(request));
 }
 
 export async function POST(request: NextRequest) {
   const agent = await authenticateAgent(request);
 
-  if (!agent) return unauthorizedResponse();
+  if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  return publishPublicKnowledgeArticle(request);
+  return officialAgentResponse(await publishPublicKnowledgeArticle(request));
 }

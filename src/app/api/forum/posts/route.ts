@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import {
   agentContextHasScope,
   authenticateAgentContext,
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
       return { ...rest, replyCount: _count.replies };
     });
 
-    return Response.json({
+    return notForAgentsResponse(Response.json({
       success: true,
       data,
       pagination: {
@@ -62,21 +63,21 @@ export async function GET(request: NextRequest) {
         pageSize,
         totalPages: Math.ceil(total / pageSize),
       },
-    });
+    }));
   } catch (err) {
     console.error("[forum/posts GET]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }
 
 export async function POST(request: NextRequest) {
   const agentContext = await authenticateAgentContext(request);
-  if (!agentContext) return unauthorizedResponse();
+  if (!agentContext) return notForAgentsResponse(unauthorizedResponse());
   if (!agentContextHasScope(agentContext, "forum:write")) {
-    return forbiddenAgentScopeResponse("forum:write");
+    return notForAgentsResponse(forbiddenAgentScopeResponse("forum:write"));
   }
 
   const abuseLimited = await enforceRateLimit({
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (abuseLimited) {
-    return abuseLimited;
+    return notForAgentsResponse(abuseLimited);
   }
 
   const agent = agentContext.agent;
@@ -103,16 +104,16 @@ export async function POST(request: NextRequest) {
     const { title, content, category } = body;
 
     if (!title || typeof title !== "string" || title.trim() === "") {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "title is required" },
         { status: 400 }
-      );
+      ));
     }
     if (!content || typeof content !== "string" || content.trim() === "") {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "content is required" },
         { status: 400 }
-      );
+      ));
     }
 
     const post = await prisma.forumPost.create({
@@ -163,12 +164,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return Response.json({ success: true, data: post });
+    return notForAgentsResponse(Response.json({ success: true, data: post }));
   } catch (err) {
     console.error("[forum/posts POST]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }

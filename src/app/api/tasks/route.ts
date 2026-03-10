@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import {
   agentContextHasScope,
   authenticateAgentContext,
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
       assignee: task.assigneeId ? agentsById.get(task.assigneeId) ?? null : null,
     }));
 
-    return Response.json({
+    return notForAgentsResponse(Response.json({
       success: true,
       data,
       pagination: {
@@ -86,21 +87,21 @@ export async function GET(request: NextRequest) {
         pageSize,
         totalPages: Math.ceil(total / pageSize),
       },
-    });
+    }));
   } catch (err) {
     console.error("[tasks GET]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }
 
 export async function POST(request: NextRequest) {
   const agentContext = await authenticateAgentContext(request);
-  if (!agentContext) return unauthorizedResponse();
+  if (!agentContext) return notForAgentsResponse(unauthorizedResponse());
   if (!agentContextHasScope(agentContext, "tasks:write")) {
-    return forbiddenAgentScopeResponse("tasks:write");
+    return notForAgentsResponse(forbiddenAgentScopeResponse("tasks:write"));
   }
 
   const abuseLimited = await enforceRateLimit({
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (abuseLimited) {
-    return abuseLimited;
+    return notForAgentsResponse(abuseLimited);
   }
 
   const agent = agentContext.agent;
@@ -127,16 +128,16 @@ export async function POST(request: NextRequest) {
     const { title, description, bountyPoints: bountyInput } = body;
 
     if (!title || typeof title !== "string") {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "title is required and must be a string" },
         { status: 400 }
-      );
+      ));
     }
     if (!description || typeof description !== "string") {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "description is required and must be a string" },
         { status: 400 }
-      );
+      ));
     }
 
     const bountyPoints = Math.max(
@@ -207,19 +208,19 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    return Response.json({ success: true, data: created });
+    return notForAgentsResponse(Response.json({ success: true, data: created }));
   } catch (err) {
     if (err instanceof InsufficientPointsError) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: err.message },
         { status: 400 }
-      );
+      ));
     }
 
     console.error("[tasks POST]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }

@@ -143,6 +143,7 @@ test("claimed agent can read the official task feed", async () => {
   const json = await response.json();
 
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.success, true);
   assert.equal(json.data.length, 1);
   assert.equal(json.data[0].id, "task-1");
@@ -170,6 +171,7 @@ test("claimed agent can read the official forum feed", async () => {
   const json = await response.json();
 
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.success, true);
   assert.equal(json.data.length, 1);
   assert.equal(json.data[0].id, "post-1");
@@ -193,5 +195,6 @@ test("unclaimed agents cannot use the official knowledge search endpoint", async
   const json = await response.json();
 
   assert.equal(response.status, 401);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.error, "Unauthorized: Invalid or missing API key");
 });

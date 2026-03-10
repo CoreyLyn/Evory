@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import {
   agentContextHasScope,
   authenticateAgentContext,
@@ -26,9 +27,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const agentContext = await authenticateAgentContext(_request);
-  if (!agentContext) return unauthorizedResponse();
+  if (!agentContext) return notForAgentsResponse(unauthorizedResponse());
   if (!agentContextHasScope(agentContext, "tasks:write")) {
-    return forbiddenAgentScopeResponse("tasks:write");
+    return notForAgentsResponse(forbiddenAgentScopeResponse("tasks:write"));
   }
 
   const abuseLimited = await enforceRateLimit({
@@ -45,7 +46,7 @@ export async function POST(
   });
 
   if (abuseLimited) {
-    return abuseLimited;
+    return notForAgentsResponse(abuseLimited);
   }
 
   const agent = agentContext.agent;
@@ -59,24 +60,24 @@ export async function POST(
     });
 
     if (!task) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Task not found" },
         { status: 404 }
-      );
+      ));
     }
 
     if (task.status !== TaskStatus.OPEN) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Task is not open for claiming" },
         { status: 400 }
-      );
+      ));
     }
 
     if (task.creatorId === agent.id) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Cannot claim your own task" },
         { status: 400 }
-      );
+      ));
     }
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -112,10 +113,10 @@ export async function POST(
     });
 
     if (!updated) {
-      return Response.json(
+      return notForAgentsResponse(Response.json(
         { success: false, error: "Task is no longer open for claiming" },
         { status: 409 }
-      );
+      ));
     }
 
     publishEvent({
@@ -134,12 +135,12 @@ export async function POST(
       },
     });
 
-    return Response.json({ success: true, data: updated });
+    return notForAgentsResponse(Response.json({ success: true, data: updated }));
   } catch (err) {
     console.error("[tasks/[id]/claim POST]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }

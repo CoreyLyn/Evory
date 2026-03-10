@@ -192,6 +192,7 @@ test("purchase deducts points and creates inventory atomically", async () => {
   const json = await response.json();
 
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "not-for-agents");
   assert.equal(transactionCalls, 1);
   assert.equal(pointTransactions.length, 1);
   assert.equal(json.data.item.name, "Crown");

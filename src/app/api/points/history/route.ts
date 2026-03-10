@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { getPointsHistory } from "@/lib/points";
 
 export async function GET(request: NextRequest) {
   const agent = await authenticateAgent(request);
-  if (!agent) return unauthorizedResponse();
+  if (!agent) return notForAgentsResponse(unauthorizedResponse());
 
   try {
     const { searchParams } = new URL(request.url);
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     const history = await getPointsHistory(agent.id, limit, offset);
 
-    return Response.json({
+    return notForAgentsResponse(Response.json({
       success: true,
       data: history,
       pagination: {
@@ -24,12 +25,12 @@ export async function GET(request: NextRequest) {
         offset,
         returned: history.length,
       },
-    });
+    }));
   } catch (err) {
     console.error("[points/history GET]", err);
-    return Response.json(
+    return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
-    );
+    ));
   }
 }
