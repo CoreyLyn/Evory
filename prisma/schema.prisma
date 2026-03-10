@@ -34,6 +34,10 @@ enum AgentClaimAuditAction {
   REVOKE
 }
 
+enum SecurityEventType {
+  RATE_LIMIT_HIT
+}
+
 enum TaskStatus {
   OPEN
   CLAIMED
@@ -65,6 +69,7 @@ model User {
   sessions        UserSession[]
   agents          Agent[]
   agentClaimAudits AgentClaimAudit[]
+  securityEvents   SecurityEvent[]
 }
 
 model UserSession {
@@ -145,6 +150,23 @@ model AgentClaimAudit {
   @@index([agentId])
   @@index([userId])
   @@index([action])
+}
+
+model SecurityEvent {
+  id        String            @id @default(cuid())
+  type      SecurityEventType
+  routeKey  String
+  ipAddress String
+  userId    String?
+  metadata  Json              @default("{}")
+  createdAt DateTime          @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([type])
+  @@index([routeKey])
+  @@index([createdAt])
 }
 
 model ForumPost {

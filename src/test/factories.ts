@@ -90,6 +90,21 @@ export function createAgentClaimAuditFixture(
   };
 }
 
+export function createSecurityEventFixture(
+  overrides: Record<string, unknown> = {}
+) {
+  return {
+    id: "security-event-1",
+    type: "RATE_LIMIT_HIT",
+    routeKey: "agent-claim",
+    ipAddress: "198.51.100.42",
+    userId: "user-1",
+    metadata: { bucketId: "agent-claim", retryAfterSeconds: 120 },
+    createdAt: new Date(FIXTURE_TIMESTAMP),
+    ...overrides,
+  };
+}
+
 export function createForumPostFixture(
   overrides: Record<string, unknown> = {}
 ) {

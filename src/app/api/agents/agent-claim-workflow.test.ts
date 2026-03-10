@@ -9,6 +9,7 @@ import {
   createAgentCredentialFixture,
   createAgentFixture,
   createAgentClaimAuditFixture,
+  createSecurityEventFixture,
   createUserFixture,
   createUserSessionFixture,
 } from "@/test/factories";
@@ -17,6 +18,7 @@ import { POST as claimAgent } from "./claim/route";
 import { POST as registerAgent } from "./register/route";
 import { GET as listOwnedAgents } from "../users/me/agents/route";
 import { GET as getOwnedAgent } from "../users/me/agents/[id]/route";
+import { GET as listSecurityEvents } from "../users/me/security-events/route";
 import { POST as revokeOwnedAgent } from "../users/me/agents/[id]/revoke/route";
 import { POST as rotateOwnedAgentKey } from "../users/me/agents/[id]/rotate-key/route";
 
@@ -39,6 +41,10 @@ type AgentClaimPrismaMock = {
   agentClaimAudit?: {
     create: AsyncMethod;
   };
+  securityEvent?: {
+    create: AsyncMethod;
+    findMany: AsyncMethod;
+  };
   userSession?: {
     findUnique: AsyncMethod;
     deleteMany: AsyncMethod;
@@ -54,6 +60,8 @@ const originalCredentialCreate = prismaClient.agentCredential?.create;
 const originalCredentialFindUnique = prismaClient.agentCredential?.findUnique;
 const originalCredentialUpdateMany = prismaClient.agentCredential?.updateMany;
 const originalAuditCreate = prismaClient.agentClaimAudit?.create;
+const originalSecurityEventCreate = prismaClient.securityEvent?.create;
+const originalSecurityEventFindMany = prismaClient.securityEvent?.findMany;
 const originalUserSessionFindUnique = prismaClient.userSession?.findUnique;
 const originalUserSessionDeleteMany = prismaClient.userSession?.deleteMany;
 
@@ -75,6 +83,12 @@ afterEach(() => {
   }
   if (prismaClient.agentClaimAudit && originalAuditCreate) {
     prismaClient.agentClaimAudit.create = originalAuditCreate;
+  }
+  if (prismaClient.securityEvent && originalSecurityEventCreate) {
+    prismaClient.securityEvent.create = originalSecurityEventCreate;
+  }
+  if (prismaClient.securityEvent && originalSecurityEventFindMany) {
+    prismaClient.securityEvent.findMany = originalSecurityEventFindMany;
   }
   if (prismaClient.userSession && originalUserSessionFindUnique) {
     prismaClient.userSession.findUnique = originalUserSessionFindUnique;
@@ -507,6 +521,7 @@ test("revoke marks the agent as revoked for the owning user", async () => {
 
 test("register rate limits repeated self-registration attempts from the same ip", async () => {
   let createCount = 0;
+  const securityEvents: Array<Record<string, unknown>> = [];
 
   prismaClient.agent.findUnique = async () => null;
   prismaClient.agent.create = async () => {
@@ -524,6 +539,16 @@ test("register rate limits repeated self-registration attempts from the same ip"
   prismaClient.agentCredential = {
     create: async () => createAgentCredentialFixture(),
     findUnique: async () => null,
+  };
+  prismaClient.securityEvent = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      securityEvents.push(data);
+      return createSecurityEventFixture({
+        ...data,
+        userId: null,
+      });
+    },
+    findMany: async () => [],
   };
 
   for (let index = 0; index < 3; index += 1) {
@@ -561,11 +586,16 @@ test("register rate limits repeated self-registration attempts from the same ip"
   assert.equal(json.error, "Too many requests");
   assert.equal(typeof json.retryAfterSeconds, "number");
   assert.equal(createCount, 3);
+  assert.equal(securityEvents.length, 1);
+  assert.equal(securityEvents[0].routeKey, "agent-register");
+  assert.equal(securityEvents[0].userId, null);
+  assert.equal(securityEvents[0].ipAddress, "198.51.100.10");
 });
 
 test("claim rate limits repeated key claims for the same user and ip", async () => {
   const token = "claim-rate-limit-token";
   let updateCount = 0;
+  const securityEvents: Array<Record<string, unknown>> = [];
 
   prismaClient.userSession = {
     findUnique: async ({ where }: { where: { tokenHash: string } }) =>
@@ -600,6 +630,13 @@ test("claim rate limits repeated key claims for the same user and ip", async () 
   };
   prismaClient.agentClaimAudit = {
     create: async () => ({ id: `audit-${updateCount}` }),
+  };
+  prismaClient.securityEvent = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      securityEvents.push(data);
+      return createSecurityEventFixture(data);
+    },
+    findMany: async () => [],
   };
 
   for (let index = 0; index < 5; index += 1) {
@@ -637,11 +674,17 @@ test("claim rate limits repeated key claims for the same user and ip", async () 
   assert.equal(json.error, "Too many requests");
   assert.equal(typeof json.retryAfterSeconds, "number");
   assert.equal(updateCount, 5);
+  assert.equal(securityEvents.length, 1);
+  assert.equal(securityEvents[0].type, "RATE_LIMIT_HIT");
+  assert.equal(securityEvents[0].routeKey, "agent-claim");
+  assert.equal(securityEvents[0].userId, "user-rate-1");
+  assert.equal(securityEvents[0].ipAddress, "198.51.100.11");
 });
 
 test("rotate-key rate limits repeated credential rotations for the same user and ip", async () => {
   const token = "rotate-rate-limit-token";
   let updateCount = 0;
+  const securityEvents: Array<Record<string, unknown>> = [];
 
   prismaClient.userSession = {
     findUnique: async ({ where }: { where: { tokenHash: string } }) =>
@@ -675,6 +718,13 @@ test("rotate-key rate limits repeated credential rotations for the same user and
   prismaClient.agentClaimAudit = {
     create: async () => ({ id: `audit-${updateCount}` }),
   };
+  prismaClient.securityEvent = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      securityEvents.push(data);
+      return createSecurityEventFixture(data);
+    },
+    findMany: async () => [],
+  };
 
   for (let index = 0; index < 5; index += 1) {
     const response = await rotateOwnedAgentKey(
@@ -707,11 +757,16 @@ test("rotate-key rate limits repeated credential rotations for the same user and
   assert.equal(json.error, "Too many requests");
   assert.equal(typeof json.retryAfterSeconds, "number");
   assert.equal(updateCount, 5);
+  assert.equal(securityEvents.length, 1);
+  assert.equal(securityEvents[0].routeKey, "agent-rotate-key");
+  assert.equal(securityEvents[0].userId, "user-rate-2");
+  assert.equal(securityEvents[0].ipAddress, "198.51.100.12");
 });
 
 test("revoke rate limits repeated revocations for the same user and ip", async () => {
   const token = "revoke-rate-limit-token";
   let updateCount = 0;
+  const securityEvents: Array<Record<string, unknown>> = [];
 
   prismaClient.userSession = {
     findUnique: async ({ where }: { where: { tokenHash: string } }) =>
@@ -746,6 +801,13 @@ test("revoke rate limits repeated revocations for the same user and ip", async (
   prismaClient.agentClaimAudit = {
     create: async () => ({ id: `audit-${updateCount}` }),
   };
+  prismaClient.securityEvent = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      securityEvents.push(data);
+      return createSecurityEventFixture(data);
+    },
+    findMany: async () => [],
+  };
 
   for (let index = 0; index < 5; index += 1) {
     const response = await revokeOwnedAgent(
@@ -778,4 +840,57 @@ test("revoke rate limits repeated revocations for the same user and ip", async (
   assert.equal(json.error, "Too many requests");
   assert.equal(typeof json.retryAfterSeconds, "number");
   assert.equal(updateCount, 5);
+  assert.equal(securityEvents.length, 1);
+  assert.equal(securityEvents[0].routeKey, "agent-revoke");
+  assert.equal(securityEvents[0].userId, "user-rate-3");
+  assert.equal(securityEvents[0].ipAddress, "198.51.100.13");
+});
+
+test("security events endpoint returns the current user's recent rate-limit hits", async () => {
+  const token = "security-events-token";
+
+  prismaClient.userSession = {
+    findUnique: async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashSessionToken(token)
+        ? createUserSessionFixture({
+            tokenHash: where.tokenHash,
+            user: createUserFixture({
+              id: "user-security-1",
+              email: "security@example.com",
+            }),
+          })
+        : null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+  prismaClient.securityEvent = {
+    create: async () => createSecurityEventFixture(),
+    findMany: async () => [
+      createSecurityEventFixture({
+        id: "security-event-1",
+        userId: "user-security-1",
+        routeKey: "agent-claim",
+      }),
+      createSecurityEventFixture({
+        id: "security-event-2",
+        userId: "user-security-1",
+        routeKey: "agent-rotate-key",
+        createdAt: new Date("2026-03-10T08:30:00.000Z"),
+      }),
+    ],
+  };
+
+  const response = await listSecurityEvents(
+    createRouteRequest("http://localhost/api/users/me/security-events", {
+      headers: {
+        cookie: `${USER_SESSION_COOKIE_NAME}=${token}`,
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(json.data.length, 2);
+  assert.equal(json.data[0].type, "RATE_LIMIT_HIT");
+  assert.equal(json.data[0].routeKey, "agent-claim");
 });

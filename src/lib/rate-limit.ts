@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import prisma from "./prisma";
 
 type RateLimitBucket = {
   count: number;
@@ -18,9 +19,23 @@ type RateLimitResult = {
   retryAfterSeconds: number;
 };
 
+type EnforceRateLimitConfig = RateLimitConfig & {
+  routeKey: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+type SecurityEventPrismaClient = {
+  securityEvent?: {
+    create: (args: unknown) => Promise<unknown>;
+  };
+};
+
 const globalForRateLimit = globalThis as typeof globalThis & {
   __evoryRateLimitStore?: Map<string, RateLimitBucket>;
 };
+
+const rateLimitPrisma = prisma as unknown as SecurityEventPrismaClient;
 
 const rateLimitStore =
   globalForRateLimit.__evoryRateLimitStore ?? new Map<string, RateLimitBucket>();
@@ -29,7 +44,7 @@ if (!globalForRateLimit.__evoryRateLimitStore) {
   globalForRateLimit.__evoryRateLimitStore = rateLimitStore;
 }
 
-function getClientIp(request: NextRequest) {
+export function getClientIp(request: NextRequest) {
   const forwardedFor = request.headers.get("x-forwarded-for");
   if (forwardedFor) {
     const [first] = forwardedFor.split(",");
@@ -111,6 +126,36 @@ export function rateLimitResponse(retryAfterSeconds: number) {
       },
     }
   );
+}
+
+export async function enforceRateLimit(
+  config: EnforceRateLimitConfig
+): Promise<Response | null> {
+  const result = consumeRateLimit(config);
+
+  if (!result.limited) {
+    return null;
+  }
+
+  try {
+    await rateLimitPrisma.securityEvent?.create({
+      data: {
+        type: "RATE_LIMIT_HIT",
+        routeKey: config.routeKey,
+        ipAddress: getClientIp(config.request),
+        userId: config.userId ?? null,
+        metadata: {
+          bucketId: config.bucketId,
+          retryAfterSeconds: result.retryAfterSeconds,
+          ...(config.metadata ?? {}),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("[rate-limit/security-event]", error);
+  }
+
+  return rateLimitResponse(result.retryAfterSeconds);
 }
 
 export function resetRateLimitStore() {

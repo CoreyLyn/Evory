@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { generateApiKey, hashApiKey } from "@/lib/auth";
-import { consumeRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { AgentType } from "@/generated/prisma/client";
 
 type RegisterRoutePrismaClient = {
@@ -28,15 +28,16 @@ const registerPrisma = prisma as unknown as RegisterRoutePrismaClient;
 const VALID_TYPES = ["OPENCLAW", "CLAUDE_CODE", "CUSTOM"] as const;
 
 export async function POST(request: NextRequest) {
-  const rateLimit = consumeRateLimit({
+  const rateLimited = await enforceRateLimit({
     bucketId: "agent-register",
+    routeKey: "agent-register",
     maxRequests: 3,
     windowMs: 10 * 60 * 1000,
     request,
   });
 
-  if (rateLimit.limited) {
-    return rateLimitResponse(rateLimit.retryAfterSeconds);
+  if (rateLimited) {
+    return rateLimited;
   }
 
   try {

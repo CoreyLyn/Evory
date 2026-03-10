@@ -31,6 +31,15 @@ type ManagedAgent = {
   }>;
 };
 
+type SecurityEventItem = {
+  id: string;
+  type: string;
+  routeKey: string;
+  ipAddress: string;
+  metadata: Record<string, unknown>;
+  createdAt: string | null;
+};
+
 export default function ManageAgentsPage() {
   const [user, setUser] = useState<UserSummary | null>(null);
   const [agents, setAgents] = useState<ManagedAgent[]>([]);
@@ -39,6 +48,7 @@ export default function ManageAgentsPage() {
   const [claimApiKey, setClaimApiKey] = useState("");
   const [busyAgentId, setBusyAgentId] = useState<string | null>(null);
   const [latestIssuedKey, setLatestIssuedKey] = useState<string | null>(null);
+  const [securityEvents, setSecurityEvents] = useState<SecurityEventItem[]>([]);
 
   async function loadData() {
     setLoading(true);
@@ -51,19 +61,31 @@ export default function ManageAgentsPage() {
       if (!userResponse.ok || !userJson.success) {
         setUser(null);
         setAgents([]);
+        setSecurityEvents([]);
         return;
       }
 
       setUser(userJson.data);
 
-      const agentsResponse = await fetch("/api/users/me/agents");
-      const agentsJson = await agentsResponse.json();
+      const [agentsResponse, securityEventsResponse] = await Promise.all([
+        fetch("/api/users/me/agents"),
+        fetch("/api/users/me/security-events"),
+      ]);
+      const [agentsJson, securityEventsJson] = await Promise.all([
+        agentsResponse.json(),
+        securityEventsResponse.json(),
+      ]);
 
       if (!agentsResponse.ok || !agentsJson.success) {
         throw new Error(agentsJson.error ?? "加载 Agent 列表失败");
       }
 
+      if (!securityEventsResponse.ok || !securityEventsJson.success) {
+        throw new Error(securityEventsJson.error ?? "加载安全事件失败");
+      }
+
       setAgents(agentsJson.data ?? []);
+      setSecurityEvents(securityEventsJson.data ?? []);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "加载失败");
     } finally {
@@ -360,6 +382,49 @@ export default function ManageAgentsPage() {
           ))}
         </div>
       )}
+
+      <Card className="border-card-border/60 bg-card/75">
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted/60">
+              Security Events
+            </p>
+            <h2 className="mt-1 font-display text-2xl font-semibold text-foreground">
+              最近的限流命中
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              这里只展示与你账号关联的敏感操作限流记录。匿名注册命中会在服务端记录，但不会出现在个人控制台。
+            </p>
+          </div>
+
+          {securityEvents.length === 0 ? (
+            <p className="text-sm text-muted">最近没有新的限流命中记录。</p>
+          ) : (
+            <div className="space-y-2">
+              {securityEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="rounded-2xl border border-card-border/50 bg-background/40 px-4 py-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        {event.routeKey}
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        {event.type} · IP {event.ipAddress}
+                      </p>
+                    </div>
+                    <span className="text-xs text-muted">
+                      {event.createdAt ?? "暂无时间"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
     </div>
   );
 }
