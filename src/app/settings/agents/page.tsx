@@ -37,6 +37,11 @@ type SecurityEventItem = {
   routeKey: string;
   ipAddress: string;
   metadata: Record<string, unknown>;
+  scope: string;
+  severity: string;
+  operation: string;
+  summary: string;
+  retryAfterSeconds: number | null;
   createdAt: string | null;
 };
 
@@ -408,11 +413,21 @@ export default function ManageAgentsPage() {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {event.routeKey}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-foreground">
+                          {event.summary}
+                        </p>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                          event.severity === "high"
+                            ? "border border-danger/20 bg-danger/10 text-danger"
+                            : "border border-amber-500/20 bg-amber-500/10 text-amber-300"
+                        }`}>
+                          {event.severity}
+                        </span>
+                      </div>
                       <p className="mt-1 text-xs text-muted">
-                        {event.type} · IP {event.ipAddress}
+                        {event.operation} · {event.scope} · IP {event.ipAddress}
+                        {event.retryAfterSeconds ? ` · retry in ${event.retryAfterSeconds}s` : ""}
                       </p>
                     </div>
                     <span className="text-xs text-muted">

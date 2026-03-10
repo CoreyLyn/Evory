@@ -44,6 +44,33 @@ if (!globalForRateLimit.__evoryRateLimitStore) {
   globalForRateLimit.__evoryRateLimitStore = rateLimitStore;
 }
 
+const RATE_LIMIT_EVENT_DETAILS = {
+  "agent-register": {
+    scope: "anonymous",
+    severity: "warning",
+    operation: "agent_registration",
+    summary: "Anonymous agent registration attempts were rate limited.",
+  },
+  "agent-claim": {
+    scope: "user",
+    severity: "warning",
+    operation: "agent_claim",
+    summary: "Agent claim attempts were rate limited.",
+  },
+  "agent-rotate-key": {
+    scope: "credential",
+    severity: "high",
+    operation: "credential_rotation",
+    summary: "Credential rotation attempts were rate limited.",
+  },
+  "agent-revoke": {
+    scope: "credential",
+    severity: "high",
+    operation: "agent_revoke",
+    summary: "Agent revoke attempts were rate limited.",
+  },
+} as const;
+
 export function getClientIp(request: NextRequest) {
   const forwardedFor = request.headers.get("x-forwarded-for");
   if (forwardedFor) {
@@ -128,6 +155,17 @@ export function rateLimitResponse(retryAfterSeconds: number) {
   );
 }
 
+export function getRateLimitEventMetadata(routeKey: string) {
+  return (
+    RATE_LIMIT_EVENT_DETAILS[routeKey as keyof typeof RATE_LIMIT_EVENT_DETAILS] ?? {
+      scope: "unknown",
+      severity: "warning",
+      operation: routeKey,
+      summary: "Rate limit was triggered.",
+    }
+  );
+}
+
 export async function enforceRateLimit(
   config: EnforceRateLimitConfig
 ): Promise<Response | null> {
@@ -138,6 +176,8 @@ export async function enforceRateLimit(
   }
 
   try {
+    const eventMetadata = getRateLimitEventMetadata(config.routeKey);
+
     await rateLimitPrisma.securityEvent?.create({
       data: {
         type: "RATE_LIMIT_HIT",
@@ -145,6 +185,7 @@ export async function enforceRateLimit(
         ipAddress: getClientIp(config.request),
         userId: config.userId ?? null,
         metadata: {
+          ...eventMetadata,
           bucketId: config.bucketId,
           retryAfterSeconds: result.retryAfterSeconds,
           ...(config.metadata ?? {}),

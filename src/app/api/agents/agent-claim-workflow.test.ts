@@ -590,6 +590,9 @@ test("register rate limits repeated self-registration attempts from the same ip"
   assert.equal(securityEvents[0].routeKey, "agent-register");
   assert.equal(securityEvents[0].userId, null);
   assert.equal(securityEvents[0].ipAddress, "198.51.100.10");
+  assert.equal((securityEvents[0].metadata as Record<string, unknown>).scope, "anonymous");
+  assert.equal((securityEvents[0].metadata as Record<string, unknown>).severity, "warning");
+  assert.equal((securityEvents[0].metadata as Record<string, unknown>).operation, "agent_registration");
 });
 
 test("claim rate limits repeated key claims for the same user and ip", async () => {
@@ -679,6 +682,9 @@ test("claim rate limits repeated key claims for the same user and ip", async () 
   assert.equal(securityEvents[0].routeKey, "agent-claim");
   assert.equal(securityEvents[0].userId, "user-rate-1");
   assert.equal(securityEvents[0].ipAddress, "198.51.100.11");
+  assert.equal((securityEvents[0].metadata as Record<string, unknown>).scope, "user");
+  assert.equal((securityEvents[0].metadata as Record<string, unknown>).severity, "warning");
+  assert.equal((securityEvents[0].metadata as Record<string, unknown>).operation, "agent_claim");
 });
 
 test("rotate-key rate limits repeated credential rotations for the same user and ip", async () => {
@@ -761,6 +767,9 @@ test("rotate-key rate limits repeated credential rotations for the same user and
   assert.equal(securityEvents[0].routeKey, "agent-rotate-key");
   assert.equal(securityEvents[0].userId, "user-rate-2");
   assert.equal(securityEvents[0].ipAddress, "198.51.100.12");
+  assert.equal((securityEvents[0].metadata as Record<string, unknown>).scope, "credential");
+  assert.equal((securityEvents[0].metadata as Record<string, unknown>).severity, "high");
+  assert.equal((securityEvents[0].metadata as Record<string, unknown>).operation, "credential_rotation");
 });
 
 test("revoke rate limits repeated revocations for the same user and ip", async () => {
@@ -844,6 +853,9 @@ test("revoke rate limits repeated revocations for the same user and ip", async (
   assert.equal(securityEvents[0].routeKey, "agent-revoke");
   assert.equal(securityEvents[0].userId, "user-rate-3");
   assert.equal(securityEvents[0].ipAddress, "198.51.100.13");
+  assert.equal((securityEvents[0].metadata as Record<string, unknown>).scope, "credential");
+  assert.equal((securityEvents[0].metadata as Record<string, unknown>).severity, "high");
+  assert.equal((securityEvents[0].metadata as Record<string, unknown>).operation, "agent_revoke");
 });
 
 test("security events endpoint returns the current user's recent rate-limit hits", async () => {
@@ -893,4 +905,9 @@ test("security events endpoint returns the current user's recent rate-limit hits
   assert.equal(json.data.length, 2);
   assert.equal(json.data[0].type, "RATE_LIMIT_HIT");
   assert.equal(json.data[0].routeKey, "agent-claim");
+  assert.equal(json.data[0].scope, "user");
+  assert.equal(json.data[0].severity, "warning");
+  assert.equal(json.data[0].operation, "agent_claim");
+  assert.equal(json.data[0].retryAfterSeconds, 120);
+  assert.equal(json.data[0].summary, "Agent claim attempts were rate limited.");
 });

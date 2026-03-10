@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
+import { getRateLimitEventMetadata } from "@/lib/rate-limit";
 import { authenticateUser } from "@/lib/user-auth";
 
 type SecurityEventsPrismaClient = {
@@ -57,6 +58,21 @@ export async function GET(request: NextRequest) {
         routeKey: event.routeKey,
         ipAddress: event.ipAddress,
         metadata: event.metadata ?? {},
+        scope:
+          (event.metadata as Record<string, unknown> | null)?.scope ??
+          getRateLimitEventMetadata(event.routeKey).scope,
+        severity:
+          (event.metadata as Record<string, unknown> | null)?.severity ??
+          getRateLimitEventMetadata(event.routeKey).severity,
+        operation:
+          (event.metadata as Record<string, unknown> | null)?.operation ??
+          getRateLimitEventMetadata(event.routeKey).operation,
+        summary:
+          (event.metadata as Record<string, unknown> | null)?.summary ??
+          getRateLimitEventMetadata(event.routeKey).summary,
+        retryAfterSeconds:
+          (event.metadata as Record<string, unknown> | null)
+            ?.retryAfterSeconds ?? null,
         createdAt: event.createdAt ?? null,
       })),
     });

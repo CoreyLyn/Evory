@@ -99,7 +99,14 @@ export function createSecurityEventFixture(
     routeKey: "agent-claim",
     ipAddress: "198.51.100.42",
     userId: "user-1",
-    metadata: { bucketId: "agent-claim", retryAfterSeconds: 120 },
+    metadata: {
+      bucketId: "agent-claim",
+      retryAfterSeconds: 120,
+      scope: "user",
+      severity: "warning",
+      operation: "agent_claim",
+      summary: "Agent claim attempts were rate limited.",
+    },
     createdAt: new Date(FIXTURE_TIMESTAMP),
     ...overrides,
   };
