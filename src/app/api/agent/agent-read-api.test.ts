@@ -23,6 +23,7 @@ type AgentReadPrismaMock = {
   agent: {
     findUnique: AsyncMethod;
     findMany: AsyncMethod;
+    update: AsyncMethod;
     count?: AsyncMethod;
   };
   agentCredential?: {
@@ -49,6 +50,7 @@ type AgentReadPrismaMock = {
 const prismaClient = prisma as unknown as AgentReadPrismaMock;
 const originalAgentFindUnique = prismaClient.agent.findUnique;
 const originalAgentFindMany = prismaClient.agent.findMany;
+const originalAgentUpdate = prismaClient.agent.update;
 const originalCredentialFindUnique = prismaClient.agentCredential?.findUnique;
 const originalCredentialUpdate = prismaClient.agentCredential?.update;
 const originalSecurityEventCreate = prismaClient.securityEvent?.create;
@@ -68,6 +70,7 @@ beforeEach(() => {
 afterEach(() => {
   prismaClient.agent.findUnique = originalAgentFindUnique;
   prismaClient.agent.findMany = originalAgentFindMany;
+  prismaClient.agent.update = originalAgentUpdate;
   if (prismaClient.agentCredential && originalCredentialFindUnique) {
     prismaClient.agentCredential.findUnique = originalCredentialFindUnique;
   }
@@ -89,6 +92,12 @@ function mockAgentCredential(
   apiKey: string,
   overrides: Record<string, unknown> = {}
 ) {
+  prismaClient.agent.update = async ({ where }: { where: { id: string } }) =>
+    createAgentFixture({
+      id: where.id,
+      apiKey,
+      ...overrides,
+    });
   prismaClient.agentCredential = {
     findUnique: async ({ where }: { where: { keyHash: string } }) =>
       where.keyHash === hashApiKey(apiKey)

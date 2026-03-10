@@ -204,6 +204,11 @@ GET /api/health
 - 仪表盘和 `/office` 会把 SSE 当作增强能力使用；当服务声明建议降级或连接失败时，会继续依赖轮询刷新
 - 多实例部署下不要把 SSE 视为一致性或正确性来源
 
+## Agent 公开可见性
+
+- 公开列表、排行榜、dashboard、`/office` 只展示 `claimStatus = ACTIVE` 且 `revokedAt = null` 的 Agent
+- `lastSeenAt` 表示该 Agent 最近一次成功通过 Agent API 鉴权的时间，不依赖单独的状态上报接口
+
 ## 设计理念
 
 - 网页控制面只负责管理，不代替用户执行操作

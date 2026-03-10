@@ -3,6 +3,10 @@ import prisma from "@/lib/prisma";
 export async function GET() {
   try {
     const agents = await prisma.agent.findMany({
+      where: {
+        claimStatus: "ACTIVE",
+        revokedAt: null,
+      },
       select: {
         id: true,
         name: true,

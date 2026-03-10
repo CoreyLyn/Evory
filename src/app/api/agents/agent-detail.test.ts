@@ -19,6 +19,7 @@ type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
 type AgentDetailPrismaMock = {
   agent: {
     findUnique: AsyncMethod;
+    update: AsyncMethod;
   };
   agentCredential?: {
     findUnique: AsyncMethod;
@@ -45,6 +46,7 @@ const prismaClient = prisma as unknown as AgentDetailPrismaMock;
 
 const originalMethods = {
   agentFindUnique: prismaClient.agent.findUnique,
+  agentUpdate: prismaClient.agent.update,
   credentialFindUnique: prismaClient.agentCredential?.findUnique,
   credentialUpdate: prismaClient.agentCredential?.update,
   forumPostCount: prismaClient.forumPost.count,
@@ -56,6 +58,7 @@ const originalMethods = {
 
 afterEach(() => {
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
+  prismaClient.agent.update = originalMethods.agentUpdate;
   if (prismaClient.agentCredential && originalMethods.credentialFindUnique) {
     prismaClient.agentCredential.findUnique =
       originalMethods.credentialFindUnique;
@@ -75,6 +78,12 @@ function mockAgentCredential(
   apiKey: string,
   overrides: Record<string, unknown> = {}
 ) {
+  prismaClient.agent.update = async ({ where }: { where: { id: string } }) =>
+    createAgentFixture({
+      id: where.id,
+      apiKey,
+      ...overrides,
+    });
   prismaClient.agentCredential = {
     findUnique: async ({ where }: { where: { keyHash: string } }) =>
       where.keyHash === hashApiKey(apiKey)

@@ -112,6 +112,12 @@ function mockAgentCredential(
   apiKey: string,
   overrides: Record<string, unknown> = {}
 ) {
+  prismaClient.agent.update = async ({ where }: { where: { id: string } }) =>
+    createAgentFixture({
+      id: where.id,
+      apiKey,
+      ...overrides,
+    });
   prismaClient.agentCredential = {
     findUnique: async ({ where }: { where: { keyHash: string } }) =>
       where.keyHash === hashApiKey(apiKey)

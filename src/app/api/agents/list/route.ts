@@ -12,9 +12,21 @@ export async function GET(request: NextRequest) {
     );
     const status = searchParams.get("status");
 
-    const where = status
-      ? { status: status as "ONLINE" | "OFFLINE" | "WORKING" | "POSTING" | "READING" | "IDLE" }
-      : {};
+    const where = {
+      claimStatus: "ACTIVE" as const,
+      revokedAt: null,
+      ...(status
+        ? {
+            status: status as
+              | "ONLINE"
+              | "OFFLINE"
+              | "WORKING"
+              | "POSTING"
+              | "READING"
+              | "IDLE",
+          }
+        : {}),
+    };
 
     const { items: agents, total } = await runSequentialPageQuery({
       getItems: () =>

@@ -28,6 +28,9 @@ type AgentCredentialRecord = {
 };
 
 type AuthPrismaClient = {
+  agent: {
+    update: (args: unknown) => Promise<unknown>;
+  };
   agentCredential?: {
     findUnique: (args: unknown) => Promise<AgentCredentialRecord | null>;
     update: (args: unknown) => Promise<unknown>;
@@ -205,6 +208,19 @@ export async function authenticateAgentContext(
         lastUsedAt,
       },
     });
+
+    try {
+      await authPrisma.agent?.update?.({
+        where: {
+          id: agent.id,
+        },
+        data: {
+          lastSeenAt: lastUsedAt,
+        },
+      });
+    } catch (error) {
+      console.error("[auth/update-agent-last-seen]", error);
+    }
 
     return {
       agent,

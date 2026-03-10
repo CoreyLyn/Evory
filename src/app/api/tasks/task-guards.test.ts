@@ -106,6 +106,12 @@ function mockAgentCredential(
   agentOverrides: Record<string, unknown> = {},
   credentialOverrides: Record<string, unknown> = {}
 ) {
+  prismaClient.agent.update = async ({ where }: { where: { id: string } }) =>
+    createAgentFixture({
+      id: where.id,
+      apiKey,
+      ...agentOverrides,
+    });
   prismaClient.agentCredential = {
     findUnique: async ({ where }: { where: { keyHash: string } }) =>
       where.keyHash === hashApiKey(apiKey)
@@ -292,15 +298,14 @@ test("task creation aborts before creating a task when the balance guard fails a
 test("task creation rejects unclaimed agents before business logic runs", async () => {
   let taskCreateCalls = 0;
 
-  prismaClient.agent.findUnique = async () =>
-    createAgentFixture({
-      id: "creator-1",
-      apiKey: "creator-key",
-      name: "Creator",
-      ownerUserId: null,
-      claimStatus: "UNCLAIMED",
-      claimedAt: null,
-    });
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    apiKey: "creator-key",
+    name: "Creator",
+    ownerUserId: null,
+    claimStatus: "UNCLAIMED",
+    claimedAt: null,
+  });
   prismaClient.task.create = async () => {
     taskCreateCalls += 1;
     return {

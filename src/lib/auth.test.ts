@@ -87,6 +87,7 @@ test("hashApiKey is deterministic and not equal to the raw key", () => {
 
 test("authenticateAgent returns an active claimed agent from credential lookup", async () => {
   let updatedCredentialId = "";
+  let updatedAgentId = "";
 
   prismaClient.agentCredential = {
     findUnique: async () =>
@@ -109,6 +110,15 @@ test("authenticateAgent returns an active claimed agent from credential lookup",
     },
   };
   prismaClient.agent.findUnique = async () => null;
+  prismaClient.agent.update = async ({ where }: { where: { id: string } }) => {
+    updatedAgentId = where.id;
+    return createAgentFixture({
+      id: where.id,
+      claimStatus: "ACTIVE",
+      revokedAt: null,
+      lastSeenAt: "2026-03-10T00:00:00.000Z",
+    });
+  };
 
   const agent = await authenticateAgent(
     createRouteRequest("http://localhost/api/agents/me", {
@@ -118,9 +128,12 @@ test("authenticateAgent returns an active claimed agent from credential lookup",
 
   assert.equal(agent?.id, "agent-1");
   assert.equal(updatedCredentialId, "credential-1");
+  assert.equal(updatedAgentId, "agent-1");
 });
 
 test("authenticateAgent rejects an unclaimed agent credential", async () => {
+  let updatedAgentId = "";
+
   prismaClient.agentCredential = {
     findUnique: async () =>
       createAgentCredentialFixture({
@@ -134,6 +147,10 @@ test("authenticateAgent rejects an unclaimed agent credential", async () => {
       }),
   };
   prismaClient.agent.findUnique = async () => null;
+  prismaClient.agent.update = async ({ where }: { where: { id: string } }) => {
+    updatedAgentId = where.id;
+    return createAgentFixture({ id: where.id });
+  };
 
   const agent = await authenticateAgent(
     createRouteRequest("http://localhost/api/agents/me", {
@@ -142,6 +159,7 @@ test("authenticateAgent rejects an unclaimed agent credential", async () => {
   );
 
   assert.equal(agent, null);
+  assert.equal(updatedAgentId, "");
 });
 
 test("authenticateAgent rejects a revoked credential", async () => {
@@ -383,4 +401,41 @@ test("authenticateAgent logs infrastructure failures separately from invalid cre
   assert.equal(createdEvent, false);
   assert.equal(consoleErrors.length, 1);
   assert.equal(consoleErrors[0]?.[0], "[auth/authenticate-agent-context]");
+});
+
+test("authenticateAgent tolerates lastSeenAt refresh failures after successful auth", async () => {
+  const consoleErrors: unknown[][] = [];
+
+  console.error = (...args: unknown[]) => {
+    consoleErrors.push(args);
+  };
+  prismaClient.agentCredential = {
+    findUnique: async () =>
+      createAgentCredentialFixture({
+        id: "credential-1",
+        keyHash: hashApiKey("agent-key"),
+        scopes: [...DEFAULT_AGENT_CREDENTIAL_SCOPES],
+        expiresAt: new Date("2026-04-10T00:00:00.000Z"),
+        agent: createAgentFixture({
+          id: "agent-1",
+          claimStatus: "ACTIVE",
+          revokedAt: null,
+        }),
+      }),
+    update: async () => createAgentCredentialFixture(),
+  };
+  prismaClient.agent.findUnique = async () => null;
+  prismaClient.agent.update = async () => {
+    throw new Error("last seen write failed");
+  };
+
+  const agent = await authenticateAgent(
+    createRouteRequest("http://localhost/api/agents/me", {
+      apiKey: "agent-key",
+    })
+  );
+
+  assert.equal(agent?.id, "agent-1");
+  assert.equal(consoleErrors.length, 1);
+  assert.equal(consoleErrors[0]?.[0], "[auth/update-agent-last-seen]");
 });
