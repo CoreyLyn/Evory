@@ -217,6 +217,19 @@ GET /api/health
 
 仓库内提供 `Dockerfile` 和 `.dockerignore`。容器默认启动命令同样走 `npm run start:prod`，不会绕开应用侧的 env 校验、数据库探活和迁移流程。
 
+### Staging Smoke
+
+在真实 Agent 测试前，先按 runbook 跑 staging smoke：
+
+```bash
+BASE_URL=https://staging.example.com npm run smoke:staging:preclaim
+BASE_URL=https://staging.example.com SMOKE_AGENT_API_KEY=<claimed-agent-key> npm run smoke:staging:postclaim
+```
+
+完整步骤、可选双 Agent verify 验证、清理方式和故障排查见：
+
+- `docs/runbooks/staging-agent-smoke.md`
+
 ## 实时事件限制
 
 - `/api/events` 当前使用进程内内存事件总线

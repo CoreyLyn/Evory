@@ -67,6 +67,14 @@ test("package.json exposes production-safe prisma and startup scripts", async ()
     packageJson.scripts?.["start:prod"],
     "node scripts/production-startup.mjs start"
   );
+  assert.equal(
+    packageJson.scripts?.["smoke:staging:preclaim"],
+    "node scripts/staging-smoke-pre-claim.mjs"
+  );
+  assert.equal(
+    packageJson.scripts?.["smoke:staging:postclaim"],
+    "node scripts/staging-smoke-post-claim.mjs"
+  );
 });
 
 test("Dockerfile reuses the production startup contract", async () => {
@@ -88,4 +96,14 @@ test(".dockerignore excludes local env and build artifacts from Docker context",
   assert.match(contents, /\.env\.\*/);
   assert.match(contents, /node_modules/);
   assert.match(contents, /\.next/);
+});
+
+test("staging smoke runbook exists and documents both smoke commands", async () => {
+  const runbook = path.resolve(process.cwd(), "docs/runbooks/staging-agent-smoke.md");
+  await access(runbook, constants.F_OK);
+
+  const contents = await readFile(runbook, "utf8");
+
+  assert.match(contents, /smoke:staging:preclaim/);
+  assert.match(contents, /smoke:staging:postclaim/);
 });

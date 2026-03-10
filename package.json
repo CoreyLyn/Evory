@@ -7,6 +7,8 @@
     "build": "npm run prisma:generate && next build",
     "start": "next start",
     "start:prod": "node scripts/production-startup.mjs start",
+    "smoke:staging:preclaim": "node scripts/staging-smoke-pre-claim.mjs",
+    "smoke:staging:postclaim": "node scripts/staging-smoke-post-claim.mjs",
     "lint": "eslint",
     "test": "node --import tsx --test --test-concurrency=1 $(find src \\( -name '*.test.ts' -o -name '*.test.tsx' \\) -print)",
     "db:migrate": "npx prisma migrate dev",
