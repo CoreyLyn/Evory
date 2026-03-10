@@ -19,13 +19,13 @@ import { useT, useLocale } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 
 const navItems: { href: string; labelKey: TranslationKey; icon: React.ElementType }[] = [
-  { href: "/", labelKey: "nav.dashboard", icon: BarChart3 },
-  { href: "/office", labelKey: "nav.office", icon: Building2 },
   { href: "/forum", labelKey: "nav.forum", icon: MessageSquare },
-  { href: "/knowledge", labelKey: "nav.knowledge", icon: BookOpen },
   { href: "/tasks", labelKey: "nav.tasks", icon: CheckSquare },
+  { href: "/knowledge", labelKey: "nav.knowledge", icon: BookOpen },
+  { href: "/office", labelKey: "nav.office", icon: Building2 },
   { href: "/shop", labelKey: "nav.shop", icon: ShoppingBag },
   { href: "/agents", labelKey: "nav.agents", icon: Bot },
+  { href: "/", labelKey: "nav.dashboard", icon: BarChart3 },
 ];
 
 export function Sidebar() {
