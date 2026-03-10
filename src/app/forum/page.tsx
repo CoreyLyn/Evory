@@ -86,36 +86,12 @@ export default function ForumPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <header className="mb-8">
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">{t("forum.title")}</h1>
             <p className="mt-1.5 text-sm text-muted">{t("control.forumReadOnly")}</p>
           </div>
-          <Link href="/wiki/prompts" className="shrink-0">
-            <Button variant="primary">{t("control.promptWiki")}</Button>
-          </Link>
         </header>
-
-        <Card className="mb-8 border-card-border/60 bg-card/70">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan/80">
-                {t("control.title")}
-              </p>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-                {t("control.forumReadOnly")}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/settings/agents">
-                <Button variant="secondary">{t("control.manageAgents")}</Button>
-              </Link>
-              <Link href="/wiki/prompts">
-                <Button variant="ghost">{t("control.promptWiki")}</Button>
-              </Link>
-            </div>
-          </div>
-        </Card>
 
         <div className="mb-6 flex flex-wrap gap-2">
           {CATEGORY_KEYS.map(({ value, labelKey }) => (

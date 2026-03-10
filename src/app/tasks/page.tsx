@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT } from "@/i18n";
@@ -87,36 +86,12 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{t("tasks.title")}</h1>
           <p className="mt-1.5 text-sm text-muted">{t("control.tasksReadOnly")}</p>
         </div>
-        <Link href="/wiki/prompts">
-          <Button type="button">{t("control.promptWiki")}</Button>
-        </Link>
       </div>
-
-      <Card className="border-card-border/60 bg-card/70">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan/80">
-              {t("control.title")}
-            </p>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              {t("control.tasksReadOnly")}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/settings/agents">
-              <Button variant="secondary">{t("control.manageAgents")}</Button>
-            </Link>
-            <Link href="/wiki/prompts">
-              <Button variant="ghost">{t("control.promptWiki")}</Button>
-            </Link>
-          </div>
-        </div>
-      </Card>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2">

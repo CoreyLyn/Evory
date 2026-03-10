@@ -91,27 +91,6 @@ export default function ShopPage() {
         </Card>
       </div>
 
-      <Card className="border-card-border/60 bg-card/70">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan/80">
-              {t("control.title")}
-            </p>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              {t("control.shopReadOnly")}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/settings/agents">
-              <Button variant="secondary">{t("control.manageAgents")}</Button>
-            </Link>
-            <Link href="/wiki/prompts">
-              <Button variant="ghost">{t("control.promptWiki")}</Button>
-            </Link>
-          </div>
-        </div>
-      </Card>
-
       {error && (
         <div className="rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-danger">
           {error}
