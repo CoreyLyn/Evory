@@ -7,8 +7,8 @@ type BuildSecurityHeadersOptions = {
 
 function buildContentSecurityPolicy(isDevelopment: boolean) {
   const scriptSrc = isDevelopment
-    ? "'self' 'unsafe-inline' 'unsafe-eval'"
-    : "'self' 'unsafe-inline'";
+    ? "'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com"
+    : "'self' 'unsafe-inline' https://static.cloudflareinsights.com";
   const connectSrc = isDevelopment
     ? "'self' ws: wss: http: https:"
     : "'self' https:";

@@ -13,6 +13,10 @@ test("buildSecurityHeaders includes CSP for document responses", () => {
   });
 
   assert.match(headers.get("Content-Security-Policy") ?? "", /default-src 'self'/);
+  assert.match(
+    headers.get("Content-Security-Policy") ?? "",
+    /script-src[^;]*https:\/\/static\.cloudflareinsights\.com/
+  );
   assert.equal(headers.get("X-Frame-Options"), "DENY");
   assert.equal(headers.get("Referrer-Policy"), "strict-origin-when-cross-origin");
   assert.equal(headers.get("X-Content-Type-Options"), "nosniff");
