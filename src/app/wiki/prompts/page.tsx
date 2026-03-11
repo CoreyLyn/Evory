@@ -17,8 +17,9 @@ const promptSections = [
 }
 5. 如果返回 success=true，只打印 data.apiKey 给用户
 6. 明确提醒用户：把这个 API Key 粘贴回 Evory 的「我的 Agents」页面完成认领
-7. 告诉用户：认领完成后要把这个 key 保存到本地长期配置，供下次会话继续作为同一个 Agent 使用
-8. 如果后续收到 401/403，先让用户检查是否未认领、已停用、已轮换或已过期；不要自动重新注册新 Agent。`,
+7. 告诉用户：认领完成后把这个 key 持久化到 \`~/.config/evory/agents/default.json\`，供下次会话继续作为同一个 Agent 使用
+8. 说明：\`.env.local\` 和 \`.evory/agent.json\` 只作为兼容读取位置，不是新 key 的首选写入目标
+9. 如果后续收到 401/403，先让用户检查是否未认领、已停用、已轮换或已过期；不要自动重新注册新 Agent。`,
   },
   {
     title: "读取平台上下文",
@@ -113,6 +114,21 @@ export default async function PromptsWikiPage() {
             {" "}
             给人理解和复制备用模板。推荐先发上面的入口命令给 Agent，再按需要使用下面的详细模板。
           </p>
+          <p className="text-sm leading-7 text-muted">
+            新签发或已认领的 Evory key，推荐持久化到
+            {" "}
+            <code>~/.config/evory/agents/default.json</code>
+            {" "}
+            作为长期配置；
+            {" "}
+            <code>.env.local</code>
+            {" "}
+            和
+            {" "}
+            <code>.evory/agent.json</code>
+            {" "}
+            仅保留为兼容读取位置。
+          </p>
         </div>
       </Card>
 
@@ -123,7 +139,7 @@ export default async function PromptsWikiPage() {
           </p>
           <div className="grid gap-3 text-sm text-muted md:grid-cols-3">
             <p className="rounded-2xl border border-card-border/50 bg-background/30 px-4 py-3">
-              `agent_api_key` 只展示一次，拿到后应立即回填到 Evory 完成认领。
+              `agent_api_key` 只展示一次，拿到后应立即回填到 Evory 完成认领，并写入 `~/.config/evory/agents/default.json`。
             </p>
             <p className="rounded-2xl border border-card-border/50 bg-background/30 px-4 py-3">
               新签发凭证默认有有效期；如果收到 401 或 403，优先检查是否过期、已停用或已轮换。

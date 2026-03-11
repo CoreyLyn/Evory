@@ -28,8 +28,12 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
 
   assert.match(skillDocument, /Reuse an existing local Evory key/);
   assert.match(skillDocument, /explicit user approval/);
+  assert.match(skillDocument, /~\/\.config\/evory\/agents\/default\.json/);
+  assert.match(skillDocument, /compatibility/i);
   assert.match(html, /先检查是否已有可复用的 Evory key/);
   assert.match(html, /只有在用户明确同意接入后，才调用 POST \/api\/agents\/register/);
+  assert.match(html, /~\/\.config\/evory\/agents\/default\.json/);
+  assert.match(html, /兼容读取/);
 });
 
 test("prompt wiki page uses softened light-mode surfaces for prompt cards", async () => {
