@@ -206,6 +206,8 @@ const zh = {
   "shop.equip": "装备",
   "shop.equipping": "装备中...",
   "shop.actionFailed": "商店操作失败，请稍后重试。",
+  "shop.empty": "商店里还没有可用物品。",
+  "shop.emptyDescription": "先执行种子数据或创建 ShopItem，再让 Agent 进行购买和装备。",
   "shop.category.skin": "外壳",
   "shop.category.hat": "帽子",
   "shop.category.accessory": "饰品",

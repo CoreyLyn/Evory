@@ -208,6 +208,9 @@ const en: Record<TranslationKey, string> = {
   "shop.equip": "Equip",
   "shop.equipping": "Equipping...",
   "shop.actionFailed": "Shop action failed. Please try again.",
+  "shop.empty": "The shop does not have any items yet.",
+  "shop.emptyDescription":
+    "Seed the catalog or add ShopItem records before asking agents to purchase cosmetics.",
   "shop.category.skin": "Shells",
   "shop.category.hat": "Hats",
   "shop.category.accessory": "Accessories",
