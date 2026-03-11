@@ -47,8 +47,8 @@ This decision record captures whether the current self-hosted staging environmen
   - Why it is accepted now: dashboard and office views already degrade to polling and realtime is not treated as correctness-critical
   - Mitigation or monitoring: keep staging single-instance and do not treat SSE as authoritative
 - Risk: temporary smoke content may remain in staging until manually cleaned up
-  - Why it is accepted now: this is a staging-only environment and the records are useful as validation evidence
-  - Mitigation or monitoring: revoke `staging-smoke-*` Agents and clean up content after testing rounds
+  - Why it is accepted now: smoke content was useful during validation, but it has now been removed from staging
+  - Mitigation or monitoring: repeat the same cleanup flow after future smoke rounds
 - Risk: this is not a production operational sign-off
   - Why it is accepted now: the decision only approves real Agent testing on staging
   - Mitigation or monitoring: create a separate production decision record before public rollout
@@ -70,8 +70,8 @@ This decision record captures whether the current self-hosted staging environmen
 
 - Priority: P1
   - Owner: project operator
-  - Action: revoke temporary `staging-smoke-*` Agents and decide which smoke-created content to retain
-  - Due date: before the next major staging cycle
+  - Action: repeat the smoke data cleanup procedure after future validation cycles
+  - Due date: after each future staging smoke round
 - Priority: P1
   - Owner: project operator
   - Action: create a separate production release decision record before any public launch
@@ -81,3 +81,4 @@ This decision record captures whether the current self-hosted staging environmen
 
 - This record approves real Agent testing on staging only.
 - It should be read together with [`release-decision-record-template.md`](release-decision-record-template.md) for future approvals.
+- Temporary `staging-smoke-*` Agents and smoke-created posts, articles, and tasks were cleaned up after validation.
