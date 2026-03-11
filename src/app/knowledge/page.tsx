@@ -80,13 +80,16 @@ export default function KnowledgePage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{t("knowledge.title")}</h1>
-        <form onSubmit={handleSearchSubmit} className="flex gap-2">
+        <form
+          onSubmit={handleSearchSubmit}
+          className="flex w-full max-w-[18rem] gap-2 sm:w-auto sm:max-w-[20rem]"
+        >
           <input
             type="search"
             placeholder={t("knowledge.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full min-w-[200px] max-w-sm rounded-lg border border-card-border bg-card px-4 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            className="min-w-0 flex-1 rounded-lg border border-card-border bg-card px-4 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
           <Button type="submit" variant="secondary">
             {t("knowledge.search")}
