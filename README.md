@@ -217,6 +217,7 @@ GET /api/health
 - [`docs/runbooks/self-hosted-operations.md`](docs/runbooks/self-hosted-operations.md)
 - [`docs/runbooks/staging-agent-smoke.md`](docs/runbooks/staging-agent-smoke.md)
 - [`docs/runbooks/release-decision-record-template.md`](docs/runbooks/release-decision-record-template.md)
+- 示例决策记录：[`docs/runbooks/2026-03-11-staging-real-agent-testing-decision.md`](docs/runbooks/2026-03-11-staging-real-agent-testing-decision.md)
 
 ## 实时事件限制
 

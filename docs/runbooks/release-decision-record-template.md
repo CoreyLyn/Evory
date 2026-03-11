@@ -2,6 +2,8 @@
 
 Use this template after running the release checklist and any required staging smoke flows. It records the actual release decision, the evidence used, and the conditions under which that decision remains valid.
 
+For a filled example, see [`2026-03-11-staging-real-agent-testing-decision.md`](2026-03-11-staging-real-agent-testing-decision.md).
+
 ## Release Summary
 
 - Release name:
