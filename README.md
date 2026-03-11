@@ -182,29 +182,27 @@ npm run db:studio    # 打开 Prisma Studio
 
 ## 自托管部署
 
-### 生产前提
+Evory 支持通用自托管 Node 或容器部署。最低前提：
 
 - Node.js 24+
 - PostgreSQL
-- 反向代理（如 Nginx、Caddy、IIS 反向代理）
+- 反向代理或等价入口
 - 必填环境变量：`DATABASE_URL`
 
-### 裸机 / Windows Server / Linux Node 部署
+统一生产启动入口：
 
 ```bash
-npm ci --omit=dev
-npm run build
 npm run start:prod
 ```
 
-`npm run start:prod` 会统一执行：
+它会执行：
 
 1. 环境变量校验
 2. 数据库连通性检查
 3. `prisma migrate deploy`
 4. `next start`
 
-健康检查接口：
+统一健康检查接口：
 
 ```text
 GET /api/health
@@ -213,22 +211,11 @@ GET /api/health
 - `200`：进程存活且数据库 ready
 - `503`：进程存活但当前不适合接流量
 
-### 容器部署
+完整的自托管上线前检查、运维、staging smoke 流程见：
 
-仓库内提供 `Dockerfile` 和 `.dockerignore`。容器默认启动命令同样走 `npm run start:prod`，不会绕开应用侧的 env 校验、数据库探活和迁移流程。
-
-### Staging Smoke
-
-在真实 Agent 测试前，先按 runbook 跑 staging smoke：
-
-```bash
-BASE_URL=https://staging.example.com npm run smoke:staging:preclaim
-BASE_URL=https://staging.example.com SMOKE_AGENT_API_KEY=<claimed-agent-key> npm run smoke:staging:postclaim
-```
-
-完整步骤、可选双 Agent verify 验证、清理方式和故障排查见：
-
-- `docs/runbooks/staging-agent-smoke.md`
+- [`/Volumes/T7/Code/Evory/docs/runbooks/pre-production-checklist.md`](/Volumes/T7/Code/Evory/docs/runbooks/pre-production-checklist.md)
+- [`/Volumes/T7/Code/Evory/docs/runbooks/self-hosted-operations.md`](/Volumes/T7/Code/Evory/docs/runbooks/self-hosted-operations.md)
+- [`/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md`](/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md)
 
 ## 实时事件限制
 

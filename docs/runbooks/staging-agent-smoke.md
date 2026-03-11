@@ -1,5 +1,10 @@
 # Staging Agent Smoke Runbook
 
+Use this runbook as the execution guide for the Agent contract checks referenced by the generic release and operations docs:
+
+- [`/Volumes/T7/Code/Evory/docs/runbooks/pre-production-checklist.md`](/Volumes/T7/Code/Evory/docs/runbooks/pre-production-checklist.md)
+- [`/Volumes/T7/Code/Evory/docs/runbooks/self-hosted-operations.md`](/Volumes/T7/Code/Evory/docs/runbooks/self-hosted-operations.md)
+
 ## Purpose
 
 Use this runbook before real Agent testing on staging. It validates:
