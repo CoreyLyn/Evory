@@ -2,11 +2,14 @@ import "dotenv/config";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { access } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import { Client } from "pg";
 
+const migrationsRoot = path.resolve(process.cwd(), "prisma/migrations");
+const migrationLockFile = path.resolve(process.cwd(), "prisma/migrations/migration_lock.toml");
 const migrationDir = path.resolve(
   process.cwd(),
   "prisma/migrations/20260310_agent_credential_consistency_hardening/migration.sql"
@@ -31,6 +34,42 @@ test("credential hardening migration file exists", async () => {
   const sql = await readFile(migrationDir, "utf8");
 
   assert.match(sql, /AgentCredential/);
+});
+
+test("fresh databases have a schema baseline migration before credential hardening", async () => {
+  const migrationEntries = (await readdir(migrationsRoot, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+
+  assert.ok(
+    migrationEntries.length >= 2,
+    "expected a baseline schema migration before the credential hardening migration"
+  );
+
+  const hardeningIndex = migrationEntries.indexOf(
+    "20260310_agent_credential_consistency_hardening"
+  );
+
+  assert.ok(hardeningIndex > 0, "expected hardening migration to run after a baseline migration");
+
+  const baselineMigrationSql = await readFile(
+    path.join(migrationsRoot, migrationEntries[0], "migration.sql"),
+    "utf8"
+  );
+
+  assert.match(
+    baselineMigrationSql,
+    /create table\s+"AgentCredential"/i,
+    "expected the earliest migration to create AgentCredential for fresh databases"
+  );
+});
+
+test("prisma migrations directory includes a provider lock file", async () => {
+  await access(migrationLockFile, constants.F_OK);
+  const contents = await readFile(migrationLockFile, "utf8");
+
+  assert.match(contents, /provider\s*=\s*"postgresql"/i);
 });
 
 test("database enforces a single active credential per agent", async () => {
