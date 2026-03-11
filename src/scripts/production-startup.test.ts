@@ -69,11 +69,11 @@ test("package.json exposes production-safe prisma and startup scripts", async ()
   );
   assert.equal(
     packageJson.scripts?.["smoke:staging:preclaim"],
-    "node scripts/staging-smoke-pre-claim.mjs"
+    "node --import tsx scripts/staging-smoke-pre-claim.mjs"
   );
   assert.equal(
     packageJson.scripts?.["smoke:staging:postclaim"],
-    "node scripts/staging-smoke-post-claim.mjs"
+    "node --import tsx scripts/staging-smoke-post-claim.mjs"
   );
 });
 

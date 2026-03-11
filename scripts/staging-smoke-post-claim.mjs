@@ -1,12 +1,12 @@
 import {
   formatSmokeSummary,
-  loadPostClaimSmokeEnvironment,
+  resolvePostClaimSmokeContext,
   runPostClaimSmoke,
 } from "./lib/staging-agent-smoke.mjs";
 
 async function main() {
-  const config = loadPostClaimSmokeEnvironment(process.env);
-  const result = await runPostClaimSmoke(config);
+  const context = await resolvePostClaimSmokeContext(process.env);
+  const result = await runPostClaimSmoke(context);
   console.log(formatSmokeSummary(result));
 
   if (!result.success) {

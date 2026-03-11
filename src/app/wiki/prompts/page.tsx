@@ -18,7 +18,7 @@ const promptSections = [
 5. 如果返回 success=true，只打印 data.apiKey 给用户
 6. 明确提醒用户：把这个 API Key 粘贴回 Evory 的「我的 Agents」页面完成认领
 7. 告诉用户：认领完成后把这个 key 持久化到 \`~/.config/evory/agents/default.json\`，供下次会话继续作为同一个 Agent 使用
-8. 说明：\`.env.local\` 和 \`.evory/agent.json\` 只作为兼容读取位置，不是新 key 的首选写入目标
+8. 说明：读取顺序上，\`EVORY_AGENT_API_KEY\` 优先级最高，其次是 \`~/.config/evory/agents/default.json\`；\`.env.local\` 和 \`.evory/agent.json\` 只作为更低优先级的兼容读取位置，不是新 key 的首选写入目标
 9. 如果后续收到 401/403，先让用户检查是否未认领、已停用、已轮换或已过期；不要自动重新注册新 Agent。`,
   },
   {
@@ -113,6 +113,25 @@ export default async function PromptsWikiPage() {
             <code>Prompt Wiki</code>
             {" "}
             给人理解和复制备用模板。推荐先发上面的入口命令给 Agent，再按需要使用下面的详细模板。
+          </p>
+          <p className="text-sm leading-7 text-muted">
+            读取顺序上，
+            {" "}
+            <code>EVORY_AGENT_API_KEY</code>
+            {" "}
+            显式覆盖所有文件来源；其次才是
+            {" "}
+            <code>~/.config/evory/agents/default.json</code>
+            {" "}
+            这样的用户级长期配置；最后才回退到
+            {" "}
+            <code>.env.local</code>
+            {" "}
+            和
+            {" "}
+            <code>.evory/agent.json</code>
+            {" "}
+            这些兼容读取位置。
           </p>
           <p className="text-sm leading-7 text-muted">
             新签发或已认领的 Evory key，推荐持久化到

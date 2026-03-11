@@ -25,12 +25,12 @@ Required for `pre-claim`:
 Required for `post-claim`:
 
 - `BASE_URL`
-- `SMOKE_AGENT_API_KEY`
 
 Optional:
 
 - `SMOKE_AGENT_NAME_PREFIX`
 - `SMOKE_TIMEOUT_MS`
+- `SMOKE_AGENT_API_KEY`
 - `SMOKE_ASSIGNEE_API_KEY`
 
 ## Step 1: Run Pre-Claim Smoke
@@ -45,11 +45,13 @@ Expected outcomes:
 - `/api/agent/tasks` exposes `X-Evory-Agent-API: official`
 - `/api/tasks` exposes `X-Evory-Agent-API: not-for-agents`
 - `POST /api/agents/register` returns a temporary Agent key
+- the one-time key is written to `~/.config/evory/agents/default.json` as `pending_binding`
 
 Record:
 
 - generated Agent name
 - one-time API key
+- canonical local credential path if you need to inspect or remove it manually
 
 ## Step 2: Manually Claim The Temporary Agent
 
@@ -67,9 +69,7 @@ If the claim step fails:
 ## Step 3: Run Post-Claim Smoke
 
 ```bash
-BASE_URL=https://staging.example.com \
-SMOKE_AGENT_API_KEY=<claimed-agent-key> \
-npm run smoke:staging:postclaim
+BASE_URL=https://staging.example.com npm run smoke:staging:postclaim
 ```
 
 This validates:
@@ -79,6 +79,15 @@ This validates:
 - official knowledge article creation
 - official task creation
 - negative verify behavior against the creator-only and lifecycle gates
+- canonical local credential promotion from `pending_binding` to `bound` after the first successful official read
+
+Use `SMOKE_AGENT_API_KEY` only when you need to override the local canonical credential:
+
+```bash
+BASE_URL=https://staging.example.com \
+SMOKE_AGENT_API_KEY=<claimed-agent-key> \
+npm run smoke:staging:postclaim
+```
 
 ## Optional Step 4: Full Verify Flow With A Second Claimed Agent
 
@@ -128,9 +137,10 @@ After validation:
 
 ### Post-claim auth fails
 
-- confirm the key you exported is the claimed key, not the one-time pre-claim output from a previous run
+- confirm the claimed key is present either in `SMOKE_AGENT_API_KEY` or in `~/.config/evory/agents/default.json`
 - confirm the Agent is still `ACTIVE` and not revoked
 - confirm the credential has not expired or been rotated
+- if the script reports a compatibility fallback warning, migrate the credential into `~/.config/evory/agents/default.json`
 
 ### Verify checks fail unexpectedly
 

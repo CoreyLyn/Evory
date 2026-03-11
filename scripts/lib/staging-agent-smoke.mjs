@@ -11,6 +11,7 @@ const DEFAULT_AGENT_NAME_PREFIX = "staging-smoke";
 const DEFAULT_AGENT_TYPE = "CLAUDE_CODE";
 const OFFICIAL_HEADER = "official";
 const NOT_FOR_AGENTS_HEADER = "not-for-agents";
+const CANONICAL_CREDENTIAL_PATH = "~/.config/evory/agents/default.json";
 
 function readEnvValue(env, key) {
   return env[key]?.trim() ?? "";
@@ -73,6 +74,14 @@ export function loadPostClaimSmokeEnvironment(env = process.env) {
     apiKey,
     assigneeApiKey: readEnvValue(env, "SMOKE_ASSIGNEE_API_KEY") || null,
   };
+}
+
+async function loadDefaultCredentialStore() {
+  return import("../../src/lib/agent-local-credential.ts");
+}
+
+async function getCredentialStore(overrideStore) {
+  return overrideStore ?? (await loadDefaultCredentialStore());
 }
 
 function buildSmokeAgentName(prefix, now = new Date()) {
@@ -139,7 +148,11 @@ function expectOk(response, data, route) {
 
 export async function runPreClaimSmoke(
   config,
-  { fetch: fetchImpl = globalThis.fetch, now = new Date() } = {}
+  {
+    fetch: fetchImpl = globalThis.fetch,
+    now = new Date(),
+    credentialStore: credentialStoreOverride,
+  } = {}
 ) {
   if (typeof fetchImpl !== "function") {
     throw new StagingAgentSmokeError("MISSING_FETCH", "fetch is not available");
@@ -149,6 +162,7 @@ export async function runPreClaimSmoke(
   const agentName = buildSmokeAgentName(config.agentNamePrefix, now);
 
   try {
+    const credentialStore = await getCredentialStore(credentialStoreOverride);
     const health = await fetchJson(
       fetchImpl,
       `${config.baseUrl}/api/health`,
@@ -194,21 +208,39 @@ export async function runPreClaimSmoke(
     expectOk(register.response, register.data, "/api/agents/register");
 
     const apiKey = register.data?.data?.apiKey;
+    const agentId = register.data?.data?.id;
     if (!apiKey || typeof apiKey !== "string") {
       throw new StagingAgentSmokeError(
         "INVALID_RESPONSE",
         "register response did not include data.apiKey"
       );
     }
+    if (!agentId || typeof agentId !== "string") {
+      throw new StagingAgentSmokeError(
+        "INVALID_RESPONSE",
+        "register response did not include data.id"
+      );
+    }
 
     steps.push(createStep("register", "PASS", `registered ${agentName}`));
+    await credentialStore.savePendingAgentCredential({
+      agentId,
+      apiKey,
+    });
+    steps.push(
+      createStep(
+        "credential-persist",
+        "PASS",
+        `saved pending_binding credential to ${CANONICAL_CREDENTIAL_PATH}`
+      )
+    );
 
     return {
       stage: "pre-claim",
       success: true,
       steps,
       nextAction:
-        "Claim the temporary Agent in /settings/agents, then export SMOKE_AGENT_API_KEY and rerun the post-claim script.",
+        "Claim the temporary Agent in /settings/agents, then rerun the post-claim script. Use SMOKE_AGENT_API_KEY only if you need to override the local canonical credential.",
       artifacts: {
         agentName,
         apiKey,
@@ -234,6 +266,59 @@ export async function runPreClaimSmoke(
       },
     };
   }
+}
+
+function buildPostClaimConfig(env, apiKey) {
+  const config = loadPreClaimSmokeEnvironment(env);
+  return {
+    ...config,
+    apiKey,
+    assigneeApiKey: readEnvValue(env, "SMOKE_ASSIGNEE_API_KEY") || null,
+  };
+}
+
+export async function resolvePostClaimSmokeContext(
+  env = process.env,
+  { credentialStore: credentialStoreOverride } = {}
+) {
+  const explicitApiKey = readEnvValue(env, "SMOKE_AGENT_API_KEY");
+  if (explicitApiKey) {
+    return {
+      config: buildPostClaimConfig(env, explicitApiKey),
+      credentialSource: "env_override",
+      credentialWarnings: [],
+      shouldPromoteCanonicalCredential: false,
+      agentId: null,
+    };
+  }
+
+  const credentialStore = await getCredentialStore(credentialStoreOverride);
+  const discovery = await credentialStore.discoverAgentCredential();
+  if (discovery.error) {
+    throw new StagingAgentSmokeError("INVALID_CREDENTIAL", discovery.error.message);
+  }
+
+  if (!discovery.credential?.apiKey) {
+    throw new StagingAgentSmokeError(
+      "MISSING_ENV",
+      "Missing SMOKE_AGENT_API_KEY and no local Evory Agent credential could be discovered."
+    );
+  }
+
+  const shouldPromoteCanonicalCredential =
+    discovery.source === "canonical_file" &&
+    discovery.writable === true &&
+    discovery.credential.bindingStatus === "pending_binding" &&
+    typeof discovery.credential.agentId === "string" &&
+    discovery.credential.agentId.trim().length > 0;
+
+  return {
+    config: buildPostClaimConfig(env, discovery.credential.apiKey),
+    credentialSource: discovery.source,
+    credentialWarnings: discovery.warnings,
+    shouldPromoteCanonicalCredential,
+    agentId: discovery.credential.agentId ?? null,
+  };
 }
 
 async function runAuthorizedRead(fetchImpl, config, route) {
@@ -267,13 +352,18 @@ async function runAuthorizedWrite(fetchImpl, config, route, body) {
 }
 
 export async function runPostClaimSmoke(
-  config,
-  { fetch: fetchImpl = globalThis.fetch, now = new Date() } = {}
+  context,
+  {
+    fetch: fetchImpl = globalThis.fetch,
+    now = new Date(),
+    credentialStore: credentialStoreOverride,
+  } = {}
 ) {
   if (typeof fetchImpl !== "function") {
     throw new StagingAgentSmokeError("MISSING_FETCH", "fetch is not available");
   }
 
+  const config = context.config ?? context;
   const steps = [];
   const suffix = now.toISOString();
   const artifacts = {
@@ -284,8 +374,38 @@ export async function runPostClaimSmoke(
   };
 
   try {
+    if (context.credentialSource) {
+      steps.push(
+        createStep(
+          "credential-source",
+          "PASS",
+          `using ${context.credentialSource} for post-claim authentication`
+        )
+      );
+    }
+    for (const warning of context.credentialWarnings ?? []) {
+      steps.push(createStep("credential-warning", "WARN", warning.message));
+    }
+
     await runAuthorizedRead(fetchImpl, config, "/api/agent/tasks");
     steps.push(createStep("tasks-read", "PASS", "official task feed is readable"));
+    if (context.shouldPromoteCanonicalCredential) {
+      if (!context.agentId) {
+        throw new StagingAgentSmokeError(
+          "INVALID_CREDENTIAL",
+          "Canonical credential promotion requires a discovered agentId."
+        );
+      }
+      const credentialStore = await getCredentialStore(credentialStoreOverride);
+      await credentialStore.promoteAgentCredentialToBound(context.agentId);
+      steps.push(
+        createStep(
+          "credential-promote",
+          "PASS",
+          `promoted canonical credential for ${context.agentId} to bound`
+        )
+      );
+    }
 
     await runAuthorizedRead(fetchImpl, config, "/api/agent/forum/posts");
     steps.push(createStep("forum-read", "PASS", "official forum feed is readable"));
