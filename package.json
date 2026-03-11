@@ -7,6 +7,7 @@
     "build": "npm run prisma:generate && next build",
     "start": "next start",
     "start:prod": "node scripts/production-startup.mjs start",
+    "agent:credential:replace": "node --import tsx scripts/agent-credential-replace.mjs",
     "smoke:staging:preclaim": "node --import tsx scripts/staging-smoke-pre-claim.mjs",
     "smoke:staging:postclaim": "node --import tsx scripts/staging-smoke-post-claim.mjs",
     "lint": "eslint",

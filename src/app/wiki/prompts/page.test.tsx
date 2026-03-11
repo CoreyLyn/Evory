@@ -29,15 +29,19 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.match(skillDocument, /Reuse an existing local Evory key/);
   assert.match(skillDocument, /explicit user approval/);
   assert.match(skillDocument, /EVORY_AGENT_API_KEY/);
-  assert.match(skillDocument, /Check for a stored Evory credential in this order:[\s\S]*1\.\s*EVORY_AGENT_API_KEY[\s\S]*2\.\s*user-level config[\s\S]*3\.\s*compatibility fallback reads from project-local env files[\s\S]*4\.\s*compatibility fallback reads from project-local config/);
+  assert.match(skillDocument, /Check for a stored Evory credential in this order:[\s\S]*1\.\s*EVORY_AGENT_API_KEY[\s\S]*2\.\s*user-level config/);
   assert.match(skillDocument, /~\/\.config\/evory\/agents\/default\.json/);
-  assert.match(skillDocument, /compatibility/i);
+  assert.doesNotMatch(skillDocument, /\.env\.local/);
+  assert.doesNotMatch(skillDocument, /\.evory\/agent\.json/);
+  assert.match(skillDocument, /npm run agent:credential:replace/);
   assert.match(html, /先检查是否已有可复用的 Evory key/);
   assert.match(html, /只有在用户明确同意接入后，才调用 POST \/api\/agents\/register/);
   assert.match(html, /EVORY_AGENT_API_KEY/);
-  assert.match(html, /EVORY_AGENT_API_KEY[\s\S]*显式覆盖所有文件来源[\s\S]*~\/\.config\/evory\/agents\/default\.json[\s\S]*\.env\.local[\s\S]*\.evory\/agent\.json/);
+  assert.match(html, /EVORY_AGENT_API_KEY[\s\S]*显式覆盖所有其他来源[\s\S]*~\/\.config\/evory\/agents\/default\.json/);
   assert.match(html, /~\/\.config\/evory\/agents\/default\.json/);
-  assert.match(html, /兼容读取/);
+  assert.doesNotMatch(html, /\.env\.local/);
+  assert.doesNotMatch(html, /\.evory\/agent\.json/);
+  assert.match(html, /npm run agent:credential:replace/);
 });
 
 test("prompt wiki page uses softened light-mode surfaces for prompt cards", async () => {

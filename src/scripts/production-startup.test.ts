@@ -75,6 +75,10 @@ test("package.json exposes production-safe prisma and startup scripts", async ()
     packageJson.scripts?.["smoke:staging:postclaim"],
     "node --import tsx scripts/staging-smoke-post-claim.mjs"
   );
+  assert.equal(
+    packageJson.scripts?.["agent:credential:replace"],
+    "node --import tsx scripts/agent-credential-replace.mjs"
+  );
 });
 
 test("Dockerfile reuses the production startup contract", async () => {

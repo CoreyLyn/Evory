@@ -29,6 +29,11 @@ type UserSummary = {
   name?: string | null;
 };
 
+type IssuedCredential = {
+  agentId: string;
+  apiKey: string;
+};
+
 type ManagedAgent = {
   id: string;
   name: string;
@@ -99,6 +104,47 @@ const SECURITY_RANGE_OPTIONS = SECURITY_EVENT_RANGE_VALUES.map((value) => ({
   label: string;
 }>;
 
+export function buildAgentCredentialReplaceCommand(agentId: string, apiKey: string) {
+  return `npm run agent:credential:replace -- --agent-id ${agentId} --api-key ${apiKey}`;
+}
+
+export function LatestIssuedCredentialCard({
+  issuedCredential,
+}: {
+  issuedCredential: IssuedCredential;
+}) {
+  return (
+    <Card className="border-cyan/30 bg-cyan/5">
+      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan/80">
+        New Key
+      </p>
+      <h2 className="mt-2 font-display text-2xl font-semibold text-foreground">
+        新 API Key 仅展示一次
+      </h2>
+      <p className="mt-2 text-sm text-muted">
+        立即把它发给对应 Agent 更新配置。旧 key 已失效。
+      </p>
+      <pre className="mt-4 overflow-x-auto rounded-2xl border border-card-border/50 bg-black/20 p-4 text-xs text-foreground">
+        {issuedCredential.apiKey}
+      </pre>
+      <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-muted/70">
+        Local Replace Command
+      </p>
+      <p className="mt-2 text-sm text-muted">
+        在运行该 Agent 的本机执行这条命令，把 canonical credential 更新到
+        {" "}
+        <code>~/.config/evory/agents/default.json</code>。
+      </p>
+      <pre className="mt-3 overflow-x-auto rounded-2xl border border-card-border/50 bg-black/20 p-4 text-xs text-foreground">
+        {buildAgentCredentialReplaceCommand(
+          issuedCredential.agentId,
+          issuedCredential.apiKey
+        )}
+      </pre>
+    </Card>
+  );
+}
+
 export default function ManageAgentsPage() {
   const pathname = usePathname();
   const router = useRouter();
@@ -108,7 +154,9 @@ export default function ManageAgentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [claimApiKey, setClaimApiKey] = useState("");
   const [busyAgentId, setBusyAgentId] = useState<string | null>(null);
-  const [latestIssuedKey, setLatestIssuedKey] = useState<string | null>(null);
+  const [latestIssuedCredential, setLatestIssuedCredential] = useState<IssuedCredential | null>(
+    null
+  );
   const [copiedSecurityLink, setCopiedSecurityLink] = useState(false);
   const [exportingSecurityEvents, setExportingSecurityEvents] = useState(false);
   const [selectedSecurityEventId, setSelectedSecurityEventId] = useState<string | null>(
@@ -293,7 +341,7 @@ export default function ManageAgentsPage() {
   async function handleRotate(agentId: string) {
     setBusyAgentId(agentId);
     setError(null);
-    setLatestIssuedKey(null);
+    setLatestIssuedCredential(null);
 
     try {
       const response = await fetch(`/api/users/me/agents/${agentId}/rotate-key`, {
@@ -305,7 +353,14 @@ export default function ManageAgentsPage() {
         throw new Error(json.error ?? "轮换失败");
       }
 
-      setLatestIssuedKey(json.data.apiKey ?? null);
+      if (typeof json.data.apiKey !== "string" || !json.data.apiKey.trim()) {
+        throw new Error("轮换结果缺少新的 API Key");
+      }
+
+      setLatestIssuedCredential({
+        agentId,
+        apiKey: json.data.apiKey,
+      });
       await loadData(securityEventsPage);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "轮换失败");
@@ -529,22 +584,9 @@ export default function ManageAgentsPage() {
         </div>
       )}
 
-      {latestIssuedKey && (
-        <Card className="border-cyan/30 bg-cyan/5">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan/80">
-            New Key
-          </p>
-          <h2 className="mt-2 font-display text-2xl font-semibold text-foreground">
-            新 API Key 仅展示一次
-          </h2>
-          <p className="mt-2 text-sm text-muted">
-            立即把它发给对应 Agent 更新配置。旧 key 已失效。
-          </p>
-          <pre className="mt-4 overflow-x-auto rounded-2xl border border-card-border/50 bg-black/20 p-4 text-xs text-foreground">
-            {latestIssuedKey}
-          </pre>
-        </Card>
-      )}
+      {latestIssuedCredential ? (
+        <LatestIssuedCredentialCard issuedCredential={latestIssuedCredential} />
+      ) : null}
 
       {agents.length === 0 ? (
         <EmptyState

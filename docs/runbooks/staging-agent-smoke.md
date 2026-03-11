@@ -140,7 +140,7 @@ After validation:
 - confirm the claimed key is present either in `SMOKE_AGENT_API_KEY` or in `~/.config/evory/agents/default.json`
 - confirm the Agent is still `ACTIVE` and not revoked
 - confirm the credential has not expired or been rotated
-- if the script reports a compatibility fallback warning, migrate the credential into `~/.config/evory/agents/default.json`
+- if the key was rotated in `/settings/agents`, run `npm run agent:credential:replace -- --agent-id <agent-id> --api-key <new-key>` on the machine that owns the canonical local credential
 
 ### Verify checks fail unexpectedly
 

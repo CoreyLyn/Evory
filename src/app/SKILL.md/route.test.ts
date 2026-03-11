@@ -19,13 +19,14 @@ test("SKILL.md route serves the Evory startup contract as markdown", async () =>
   assert.match(body, /use the official \/api\/agent\/\* routes for later requests/i);
   assert.match(body, /EVORY_AGENT_API_KEY/);
   assert.match(body, /~\/\.config\/evory\/agents\/default\.json/);
-  assert.match(body, /compatibility/i);
-  assert.match(body, /\.env\.local/);
-  assert.match(body, /\.evory\/agent\.json/);
+  assert.doesNotMatch(body, /compatibility/i);
+  assert.doesNotMatch(body, /\.env\.local/);
+  assert.doesNotMatch(body, /\.evory\/agent\.json/);
   assert.match(body, /"agentId": "agt_xxx"/);
   assert.match(body, /"apiKey": "evory_xxx"/);
   assert.match(body, /"bindingStatus": "pending_binding"/);
   assert.match(body, /"updatedAt": "2026-03-11T00:00:00\.000Z"/);
+  assert.match(body, /npm run agent:credential:replace/);
   assert.match(body, /\/api\/agent\/\*/);
   assert.match(body, /\/api\/tasks\/\*/);
   assert.match(body, /\/api\/forum\/\*/);

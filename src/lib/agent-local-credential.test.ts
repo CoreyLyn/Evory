@@ -29,8 +29,6 @@ async function createSandbox() {
       await rm(root, { recursive: true, force: true });
     },
     canonicalPath: path.join(homeDir, ".config", "evory", "agents", "default.json"),
-    dotenvPath: path.join(cwd, ".env.local"),
-    projectFilePath: path.join(cwd, ".evory", "agent.json"),
   };
 }
 
@@ -40,14 +38,6 @@ async function writeCanonical(
 ) {
   await mkdir(path.dirname(sandbox.canonicalPath), { recursive: true });
   await writeFile(sandbox.canonicalPath, JSON.stringify(content, null, 2));
-}
-
-async function writeProjectFile(
-  sandbox: Awaited<ReturnType<typeof createSandbox>>,
-  content: string
-) {
-  await mkdir(path.dirname(sandbox.projectFilePath), { recursive: true });
-  await writeFile(sandbox.projectFilePath, content);
 }
 
 test("discoverAgentCredential prefers EVORY_AGENT_API_KEY over file sources", async (t) => {
@@ -60,8 +50,6 @@ test("discoverAgentCredential prefers EVORY_AGENT_API_KEY over file sources", as
     bindingStatus: "bound",
     updatedAt: "2026-03-11T00:00:00.000Z",
   });
-  await writeFile(sandbox.dotenvPath, "EVORY_AGENT_API_KEY=evory_dotenv\n");
-  await writeProjectFile(sandbox, JSON.stringify({ apiKey: "evory_project" }));
 
   const result = await discoverAgentCredential({
     cwd: sandbox.cwd,
@@ -80,7 +68,7 @@ test("discoverAgentCredential prefers EVORY_AGENT_API_KEY over file sources", as
   assert.deepEqual(result.warnings, []);
 });
 
-test("discoverAgentCredential prefers the canonical file over compatibility fallbacks", async (t) => {
+test("discoverAgentCredential prefers the canonical file when no env override exists", async (t) => {
   const sandbox = await createSandbox();
   t.after(async () => sandbox.cleanup());
 
@@ -90,16 +78,6 @@ test("discoverAgentCredential prefers the canonical file over compatibility fall
     bindingStatus: "bound",
     updatedAt: "2026-03-11T00:00:00.000Z",
   });
-  await writeFile(sandbox.dotenvPath, "EVORY_AGENT_API_KEY=evory_dotenv\n");
-  await writeProjectFile(
-    sandbox,
-    JSON.stringify({
-      agentId: "agt_project",
-      apiKey: "evory_project",
-      bindingStatus: "bound",
-      updatedAt: "2026-03-10T00:00:00.000Z",
-    })
-  );
 
   const result = await discoverAgentCredential({
     cwd: sandbox.cwd,
@@ -118,12 +96,9 @@ test("discoverAgentCredential prefers the canonical file over compatibility fall
   assert.deepEqual(result.warnings, []);
 });
 
-test("discoverAgentCredential falls back to .env.local before project file", async (t) => {
+test("discoverAgentCredential returns none when no source exists", async (t) => {
   const sandbox = await createSandbox();
   t.after(async () => sandbox.cleanup());
-
-  await writeFile(sandbox.dotenvPath, "EVORY_AGENT_API_KEY=evory_dotenv\n");
-  await writeProjectFile(sandbox, JSON.stringify({ apiKey: "evory_project" }));
 
   const result = await discoverAgentCredential({
     cwd: sandbox.cwd,
@@ -131,23 +106,20 @@ test("discoverAgentCredential falls back to .env.local before project file", asy
     homeDir: sandbox.homeDir,
   });
 
-  assert.equal(result.source, "dotenv_fallback");
-  assert.equal(result.writable, false);
-  assert.deepEqual(result.credential, {
-    agentId: null,
-    apiKey: "evory_dotenv",
-    bindingStatus: null,
-    updatedAt: null,
-  });
-  assert.match(result.warnings[0]?.message ?? "", /compatibility/i);
+  assert.equal(result.source, "none");
+  assert.equal(result.writable, true);
+  assert.equal(result.credential, null);
+  assert.deepEqual(result.warnings, []);
 });
 
-test("discoverAgentCredential falls back to the project file when no higher-priority source exists", async (t) => {
+test("discoverAgentCredential ignores deprecated project-local fallback files", async (t) => {
   const sandbox = await createSandbox();
   t.after(async () => sandbox.cleanup());
 
-  await writeProjectFile(
-    sandbox,
+  await writeFile(path.join(sandbox.cwd, ".env.local"), "EVORY_AGENT_API_KEY=evory_dotenv\n");
+  await mkdir(path.join(sandbox.cwd, ".evory"), { recursive: true });
+  await writeFile(
+    path.join(sandbox.cwd, ".evory", "agent.json"),
     JSON.stringify({
       agentId: "agt_project",
       apiKey: "evory_project",
@@ -162,29 +134,7 @@ test("discoverAgentCredential falls back to the project file when no higher-prio
     homeDir: sandbox.homeDir,
   });
 
-  assert.equal(result.source, "project_file_fallback");
-  assert.equal(result.writable, false);
-  assert.deepEqual(result.credential, {
-    agentId: "agt_project",
-    apiKey: "evory_project",
-    bindingStatus: "pending_binding",
-    updatedAt: "2026-03-09T00:00:00.000Z",
-  });
-  assert.match(result.warnings[0]?.message ?? "", /compatibility/i);
-});
-
-test("discoverAgentCredential returns none when no source exists", async (t) => {
-  const sandbox = await createSandbox();
-  t.after(async () => sandbox.cleanup());
-
-  const result = await discoverAgentCredential({
-    cwd: sandbox.cwd,
-    env: {},
-    homeDir: sandbox.homeDir,
-  });
-
   assert.equal(result.source, "none");
-  assert.equal(result.writable, true);
   assert.equal(result.credential, null);
   assert.deepEqual(result.warnings, []);
 });
@@ -205,27 +155,6 @@ test("discoverAgentCredential reports invalid canonical files as structured erro
   assert.equal(result.source, "canonical_file");
   assert.equal(result.credential, null);
   assert.equal(result.error?.code, "invalid_canonical_file");
-});
-
-test("discoverAgentCredential warns on invalid fallback files and continues", async (t) => {
-  const sandbox = await createSandbox();
-  t.after(async () => sandbox.cleanup());
-
-  await writeFile(sandbox.dotenvPath, "NOT_VALID\n");
-  await writeProjectFile(sandbox, "{");
-
-  const result = await discoverAgentCredential({
-    cwd: sandbox.cwd,
-    env: {},
-    homeDir: sandbox.homeDir,
-  });
-
-  assert.equal(result.source, "none");
-  assert.equal(result.credential, null);
-  assert.equal(result.error, undefined);
-  assert.equal(result.warnings.length, 2);
-  assert.equal(result.warnings[0]?.code, "invalid_dotenv_fallback");
-  assert.equal(result.warnings[1]?.code, "invalid_project_file_fallback");
 });
 
 test("savePendingAgentCredential writes the canonical file and generates updatedAt", async (t) => {

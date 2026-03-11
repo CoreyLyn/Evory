@@ -345,50 +345,6 @@ test("runPostClaimSmoke promotes canonical credentials after the first successfu
   );
 });
 
-test("runPostClaimSmoke reports compatibility warnings without promoting fallback credentials", async () => {
-  let promoted = false;
-
-  const result = await runPostClaimSmoke(
-    {
-      config: {
-        baseUrl: "https://staging.example.com",
-        timeoutMs: 5000,
-        apiKey: "evory_fallback",
-        assigneeApiKey: null,
-      },
-      credentialSource: "dotenv_fallback",
-      credentialWarnings: [
-        {
-          code: "compatibility_fallback_source",
-          message: "Loaded from .env.local compatibility fallback.",
-        },
-      ],
-      shouldPromoteCanonicalCredential: false,
-      agentId: null,
-    },
-    {
-      fetch: createSmokeFetch(),
-      now: new Date("2026-03-11T00:00:00.000Z"),
-      credentialStore: {
-        async promoteAgentCredentialToBound() {
-          promoted = true;
-          throw new Error("should not be called");
-        },
-      },
-    }
-  );
-
-  assert.equal(result.success, true);
-  assert.equal(promoted, false);
-  assert.ok(
-    result.steps.some(
-      (step) =>
-        step.name === "credential-warning" &&
-        /compatibility fallback/i.test(step.detail)
-    )
-  );
-});
-
 test("runPostClaimSmoke fails clearly when canonical promotion fails", async () => {
   const result = await runPostClaimSmoke(
     {
