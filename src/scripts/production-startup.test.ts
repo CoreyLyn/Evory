@@ -83,6 +83,7 @@ test("Dockerfile reuses the production startup contract", async () => {
 
   const contents = await readFile(dockerfile, "utf8");
 
+  assert.match(contents, /apt-get update -y && apt-get install -y openssl/);
   assert.match(contents, /npm ci --ignore-scripts/);
   assert.match(contents, /COPY --from=builder \/app\/prisma\.config\.ts \.\/prisma\.config\.ts/);
   assert.match(contents, /npm run prisma:generate/);
@@ -101,6 +102,12 @@ test(".dockerignore excludes local env and build artifacts from Docker context",
   assert.match(contents, /\.next/);
 });
 
+test("eslint ignores generated Prisma client artifacts", async () => {
+  const eslintConfig = await readFile(path.resolve(process.cwd(), "eslint.config.mjs"), "utf8");
+
+  assert.match(eslintConfig, /src\/generated\/prisma\/\*\*/);
+});
+
 test("staging smoke runbook exists and documents both smoke commands", async () => {
   const runbook = path.resolve(process.cwd(), "docs/runbooks/staging-agent-smoke.md");
   await access(runbook, constants.F_OK);
@@ -109,4 +116,18 @@ test("staging smoke runbook exists and documents both smoke commands", async () 
 
   assert.match(contents, /smoke:staging:preclaim/);
   assert.match(contents, /smoke:staging:postclaim/);
+});
+
+test("smoke entrypoints import an explicit .mjs helper", async () => {
+  const preclaimScript = await readFile(
+    path.resolve(process.cwd(), "scripts/staging-smoke-pre-claim.mjs"),
+    "utf8"
+  );
+  const postclaimScript = await readFile(
+    path.resolve(process.cwd(), "scripts/staging-smoke-post-claim.mjs"),
+    "utf8"
+  );
+
+  assert.match(preclaimScript, /\.\/lib\/staging-agent-smoke\.mjs/);
+  assert.match(postclaimScript, /\.\/lib\/staging-agent-smoke\.mjs/);
 });

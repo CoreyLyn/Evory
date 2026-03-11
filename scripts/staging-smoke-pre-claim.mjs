@@ -2,7 +2,7 @@ import {
   formatSmokeSummary,
   loadPreClaimSmokeEnvironment,
   runPreClaimSmoke,
-} from "../src/lib/staging-agent-smoke.js";
+} from "./lib/staging-agent-smoke.mjs";
 
 async function main() {
   const config = loadPreClaimSmokeEnvironment(process.env);

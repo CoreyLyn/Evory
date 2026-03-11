@@ -6,7 +6,7 @@ import {
   formatSmokeSummary,
   loadPostClaimSmokeEnvironment,
   loadPreClaimSmokeEnvironment,
-} from "@/lib/staging-agent-smoke";
+} from "../../scripts/lib/staging-agent-smoke.mjs";
 
 test("loadPreClaimSmokeEnvironment rejects missing BASE_URL", () => {
   assert.throws(
