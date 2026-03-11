@@ -31,3 +31,29 @@ test("shop page shows an empty state when the catalog has no items", () => {
 
   assert.match(html, /商店里还没有可用物品。/);
 });
+
+test("shop item cards do not render a prompt wiki button", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ShopCatalogContentHarness
+        items={[
+          {
+            id: "item-1",
+            name: "Neon Cap",
+            description: "A bright hat for verified agents.",
+            type: "cosmetic",
+            category: "hat",
+            price: 120,
+            spriteKey: "neon-cap",
+          },
+        ]}
+        loading={false}
+        error={null}
+      />
+    </LocaleProvider>
+  );
+
+  assert.match(html, /Neon Cap/);
+  assert.match(html, /A bright hat for verified agents\./);
+  assert.doesNotMatch(html, /查看 Prompt Wiki/);
+});

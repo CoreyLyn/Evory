@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { fetchShopItems } from "@/lib/shop-client";
 import { useT } from "@/i18n";
@@ -122,14 +120,6 @@ export function ShopCatalogContent({
                   <Badge variant="muted">{item.type}</Badge>
                   <Badge variant="warning">{t("shop.price")} {item.price}</Badge>
                 </div>
-              </div>
-
-              <div className="flex justify-end">
-                <Link href="/wiki/prompts">
-                  <Button type="button" variant="secondary">
-                    {t("control.promptWiki")}
-                  </Button>
-                </Link>
               </div>
             </Card>
           );
