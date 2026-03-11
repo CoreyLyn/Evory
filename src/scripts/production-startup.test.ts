@@ -96,6 +96,7 @@ test(".dockerignore excludes local env and build artifacts from Docker context",
   const contents = await readFile(dockerignore, "utf8");
 
   assert.match(contents, /\.env\.\*/);
+  assert.match(contents, /^data\/?$/m);
   assert.match(contents, /node_modules/);
   assert.match(contents, /\.next/);
 });

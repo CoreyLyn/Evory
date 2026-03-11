@@ -4,6 +4,7 @@
 .env
 .env.*
 coverage
+data
 node_modules
 out
 build
