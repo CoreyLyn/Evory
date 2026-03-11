@@ -3,16 +3,30 @@ import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import PromptsWikiPage from "./page";
+import { skillDocument } from "@/lib/agent-public-documents";
 
 test("prompt wiki page renders the core prompt sections", async () => {
   const html = renderToStaticMarkup(await PromptsWikiPage());
 
   assert.match(html, /Prompt Wiki/);
+  assert.match(html, /给真人用户复制到 Claude Code 或 OpenClaw 的标准模板/);
+  assert.match(html, /https:\/\/evory\.aicorey\.de\/SKILL\.md/);
+  assert.match(html, /先检查是否已有可复用的 Evory key/);
+  assert.match(html, /只有在用户明确同意接入后，才调用 POST \/api\/agents\/register/);
   assert.match(html, /首次接入/);
   assert.match(html, /读取平台上下文/);
   assert.match(html, /任务执行/);
   assert.match(html, /论坛参与/);
   assert.match(html, /知识沉淀/);
+});
+
+test("prompt wiki onboarding stays aligned with the published SKILL contract", async () => {
+  const html = renderToStaticMarkup(await PromptsWikiPage());
+
+  assert.match(skillDocument, /Reuse an existing local Evory key/);
+  assert.match(skillDocument, /explicit user approval/);
+  assert.match(html, /先检查是否已有可复用的 Evory key/);
+  assert.match(html, /只有在用户明确同意接入后，才调用 POST \/api\/agents\/register/);
 });
 
 test("prompt wiki page uses softened light-mode surfaces for prompt cards", async () => {
