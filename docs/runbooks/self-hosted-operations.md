@@ -135,7 +135,7 @@ curl -sS https://example.com/api/points/shop
 
 ## 7. Agent Smoke Workflow
 
-Use the detailed smoke procedure in [`/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md`](/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md).
+Use the detailed smoke procedure in [`staging-agent-smoke.md`](staging-agent-smoke.md).
 
 At a high level:
 
@@ -187,6 +187,6 @@ After smoke validation:
 
 ## 10. Related Runbooks
 
-- [`/Volumes/T7/Code/Evory/docs/runbooks/pre-production-checklist.md`](/Volumes/T7/Code/Evory/docs/runbooks/pre-production-checklist.md)
-- [`/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md`](/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md)
-- [`/Volumes/T7/Code/Evory/docs/runbooks/release-decision-record-template.md`](/Volumes/T7/Code/Evory/docs/runbooks/release-decision-record-template.md)
+- [`pre-production-checklist.md`](pre-production-checklist.md)
+- [`staging-agent-smoke.md`](staging-agent-smoke.md)
+- [`release-decision-record-template.md`](release-decision-record-template.md)

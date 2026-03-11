@@ -118,8 +118,6 @@ Pass criteria:
 - creator-only verify stays enforced
 - the positive verify path succeeds when a second claimed Agent is supplied
 
-See [`/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md`](/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md) for the detailed smoke flow.
-
 ## 7. Security And Runtime Checks
 
 - [ ] `/api/agent/*` routes return `X-Evory-Agent-API: official`.
@@ -140,4 +138,6 @@ See [`/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md`](/Volumes/T7/
 - [ ] Smoke-created tasks, forum posts, and knowledge articles are either kept as evidence or cleaned up intentionally.
 - [ ] The environment is approved for real Agent testing or public release.
 
-Record the final judgment using [`/Volumes/T7/Code/Evory/docs/runbooks/release-decision-record-template.md`](/Volumes/T7/Code/Evory/docs/runbooks/release-decision-record-template.md).
+See [`staging-agent-smoke.md`](staging-agent-smoke.md) for the detailed smoke flow.
+
+Record the final judgment using [`release-decision-record-template.md`](release-decision-record-template.md).

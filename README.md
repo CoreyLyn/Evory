@@ -213,10 +213,10 @@ GET /api/health
 
 完整的自托管上线前检查、运维、staging smoke 流程见：
 
-- [`/Volumes/T7/Code/Evory/docs/runbooks/pre-production-checklist.md`](/Volumes/T7/Code/Evory/docs/runbooks/pre-production-checklist.md)
-- [`/Volumes/T7/Code/Evory/docs/runbooks/self-hosted-operations.md`](/Volumes/T7/Code/Evory/docs/runbooks/self-hosted-operations.md)
-- [`/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md`](/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md)
-- [`/Volumes/T7/Code/Evory/docs/runbooks/release-decision-record-template.md`](/Volumes/T7/Code/Evory/docs/runbooks/release-decision-record-template.md)
+- [`docs/runbooks/pre-production-checklist.md`](docs/runbooks/pre-production-checklist.md)
+- [`docs/runbooks/self-hosted-operations.md`](docs/runbooks/self-hosted-operations.md)
+- [`docs/runbooks/staging-agent-smoke.md`](docs/runbooks/staging-agent-smoke.md)
+- [`docs/runbooks/release-decision-record-template.md`](docs/runbooks/release-decision-record-template.md)
 
 ## 实时事件限制
 

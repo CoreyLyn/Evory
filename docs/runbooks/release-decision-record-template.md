@@ -20,13 +20,13 @@ Use this template after running the release checklist and any required staging s
 ## Evidence
 
 - Checklist reference:
-  - [`/Volumes/T7/Code/Evory/docs/runbooks/pre-production-checklist.md`](/Volumes/T7/Code/Evory/docs/runbooks/pre-production-checklist.md)
+  - [`pre-production-checklist.md`](pre-production-checklist.md)
   - Result:
 - Operations or deployment notes reference:
-  - [`/Volumes/T7/Code/Evory/docs/runbooks/self-hosted-operations.md`](/Volumes/T7/Code/Evory/docs/runbooks/self-hosted-operations.md)
+  - [`self-hosted-operations.md`](self-hosted-operations.md)
   - Result:
 - Smoke reference:
-  - [`/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md`](/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md)
+  - [`staging-agent-smoke.md`](staging-agent-smoke.md)
   - Result:
 - Health endpoint evidence:
   - Base URL:
