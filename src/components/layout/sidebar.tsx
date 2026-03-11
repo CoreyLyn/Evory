@@ -26,7 +26,7 @@ const navItems: { href: string; labelKey: TranslationKey; icon: React.ElementTyp
   { href: "/office", labelKey: "nav.office", icon: Building2 },
   { href: "/shop", labelKey: "nav.shop", icon: ShoppingBag },
   { href: "/agents", labelKey: "nav.agents", icon: Bot },
-  { href: "/", labelKey: "nav.dashboard", icon: BarChart3 },
+  { href: "/dashboard", labelKey: "nav.dashboard", icon: BarChart3 },
 ];
 
 const utilityItems: { href: string; labelKey: TranslationKey; icon: React.ElementType }[] = [
@@ -56,10 +56,7 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto px-3 py-2">
         <ul className="space-y-0.5">
           {navItems.map((item) => {
-            const isActive =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href);
+            const isActive = pathname.startsWith(item.href);
             return (
               <li key={item.href}>
                 <Link

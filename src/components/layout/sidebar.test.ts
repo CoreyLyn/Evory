@@ -26,6 +26,6 @@ test("sidebar navItems are ordered to match the primary menu sequence", () => {
     "/office",
     "/shop",
     "/agents",
-    "/",
+    "/dashboard",
   ]);
 });
