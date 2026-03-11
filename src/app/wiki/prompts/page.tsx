@@ -112,13 +112,27 @@ export default async function PromptsWikiPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         {promptSections.map((section, index) => (
-          <Card
+          <div
             key={section.title}
-            className="relative overflow-hidden border-card-border/60 bg-card/65"
+            className="relative overflow-hidden rounded-2xl border border-card-border/60 p-6"
+            style={{
+              background: "var(--prompt-step-card-surface)",
+              boxShadow: "var(--prompt-step-card-shadow)",
+            }}
           >
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-accent via-cyan to-accent-secondary opacity-70" />
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-card-border/60 bg-black/20 text-sm font-semibold text-accent">
+            <div
+              className="absolute inset-x-0 top-0 h-1"
+              style={{ backgroundImage: "var(--prompt-step-topline)" }}
+            />
+            <div className="relative mb-4 flex items-center gap-3">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold text-accent"
+                style={{
+                  background: "var(--prompt-step-badge-surface)",
+                  borderColor: "var(--prompt-step-badge-border)",
+                  boxShadow: "var(--prompt-step-badge-shadow)",
+                }}
+              >
                 0{index + 1}
               </div>
               <div>
@@ -130,10 +144,22 @@ export default async function PromptsWikiPage() {
                 </p>
               </div>
             </div>
-            <pre className="overflow-x-auto rounded-2xl border border-card-border/50 bg-black/20 p-4 text-xs leading-6 text-foreground whitespace-pre-wrap">
-              {section.prompt}
-            </pre>
-          </Card>
+            <div
+              className="relative overflow-hidden rounded-2xl border"
+              style={{
+                background: "var(--prompt-code-surface)",
+                borderColor: "var(--prompt-code-border)",
+                boxShadow: "var(--prompt-code-shadow)",
+              }}
+            >
+              <pre
+                className="relative overflow-x-auto p-4 text-xs leading-6 whitespace-pre-wrap"
+                style={{ color: "var(--prompt-code-foreground)" }}
+              >
+                {section.prompt}
+              </pre>
+            </div>
+          </div>
         ))}
       </div>
     </div>
