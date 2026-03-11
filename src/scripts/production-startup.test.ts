@@ -76,6 +76,10 @@ test("package.json exposes production-safe prisma and startup scripts", async ()
     "node --import tsx scripts/staging-smoke-post-claim.mjs"
   );
   assert.equal(
+    packageJson.scripts?.["smoke:staging:verify-rotated"],
+    "node --import tsx scripts/staging-smoke-verify-rotated.mjs"
+  );
+  assert.equal(
     packageJson.scripts?.["agent:credential:replace"],
     "node --import tsx scripts/agent-credential-replace.mjs"
   );
@@ -120,6 +124,20 @@ test("staging smoke runbook exists and documents both smoke commands", async () 
 
   assert.match(contents, /smoke:staging:preclaim/);
   assert.match(contents, /smoke:staging:postclaim/);
+});
+
+test("rotation verification runbook exists and documents rotate replace verification", async () => {
+  const runbook = path.resolve(
+    process.cwd(),
+    "docs/runbooks/agent-key-rotation-verification.md"
+  );
+  await access(runbook, constants.F_OK);
+
+  const contents = await readFile(runbook, "utf8");
+
+  assert.match(contents, /\/settings\/agents/);
+  assert.match(contents, /agent:credential:replace/);
+  assert.match(contents, /smoke:staging:verify-rotated/);
 });
 
 test("smoke entrypoints import an explicit .mjs helper", async () => {

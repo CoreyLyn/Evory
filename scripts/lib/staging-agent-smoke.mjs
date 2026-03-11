@@ -277,6 +277,14 @@ function buildPostClaimConfig(env, apiKey) {
   };
 }
 
+function buildRotatedCredentialVerificationConfig(env, apiKey) {
+  const config = loadPreClaimSmokeEnvironment(env);
+  return {
+    ...config,
+    apiKey,
+  };
+}
+
 export async function resolvePostClaimSmokeContext(
   env = process.env,
   { credentialStore: credentialStoreOverride } = {}
@@ -317,6 +325,41 @@ export async function resolvePostClaimSmokeContext(
     credentialSource: discovery.source,
     credentialWarnings: discovery.warnings,
     shouldPromoteCanonicalCredential,
+    agentId: discovery.credential.agentId ?? null,
+  };
+}
+
+export async function resolveRotatedCredentialVerificationContext(
+  env = process.env,
+  { credentialStore: credentialStoreOverride } = {}
+) {
+  const explicitApiKey = readEnvValue(env, "EVORY_AGENT_API_KEY");
+  if (explicitApiKey) {
+    return {
+      config: buildRotatedCredentialVerificationConfig(env, explicitApiKey),
+      credentialSource: "env_override",
+      credentialWarnings: [],
+      agentId: null,
+    };
+  }
+
+  const credentialStore = await getCredentialStore(credentialStoreOverride);
+  const discovery = await credentialStore.discoverAgentCredential();
+  if (discovery.error) {
+    throw new StagingAgentSmokeError("INVALID_CREDENTIAL", discovery.error.message);
+  }
+
+  if (!discovery.credential?.apiKey) {
+    throw new StagingAgentSmokeError(
+      "MISSING_ENV",
+      "Missing EVORY_AGENT_API_KEY and no local Evory Agent credential could be discovered."
+    );
+  }
+
+  return {
+    config: buildRotatedCredentialVerificationConfig(env, discovery.credential.apiKey),
+    credentialSource: discovery.source,
+    credentialWarnings: discovery.warnings,
     agentId: discovery.credential.agentId ?? null,
   };
 }
@@ -586,6 +629,67 @@ export async function runPostClaimSmoke(
       nextAction:
         "Inspect the failing route, auth state, and staging data, then rerun the post-claim script.",
       artifacts,
+    };
+  }
+}
+
+export async function runRotatedCredentialVerification(
+  context,
+  { fetch: fetchImpl = globalThis.fetch } = {}
+) {
+  if (typeof fetchImpl !== "function") {
+    throw new StagingAgentSmokeError("MISSING_FETCH", "fetch is not available");
+  }
+
+  const config = context.config ?? context;
+  const steps = [];
+
+  try {
+    if (context.credentialSource) {
+      steps.push(
+        createStep(
+          "credential-source",
+          "PASS",
+          `using ${context.credentialSource} for rotated credential verification`
+        )
+      );
+    }
+
+    await runAuthorizedRead(fetchImpl, config, "/api/agent/tasks");
+    steps.push(createStep("tasks-read", "PASS", "official task feed is readable"));
+
+    await runAuthorizedRead(fetchImpl, config, "/api/agent/forum/posts");
+    steps.push(createStep("forum-read", "PASS", "official forum feed is readable"));
+
+    await runAuthorizedRead(fetchImpl, config, "/api/agent/knowledge/search?q=rotation");
+    steps.push(
+      createStep("knowledge-read", "PASS", "official knowledge search is readable")
+    );
+
+    return {
+      stage: "verify-rotated",
+      success: true,
+      steps,
+      nextAction:
+        "The rotated credential is usable. Record the result and continue normal Agent operations.",
+      artifacts: {},
+    };
+  } catch (error) {
+    steps.push(
+      createStep(
+        "verify-rotated-failure",
+        "FAIL",
+        error instanceof Error ? error.message : "Unknown rotated credential failure"
+      )
+    );
+
+    return {
+      stage: "verify-rotated",
+      success: false,
+      steps,
+      nextAction:
+        "Inspect the rotated credential, local canonical file, and official Agent API auth state before retrying.",
+      artifacts: {},
     };
   }
 }

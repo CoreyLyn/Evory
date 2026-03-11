@@ -7,8 +7,10 @@ import {
   loadPostClaimSmokeEnvironment,
   loadPreClaimSmokeEnvironment,
   resolvePostClaimSmokeContext,
+  resolveRotatedCredentialVerificationContext,
   runPostClaimSmoke,
   runPreClaimSmoke,
+  runRotatedCredentialVerification,
 } from "../../scripts/lib/staging-agent-smoke.mjs";
 
 function createJsonResponse(
@@ -303,6 +305,63 @@ test("resolvePostClaimSmokeContext uses discovered canonical credentials when ov
   assert.equal(context.agentId, "agt_canonical");
 });
 
+test("resolveRotatedCredentialVerificationContext uses the local env override when present", async () => {
+  const context = await resolveRotatedCredentialVerificationContext(
+    {
+      BASE_URL: "https://staging.example.com",
+      EVORY_AGENT_API_KEY: "evory_override",
+    },
+    {
+      credentialStore: {
+        async discoverAgentCredential() {
+          return {
+            source: "canonical_file",
+            writable: true,
+            credential: {
+              agentId: "agt_canonical",
+              apiKey: "evory_canonical",
+              bindingStatus: "bound",
+              updatedAt: "2026-03-11T00:00:00.000Z",
+            },
+            warnings: [],
+          };
+        },
+      },
+    }
+  );
+
+  assert.equal(context.credentialSource, "env_override");
+  assert.equal(context.config.apiKey, "evory_override");
+});
+
+test("resolveRotatedCredentialVerificationContext uses canonical discovery when no override exists", async () => {
+  const context = await resolveRotatedCredentialVerificationContext(
+    {
+      BASE_URL: "https://staging.example.com",
+    },
+    {
+      credentialStore: {
+        async discoverAgentCredential() {
+          return {
+            source: "canonical_file",
+            writable: true,
+            credential: {
+              agentId: "agt_canonical",
+              apiKey: "evory_canonical",
+              bindingStatus: "bound",
+              updatedAt: "2026-03-11T00:00:00.000Z",
+            },
+            warnings: [],
+          };
+        },
+      },
+    }
+  );
+
+  assert.equal(context.credentialSource, "canonical_file");
+  assert.equal(context.config.apiKey, "evory_canonical");
+});
+
 test("runPostClaimSmoke promotes canonical credentials after the first successful official read", async () => {
   const promoted: string[] = [];
 
@@ -372,4 +431,62 @@ test("runPostClaimSmoke fails clearly when canonical promotion fails", async () 
 
   assert.equal(result.success, false);
   assert.match(result.steps.at(-1)?.detail ?? "", /promote failed/);
+});
+
+test("runRotatedCredentialVerification validates the rotated credential with official reads", async () => {
+  const result = await runRotatedCredentialVerification(
+    {
+      config: {
+        baseUrl: "https://staging.example.com",
+        timeoutMs: 5000,
+        apiKey: "evory_rotated",
+      },
+      credentialSource: "canonical_file",
+    },
+    {
+      fetch: createSmokeFetch(),
+    }
+  );
+
+  assert.equal(result.success, true);
+  assert.ok(
+    result.steps.some((step) => step.name === "tasks-read" && step.status === "PASS")
+  );
+  assert.ok(
+    result.steps.some((step) => step.name === "forum-read" && step.status === "PASS")
+  );
+  assert.ok(
+    result.steps.some((step) => step.name === "knowledge-read" && step.status === "PASS")
+  );
+});
+
+test("runRotatedCredentialVerification fails clearly when an official read fails", async () => {
+  const failingFetch = async (url: string, init?: { method?: string }) => {
+    if (url.endsWith("/api/agent/tasks") && init?.method === "GET") {
+      return createJsonResponse(
+        401,
+        { error: "Unauthorized" },
+        { "X-Evory-Agent-API": "official" }
+      );
+    }
+
+    throw new Error(`Unexpected fetch call: ${init?.method ?? "GET"} ${url}`);
+  };
+
+  const result = await runRotatedCredentialVerification(
+    {
+      config: {
+        baseUrl: "https://staging.example.com",
+        timeoutMs: 5000,
+        apiKey: "evory_rotated",
+      },
+      credentialSource: "canonical_file",
+    },
+    {
+      fetch: failingFetch,
+    }
+  );
+
+  assert.equal(result.success, false);
+  assert.match(result.steps.at(-1)?.detail ?? "", /Unauthorized/);
 });
