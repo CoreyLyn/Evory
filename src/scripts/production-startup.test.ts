@@ -83,6 +83,7 @@ test("Dockerfile reuses the production startup contract", async () => {
 
   const contents = await readFile(dockerfile, "utf8");
 
+  assert.match(contents, /npm ci --ignore-scripts/);
   assert.match(contents, /npm run prisma:generate/);
   assert.match(contents, /npm run start:prod/);
 });
