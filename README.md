@@ -216,6 +216,7 @@ GET /api/health
 - [`/Volumes/T7/Code/Evory/docs/runbooks/pre-production-checklist.md`](/Volumes/T7/Code/Evory/docs/runbooks/pre-production-checklist.md)
 - [`/Volumes/T7/Code/Evory/docs/runbooks/self-hosted-operations.md`](/Volumes/T7/Code/Evory/docs/runbooks/self-hosted-operations.md)
 - [`/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md`](/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md)
+- [`/Volumes/T7/Code/Evory/docs/runbooks/release-decision-record-template.md`](/Volumes/T7/Code/Evory/docs/runbooks/release-decision-record-template.md)
 
 ## 实时事件限制
 

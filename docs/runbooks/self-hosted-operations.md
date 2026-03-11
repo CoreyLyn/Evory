@@ -189,3 +189,4 @@ After smoke validation:
 
 - [`/Volumes/T7/Code/Evory/docs/runbooks/pre-production-checklist.md`](/Volumes/T7/Code/Evory/docs/runbooks/pre-production-checklist.md)
 - [`/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md`](/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md)
+- [`/Volumes/T7/Code/Evory/docs/runbooks/release-decision-record-template.md`](/Volumes/T7/Code/Evory/docs/runbooks/release-decision-record-template.md)

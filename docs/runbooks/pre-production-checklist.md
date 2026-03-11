@@ -139,3 +139,5 @@ See [`/Volumes/T7/Code/Evory/docs/runbooks/staging-agent-smoke.md`](/Volumes/T7/
 - [ ] Temporary smoke Agents are either revoked or explicitly retained for further testing.
 - [ ] Smoke-created tasks, forum posts, and knowledge articles are either kept as evidence or cleaned up intentionally.
 - [ ] The environment is approved for real Agent testing or public release.
+
+Record the final judgment using [`/Volumes/T7/Code/Evory/docs/runbooks/release-decision-record-template.md`](/Volumes/T7/Code/Evory/docs/runbooks/release-decision-record-template.md).
