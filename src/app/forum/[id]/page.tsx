@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -38,6 +37,93 @@ const CATEGORY_LABEL_KEYS: Record<string, TranslationKey> = {
   discussion: "forum.catDiscussion",
 };
 
+export function ForumPostDetailContent({
+  post,
+  t,
+  formatTimeAgo,
+}: {
+  post: Post;
+  t: ReturnType<typeof useT>;
+  formatTimeAgo: ReturnType<typeof useFormatTimeAgo>;
+}) {
+  function getCategoryBadgeVariant(cat: string) {
+    if (cat === "technical") return "success";
+    if (cat === "discussion") return "warning";
+    return "default";
+  }
+
+  function getAgentTypeBadgeVariant(type: string) {
+    if (type === "admin") return "danger";
+    if (type === "premium") return "success";
+    return "muted";
+  }
+
+  return (
+    <>
+      <Card className="mb-6">
+        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          {post.title}
+        </h1>
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+          <span className="font-medium text-accent-secondary">
+            {post.agent?.name ?? t("common.anonymous")}
+          </span>
+          <Badge variant={getAgentTypeBadgeVariant(post.agent?.type ?? "")}>
+            {post.agent?.type ?? "agent"}
+          </Badge>
+          <Badge variant={getCategoryBadgeVariant(post.category)}>
+            {CATEGORY_LABEL_KEYS[post.category] ? t(CATEGORY_LABEL_KEYS[post.category]) : post.category}
+          </Badge>
+          <span className="text-muted">
+            {formatTimeAgo(post.createdAt)}
+          </span>
+          <span className="text-muted">{post.viewCount} {t("common.views")}</span>
+          <span className="text-muted">{post.likeCount} {t("forum.likes")}</span>
+        </div>
+        <div className="mt-6 border-t border-card-border pt-6">
+          <div className="prose prose-invert max-w-none whitespace-pre-wrap text-foreground">
+            {post.content}
+          </div>
+        </div>
+      </Card>
+
+      <h2 className="mb-4 text-lg font-semibold text-foreground">
+        {t("forum.repliesCount", { n: post.replies?.length ?? 0 })}
+      </h2>
+
+      {post.replies && post.replies.length > 0 ? (
+        <div className="space-y-4 stagger">
+          {post.replies.map((reply) => (
+            <Card
+              key={reply.id}
+              className="border-l-4 border-l-accent-secondary/50"
+            >
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-medium text-accent-secondary">
+                  {reply.agent?.name ?? t("common.anonymous")}
+                </span>
+                <Badge variant={getAgentTypeBadgeVariant(reply.agent?.type ?? "")}>
+                  {reply.agent?.type ?? "agent"}
+                </Badge>
+                <span className="text-muted">
+                  {formatTimeAgo(reply.createdAt)}
+                </span>
+              </div>
+              <div className="mt-3 whitespace-pre-wrap text-foreground">
+                {reply.content}
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card className="py-8 text-center">
+          <p className="text-muted">{t("forum.noReplies")}</p>
+        </Card>
+      )}
+    </>
+  );
+}
+
 export default function ForumPostPage() {
   const t = useT();
   const formatTimeAgo = useFormatTimeAgo();
@@ -66,18 +152,6 @@ export default function ForumPostPage() {
     }
     fetchPost();
   }, [id]);
-
-  function getCategoryBadgeVariant(cat: string) {
-    if (cat === "technical") return "success";
-    if (cat === "discussion") return "warning";
-    return "default";
-  }
-
-  function getAgentTypeBadgeVariant(type: string) {
-    if (type === "admin") return "danger";
-    if (type === "premium") return "success";
-    return "muted";
-  }
 
   if (loading) {
     return (
@@ -119,87 +193,7 @@ export default function ForumPostPage() {
           {t("forum.backToForum")}
         </Link>
 
-        <Card className="mb-6">
-          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            {post.title}
-          </h1>
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-            <span className="font-medium text-accent-secondary">
-              {post.agent?.name ?? t("common.anonymous")}
-            </span>
-            <Badge variant={getAgentTypeBadgeVariant(post.agent?.type ?? "")}>
-              {post.agent?.type ?? "agent"}
-            </Badge>
-            <Badge variant={getCategoryBadgeVariant(post.category)}>
-              {CATEGORY_LABEL_KEYS[post.category] ? t(CATEGORY_LABEL_KEYS[post.category]) : post.category}
-            </Badge>
-            <span className="text-muted">
-              {formatTimeAgo(post.createdAt)}
-            </span>
-            <span className="text-muted">{post.viewCount} {t("common.views")}</span>
-            <span className="text-muted">{post.likeCount} {t("forum.likes")}</span>
-          </div>
-          <div className="mt-6 border-t border-card-border pt-6">
-            <div className="prose prose-invert max-w-none whitespace-pre-wrap text-foreground">
-              {post.content}
-            </div>
-          </div>
-        </Card>
-
-        <Card className="mb-6 border-card-border/60 bg-card/70">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan/80">
-                {t("control.title")}
-              </p>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-                {t("control.forumDetailReadOnly")}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/settings/agents">
-                <Button variant="secondary">{t("control.manageAgents")}</Button>
-              </Link>
-              <Link href="/wiki/prompts">
-                <Button variant="ghost">{t("control.promptWiki")}</Button>
-              </Link>
-            </div>
-          </div>
-        </Card>
-
-        <h2 className="mb-4 text-lg font-semibold text-foreground">
-          {t("forum.repliesCount", { n: post.replies?.length ?? 0 })}
-        </h2>
-
-        {post.replies && post.replies.length > 0 ? (
-          <div className="space-y-4 stagger">
-            {post.replies.map((reply) => (
-              <Card
-                key={reply.id}
-                className="border-l-4 border-l-accent-secondary/50"
-              >
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium text-accent-secondary">
-                    {reply.agent?.name ?? t("common.anonymous")}
-                  </span>
-                  <Badge variant={getAgentTypeBadgeVariant(reply.agent?.type ?? "")}>
-                    {reply.agent?.type ?? "agent"}
-                  </Badge>
-                  <span className="text-muted">
-                    {formatTimeAgo(reply.createdAt)}
-                  </span>
-                </div>
-                <div className="mt-3 whitespace-pre-wrap text-foreground">
-                  {reply.content}
-                </div>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <Card className="py-8 text-center">
-            <p className="text-muted">{t("forum.noReplies")}</p>
-          </Card>
-        )}
+        <ForumPostDetailContent post={post} t={t} formatTimeAgo={formatTimeAgo} />
       </div>
     </div>
   );
