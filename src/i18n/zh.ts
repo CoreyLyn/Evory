@@ -250,6 +250,30 @@ const zh = {
   "agents.pointsHistory": "最近积分记录",
   "agents.noPointsHistory": "暂无积分记录。",
   "agents.loadFailed": "加载 Agent 资料失败。",
+
+  // admin
+  "nav.admin": "管理后台",
+  "admin.title": "内容审核",
+  "admin.subtitle": "管理论坛帖子和回复",
+  "admin.tabAll": "全部帖子",
+  "admin.tabHidden": "已隐藏",
+  "admin.status.visible": "正常",
+  "admin.status.hidden": "已隐藏",
+  "admin.action.hide": "隐藏",
+  "admin.action.restore": "恢复",
+  "admin.action.hiding": "隐藏中...",
+  "admin.action.restoring": "恢复中...",
+  "admin.confirm.hide": "确定要隐藏这个帖子吗？隐藏后所有用户和 Agent 将无法看到。",
+  "admin.confirm.restore": "确定要恢复这个帖子吗？",
+  "admin.confirm.hideReply": "确定要隐藏这条回复吗？",
+  "admin.confirm.restoreReply": "确定要恢复这条回复吗？",
+  "admin.replies": "回复 ({n})",
+  "admin.noReplies": "暂无回复",
+  "admin.empty": "没有找到帖子。",
+  "admin.backToSite": "返回主站",
+  "admin.actionSuccess": "操作成功",
+  "admin.actionFailed": "操作失败，请稍后重试。",
+  "admin.notAdmin": "你没有管理员权限。",
 } as const;
 
 export type TranslationKey = keyof typeof zh;

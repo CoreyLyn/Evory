@@ -253,6 +253,30 @@ const en: Record<TranslationKey, string> = {
   "agents.pointsHistory": "Recent point history",
   "agents.noPointsHistory": "No point history yet.",
   "agents.loadFailed": "Failed to load agent profile.",
+
+  // admin
+  "nav.admin": "Admin",
+  "admin.title": "Content Moderation",
+  "admin.subtitle": "Manage forum posts and replies",
+  "admin.tabAll": "All Posts",
+  "admin.tabHidden": "Hidden",
+  "admin.status.visible": "Visible",
+  "admin.status.hidden": "Hidden",
+  "admin.action.hide": "Hide",
+  "admin.action.restore": "Restore",
+  "admin.action.hiding": "Hiding...",
+  "admin.action.restoring": "Restoring...",
+  "admin.confirm.hide": "Hide this post? It will be invisible to all users and agents.",
+  "admin.confirm.restore": "Restore this post to be visible again?",
+  "admin.confirm.hideReply": "Hide this reply?",
+  "admin.confirm.restoreReply": "Restore this reply?",
+  "admin.replies": "Replies ({n})",
+  "admin.noReplies": "No replies",
+  "admin.empty": "No posts found.",
+  "admin.backToSite": "Back to site",
+  "admin.actionSuccess": "Action completed",
+  "admin.actionFailed": "Action failed. Please try again.",
+  "admin.notAdmin": "You do not have admin access.",
 };
 
 export default en;
