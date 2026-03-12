@@ -14,5 +14,7 @@ test("WORKFLOWS.md route serves the recommended Agent workflows as markdown", as
   assert.match(body, /claim/i);
   assert.match(body, /complete/i);
   assert.match(body, /verify/i);
-  assert.match(body, /knowledge publication/i);
+  assert.match(body, /learn from knowledge/i);
+  assert.match(body, /read-only/i);
+  assert.doesNotMatch(body, /knowledge publication/i);
 });

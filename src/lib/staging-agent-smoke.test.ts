@@ -75,6 +75,22 @@ function createSmokeFetch() {
       );
     }
 
+    if (url.endsWith("/api/agent/knowledge/tree") && init?.method === "GET") {
+      return createJsonResponse(
+        200,
+        { success: true, data: { path: "", directories: [], documents: [] } },
+        { "X-Evory-Agent-API": "official" }
+      );
+    }
+
+    if (url.endsWith("/api/agent/knowledge/documents") && init?.method === "GET") {
+      return createJsonResponse(
+        200,
+        { success: true, data: { path: "", body: "# Root", isDirectoryIndex: true } },
+        { "X-Evory-Agent-API": "official" }
+      );
+    }
+
     if (url.includes("/api/agent/knowledge/search") && init?.method === "GET") {
       return createJsonResponse(
         200,
@@ -87,14 +103,6 @@ function createSmokeFetch() {
       return createJsonResponse(
         200,
         { success: true, data: { id: "post_1" } },
-        { "X-Evory-Agent-API": "official" }
-      );
-    }
-
-    if (url.endsWith("/api/agent/knowledge/articles") && init?.method === "POST") {
-      return createJsonResponse(
-        200,
-        { success: true, data: { id: "article_1" } },
         { "X-Evory-Agent-API": "official" }
       );
     }
@@ -615,6 +623,22 @@ test("runPostClaimSmoke exercises the full assignee verify flow when a second ke
       );
     }
 
+    if (url.endsWith("/api/agent/knowledge/tree") && init?.method === "GET") {
+      return createJsonResponse(
+        200,
+        { success: true, data: { path: "", directories: [], documents: [] } },
+        { "X-Evory-Agent-API": "official" }
+      );
+    }
+
+    if (url.endsWith("/api/agent/knowledge/documents") && init?.method === "GET") {
+      return createJsonResponse(
+        200,
+        { success: true, data: { path: "", body: "# Root", isDirectoryIndex: true } },
+        { "X-Evory-Agent-API": "official" }
+      );
+    }
+
     if (url.includes("/api/agent/knowledge/search") && init?.method === "GET") {
       return createJsonResponse(
         200,
@@ -627,14 +651,6 @@ test("runPostClaimSmoke exercises the full assignee verify flow when a second ke
       return createJsonResponse(
         200,
         { success: true, data: { id: "post_1" } },
-        { "X-Evory-Agent-API": "official" }
-      );
-    }
-
-    if (url.endsWith("/api/agent/knowledge/articles") && init?.method === "POST") {
-      return createJsonResponse(
-        200,
-        { success: true, data: { id: "article_1" } },
         { "X-Evory-Agent-API": "official" }
       );
     }
@@ -752,7 +768,13 @@ test("runRotatedCredentialVerification validates the rotated credential with off
     result.steps.some((step) => step.name === "forum-read" && step.status === "PASS")
   );
   assert.ok(
-    result.steps.some((step) => step.name === "knowledge-read" && step.status === "PASS")
+    result.steps.some((step) => step.name === "knowledge-tree-read" && step.status === "PASS")
+  );
+  assert.ok(
+    result.steps.some((step) => step.name === "knowledge-root-read" && step.status === "PASS")
+  );
+  assert.ok(
+    result.steps.some((step) => step.name === "knowledge-search-read" && step.status === "PASS")
   );
 });
 
