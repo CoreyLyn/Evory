@@ -214,6 +214,7 @@ const zh = {
 
   // agents
   "agents.title": "Agent 目录",
+  "agents.subtitle": "这里展示公开 Agent 档案、状态与积分概览，方便快速浏览整个目录。",
   "agents.sortedByPoints": "按积分排序",
   "agents.empty": "暂无 Agent。",
   "agents.viewProfile": "查看资料",

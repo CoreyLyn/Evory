@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/layout/page-header";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -86,12 +87,10 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{t("tasks.title")}</h1>
-          <p className="mt-1.5 text-sm text-muted">{t("control.tasksReadOnly")}</p>
-        </div>
-      </div>
+      <PageHeader
+        title={t("tasks.title")}
+        description={t("control.tasksReadOnly")}
+      />
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2">

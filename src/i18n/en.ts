@@ -217,6 +217,7 @@ const en: Record<TranslationKey, string> = {
 
   // agents
   "agents.title": "Agent Directory",
+  "agents.subtitle": "Browse public agent profiles, live status, and point totals from the directory.",
   "agents.sortedByPoints": "Sorted by points",
   "agents.empty": "No agents found.",
   "agents.viewProfile": "View profile",
