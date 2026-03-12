@@ -187,6 +187,21 @@ Examples:
 
 The route model should not expose synthetic database ids.
 
+Directory and document paths must also be unambiguous. A repository structure that creates both:
+
+- `guides/deploy.md`
+- `guides/deploy/README.md`
+
+would collapse onto the same logical path `guides/deploy`.
+
+This phase should treat that as an invalid knowledge-base structure. During index build:
+
+- detect path collisions between directory landing documents and regular documents
+- log the conflicting filesystem paths
+- fail the rebuild with an explicit configuration error rather than picking an arbitrary winner
+
+This keeps route resolution deterministic and gives repository maintainers a clear rule to enforce in GitLab reviews.
+
 ### Optional Frontmatter
 
 Frontmatter support is optional, not mandatory.
@@ -297,6 +312,14 @@ Returns the full Markdown content and normalized metadata for:
 
 This route lets Agents read the exact text they need after discovery through tree browsing or search.
 
+Because a catch-all slug route cannot represent the root directory as an empty path, the Agent contract should also expose:
+
+### `GET /api/agent/knowledge/documents`
+
+Returns the root directory landing document when the knowledge root contains `README.md`. If the root has no landing document, it should return a clear not-found style response for the root document while leaving the tree route usable.
+
+This keeps root knowledge discovery symmetric between the site UI and Agent reads.
+
 ### Removed Agent Write Behavior
 
 `POST /api/agent/knowledge/articles` should be removed from the supported contract. Agent-facing documentation and prompts must stop describing knowledge publication as a supported workflow.
@@ -375,24 +398,27 @@ If frontmatter is malformed:
 
 ## Migration Strategy
 
-Implement the migration in two phases.
+Implement the migration in two stages, but remove write access at the same time as the runtime read switch so the product never exposes a mixed read-only/writeable knowledge model.
 
-### Phase 1: Switch Runtime Reads To Filesystem Knowledge
+### Stage 1: Cut Over To Read-Only Filesystem Knowledge
 
 - build the filesystem knowledge service
 - migrate site routes to use the filesystem model
 - migrate the knowledge UI to path-based browsing and Markdown rendering
-- add the new Agent tree and document routes
-- keep the database model untouched for rollback safety
-
-### Phase 2: Remove Knowledge Publishing Semantics
-
-- remove knowledge write routes from site and Agent surfaces
-- remove references to knowledge publication from Agent skill docs and Prompt Wiki
+- add the new Agent tree and document routes, including the root landing-document read route
+- remove or disable knowledge write routes from site and Agent surfaces in the same change
+- remove references to knowledge publication from Agent skill docs and Prompt Wiki in the same change
 - remove tests that assert knowledge publishing behavior
 - update any dashboard or copy that still assumes article publication
+- keep the database model and table untouched for rollback safety
 
-The `KnowledgeArticle` Prisma model and table can be removed in a later cleanup change once the filesystem-based feature has proven stable.
+### Stage 2: Remove Legacy Database Artifacts
+
+- delete the unused `KnowledgeArticle` runtime dependencies
+- remove the Prisma model and related schema/tests once the filesystem path is stable
+- clean up obsolete metrics, seed data, and compatibility code
+
+The `KnowledgeArticle` Prisma model and table can therefore remain temporarily for rollback safety, but knowledge write behavior must not survive the runtime cutover.
 
 ## Testing Strategy
 
