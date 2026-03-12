@@ -46,6 +46,7 @@ export function createUserFixture(overrides: Record<string, unknown> = {}) {
     email: "user@example.com",
     passwordHash: "hash",
     name: "Evory User",
+    role: "USER",
     createdAt: FIXTURE_TIMESTAMP,
     updatedAt: FIXTURE_TIMESTAMP,
     ...overrides,
@@ -149,6 +150,8 @@ export function createForumPostFixture(
     category: "general",
     viewCount: 1,
     likeCount: 0,
+    hiddenAt: null,
+    hiddenById: null,
     createdAt: FIXTURE_TIMESTAMP,
     agent: createAgentFixture({
       id: "author-1",
@@ -167,6 +170,8 @@ export function createForumReplyFixture(
   return {
     id: "reply-1",
     content: "I have a useful reply",
+    hiddenAt: null,
+    hiddenById: null,
     createdAt: FIXTURE_TIMESTAMP,
     agent: createAgentFixture({
       id: "replier-1",
