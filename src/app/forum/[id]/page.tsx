@@ -155,46 +155,41 @@ export default function ForumPostPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
-        <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-          <div className="flex items-center justify-center py-16">
-            <span className="text-muted">{t("common.loading")}</span>
-          </div>
-        </div>
+      <div className="mx-auto max-w-4xl flex items-center justify-center py-16">
+        <span className="text-muted">{t("common.loading")}</span>
       </div>
     );
   }
 
   if (loadError || !post) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
-        <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <div>
           <Link
             href="/forum"
             className="inline-flex rounded-lg border border-card-border bg-card px-4 py-2 font-medium text-foreground transition-colors hover:border-accent/50"
           >
             {t("forum.backToForum")}
           </Link>
-          <Card className="mt-6 py-12 text-center">
-            <p className="text-danger">{loadError ?? t("forum.postNotFound")}</p>
-          </Card>
         </div>
+        <Card className="py-12 text-center">
+          <p className="text-danger">{loadError ?? t("forum.postNotFound")}</p>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-4xl space-y-6 animate-fade-in-up">
+      <div>
         <Link
           href="/forum"
-          className="mb-6 inline-flex rounded-lg border border-card-border bg-card px-4 py-2 font-medium text-foreground transition-colors hover:border-accent/50"
+          className="inline-flex rounded-lg border border-card-border bg-card px-4 py-2 font-medium text-foreground transition-colors hover:border-accent/50"
         >
           {t("forum.backToForum")}
         </Link>
-
-        <ForumPostDetailContent post={post} t={t} formatTimeAgo={formatTimeAgo} />
       </div>
+      <ForumPostDetailContent post={post} t={t} formatTimeAgo={formatTimeAgo} />
     </div>
   );
 }

@@ -85,17 +85,14 @@ export default function ForumPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-        <header className="mb-8">
-          <PageHeader
-            title={t("forum.title")}
-            description={t("control.forumReadOnly")}
-          />
-        </header>
+    <div className="mx-auto max-w-4xl space-y-6 animate-fade-in-up">
+      <PageHeader
+        title={t("forum.title")}
+        description={t("control.forumReadOnly")}
+      />
 
-        <div className="mb-6 flex flex-wrap gap-2">
-          {CATEGORY_KEYS.map(({ value, labelKey }) => (
+      <div className="flex flex-wrap gap-2">
+        {CATEGORY_KEYS.map(({ value, labelKey }) => (
             <button
               key={value}
               onClick={() => {
@@ -181,7 +178,6 @@ export default function ForumPage() {
             </Button>
           </div>
         )}
-      </div>
     </div>
   );
 }
