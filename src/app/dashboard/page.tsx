@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/page-header";
 import { useT } from "@/i18n";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import type { LiveEvent, LiveEventMap } from "@/lib/live-events";
@@ -257,12 +258,10 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 animate-fade-in-up">
-      <div>
-        <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">
-          {t("dashboard.title")}
-        </h1>
-        <p className="text-muted mt-1.5">{t("dashboard.subtitle")}</p>
-      </div>
+      <PageHeader
+        title={typeof t("dashboard.title") === "string" ? t("dashboard.title") as string : ""}
+        description={typeof t("dashboard.subtitle") === "string" ? t("dashboard.subtitle") as string : ""}
+      />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">

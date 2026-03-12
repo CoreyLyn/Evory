@@ -7,6 +7,7 @@ import { ZONES, type CanvasLabels } from "@/canvas/office";
 import { useT, useLocale } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/page-header";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import type { LiveEvent, LiveEventMap } from "@/lib/live-events";
 import {
@@ -269,52 +270,47 @@ export default function OfficePage() {
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col gap-6 max-w-[1600px] mx-auto w-full">
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground to-foreground/60">
-            {t("office.title")}
-          </h1>
-          <p className="text-sm sm:text-base text-muted/80 mt-1.5 flex items-center gap-2">
-            <span>{t("office.subtitle")}</span>
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-3 text-sm">
-          {/* Total Agents Card */}
-          <div className="flex items-center gap-3 bg-card/60 backdrop-blur-md border border-card-border/60 rounded-xl px-5 py-3 shadow-sm hover:shadow-md hover:bg-card/80 transition-all group">
-            <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-              <Users className="w-4 h-4 text-primary" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs text-muted font-medium mb-0.5">{t("office.total")}</span>
-              <span className="text-foreground font-display font-semibold text-lg leading-none">{agentCount}</span>
-            </div>
-          </div>
-
-          {/* Online Agents Card */}
-          <div className="flex items-center gap-3 bg-card/60 backdrop-blur-md border border-card-border/60 rounded-xl px-5 py-3 shadow-sm hover:shadow-md hover:bg-card/80 transition-all group relative overflow-hidden">
-            {/* Subtle glow effect behind the online card */}
-            <div className="absolute -inset-2 bg-success/5 opacity-50 blur-xl group-hover:opacity-100 transition-opacity" />
-
-            <div className="relative p-2 bg-success/10 rounded-lg group-hover:bg-success/20 transition-colors">
-              <div className="relative">
-                <Activity className="w-4 h-4 text-success relative z-10" />
-                {/* Pulsing indicator */}
-                {onlineCount > 0 && (
-                  <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
-                  </span>
-                )}
+      <PageHeader
+        title={typeof t("office.title") === "string" ? t("office.title") as string : ""}
+        description={typeof t("office.subtitle") === "string" ? t("office.subtitle") as string : ""}
+        rightSlot={
+          <div className="flex flex-wrap gap-3 text-sm">
+            {/* Total Agents Card */}
+            <div className="flex items-center gap-3 bg-card/60 backdrop-blur-md border border-card-border/60 rounded-xl px-5 py-3 shadow-sm hover:shadow-md hover:bg-card/80 transition-all group">
+              <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                <Users className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs text-muted font-medium mb-0.5">{t("office.total")}</span>
+                <span className="text-foreground font-display font-semibold text-lg leading-none">{agentCount}</span>
               </div>
             </div>
-            <div className="flex flex-col relative">
-              <span className="text-xs text-muted font-medium mb-0.5">{t("office.online")}</span>
-              <span className="text-success font-display font-semibold text-lg leading-none">{onlineCount}</span>
+
+            {/* Online Agents Card */}
+            <div className="flex items-center gap-3 bg-card/60 backdrop-blur-md border border-card-border/60 rounded-xl px-5 py-3 shadow-sm hover:shadow-md hover:bg-card/80 transition-all group relative overflow-hidden">
+              {/* Subtle glow effect behind the online card */}
+              <div className="absolute -inset-2 bg-success/5 opacity-50 blur-xl group-hover:opacity-100 transition-opacity" />
+
+              <div className="relative p-2 bg-success/10 rounded-lg group-hover:bg-success/20 transition-colors">
+                <div className="relative">
+                  <Activity className="w-4 h-4 text-success relative z-10" />
+                  {/* Pulsing indicator */}
+                  {onlineCount > 0 && (
+                    <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col relative">
+                <span className="text-xs text-muted font-medium mb-0.5">{t("office.online")}</span>
+                <span className="text-success font-display font-semibold text-lg leading-none">{onlineCount}</span>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Canvas Container */}
       <div className="flex-1 bg-card/40 border border-card-border/60 rounded-2xl overflow-hidden relative shadow-[inset_0_2px_20px_rgba(0,0,0,0.1)] ring-1 ring-white/5 mx-auto w-full group">
