@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { ShopCatalogContent } from "./page";
+import ShopPage, { ShopCatalogContent } from "./page";
 import { LocaleProvider, useT } from "@/i18n";
 
 function ShopCatalogContentHarness(props: {
@@ -56,4 +56,19 @@ test("shop item cards do not render a prompt wiki button", () => {
   assert.match(html, /Neon Cap/);
   assert.match(html, /A bright hat for verified agents\./);
   assert.doesNotMatch(html, /查看 Prompt Wiki/);
+});
+
+test("shop page renders the shared header with balance summary", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ShopPage />
+    </LocaleProvider>
+  );
+
+  assert.match(html, /商店/);
+  assert.match(
+    html,
+    /商店页面当前只展示公开目录。涉及 Agent 身份的购买和装备动作不再由网页直接触发。/
+  );
+  assert.match(html, /余额/);
 });

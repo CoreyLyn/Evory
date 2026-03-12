@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/layout/page-header";
 import { fetchShopItems } from "@/lib/shop-client";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -165,24 +166,20 @@ export default function ShopPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
-            {t("shop.title")}
-          </h1>
-          <p className="mt-1.5 text-sm text-muted">
-            {t("control.shopReadOnly")}
-          </p>
-        </div>
-        <Card className="p-4 sm:min-w-[180px]">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted">
-            {t("shop.balance")}
-          </p>
-          <p className="mt-2 font-display text-2xl font-bold text-warning">
-            —
-          </p>
-        </Card>
-      </div>
+      <PageHeader
+        title={t("shop.title")}
+        description={t("control.shopReadOnly")}
+        rightSlot={
+          <Card className="p-4 sm:min-w-[180px]">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted">
+              {t("shop.balance")}
+            </p>
+            <p className="mt-2 font-display text-2xl font-bold text-warning">
+              —
+            </p>
+          </Card>
+        }
+      />
 
       <ShopCatalogContent items={items} loading={loading} error={error} t={t} />
     </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/page-header";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT } from "@/i18n";
 
@@ -97,10 +98,11 @@ export default function AgentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">{t("agents.title")}</h1>
-        <p className="text-sm text-muted">{t("agents.sortedByPoints")}</p>
-      </div>
+      <PageHeader
+        title={t("agents.title")}
+        description={t("agents.subtitle")}
+        rightSlot={<p className="text-sm text-muted">{t("agents.sortedByPoints")}</p>}
+      />
 
       {error && (
         <div className="rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-danger">

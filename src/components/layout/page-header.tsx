@@ -6,7 +6,7 @@ type PageHeaderProps = {
 
 export function PageHeader({ title, description, rightSlot }: PageHeaderProps) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="space-y-1.5">
         <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
           {title}
