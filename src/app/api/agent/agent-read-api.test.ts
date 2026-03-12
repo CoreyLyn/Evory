@@ -9,11 +9,19 @@ import {
   createSecurityEventFixture,
   createTaskFixture,
 } from "@/test/factories";
-import { createRouteRequest } from "@/test/request-helpers";
+import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { hashApiKey } from "@/lib/auth";
 import { GET as getAgentForumPosts } from "./forum/posts/route";
+import { GET as getAgentKnowledgeTree } from "./knowledge/tree/route";
+import { GET as getAgentKnowledgeDocuments } from "./knowledge/documents/route";
+import { GET as getAgentKnowledgeDocumentByPath } from "./knowledge/documents/[...slug]/route";
 import { GET as getAgentKnowledgeSearch } from "./knowledge/search/route";
 import { GET as getAgentTasks } from "./tasks/route";
+import {
+  createKnowledgeApiSandbox,
+  useKnowledgeBaseRoot,
+  writeKnowledgeMarkdown,
+} from "../knowledge/test-helpers";
 
 type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
   ...args: TArgs
@@ -41,10 +49,6 @@ type AgentReadPrismaMock = {
     findMany: AsyncMethod;
     count: AsyncMethod;
   };
-  knowledgeArticle: {
-    findMany: AsyncMethod;
-    count: AsyncMethod;
-  };
 };
 
 const prismaClient = prisma as unknown as AgentReadPrismaMock;
@@ -58,8 +62,6 @@ const originalTaskFindMany = prismaClient.task.findMany;
 const originalTaskCount = prismaClient.task.count;
 const originalForumPostFindMany = prismaClient.forumPost.findMany;
 const originalForumPostCount = prismaClient.forumPost.count;
-const originalKnowledgeArticleFindMany = prismaClient.knowledgeArticle.findMany;
-const originalKnowledgeArticleCount = prismaClient.knowledgeArticle.count;
 
 beforeEach(() => {
   prismaClient.securityEvent = {
@@ -84,8 +86,6 @@ afterEach(() => {
   prismaClient.task.count = originalTaskCount;
   prismaClient.forumPost.findMany = originalForumPostFindMany;
   prismaClient.forumPost.count = originalForumPostCount;
-  prismaClient.knowledgeArticle.findMany = originalKnowledgeArticleFindMany;
-  prismaClient.knowledgeArticle.count = originalKnowledgeArticleCount;
 });
 
 function mockAgentCredential(
@@ -177,18 +177,24 @@ test("claimed agent can read the official forum feed", async () => {
   assert.equal(json.data[0].id, "post-1");
 });
 
-test("unclaimed agents cannot use the official knowledge search endpoint", async () => {
+test("unclaimed agents cannot use the official knowledge tree endpoint", async (t) => {
+  const sandbox = await createKnowledgeApiSandbox(t);
+  useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
+  await writeKnowledgeMarkdown(
+    sandbox.knowledgeRoot,
+    "README.md",
+    "# Knowledge Home\n\nRoot content.\n"
+  );
+
   mockAgentCredential("agent-key", {
     id: "agent-1",
     ownerUserId: null,
     claimStatus: "UNCLAIMED",
     claimedAt: null,
   });
-  prismaClient.knowledgeArticle.findMany = async () => [];
-  prismaClient.knowledgeArticle.count = async () => 0;
 
-  const response = await getAgentKnowledgeSearch(
-    createRouteRequest("http://localhost/api/agent/knowledge/search?q=test", {
+  const response = await getAgentKnowledgeTree(
+    createRouteRequest("http://localhost/api/agent/knowledge/tree", {
       apiKey: "agent-key",
     })
   );
@@ -197,4 +203,125 @@ test("unclaimed agents cannot use the official knowledge search endpoint", async
   assert.equal(response.status, 401);
   assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.error, "Unauthorized: Invalid or missing API key");
+});
+
+test("claimed agent can read the official knowledge tree", async (t) => {
+  const sandbox = await createKnowledgeApiSandbox(t);
+  useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
+  await writeKnowledgeMarkdown(
+    sandbox.knowledgeRoot,
+    "README.md",
+    "# Knowledge Home\n\nRoot content.\n"
+  );
+  await writeKnowledgeMarkdown(
+    sandbox.knowledgeRoot,
+    "guides/README.md",
+    "# Guides\n\nDirectory landing.\n"
+  );
+
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  });
+
+  const response = await getAgentKnowledgeTree(
+    createRouteRequest("http://localhost/api/agent/knowledge/tree", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data.path, "");
+  assert.equal(json.data.directories[0].path, "guides");
+});
+
+test("claimed agent can read the official root knowledge document", async (t) => {
+  const sandbox = await createKnowledgeApiSandbox(t);
+  useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
+  await writeKnowledgeMarkdown(
+    sandbox.knowledgeRoot,
+    "README.md",
+    "# Knowledge Home\n\nRoot content.\n"
+  );
+
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  });
+
+  const response = await getAgentKnowledgeDocuments(
+    createRouteRequest("http://localhost/api/agent/knowledge/documents", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data.path, "");
+  assert.equal(json.data.isDirectoryIndex, true);
+});
+
+test("claimed agent can read the official knowledge path document", async (t) => {
+  const sandbox = await createKnowledgeApiSandbox(t);
+  useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
+  await writeKnowledgeMarkdown(
+    sandbox.knowledgeRoot,
+    "guides/install/nginx.md",
+    "# Nginx Install\n\nInstall nginx.\n"
+  );
+
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  });
+
+  const response = await getAgentKnowledgeDocumentByPath(
+    createRouteRequest("http://localhost/api/agent/knowledge/documents/guides/install/nginx", {
+      apiKey: "agent-key",
+    }),
+    createRouteParams({ slug: "guides/install/nginx" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data.kind, "document");
+  assert.equal(json.data.path, "guides/install/nginx");
+});
+
+test("claimed agent can read the official knowledge search endpoint without prisma article mocks", async (t) => {
+  const sandbox = await createKnowledgeApiSandbox(t);
+  useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
+  await writeKnowledgeMarkdown(
+    sandbox.knowledgeRoot,
+    "guides/install/nginx.md",
+    "# Nginx Install\n\nInstall nginx.\n"
+  );
+
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  });
+
+  const response = await getAgentKnowledgeSearch(
+    createRouteRequest("http://localhost/api/agent/knowledge/search?q=nginx", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data[0].path, "guides/install/nginx");
 });

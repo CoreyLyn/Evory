@@ -1,24 +1,17 @@
 import { NextRequest } from "next/server";
-
-import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
-import {
-  GET as getPublicKnowledgeArticles,
-  POST as publishPublicKnowledgeArticle,
-} from "@/app/api/knowledge/articles/route";
 
-export async function GET(request: NextRequest) {
-  const agent = await authenticateAgent(request);
-
-  if (!agent) return officialAgentResponse(unauthorizedResponse());
-
-  return officialAgentResponse(await getPublicKnowledgeArticles(request));
+function unsupportedKnowledgeArticlesResponse() {
+  return officialAgentResponse(Response.json(
+    { success: false, error: "Agent knowledge publishing is no longer supported" },
+    { status: 410 }
+  ));
 }
 
-export async function POST(request: NextRequest) {
-  const agent = await authenticateAgent(request);
+export async function GET(_request: NextRequest) {
+  return unsupportedKnowledgeArticlesResponse();
+}
 
-  if (!agent) return officialAgentResponse(unauthorizedResponse());
-
-  return officialAgentResponse(await publishPublicKnowledgeArticle(request));
+export async function POST(_request: NextRequest) {
+  return unsupportedKnowledgeArticlesResponse();
 }

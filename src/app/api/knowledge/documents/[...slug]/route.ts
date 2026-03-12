@@ -1,21 +1,22 @@
-import { NextRequest } from "next/server";
-
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
-import {
-  decodeLegacyKnowledgeArticleId,
-  findKnowledgeDocument,
-  getCurrentKnowledgeBase,
-  toLegacyCompatibleKnowledgeSearchResult,
-} from "@/lib/knowledge-base/api";
+import { findKnowledgePathPayload, getCurrentKnowledgeBase } from "@/lib/knowledge-base/api";
 
 type RouteContext = {
   params: Promise<{
-    id: string;
+    slug?: string | string[];
   }>;
 };
 
+function normalizeSlug(slug: string | string[] | undefined) {
+  if (Array.isArray(slug)) {
+    return slug.join("/");
+  }
+
+  return slug ?? "";
+}
+
 export async function GET(
-  _request: NextRequest,
+  _request: Request,
   { params }: RouteContext
 ) {
   try {
@@ -28,23 +29,23 @@ export async function GET(
       ));
     }
 
-    const { id } = await params;
-    const documentPath = decodeLegacyKnowledgeArticleId(id);
-    const document = findKnowledgeDocument(knowledgeBase.index, documentPath);
+    const resolvedParams = await params;
+    const targetPath = normalizeSlug(resolvedParams.slug);
+    const payload = findKnowledgePathPayload(knowledgeBase.index, targetPath);
 
-    if (!document) {
+    if (!payload) {
       return notForAgentsResponse(Response.json(
-        { success: false, error: "Article not found" },
+        { success: false, error: "Document not found" },
         { status: 404 }
       ));
     }
 
     return notForAgentsResponse(Response.json({
       success: true,
-      data: toLegacyCompatibleKnowledgeSearchResult(document),
+      data: payload,
     }));
   } catch (err) {
-    console.error("[knowledge/articles/[id] GET]", err);
+    console.error("[knowledge/documents/[...slug] GET]", err);
     return notForAgentsResponse(Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }

@@ -1,14 +1,10 @@
 import { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
-import { runSequentialPageQuery } from "@/lib/paginated-query";
-
-const agentSelect = {
-  id: true,
-  name: true,
-  type: true,
-  avatarConfig: true,
-} as const;
+import {
+  getCurrentKnowledgeBase,
+  searchKnowledgeDocuments,
+  toLegacyCompatibleKnowledgeSearchResult,
+} from "@/lib/knowledge-base/api";
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,30 +23,24 @@ export async function GET(request: NextRequest) {
       ));
     }
 
-    const where = {
-      OR: [
-        { title: { contains: q, mode: "insensitive" as const } },
-        { content: { contains: q, mode: "insensitive" as const } },
-      ],
-    };
+    const knowledgeBase = await getCurrentKnowledgeBase();
 
-    const { items: articles, total } = await runSequentialPageQuery({
-      getItems: () =>
-        prisma.knowledgeArticle.findMany({
-          where,
-          include: {
-            agent: { select: agentSelect },
-          },
-          orderBy: { createdAt: "desc" },
-          skip: (page - 1) * pageSize,
-          take: pageSize,
-        }),
-      getTotal: () => prisma.knowledgeArticle.count({ where }),
-    });
+    if (knowledgeBase.status === "not_configured") {
+      return notForAgentsResponse(Response.json(
+        { success: false, error: "Knowledge base not configured" },
+        { status: 503 }
+      ));
+    }
+
+    const matches = searchKnowledgeDocuments(knowledgeBase.index, q);
+    const total = matches.length;
+    const data = matches
+      .slice((page - 1) * pageSize, page * pageSize)
+      .map(toLegacyCompatibleKnowledgeSearchResult);
 
     return notForAgentsResponse(Response.json({
       success: true,
-      data: articles,
+      data,
       pagination: {
         total,
         page,

@@ -49,9 +49,6 @@ type AgentWritePrismaMock = {
     findUniqueOrThrow: AsyncMethod;
     updateMany: AsyncMethod;
   };
-  knowledgeArticle: {
-    create: AsyncMethod;
-  };
   pointTransaction: {
     create: AsyncMethod;
   };
@@ -76,7 +73,6 @@ const originalMethods = {
   taskFindUnique: prismaClient.task.findUnique,
   taskFindUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
   taskUpdateMany: prismaClient.task.updateMany,
-  knowledgeArticleCreate: prismaClient.knowledgeArticle.create,
   pointTransactionCreate: prismaClient.pointTransaction.create,
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   dailyCheckinUpsert: prismaClient.dailyCheckin.upsert,
@@ -110,7 +106,6 @@ afterEach(async () => {
   prismaClient.task.findUnique = originalMethods.taskFindUnique;
   prismaClient.task.findUniqueOrThrow = originalMethods.taskFindUniqueOrThrow;
   prismaClient.task.updateMany = originalMethods.taskUpdateMany;
-  prismaClient.knowledgeArticle.create = originalMethods.knowledgeArticleCreate;
   prismaClient.pointTransaction.create = originalMethods.pointTransactionCreate;
   prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
   prismaClient.dailyCheckin.upsert = originalMethods.dailyCheckinUpsert;
@@ -263,69 +258,24 @@ test("official agent forum writes hit the abuse limit and emit security events",
   assert.equal(securityEvents.at(-1)?.type, "AGENT_ABUSE_LIMIT_HIT");
 });
 
-test("official agent knowledge writes hit the abuse limit", async () => {
-  mockAgentCredential("writer-key", {
-    id: "writer-1",
-    name: "Writer",
-  });
-  prismaClient.knowledgeArticle.create = async ({
-    data,
-  }: {
-    data: { agentId: string; title: string; content: string; tags: string[] };
-  }) => ({
-    id: `article-${data.title}`,
-    agentId: data.agentId,
-    title: data.title,
-    content: data.content,
-    tags: data.tags,
-    createdAt: new Date("2026-03-10T00:00:00.000Z"),
-    updatedAt: new Date("2026-03-10T00:00:00.000Z"),
-    agent: createAgentFixture({
-      id: data.agentId,
-      apiKey: "writer-key",
-      name: "Writer",
-    }),
-  });
-  mockAwardPointsTransaction();
-
-  for (let index = 0; index < 5; index += 1) {
-    const response = await publishAgentKnowledge(
-      createRouteRequest("http://localhost/api/agent/knowledge/articles", {
-        method: "POST",
-        apiKey: "writer-key",
-        headers: {
-          "x-forwarded-for": "198.51.100.41",
-        },
-        json: {
-          title: `Reusable fix ${index}`,
-          content: "A stable playbook",
-          tags: ["nextjs", "agent"],
-        },
-      })
-    );
-
-    assert.equal(response.status, 200);
-  }
-
-  const blocked = await publishAgentKnowledge(
+test("legacy official agent knowledge publish route is explicitly unsupported", async () => {
+  const response = await publishAgentKnowledge(
     createRouteRequest("http://localhost/api/agent/knowledge/articles", {
       method: "POST",
       apiKey: "writer-key",
-      headers: {
-        "x-forwarded-for": "198.51.100.41",
-      },
       json: {
-        title: "Blocked fix",
+        title: "Reusable fix",
         content: "A stable playbook",
         tags: ["nextjs", "agent"],
       },
     })
   );
-  const json = await blocked.json();
+  const json = await response.json();
 
-  assert.equal(blocked.status, 429);
-  assert.equal(blocked.headers.get("X-Evory-Agent-API"), "official");
-  assert.equal(json.error, "Too many requests");
+  assert.equal(response.status, 410);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Agent knowledge publishing is no longer supported");
 });
 
 function mockAwardPointsTransaction() {
@@ -443,50 +393,6 @@ test("unclaimed agents cannot use the official agent forum write endpoint", asyn
   assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.error, "Unauthorized: Invalid or missing API key");
   assert.equal(createCalls, 0);
-});
-
-test("claimed agent can publish knowledge via the official agent knowledge endpoint", async () => {
-  mockAgentCredential("writer-key", {
-    id: "writer-1",
-    name: "Writer",
-  });
-  prismaClient.knowledgeArticle.create = async ({
-    data,
-  }: {
-    data: { agentId: string; title: string; content: string; tags: string[] };
-  }) => ({
-    id: "article-1",
-    agentId: data.agentId,
-    title: data.title,
-    content: data.content,
-    tags: data.tags,
-    createdAt: new Date("2026-03-10T00:00:00.000Z"),
-    updatedAt: new Date("2026-03-10T00:00:00.000Z"),
-    agent: createAgentFixture({
-      id: data.agentId,
-      apiKey: "writer-key",
-      name: "Writer",
-    }),
-  });
-  mockAwardPointsTransaction();
-
-  const response = await publishAgentKnowledge(
-    createRouteRequest("http://localhost/api/agent/knowledge/articles", {
-      method: "POST",
-      apiKey: "writer-key",
-      json: {
-        title: "Reusable fix",
-        content: "A stable playbook",
-        tags: ["nextjs", "agent"],
-      },
-    })
-  );
-  const json = await response.json();
-
-  assert.equal(response.status, 200);
-  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
-  assert.equal(json.success, true);
-  assert.equal(json.data.title, "Reusable fix");
 });
 
 test("claimed agent can create a task via the official agent task endpoint", async () => {
