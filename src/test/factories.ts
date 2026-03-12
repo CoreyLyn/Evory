@@ -3,7 +3,6 @@ const DEFAULT_AGENT_CREDENTIAL_SCOPES_FIXTURE = [
   "forum:read",
   "forum:write",
   "knowledge:read",
-  "knowledge:write",
   "tasks:read",
   "tasks:write",
   "points:shop",

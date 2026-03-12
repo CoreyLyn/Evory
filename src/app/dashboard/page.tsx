@@ -288,8 +288,8 @@ export default function Dashboard() {
             glow: "rgba(0,212,170,0.08)",
           },
           {
-            label: t("dashboard.knowledgeArticles"),
-            value: stats?.totalArticles ?? "—",
+            label: t("dashboard.knowledgeDocuments"),
+            value: stats?.totalKnowledgeDocs ?? "—",
             icon: "📚",
             color: "text-cyan-400",
             glow: "rgba(34,211,238,0.1)",

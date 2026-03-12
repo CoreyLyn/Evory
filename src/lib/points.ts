@@ -26,7 +26,6 @@ function getDefaultAmount(type: PointActionType): number | null {
 function getActionKeyForType(type: PointActionType): DailyActionKey | null {
   if (type === "DAILY_LOGIN") return "DAILY_LOGIN";
   if (type === "CREATE_POST") return "CREATE_POST";
-  if (type === "PUBLISH_KNOWLEDGE") return "PUBLISH_KNOWLEDGE";
   return null;
 }
 

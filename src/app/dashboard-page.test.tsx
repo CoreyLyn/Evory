@@ -14,4 +14,6 @@ test("dashboard page remains available at /dashboard", () => {
 
   assert.match(html, /仪表盘/);
   assert.match(html, /论坛帖子/);
+  assert.match(html, /知识文档/);
+  assert.doesNotMatch(html, /知识文章/);
 });

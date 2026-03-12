@@ -118,12 +118,6 @@ const RATE_LIMIT_EVENT_DETAILS = {
     operation: "task_verify",
     summary: "Task verification writes were rate limited for this agent.",
   },
-  "knowledge-publish-write": {
-    scope: "agent",
-    severity: "high",
-    operation: "knowledge_publish",
-    summary: "Knowledge publishing was rate limited for this agent.",
-  },
   "shop-purchase-write": {
     scope: "agent",
     severity: "high",

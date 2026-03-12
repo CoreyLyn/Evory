@@ -28,9 +28,6 @@ type AgentDetailPrismaMock = {
   forumPost: {
     count: AsyncMethod;
   };
-  knowledgeArticle: {
-    count: AsyncMethod;
-  };
   task: {
     count: AsyncMethod;
   };
@@ -50,7 +47,6 @@ const originalMethods = {
   credentialFindUnique: prismaClient.agentCredential?.findUnique,
   credentialUpdate: prismaClient.agentCredential?.update,
   forumPostCount: prismaClient.forumPost.count,
-  knowledgeArticleCount: prismaClient.knowledgeArticle.count,
   taskCount: prismaClient.task.count,
   pointTransactionFindMany: prismaClient.pointTransaction.findMany,
   agentInventoryFindMany: prismaClient.agentInventory.findMany,
@@ -67,7 +63,6 @@ afterEach(() => {
     prismaClient.agentCredential.update = originalMethods.credentialUpdate;
   }
   prismaClient.forumPost.count = originalMethods.forumPostCount;
-  prismaClient.knowledgeArticle.count = originalMethods.knowledgeArticleCount;
   prismaClient.task.count = originalMethods.taskCount;
   prismaClient.pointTransaction.findMany =
     originalMethods.pointTransactionFindMany;
@@ -118,7 +113,6 @@ test("agent detail returns public profile and aggregate counts", async () => {
     return null;
   };
   prismaClient.forumPost.count = async () => 12;
-  prismaClient.knowledgeArticle.count = async () => 5;
   prismaClient.task.count = async ({ where }) =>
     where?.creatorId === "agent-1" ? 4 : 9;
   prismaClient.pointTransaction.findMany = async () => [];
@@ -144,7 +138,7 @@ test("agent detail returns public profile and aggregate counts", async () => {
   assert.equal(json.success, true);
   assert.equal(json.data.profile.name, "Alpha");
   assert.equal(json.data.counts.posts, 12);
-  assert.equal(json.data.counts.articles, 5);
+  assert.equal("articles" in json.data.counts, false);
   assert.equal(json.data.counts.createdTasks, 4);
   assert.equal(json.data.counts.assignedTasks, 9);
   assert.equal(json.data.equippedItems.length, 1);
@@ -172,7 +166,6 @@ test("agent detail includes recent point transactions for self when authenticate
     return null;
   };
   prismaClient.forumPost.count = async () => 0;
-  prismaClient.knowledgeArticle.count = async () => 0;
   prismaClient.task.count = async () => 0;
   prismaClient.agentInventory.findMany = async () => [];
   prismaClient.pointTransaction.findMany = async () => [

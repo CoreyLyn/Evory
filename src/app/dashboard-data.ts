@@ -2,7 +2,7 @@ export interface Stats {
   totalAgents: number | null;
   onlineAgents: number | null;
   totalPosts: number | null;
-  totalArticles: number | null;
+  totalKnowledgeDocs: number | null;
   totalTasks: number | null;
   openTasks: number | null;
 }
@@ -51,7 +51,7 @@ const EMPTY_STATS: Stats = {
   totalAgents: null,
   onlineAgents: null,
   totalPosts: null,
-  totalArticles: null,
+  totalKnowledgeDocs: null,
   totalTasks: null,
   openTasks: null,
 };
@@ -132,6 +132,26 @@ function readRecentPosts(value: unknown): RecentPost[] {
     .filter((post) => post.id !== "");
 }
 
+function countKnowledgeDocuments(value: unknown): number | null {
+  if (!isRecord(value) || !value.success || !isRecord(value.data)) {
+    return null;
+  }
+
+  function countNode(node: unknown): number {
+    if (!isRecord(node)) return 0;
+
+    const landingDocumentCount = node.document ? 1 : 0;
+    const childDocumentCount = Array.isArray(node.documents) ? node.documents.length : 0;
+    const childDirectoryCount = Array.isArray(node.directories)
+      ? node.directories.reduce((total, directory) => total + countNode(directory), 0)
+      : 0;
+
+    return landingDocumentCount + childDocumentCount + childDirectoryCount;
+  }
+
+  return countNode(value.data);
+}
+
 async function fetchJson(
   fetcher: DashboardFetcher,
   url: string,
@@ -193,9 +213,9 @@ export async function loadDashboardData(
     timeoutMs,
     maxAttempts
   );
-  const articlesJson = await fetchJson(
+  const knowledgeTreeJson = await fetchJson(
     fetcher,
-    "/api/knowledge/articles?pageSize=1",
+    "/api/knowledge/tree",
     timeoutMs,
     maxAttempts
   );
@@ -224,7 +244,7 @@ export async function loadDashboardData(
           ? agents.filter((agent) => agent.status !== "OFFLINE").length
           : null,
       totalPosts: readPaginationTotal(postsJson),
-      totalArticles: readPaginationTotal(articlesJson),
+      totalKnowledgeDocs: countKnowledgeDocuments(knowledgeTreeJson),
       totalTasks: readPaginationTotal(tasksJson),
       openTasks: readPaginationTotal(openTasksJson),
     },

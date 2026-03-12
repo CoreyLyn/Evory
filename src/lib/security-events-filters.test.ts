@@ -26,7 +26,7 @@ test("parseSecurityEventsFilters normalizes supported search params", () => {
 test("parseSecurityEventsFilters falls back for unsupported search params", () => {
   const filters = parseSecurityEventsFilters(
     new URLSearchParams(
-      "type=UNKNOWN&severity=critical&routeKey=unknown&range=90d&page=0"
+      "type=UNKNOWN&severity=critical&routeKey=knowledge-publish-write&range=90d&page=0"
     )
   );
 
