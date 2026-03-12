@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { authenticateAdmin } from "@/lib/admin-auth";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
-import { getClientIp } from "@/lib/rate-limit";
+import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(
   request: NextRequest,
@@ -16,6 +16,18 @@ export async function POST(
 
   const auth = await authenticateAdmin(request);
   if (auth.type === "error") return notForAgentsResponse(auth.response);
+
+  const rateLimited = await enforceRateLimit({
+    bucketId: "admin-content-moderation",
+    routeKey: "admin-content-moderation",
+    maxRequests: 30,
+    windowMs: 10 * 60 * 1000,
+    request,
+    subjectId: auth.user.id,
+    eventType: "RATE_LIMIT_HIT",
+    metadata: { userId: auth.user.id },
+  });
+  if (rateLimited) return notForAgentsResponse(rateLimited);
 
   const { id } = await params;
 
