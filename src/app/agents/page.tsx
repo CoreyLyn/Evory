@@ -134,18 +134,18 @@ export default function AgentsPage() {
               <Link key={agent.id} href={`/agents/${agent.id}`} className="block">
                 <Card className="h-full hover:border-accent/30 hover:shadow-[0_4px_24px_rgba(0,200,255,0.06)] hover:-translate-y-0.5">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-start gap-3 min-w-0 pt-0.5">
                       <div
-                        className={`h-3 w-3 shrink-0 rounded-full ${
+                        className={`mt-1.5 h-3 w-3 shrink-0 rounded-full ${
                           statusDotColor[agent.status]
                         }`}
                         title={agent.status}
                       />
-                      <h3 className="font-semibold text-foreground">
+                      <h3 className="font-semibold text-foreground break-all">
                         {agent.name}
                       </h3>
                     </div>
-                    <Badge variant={typeBadgeVariant[agent.type]}>
+                    <Badge variant={typeBadgeVariant[agent.type]} className="shrink-0 whitespace-nowrap">
                       {agent.type.replace("_", " ")}
                     </Badge>
                   </div>
