@@ -1,23 +1,7 @@
 import { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
-import { notForAgentsResponse } from "@/lib/agent-api-contract";
-import {
-  agentContextHasScope,
-  authenticateAgentContext,
-  forbiddenAgentScopeResponse,
-  unauthorizedResponse,
-} from "@/lib/auth";
-import { awardPoints } from "@/lib/points";
-import { enforceRateLimit } from "@/lib/rate-limit";
-import { PointActionType } from "@/generated/prisma/client";
-import { runSequentialPageQuery } from "@/lib/paginated-query";
 
-const agentSelect = {
-  id: true,
-  name: true,
-  type: true,
-  avatarConfig: true,
-} as const;
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
+import { getCurrentKnowledgeBase, listLegacyKnowledgeArticles } from "@/lib/knowledge-base/api";
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,27 +11,26 @@ export async function GET(request: NextRequest) {
       100,
       Math.max(1, parseInt(searchParams.get("pageSize") ?? "20", 10) || 20)
     );
-    const tag = searchParams.get("tag");
+    const tag = searchParams.get("tag")?.trim();
+    const knowledgeBase = await getCurrentKnowledgeBase();
 
-    const where = tag ? { tags: { array_contains: tag } } : {};
+    if (knowledgeBase.status === "not_configured") {
+      return notForAgentsResponse(Response.json(
+        { success: false, error: "Knowledge base not configured" },
+        { status: 503 }
+      ));
+    }
 
-    const { items: articles, total } = await runSequentialPageQuery({
-      getItems: () =>
-        prisma.knowledgeArticle.findMany({
-          where,
-          include: {
-            agent: { select: agentSelect },
-          },
-          orderBy: { createdAt: "desc" },
-          skip: (page - 1) * pageSize,
-          take: pageSize,
-        }),
-      getTotal: () => prisma.knowledgeArticle.count({ where }),
-    });
+    const allArticles = listLegacyKnowledgeArticles(knowledgeBase.index);
+    const filteredArticles = tag
+      ? allArticles.filter((article) => article.tags.includes(tag))
+      : allArticles;
+    const total = filteredArticles.length;
+    const data = filteredArticles.slice((page - 1) * pageSize, page * pageSize);
 
     return notForAgentsResponse(Response.json({
       success: true,
-      data: articles,
+      data,
       pagination: {
         total,
         page,
@@ -64,83 +47,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
-  const agentContext = await authenticateAgentContext(request);
-  if (!agentContext) return notForAgentsResponse(unauthorizedResponse());
-  if (!agentContextHasScope(agentContext, "knowledge:write")) {
-    return notForAgentsResponse(forbiddenAgentScopeResponse("knowledge:write"));
-  }
-
-  const abuseLimited = await enforceRateLimit({
-    bucketId: "knowledge-publish-write",
-    routeKey: "knowledge-publish-write",
-    maxRequests: 5,
-    windowMs: 10 * 60 * 1000,
-    request,
-    subjectId: agentContext.agent.id,
-    eventType: "AGENT_ABUSE_LIMIT_HIT",
-    metadata: {
-      agentId: agentContext.agent.id,
-    },
-  });
-
-  if (abuseLimited) {
-    return notForAgentsResponse(abuseLimited);
-  }
-
-  const agent = agentContext.agent;
-
-  try {
-    const body = await request.json();
-    const { title, content, tags: tagsInput } = body;
-
-    if (!title || typeof title !== "string") {
-      return notForAgentsResponse(Response.json(
-        { success: false, error: "title is required and must be a string" },
-        { status: 400 }
-      ));
-    }
-
-    if (!content || typeof content !== "string") {
-      return notForAgentsResponse(Response.json(
-        { success: false, error: "content is required and must be a string" },
-        { status: 400 }
-      ));
-    }
-
-    const tags = Array.isArray(tagsInput)
-      ? tagsInput.filter((t): t is string => typeof t === "string")
-      : [];
-
-    const article = await prisma.knowledgeArticle.create({
-      data: {
-        agentId: agent.id,
-        title: title.trim(),
-        content: content.trim(),
-        tags,
-      },
-      include: {
-        agent: { select: agentSelect },
-      },
-    });
-
-    await awardPoints(
-      agent.id,
-      PointActionType.PUBLISH_KNOWLEDGE,
-      10,
-      article.id,
-      "Published knowledge article"
-    );
-
-    return notForAgentsResponse(Response.json({
-      success: true,
-      data: article,
-    }));
-  } catch (err) {
-    console.error("[knowledge/articles POST]", err);
-    return notForAgentsResponse(Response.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 }
-    ));
-  }
+export async function POST() {
+  return notForAgentsResponse(Response.json(
+    { success: false, error: "Knowledge publishing has moved out of Evory" },
+    { status: 410 }
+  ));
 }

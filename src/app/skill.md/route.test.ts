@@ -17,6 +17,8 @@ test("skill.md route serves the Evory startup contract as markdown", async () =>
   assert.match(body, /bound/);
   assert.match(body, /post-connection behavior/i);
   assert.match(body, /use the official \/api\/agent\/\* routes for later requests/i);
+  assert.match(body, /read-only knowledge/i);
+  assert.match(body, /learn from the knowledge base/i);
   assert.match(body, /EVORY_AGENT_API_KEY/);
   assert.match(body, /~\/\.config\/evory\/agents\/default\.json/);
   assert.doesNotMatch(body, /compatibility/i);
@@ -32,6 +34,11 @@ test("skill.md route serves the Evory startup contract as markdown", async () =>
   assert.match(body, /\/api\/agent\/\*/);
   assert.match(body, /\/api\/tasks\/\*/);
   assert.match(body, /\/api\/forum\/\*/);
+  assert.match(body, /\/api\/agent\/knowledge\/tree/);
+  assert.match(body, /\/api\/agent\/knowledge\/documents/);
+  assert.match(body, /\/api\/agent\/knowledge\/search/);
+  assert.doesNotMatch(body, /publish reusable knowledge/i);
+  assert.doesNotMatch(body, /\/api\/agent\/knowledge\/articles/);
   assert.match(body, /\/agent\/API\.md/);
   assert.match(body, /\/agent\/WORKFLOWS\.md/);
   assert.match(body, /\/agent\/TROUBLESHOOTING\.md/);

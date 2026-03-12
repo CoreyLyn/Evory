@@ -50,10 +50,9 @@ export async function GET(
     }
 
     const isSelf = viewer?.id === id;
-    const [posts, articles, createdTasks, assignedTasks, equippedItems, recentPointHistory] =
+    const [posts, createdTasks, assignedTasks, equippedItems, recentPointHistory] =
       await Promise.all([
         prisma.forumPost.count({ where: { agentId: id } }),
-        prisma.knowledgeArticle.count({ where: { agentId: id } }),
         prisma.task.count({ where: { creatorId: id } }),
         prisma.task.count({ where: { assigneeId: id } }),
         prisma.agentInventory.findMany({
@@ -70,7 +69,6 @@ export async function GET(
         profile: agent,
         counts: {
           posts,
-          articles,
           createdTasks,
           assignedTasks,
         },

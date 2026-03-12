@@ -8,6 +8,38 @@ type MockResponse = {
   json: () => Promise<unknown>;
 };
 
+function createKnowledgeTreeResponse(documentCount: number) {
+  const directories = Array.from({ length: Math.max(0, documentCount - 1) }, (_, index) => ({
+    path: `guides/guide-${index + 1}`,
+    name: `guide-${index + 1}`,
+    title: `Guide ${index + 1}`,
+    document: {
+      path: `guides/guide-${index + 1}`,
+      title: `Guide ${index + 1}`,
+    },
+    directories: [],
+    documents: [],
+  }));
+
+  return {
+    success: true,
+    data: {
+      path: "",
+      name: "",
+      title: "Knowledge Base",
+      document:
+        documentCount > 0
+          ? {
+              path: "",
+              title: "Knowledge Home",
+            }
+          : null,
+      directories,
+      documents: [],
+    },
+  };
+}
+
 function createFetcher(routes: Record<string, unknown>) {
   return async (input: string): Promise<MockResponse> => {
     if (!(input in routes)) {
@@ -59,11 +91,7 @@ test("loadDashboardData reads forum posts from array data and top-level paginati
         ],
         pagination: { total: 6 },
       },
-      "/api/knowledge/articles?pageSize=1": {
-        success: true,
-        data: [],
-        pagination: { total: 4 },
-      },
+      "/api/knowledge/tree": createKnowledgeTreeResponse(4),
       "/api/tasks?pageSize=1": {
         success: true,
         data: [],
@@ -80,7 +108,7 @@ test("loadDashboardData reads forum posts from array data and top-level paginati
   assert.equal(result.stats?.totalAgents, 2);
   assert.equal(result.stats?.onlineAgents, 1);
   assert.equal(result.stats?.totalPosts, 6);
-  assert.equal(result.stats?.totalArticles, 4);
+  assert.equal(result.stats?.totalKnowledgeDocs, 4);
   assert.equal(result.stats?.totalTasks, 9);
   assert.equal(result.stats?.openTasks, 3);
   assert.equal(result.recentPosts.length, 1);
@@ -111,7 +139,7 @@ test("loadDashboardData keeps healthy sections when an extra stats request fails
         ],
         pagination: { total: 6 },
       },
-      "/api/knowledge/articles?pageSize=1": new Error("Articles unavailable"),
+      "/api/knowledge/tree": new Error("Knowledge tree unavailable"),
       "/api/tasks?pageSize=1": {
         success: true,
         data: [],
@@ -128,7 +156,7 @@ test("loadDashboardData keeps healthy sections when an extra stats request fails
   assert.equal(result.stats?.totalAgents, null);
   assert.equal(result.stats?.onlineAgents, null);
   assert.equal(result.stats?.totalPosts, 6);
-  assert.equal(result.stats?.totalArticles, null);
+  assert.equal(result.stats?.totalKnowledgeDocs, null);
   assert.equal(result.stats?.totalTasks, 7);
   assert.equal(result.stats?.openTasks, 2);
   assert.equal(result.leaderboard.length, 1);
@@ -162,11 +190,7 @@ test("loadDashboardData times out a hanging request without blocking other secti
           ],
           pagination: { total: 6 },
         },
-        "/api/knowledge/articles?pageSize=1": {
-          success: true,
-          data: [],
-          pagination: { total: 8 },
-        },
+        "/api/knowledge/tree": createKnowledgeTreeResponse(8),
         "/api/tasks?pageSize=1": {
           success: true,
           data: [],
@@ -184,7 +208,7 @@ test("loadDashboardData times out a hanging request without blocking other secti
 
   assert.equal(result.stats?.totalAgents, null);
   assert.equal(result.stats?.totalPosts, 6);
-  assert.equal(result.stats?.totalArticles, 8);
+  assert.equal(result.stats?.totalKnowledgeDocs, 8);
   assert.equal(result.stats?.totalTasks, 5);
   assert.equal(result.stats?.openTasks, 1);
   assert.equal(result.leaderboard.length, 1);
@@ -223,11 +247,7 @@ test("loadDashboardData retries once after a transient failure", async () => {
       ],
       pagination: { total: 6 },
     },
-    "/api/knowledge/articles?pageSize=1": {
-      success: true,
-      data: [],
-      pagination: { total: 11 },
-    },
+    "/api/knowledge/tree": createKnowledgeTreeResponse(11),
     "/api/tasks?pageSize=1": {
       success: true,
       data: [],
@@ -256,7 +276,7 @@ test("loadDashboardData retries once after a transient failure", async () => {
 
   assert.equal(result.stats.totalAgents, 2);
   assert.equal(result.stats.totalPosts, 6);
-  assert.equal(result.stats.totalArticles, 11);
+  assert.equal(result.stats.totalKnowledgeDocs, 11);
   assert.equal(result.stats.totalTasks, 13);
   assert.equal(result.stats.openTasks, 4);
   assert.equal(result.leaderboard.length, 1);
@@ -297,11 +317,7 @@ test("loadDashboardData avoids overlapping homepage requests in concurrency-cons
       ],
       pagination: { total: 6 },
     },
-    "/api/knowledge/articles?pageSize=1": {
-      success: true,
-      data: [],
-      pagination: { total: 10 },
-    },
+    "/api/knowledge/tree": createKnowledgeTreeResponse(10),
     "/api/tasks?pageSize=1": {
       success: true,
       data: [],
@@ -333,7 +349,7 @@ test("loadDashboardData avoids overlapping homepage requests in concurrency-cons
   assert.equal(maxActiveRequests, 1);
   assert.equal(result.stats.totalAgents, 2);
   assert.equal(result.stats.totalPosts, 6);
-  assert.equal(result.stats.totalArticles, 10);
+  assert.equal(result.stats.totalKnowledgeDocs, 10);
   assert.equal(result.stats.totalTasks, 14);
   assert.equal(result.stats.openTasks, 6);
   assert.equal(result.leaderboard.length, 1);

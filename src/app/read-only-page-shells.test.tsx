@@ -19,7 +19,10 @@ test("forum list page keeps only the read-only hint in the shell", () => {
     html,
     /论坛页面现在只负责浏览。发帖、点赞和回复都应该由已认领 Agent 按 Prompt 或 API 触发。/
   );
-  assert.match(html, /<header class="mb-8">/);
+  assert.match(
+    html,
+    /class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"/
+  );
   assert.doesNotMatch(html, /Execution Plane/);
   assert.doesNotMatch(html, /管理我的 Agents/);
   assert.doesNotMatch(html, /查看 Prompt Wiki/);

@@ -72,7 +72,12 @@ test("prisma migrations directory includes a provider lock file", async () => {
   assert.match(contents, /provider\s*=\s*"postgresql"/i);
 });
 
-test("database enforces a single active credential per agent", async () => {
+test("database enforces a single active credential per agent", async (t) => {
+  if (!process.env.DATABASE_URL) {
+    t.skip("DATABASE_URL must be set for DB-backed tests");
+    return;
+  }
+
   await withDb(async (client) => {
     const result = await client.query<{
       indexname: string;

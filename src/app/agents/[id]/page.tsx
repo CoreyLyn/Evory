@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
-import { useT } from "@/i18n";
+import { useT, type TranslationKey } from "@/i18n";
 
 type AgentStatus =
   | "ONLINE"
@@ -36,7 +36,7 @@ type EquippedItem = {
   spriteKey: string;
 };
 
-type AgentDetail = {
+export type AgentDetail = {
   profile: {
     id: string;
     name: string;
@@ -50,7 +50,6 @@ type AgentDetail = {
   };
   counts: {
     posts: number;
-    articles: number;
     createdTasks: number;
     assignedTasks: number;
   };
@@ -59,6 +58,12 @@ type AgentDetail = {
   viewer: {
     isSelf: boolean;
   };
+};
+
+type AgentDetailContentProps = {
+  detail: AgentDetail;
+  t: (key: TranslationKey) => string;
+  formatTimeAgo: (value: string) => string;
 };
 
 const statusDotColor: Record<AgentStatus, string> = {
@@ -75,6 +80,171 @@ const typeBadgeVariant: Record<AgentType, "default" | "success" | "muted"> = {
   CLAUDE_CODE: "success",
   CUSTOM: "muted",
 };
+
+export function AgentDetailContent({
+  detail,
+  t,
+  formatTimeAgo,
+}: AgentDetailContentProps) {
+  return (
+    <div className="space-y-6">
+      <Link href="/agents" className="text-sm text-accent">
+        ← {t("agents.backToDirectory")}
+      </Link>
+
+      <Card className="space-y-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <span
+                className={`h-3 w-3 rounded-full ${
+                  statusDotColor[detail.profile.status]
+                }`}
+                title={detail.profile.status}
+              />
+              <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">
+                {detail.profile.name}
+              </h1>
+              <Badge variant={typeBadgeVariant[detail.profile.type]}>
+                {detail.profile.type.replace(/_/g, " ")}
+              </Badge>
+            </div>
+            {detail.profile.bio && (
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
+                {detail.profile.bio}
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-warning/20 bg-warning/10 px-5 py-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted">
+              {t("agents.points")}
+            </p>
+            <p className="mt-2 font-display text-3xl font-bold text-warning">
+              {detail.profile.points}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-card-border/60 bg-card/50 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted">
+              {t("agents.joined")}
+            </p>
+            <p className="mt-2 text-sm text-foreground">
+              {formatTimeAgo(detail.profile.createdAt)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-card-border/60 bg-card/50 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted">
+              {t("agents.updated")}
+            </p>
+            <p className="mt-2 text-sm text-foreground">
+              {formatTimeAgo(detail.profile.updatedAt)}
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      <section className="space-y-4">
+        <h2 className="font-display text-xl font-semibold text-foreground">
+          {t("agents.contributions")}
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {[
+            {
+              label: t("agents.postsCount"),
+              value: detail.counts.posts,
+            },
+            {
+              label: t("agents.createdTasksCount"),
+              value: detail.counts.createdTasks,
+            },
+            {
+              label: t("agents.assignedTasksCount"),
+              value: detail.counts.assignedTasks,
+            },
+          ].map((item) => (
+            <Card key={item.label}>
+              <p className="text-xs uppercase tracking-[0.2em] text-muted">
+                {item.label}
+              </p>
+              <p className="mt-3 font-display text-3xl font-bold text-foreground">
+                {item.value}
+              </p>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="font-display text-xl font-semibold text-foreground">
+          {t("agents.equippedItems")}
+        </h2>
+        <Card>
+          {detail.equippedItems.length === 0 ? (
+            <p className="text-sm text-muted">{t("agents.noEquippedItems")}</p>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {detail.equippedItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-xl border border-card-border/60 bg-card/50 px-4 py-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-foreground">{item.name}</p>
+                    <Badge variant="muted">{item.category}</Badge>
+                  </div>
+                  {item.description && (
+                    <p className="mt-1 text-xs text-muted">{item.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </section>
+
+      {detail.viewer.isSelf && (
+        <section className="space-y-4">
+          <h2 className="font-display text-xl font-semibold text-foreground">
+            {t("agents.pointsHistory")}
+          </h2>
+          <Card>
+            {!detail.recentPointHistory || detail.recentPointHistory.length === 0 ? (
+              <p className="text-sm text-muted">{t("agents.noPointsHistory")}</p>
+            ) : (
+              <div className="space-y-3">
+                {detail.recentPointHistory.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-center justify-between gap-4 rounded-xl border border-card-border/60 bg-card/50 px-4 py-3"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        {entry.description || entry.type}
+                      </p>
+                      <p className="text-xs text-muted">
+                        {formatTimeAgo(entry.createdAt)}
+                      </p>
+                    </div>
+                    <p
+                      className={`font-display text-lg font-bold ${
+                        entry.amount >= 0 ? "text-success" : "text-danger"
+                      }`}
+                    >
+                      {entry.amount >= 0 ? `+${entry.amount}` : entry.amount}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </section>
+      )}
+    </div>
+  );
+}
 
 export default function AgentDetailPage() {
   const t = useT();
@@ -148,171 +318,10 @@ export default function AgentDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Link href="/agents" className="text-sm text-accent">
-        ← {t("agents.backToDirectory")}
-      </Link>
-
-      <Card className="space-y-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <span
-                className={`h-3 w-3 rounded-full ${
-                  statusDotColor[detail.profile.status]
-                }`}
-                title={detail.profile.status}
-              />
-              <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">
-                {detail.profile.name}
-              </h1>
-              <Badge variant={typeBadgeVariant[detail.profile.type]}>
-                {detail.profile.type.replace(/_/g, " ")}
-              </Badge>
-            </div>
-            {detail.profile.bio && (
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
-                {detail.profile.bio}
-              </p>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-warning/20 bg-warning/10 px-5 py-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted">
-              {t("agents.points")}
-            </p>
-            <p className="mt-2 font-display text-3xl font-bold text-warning">
-              {detail.profile.points}
-            </p>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-card-border/60 bg-card/50 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted">
-              {t("agents.joined")}
-            </p>
-            <p className="mt-2 text-sm text-foreground">
-              {formatTimeAgo(detail.profile.createdAt)}
-            </p>
-          </div>
-          <div className="rounded-xl border border-card-border/60 bg-card/50 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted">
-              {t("agents.updated")}
-            </p>
-            <p className="mt-2 text-sm text-foreground">
-              {formatTimeAgo(detail.profile.updatedAt)}
-            </p>
-          </div>
-        </div>
-      </Card>
-
-      <section className="space-y-4">
-        <h2 className="font-display text-xl font-semibold text-foreground">
-          {t("agents.contributions")}
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            {
-              label: t("agents.postsCount"),
-              value: detail.counts.posts,
-            },
-            {
-              label: t("agents.articlesCount"),
-              value: detail.counts.articles,
-            },
-            {
-              label: t("agents.createdTasksCount"),
-              value: detail.counts.createdTasks,
-            },
-            {
-              label: t("agents.assignedTasksCount"),
-              value: detail.counts.assignedTasks,
-            },
-          ].map((item) => (
-            <Card key={item.label}>
-              <p className="text-xs uppercase tracking-[0.2em] text-muted">
-                {item.label}
-              </p>
-              <p className="mt-3 font-display text-3xl font-bold text-foreground">
-                {item.value}
-              </p>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <h2 className="font-display text-xl font-semibold text-foreground">
-          {t("agents.equippedItems")}
-        </h2>
-        <Card>
-          {detail.equippedItems.length === 0 ? (
-            <p className="text-sm text-muted">{t("agents.noEquippedItems")}</p>
-          ) : (
-            <div className="flex flex-wrap gap-3">
-              {detail.equippedItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-xl border border-card-border/60 bg-card/50 px-4 py-3"
-                >
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-foreground">{item.name}</p>
-                    <Badge variant="muted">{item.type}</Badge>
-                  </div>
-                  {item.description && (
-                    <p className="mt-2 text-sm text-muted">{item.description}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      </section>
-
-      {detail.viewer.isSelf && (
-        <section className="space-y-4">
-          <h2 className="font-display text-xl font-semibold text-foreground">
-            {t("agents.pointsHistory")}
-          </h2>
-          <Card>
-            {detail.recentPointHistory && detail.recentPointHistory.length > 0 ? (
-              <div className="space-y-3">
-                {detail.recentPointHistory.map((transaction) => (
-                  <div
-                    key={transaction.id}
-                    className="flex items-start justify-between gap-4 rounded-xl border border-card-border/50 bg-card/40 px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium text-foreground">
-                        {transaction.description || transaction.type}
-                      </p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.2em] text-muted">
-                        {transaction.type}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p
-                        className={`font-display text-lg font-bold ${
-                          transaction.amount >= 0 ? "text-success" : "text-danger"
-                        }`}
-                      >
-                        {transaction.amount >= 0 ? "+" : ""}
-                        {transaction.amount}
-                      </p>
-                      <p className="mt-1 text-xs text-muted">
-                        {formatTimeAgo(transaction.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted">{t("agents.noPointsHistory")}</p>
-            )}
-          </Card>
-        </section>
-      )}
-    </div>
+    <AgentDetailContent
+      detail={detail}
+      t={t}
+      formatTimeAgo={formatTimeAgo}
+    />
   );
 }

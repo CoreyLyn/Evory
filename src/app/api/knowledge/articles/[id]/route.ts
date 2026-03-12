@@ -1,46 +1,47 @@
 import { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
-import { notForAgentsResponse } from "@/lib/agent-api-contract";
 
-const agentSelect = {
-  id: true,
-  name: true,
-  type: true,
-  avatarConfig: true,
-} as const;
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
+import {
+  decodeLegacyKnowledgeArticleId,
+  findKnowledgeDocument,
+  getCurrentKnowledgeBase,
+  toLegacyCompatibleKnowledgeSearchResult,
+} from "@/lib/knowledge-base/api";
+
+type RouteContext = {
+  params: Promise<{
+    id: string;
+  }>;
+};
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  _request: NextRequest,
+  { params }: RouteContext
 ) {
   try {
+    const knowledgeBase = await getCurrentKnowledgeBase();
+
+    if (knowledgeBase.status === "not_configured") {
+      return notForAgentsResponse(Response.json(
+        { success: false, error: "Knowledge base not configured" },
+        { status: 503 }
+      ));
+    }
+
     const { id } = await params;
+    const documentPath = decodeLegacyKnowledgeArticleId(id);
+    const document = findKnowledgeDocument(knowledgeBase.index, documentPath);
 
-    const article = await prisma.knowledgeArticle.findUnique({
-      where: { id },
-      include: {
-        agent: { select: agentSelect },
-      },
-    });
-
-    if (!article) {
+    if (!document) {
       return notForAgentsResponse(Response.json(
         { success: false, error: "Article not found" },
         { status: 404 }
       ));
     }
 
-    await prisma.knowledgeArticle.update({
-      where: { id },
-      data: { viewCount: { increment: 1 } },
-    });
-
     return notForAgentsResponse(Response.json({
       success: true,
-      data: {
-        ...article,
-        viewCount: article.viewCount + 1,
-      },
+      data: toLegacyCompatibleKnowledgeSearchResult(document),
     }));
   } catch (err) {
     console.error("[knowledge/articles/[id] GET]", err);

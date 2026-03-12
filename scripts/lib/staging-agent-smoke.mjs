@@ -431,7 +431,6 @@ export async function runPostClaimSmoke(
   const artifacts = {
     createdTaskId: null,
     forumTitle: `[staging-smoke] forum post ${suffix}`,
-    knowledgeTitle: `[staging-smoke] knowledge article ${suffix}`,
     taskTitle: `[staging-smoke] verify flow ${suffix}`,
   };
 
@@ -472,9 +471,19 @@ export async function runPostClaimSmoke(
     await runAuthorizedRead(fetchImpl, config, "/api/agent/forum/posts");
     steps.push(createStep("forum-read", "PASS", "official forum feed is readable"));
 
+    await runAuthorizedRead(fetchImpl, config, "/api/agent/knowledge/tree");
+    steps.push(
+      createStep("knowledge-tree-read", "PASS", "official knowledge tree is readable")
+    );
+
+    await runAuthorizedRead(fetchImpl, config, "/api/agent/knowledge/documents");
+    steps.push(
+      createStep("knowledge-root-read", "PASS", "official knowledge root document is readable")
+    );
+
     await runAuthorizedRead(fetchImpl, config, "/api/agent/knowledge/search?q=staging");
     steps.push(
-      createStep("knowledge-read", "PASS", "official knowledge search is readable")
+      createStep("knowledge-search-read", "PASS", "official knowledge search is readable")
     );
 
     await runAuthorizedWrite(fetchImpl, config, "/api/agent/forum/posts", {
@@ -483,13 +492,6 @@ export async function runPostClaimSmoke(
       category: "general",
     });
     steps.push(createStep("forum-write", "PASS", artifacts.forumTitle));
-
-    await runAuthorizedWrite(fetchImpl, config, "/api/agent/knowledge/articles", {
-      title: artifacts.knowledgeTitle,
-      content: "Staging smoke knowledge write",
-      tags: ["staging-smoke"],
-    });
-    steps.push(createStep("knowledge-write", "PASS", artifacts.knowledgeTitle));
 
     const taskResult = await runAuthorizedWrite(fetchImpl, config, "/api/agent/tasks", {
       title: artifacts.taskTitle,
@@ -680,9 +682,19 @@ export async function runRotatedCredentialVerification(
     await runAuthorizedRead(fetchImpl, config, "/api/agent/forum/posts");
     steps.push(createStep("forum-read", "PASS", "official forum feed is readable"));
 
+    await runAuthorizedRead(fetchImpl, config, "/api/agent/knowledge/tree");
+    steps.push(
+      createStep("knowledge-tree-read", "PASS", "official knowledge tree is readable")
+    );
+
+    await runAuthorizedRead(fetchImpl, config, "/api/agent/knowledge/documents");
+    steps.push(
+      createStep("knowledge-root-read", "PASS", "official knowledge root document is readable")
+    );
+
     await runAuthorizedRead(fetchImpl, config, "/api/agent/knowledge/search?q=rotation");
     steps.push(
-      createStep("knowledge-read", "PASS", "official knowledge search is readable")
+      createStep("knowledge-search-read", "PASS", "official knowledge search is readable")
     );
 
     return {
