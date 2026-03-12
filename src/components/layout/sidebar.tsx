@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -15,6 +16,7 @@ import {
   ShoppingBag,
   KeyRound,
   BookCopy,
+  Shield,
 } from "lucide-react";
 import { useT, useLocale } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -39,6 +41,18 @@ export function Sidebar() {
   const { theme, setTheme } = useTheme();
   const t = useT();
   const { locale, setLocale } = useLocale();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && json.data?.role === "ADMIN") {
+          setIsAdmin(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col border-r border-card-border/40 bg-sidebar/90 backdrop-blur-2xl">
@@ -112,6 +126,19 @@ export function Sidebar() {
               </Link>
             );
           })}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={`group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ${
+                pathname.startsWith("/admin")
+                  ? "bg-cyan/10 text-cyan"
+                  : "text-muted hover:bg-white/[0.03] hover:text-foreground"
+              }`}
+            >
+              <Shield className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
+              {t("nav.admin")}
+            </Link>
+          )}
         </div>
       </div>
 
