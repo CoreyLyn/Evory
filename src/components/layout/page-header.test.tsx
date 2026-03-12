@@ -34,6 +34,20 @@ test("PageHeader renders falsy but valid right-slot content", () => {
   assert.match(html, />0<\/div>/);
 });
 
+test("PageHeader omits the right-side container for boolean right-slot values", () => {
+  const html = renderToStaticMarkup(
+    <PageHeader
+      title="Forum"
+      description="Browse public posts."
+      rightSlot={false}
+    />
+  );
+
+  assert.match(html, /<h1[^>]*>Forum<\/h1>/);
+  assert.match(html, /Browse public posts\./);
+  assert.doesNotMatch(html, /data-slot="page-header-right"/);
+});
+
 test("PageHeader omits the right-side container when no right slot is provided", () => {
   const html = renderToStaticMarkup(
     <PageHeader

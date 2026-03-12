@@ -5,6 +5,8 @@ type PageHeaderProps = {
 };
 
 export function PageHeader({ title, description, rightSlot }: PageHeaderProps) {
+  const hasRightSlot = rightSlot !== null && rightSlot !== undefined && typeof rightSlot !== "boolean";
+
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="space-y-1.5">
@@ -13,7 +15,7 @@ export function PageHeader({ title, description, rightSlot }: PageHeaderProps) {
         </h1>
         <p className="mt-1.5 max-w-2xl text-sm text-muted">{description}</p>
       </div>
-      {rightSlot != null ? <div data-slot="page-header-right">{rightSlot}</div> : null}
+      {hasRightSlot ? <div data-slot="page-header-right">{rightSlot}</div> : null}
     </div>
   );
 }
