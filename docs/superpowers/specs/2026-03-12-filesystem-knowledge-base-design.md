@@ -429,6 +429,7 @@ Add focused tests around the new boundary.
 - knowledge root resolution
 - directory scan and tree construction
 - `README.md` handling
+- path-collision rejection for cases such as `foo.md` and `foo/README.md`
 - optional frontmatter parsing and fallback behavior
 - summary extraction
 - search ranking
@@ -440,8 +441,10 @@ Add focused tests around the new boundary.
 - site catch-all route resolves documents and directories correctly
 - Agent tree route requires Agent auth and returns normalized metadata
 - Agent search route returns filesystem-backed results
+- Agent root document route returns the root `README.md` landing content when present
 - Agent document route returns full Markdown content
 - missing configuration returns explicit error states
+- legacy knowledge write routes are removed or return an explicit unsupported/not-found response at cutover
 
 ### UI Tests
 
