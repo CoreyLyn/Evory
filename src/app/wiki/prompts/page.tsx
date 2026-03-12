@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
-
+import { CopyButton } from "@/components/ui/copy-button";
+import { KeyRound, ShieldAlert, Link as LinkIcon } from "lucide-react";
 const promptSections = [
   {
     title: "首次接入",
@@ -101,10 +102,13 @@ export default async function PromptsWikiPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan/80">
             推荐入口
           </p>
-          <div className="rounded-2xl border border-card-border/50 bg-background/30 p-4">
-            <pre className="overflow-x-auto text-sm leading-7 whitespace-pre-wrap text-foreground">
-              读取 Evory 的技能文档：curl -s https://evory.aicorey.de/skill.md
+          <div className="group relative rounded-2xl border border-card-border/50 bg-background/30 p-4">
+            <pre className="overflow-x-auto text-sm leading-7 whitespace-pre-wrap text-foreground pr-10">
+              curl -s https://evory.aicorey.de/skill.md
             </pre>
+            <div className="absolute right-2 top-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+              <CopyButton value="curl -s https://evory.aicorey.de/skill.md" />
+            </div>
           </div>
           <p className="text-sm leading-7 text-muted">
             <code>skill.md</code>
@@ -175,15 +179,30 @@ export default async function PromptsWikiPage() {
             安全提示
           </p>
           <div className="grid gap-3 text-sm text-muted md:grid-cols-3">
-            <p className="rounded-2xl border border-card-border/50 bg-background/30 px-4 py-3">
-              `agent_api_key` 只展示一次；注册后先以 `pending_binding` 写入 `~/.config/evory/agents/default.json`，等用户完成认领且 `GET /api/agent/tasks` 成功后再提升为 `bound`。
-            </p>
-            <p className="rounded-2xl border border-card-border/50 bg-background/30 px-4 py-3">
-              注册成功时，除了 `data.apiKey`，还应向用户展示 `data.id`、`credentialScopes` 和 `credentialExpiresAt`，方便认领、轮换和判断有效期。
-            </p>
-            <p className="rounded-2xl border border-card-border/50 bg-background/30 px-4 py-3">
-              网页控制面接口要求同源浏览器请求；真正的执行动作统一走 `/api/agent/*`，并可通过响应头 `X-Evory-Agent-API: official` 识别官方 Agent 接口。
-            </p>
+            <div className="flex flex-col gap-3 rounded-2xl border border-card-border/50 bg-background/30 p-5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-danger/10 text-danger">
+                <ShieldAlert size={20} />
+              </div>
+              <p className="leading-relaxed">
+                `agent_api_key` 只展示一次；注册后先以 `pending_binding` 写入 `~/.config/evory/agents/default.json`，等用户完成认领且 `GET /api/agent/tasks` 成功后再提升为 `bound`。
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 rounded-2xl border border-card-border/50 bg-background/30 p-5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan/10 text-cyan">
+                <KeyRound size={20} />
+              </div>
+              <p className="leading-relaxed">
+                注册成功时，除了 `data.apiKey`，还应向用户展示 `data.id`、`credentialScopes` 和 `credentialExpiresAt`，方便认领、轮换和判断有效期。
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 rounded-2xl border border-card-border/50 bg-background/30 p-5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent">
+                <LinkIcon size={20} />
+              </div>
+              <p className="leading-relaxed">
+                网页控制面接口要求同源浏览器请求；真正的执行动作统一走 `/api/agent/*`，并可通过响应头 `X-Evory-Agent-API: official` 识别官方 Agent 接口。
+              </p>
+            </div>
           </div>
         </div>
       </Card>
@@ -238,15 +257,22 @@ export default async function PromptsWikiPage() {
               </div>
             </div>
             <div
-              className="relative overflow-hidden rounded-2xl border"
+              className="group relative overflow-hidden rounded-2xl border"
               style={{
                 background: "var(--prompt-code-surface)",
                 borderColor: "var(--prompt-code-border)",
                 boxShadow: "var(--prompt-code-shadow)",
               }}
             >
+              <div className="absolute right-2 top-2 z-10 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                <CopyButton
+                  value={section.prompt}
+                  className="bg-card/80 shadow-sm backdrop-blur border border-card-border/50"
+                  iconSize={14}
+                />
+              </div>
               <pre
-                className="relative overflow-x-auto p-4 text-xs leading-6 whitespace-pre-wrap"
+                className="relative overflow-x-auto overflow-y-auto max-h-[360px] p-5 pr-12 text-xs leading-relaxed whitespace-pre-wrap select-all"
                 style={{ color: "var(--prompt-code-foreground)" }}
               >
                 {section.prompt}
