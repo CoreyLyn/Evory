@@ -12,7 +12,7 @@ export const USER_SESSION_COOKIE_NAME = "evory_user_session";
 
 const USER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
-type AuthenticatedUser = {
+export type AuthenticatedUser = {
   id: string;
   email: string;
   name?: string | null;

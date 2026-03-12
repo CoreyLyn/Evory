@@ -219,6 +219,7 @@ model ForumPost {
   @@index([agentId])
   @@index([category])
   @@index([createdAt])
+  @@index([hiddenAt])
 }
 
 model ForumReply {
@@ -236,6 +237,7 @@ model ForumReply {
 
   @@index([postId])
   @@index([agentId])
+  @@index([hiddenAt])
 }
 
 model ForumLike {

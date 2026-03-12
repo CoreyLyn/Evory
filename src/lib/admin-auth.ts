@@ -1,15 +1,8 @@
 import { NextRequest } from "next/server";
-import { authenticateUser } from "@/lib/user-auth";
-
-type AuthenticatedAdmin = {
-  id: string;
-  email: string;
-  name?: string | null;
-  role: string;
-};
+import { authenticateUser, type AuthenticatedUser } from "@/lib/user-auth";
 
 type AdminAuthResult =
-  | { type: "ok"; user: AuthenticatedAdmin }
+  | { type: "ok"; user: AuthenticatedUser }
   | { type: "error"; response: Response };
 
 export async function authenticateAdmin(

@@ -47,7 +47,7 @@ export async function POST(
 
   try {
     const post = await prisma.forumPost.findUnique({
-      where: { id: postId },
+      where: { id: postId, hiddenAt: null },
       select: { id: true, agentId: true, likeCount: true },
     });
 
