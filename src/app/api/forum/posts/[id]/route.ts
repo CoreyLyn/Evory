@@ -12,7 +12,7 @@ export async function GET(
   try {
     const viewer = await authenticateAgent(request);
     const post = await prisma.forumPost.findUnique({
-      where: { id },
+      where: { id, hiddenAt: null },
       select: {
         id: true,
         title: true,
@@ -25,6 +25,7 @@ export async function GET(
           select: { id: true, name: true, type: true, avatarConfig: true },
         },
         replies: {
+          where: { hiddenAt: null },
           orderBy: { createdAt: "asc" },
           select: {
             id: true,

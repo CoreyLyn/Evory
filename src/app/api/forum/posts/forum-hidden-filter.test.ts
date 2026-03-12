@@ -1,0 +1,182 @@
+import assert from "node:assert/strict";
+import test, { beforeEach, afterEach } from "node:test";
+import { createRouteRequest, createRouteParams } from "@/test/request-helpers";
+import {
+  createForumPostFixture,
+  createForumReplyFixture,
+  createAgentFixture,
+} from "@/test/factories";
+import prisma from "@/lib/prisma";
+import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
+import { resetRateLimitStore } from "@/lib/rate-limit";
+
+import { GET as getForumPosts } from "./route";
+import { GET as getForumPost } from "./[id]/route";
+
+const prismaClient = prisma as Record<string, any>;
+
+const originalMethods = {
+  forumPostFindMany: prismaClient.forumPost.findMany,
+  forumPostFindUnique: prismaClient.forumPost.findUnique,
+  forumPostCount: prismaClient.forumPost.count,
+  forumPostUpdate: prismaClient.forumPost.update,
+  forumLikeFindUnique: prismaClient.forumLike.findUnique,
+  agentCredentialFindUnique: prismaClient.agentCredential?.findUnique,
+  agentUpdate: prismaClient.agent?.update,
+  securityEventCreate: prismaClient.securityEvent?.create,
+  rateLimitCounter: prismaClient.rateLimitCounter,
+};
+
+beforeEach(() => {
+  installRateLimitStoreMock(prismaClient);
+  prismaClient.securityEvent = {
+    create: async () => ({}),
+  };
+});
+
+afterEach(async () => {
+  await resetRateLimitStore();
+  prismaClient.forumPost.findMany = originalMethods.forumPostFindMany;
+  prismaClient.forumPost.findUnique = originalMethods.forumPostFindUnique;
+  prismaClient.forumPost.count = originalMethods.forumPostCount;
+  prismaClient.forumPost.update = originalMethods.forumPostUpdate;
+  prismaClient.forumLike.findUnique = originalMethods.forumLikeFindUnique;
+  if (prismaClient.agentCredential && originalMethods.agentCredentialFindUnique) {
+    prismaClient.agentCredential.findUnique =
+      originalMethods.agentCredentialFindUnique;
+  }
+  if (prismaClient.agent && originalMethods.agentUpdate) {
+    prismaClient.agent.update = originalMethods.agentUpdate;
+  }
+  if (prismaClient.securityEvent && originalMethods.securityEventCreate) {
+    prismaClient.securityEvent.create = originalMethods.securityEventCreate;
+  }
+  prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
+});
+
+test("GET /api/forum/posts passes hiddenAt:null in where clause", async () => {
+  let capturedFindManyWhere: Record<string, unknown> | undefined;
+  let capturedCountWhere: Record<string, unknown> | undefined;
+
+  prismaClient.forumPost.findMany = async (args: Record<string, any>) => {
+    capturedFindManyWhere = args.where;
+    return [createForumPostFixture()];
+  };
+  prismaClient.forumPost.count = async (args: Record<string, any>) => {
+    capturedCountWhere = args.where;
+    return 1;
+  };
+
+  const response = await getForumPosts(
+    createRouteRequest("http://localhost/api/forum/posts")
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(
+    capturedFindManyWhere?.hiddenAt,
+    null,
+    "findMany where should include hiddenAt: null"
+  );
+  assert.equal(
+    capturedCountWhere?.hiddenAt,
+    null,
+    "count where should include hiddenAt: null"
+  );
+});
+
+test("GET /api/forum/posts passes hiddenAt:null with category filter", async () => {
+  let capturedWhere: Record<string, unknown> | undefined;
+
+  prismaClient.forumPost.findMany = async (args: Record<string, any>) => {
+    capturedWhere = args.where;
+    return [];
+  };
+  prismaClient.forumPost.count = async () => 0;
+
+  const response = await getForumPosts(
+    createRouteRequest(
+      "http://localhost/api/forum/posts?category=general"
+    )
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(capturedWhere?.hiddenAt, null);
+  assert.equal(capturedWhere?.category, "general");
+});
+
+test("GET /api/forum/posts/[id] returns 404 for hidden post", async () => {
+  // When hiddenAt: null is in the where clause, a hidden post won't match,
+  // so findUnique returns null.
+  prismaClient.forumPost.findUnique = async (args: Record<string, any>) => {
+    // Verify the where clause includes hiddenAt: null
+    assert.equal(
+      args.where.hiddenAt,
+      null,
+      "findUnique should filter by hiddenAt: null"
+    );
+    // Simulate hidden post: Prisma returns null because hiddenAt is not null
+    return null;
+  };
+  // The agent auth lookup should return null (unauthenticated viewer)
+  prismaClient.agentCredential = {
+    findUnique: async () => null,
+    update: async () => ({}),
+  };
+
+  const response = await getForumPost(
+    createRouteRequest("http://localhost/api/forum/posts/hidden-post-1"),
+    createRouteParams({ id: "hidden-post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 404);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Post not found");
+});
+
+test("GET /api/forum/posts/[id] filters hidden replies via where clause", async () => {
+  let capturedQuery: Record<string, any> | undefined;
+
+  prismaClient.forumPost.findUnique = async (args: Record<string, any>) => {
+    capturedQuery = args;
+    const visibleReply = createForumReplyFixture({ id: "reply-visible" });
+    return createForumPostFixture({
+      replies: [visibleReply],
+    });
+  };
+  prismaClient.forumLike.findUnique = async () => null;
+  prismaClient.forumPost.update = async () => createForumPostFixture();
+  prismaClient.agentCredential = {
+    findUnique: async () => null,
+    update: async () => ({}),
+  };
+
+  const response = await getForumPost(
+    createRouteRequest("http://localhost/api/forum/posts/post-1"),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+
+  // Verify that the Prisma query includes hiddenAt: null on the replies relation
+  const repliesSelect = capturedQuery?.select?.replies;
+  assert.ok(repliesSelect, "query should include replies in select");
+  assert.deepEqual(
+    repliesSelect.where,
+    { hiddenAt: null },
+    "replies relation should filter by hiddenAt: null"
+  );
+
+  // Verify the post-level where also filters hidden posts
+  assert.equal(
+    capturedQuery?.where?.hiddenAt,
+    null,
+    "post findUnique should filter by hiddenAt: null"
+  );
+});

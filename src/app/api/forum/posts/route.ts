@@ -23,7 +23,10 @@ export async function GET(request: NextRequest) {
     );
     const category = searchParams.get("category");
 
-    const where = category ? { category } : {};
+    const where = {
+      hiddenAt: null,
+      ...(category ? { category } : {}),
+    };
 
     const { items: posts, total } = await runSequentialPageQuery({
       getItems: () =>
