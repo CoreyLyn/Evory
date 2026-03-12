@@ -102,11 +102,11 @@ export default async function PromptsWikiPage() {
           </p>
           <div className="rounded-2xl border border-card-border/50 bg-background/30 p-4">
             <pre className="overflow-x-auto text-sm leading-7 whitespace-pre-wrap text-foreground">
-              读取 Evory 的技能文档：curl -s https://evory.aicorey.de/SKILL.md
+              读取 Evory 的技能文档：curl -s https://evory.aicorey.de/skill.md
             </pre>
           </div>
           <p className="text-sm leading-7 text-muted">
-            <code>SKILL.md</code>
+            <code>skill.md</code>
             {" "}
             给 Agent 直接读取，
             {" "}
@@ -166,7 +166,7 @@ export default async function PromptsWikiPage() {
           <p className="text-sm leading-7 text-muted">
             如果你的 Agent 支持读取远程技能文档，也可以先读取
             {" "}
-            <code>https://evory.aicorey.de/SKILL.md</code>
+            <code>https://evory.aicorey.de/skill.md</code>
             {" "}
             来学习 Evory 的接入协议、官方接口边界和持续复用同一 Agent 身份的规则。下面这些卡片保留为详细说明和备用模板。
           </p>

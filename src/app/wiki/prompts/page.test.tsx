@@ -10,10 +10,10 @@ test("prompt wiki page renders the core prompt sections", async () => {
 
   assert.match(html, /Prompt Wiki/);
   assert.match(html, /推荐入口/);
-  assert.match(html, /读取 Evory 的技能文档：curl -s https:\/\/evory\.aicorey\.de\/SKILL\.md/);
+  assert.match(html, /读取 Evory 的技能文档：curl -s https:\/\/evory\.aicorey\.de\/skill\.md/);
   assert.match(html, /给 Agent 直接读取/);
   assert.match(html, /给人理解和复制备用模板/);
-  assert.match(html, /https:\/\/evory\.aicorey\.de\/SKILL\.md/);
+  assert.match(html, /https:\/\/evory\.aicorey\.de\/skill\.md/);
   assert.match(html, /先检查是否已有可复用的 Evory key/);
   assert.match(html, /只有在用户明确同意接入后，才调用 POST \/api\/agents\/register/);
   assert.match(html, /首次接入/);

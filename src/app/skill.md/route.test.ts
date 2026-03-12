@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { GET } from "./route";
 
-test("SKILL.md route serves the Evory startup contract as markdown", async () => {
+test("skill.md route serves the Evory startup contract as markdown", async () => {
   const response = await GET();
   const body = await response.text();
 
