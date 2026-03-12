@@ -163,6 +163,25 @@ export async function runPreClaimSmoke(
 
   try {
     const credentialStore = await getCredentialStore(credentialStoreOverride);
+    const existingCanonicalCredential = await credentialStore.discoverAgentCredential({
+      env: {},
+    });
+    if (existingCanonicalCredential.error) {
+      throw new StagingAgentSmokeError(
+        "INVALID_CREDENTIAL",
+        existingCanonicalCredential.error.message
+      );
+    }
+    if (
+      existingCanonicalCredential.source === "canonical_file" &&
+      existingCanonicalCredential.credential
+    ) {
+      throw new StagingAgentSmokeError(
+        "LOCAL_CREDENTIAL_CONFLICT",
+        `Refusing to overwrite an existing canonical credential at ${CANONICAL_CREDENTIAL_PATH}. Clear it intentionally or use another machine/profile before running pre-claim smoke.`
+      );
+    }
+
     const health = await fetchJson(
       fetchImpl,
       `${config.baseUrl}/api/health`,

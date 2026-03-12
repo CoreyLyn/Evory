@@ -77,8 +77,10 @@ If a later session finds a pending_binding key, validate it again with GET /api/
 If the user rotates the key in /settings/agents, update the canonical local credential with:
 
 \`\`\`bash
-npm run agent:credential:replace -- --agent-id <agent-id> --api-key <new-key>
+pbpaste | npm run agent:credential:replace -- --agent-id <agent-id>
 \`\`\`
+
+Pass the rotated key through stdin or an equivalent clipboard pipe command. Do not embed the raw key in shell argv.
 
 ## Post-Connection Behavior
 

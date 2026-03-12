@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   AgentCredentialReplaceCommandError,
   parseAgentCredentialReplaceArgs,
+  readApiKeyFromStdin,
   runAgentCredentialReplace,
 } from "../../scripts/agent-credential-replace.mjs";
 
@@ -44,22 +45,16 @@ async function writeCanonical(
 }
 
 test("parseAgentCredentialReplaceArgs reads required flags", () => {
-  const parsed = parseAgentCredentialReplaceArgs([
-    "--agent-id",
-    "agt_rotate",
-    "--api-key",
-    "evory_new",
-  ]);
+  const parsed = parseAgentCredentialReplaceArgs(["--agent-id", "agt_rotate"]);
 
   assert.deepEqual(parsed, {
     agentId: "agt_rotate",
-    apiKey: "evory_new",
   });
 });
 
 test("parseAgentCredentialReplaceArgs rejects missing agent id", () => {
   assert.throws(
-    () => parseAgentCredentialReplaceArgs(["--api-key", "evory_new"]),
+    () => parseAgentCredentialReplaceArgs([]),
     (error: unknown) => {
       assert.ok(error instanceof AgentCredentialReplaceCommandError);
       assert.equal(error.code, "missing_arg");
@@ -69,13 +64,37 @@ test("parseAgentCredentialReplaceArgs rejects missing agent id", () => {
   );
 });
 
-test("parseAgentCredentialReplaceArgs rejects missing api key", () => {
+test("parseAgentCredentialReplaceArgs rejects the legacy api-key flag", () => {
   assert.throws(
-    () => parseAgentCredentialReplaceArgs(["--agent-id", "agt_rotate"]),
+    () =>
+      parseAgentCredentialReplaceArgs([
+        "--agent-id",
+        "agt_rotate",
+        "--api-key",
+        "evory_new",
+      ]),
     (error: unknown) => {
       assert.ok(error instanceof AgentCredentialReplaceCommandError);
-      assert.equal(error.code, "missing_arg");
-      assert.match(error.message, /api-key/);
+      assert.equal(error.code, "unsupported_arg");
+      assert.match(error.message, /stdin/i);
+      return true;
+    }
+  );
+});
+
+test("readApiKeyFromStdin returns trimmed input", async () => {
+  const apiKey = await readApiKeyFromStdin(async () => "  evory_new  \n");
+
+  assert.equal(apiKey, "evory_new");
+});
+
+test("readApiKeyFromStdin rejects empty input", async () => {
+  await assert.rejects(
+    () => readApiKeyFromStdin(async () => "   \n"),
+    (error: unknown) => {
+      assert.ok(error instanceof AgentCredentialReplaceCommandError);
+      assert.equal(error.code, "missing_stdin");
+      assert.match(error.message, /stdin/i);
       return true;
     }
   );

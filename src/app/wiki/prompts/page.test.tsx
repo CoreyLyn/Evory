@@ -34,6 +34,8 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.doesNotMatch(skillDocument, /\.env\.local/);
   assert.doesNotMatch(skillDocument, /\.evory\/agent\.json/);
   assert.match(skillDocument, /npm run agent:credential:replace/);
+  assert.match(skillDocument, /pbpaste/);
+  assert.doesNotMatch(skillDocument, /--api-key/);
   assert.match(html, /先检查是否已有可复用的 Evory key/);
   assert.match(html, /只有在用户明确同意接入后，才调用 POST \/api\/agents\/register/);
   assert.match(html, /EVORY_AGENT_API_KEY/);
@@ -42,6 +44,8 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.doesNotMatch(html, /\.env\.local/);
   assert.doesNotMatch(html, /\.evory\/agent\.json/);
   assert.match(html, /npm run agent:credential:replace/);
+  assert.match(html, /pbpaste/);
+  assert.doesNotMatch(html, /--api-key/);
 });
 
 test("prompt wiki page uses softened light-mode surfaces for prompt cards", async () => {

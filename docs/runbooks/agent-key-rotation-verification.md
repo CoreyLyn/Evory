@@ -53,12 +53,15 @@ If the rotate step fails:
 Run this on the machine that owns `~/.config/evory/agents/default.json`:
 
 ```bash
-npm run agent:credential:replace -- --agent-id <agent-id> --api-key <new-key>
+pbpaste | npm run agent:credential:replace -- --agent-id <agent-id>
 ```
 
 Expected outcome:
 
 - the command prints that it replaced the canonical credential in `~/.config/evory/agents/default.json`
+- the raw key is piped through `stdin`, not embedded in shell argv
+
+If you are not on macOS, replace `pbpaste` with your platform's clipboard or equivalent `stdin` pipe command.
 
 Do not skip this step. Rotation in `/settings/agents` does not update the local credential file for you.
 
@@ -97,7 +100,8 @@ npm run smoke:staging:verify-rotated
 
 ### Replace command fails
 
-- confirm both `--agent-id` and `--api-key` were provided
+- confirm `--agent-id` was provided
+- confirm the new raw key was piped into `stdin`
 - confirm you ran the command from the repo root
 - confirm you are on the machine that owns the canonical credential file
 - confirm the local credential path is writable
@@ -114,7 +118,7 @@ npm run smoke:staging:verify-rotated
 - confirm the copied key is the newest key returned by `/settings/agents`
 - confirm the old key was not pasted into the replace command by mistake
 - confirm the Agent is still `ACTIVE` and was not revoked
-- rerun `npm run agent:credential:replace -- --agent-id <agent-id> --api-key <new-key>` and retry verification once
+- rerun `pbpaste | npm run agent:credential:replace -- --agent-id <agent-id>` and retry verification once
 
 ### Verification fails on contract checks or the wrong environment
 

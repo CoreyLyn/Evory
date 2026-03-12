@@ -196,6 +196,14 @@ test("runPreClaimSmoke saves a canonical pending_binding credential after regist
       fetch: createSmokeFetch(),
       now: new Date("2026-03-11T00:00:00.000Z"),
       credentialStore: {
+        async discoverAgentCredential() {
+          return {
+            source: "none",
+            writable: true,
+            credential: null,
+            warnings: [],
+          };
+        },
         async savePendingAgentCredential(input: { agentId: string; apiKey: string }) {
           calls.push(input);
           return {
@@ -228,6 +236,14 @@ test("runPreClaimSmoke fails if saving the canonical credential fails", async ()
       fetch: createSmokeFetch(),
       now: new Date("2026-03-11T00:00:00.000Z"),
       credentialStore: {
+        async discoverAgentCredential() {
+          return {
+            source: "none",
+            writable: true,
+            credential: null,
+            warnings: [],
+          };
+        },
         async savePendingAgentCredential() {
           throw new Error("disk full");
         },
@@ -240,6 +256,80 @@ test("runPreClaimSmoke fails if saving the canonical credential fails", async ()
     result.steps.at(-1)?.detail ?? "",
     /disk full/
   );
+});
+
+test("runPreClaimSmoke fails instead of overwriting an existing canonical credential", async () => {
+  const calls: Array<{ agentId: string; apiKey: string }> = [];
+
+  const result = await runPreClaimSmoke(
+    {
+      baseUrl: "https://staging.example.com",
+      agentNamePrefix: "smoke",
+      timeoutMs: 5000,
+    },
+    {
+      fetch: createSmokeFetch(),
+      now: new Date("2026-03-11T00:00:00.000Z"),
+      credentialStore: {
+        async discoverAgentCredential() {
+          return {
+            source: "canonical_file",
+            writable: true,
+            credential: {
+              agentId: "agt_existing",
+              apiKey: "evory_existing",
+              bindingStatus: "bound",
+              updatedAt: "2026-03-11T00:00:00.000Z",
+            },
+            warnings: [],
+          };
+        },
+        async savePendingAgentCredential(input: { agentId: string; apiKey: string }) {
+          calls.push(input);
+          return {
+            ...input,
+            bindingStatus: "pending_binding",
+            updatedAt: "2026-03-11T00:00:00.000Z",
+          };
+        },
+      },
+    }
+  );
+
+  assert.equal(result.success, false);
+  assert.deepEqual(calls, []);
+  assert.match(result.steps.at(-1)?.detail ?? "", /existing canonical credential/i);
+});
+
+test("runPreClaimSmoke fails clearly when canonical discovery reports an invalid file", async () => {
+  const result = await runPreClaimSmoke(
+    {
+      baseUrl: "https://staging.example.com",
+      agentNamePrefix: "smoke",
+      timeoutMs: 5000,
+    },
+    {
+      fetch: createSmokeFetch(),
+      now: new Date("2026-03-11T00:00:00.000Z"),
+      credentialStore: {
+        async discoverAgentCredential() {
+          return {
+            source: "canonical_file",
+            writable: true,
+            credential: null,
+            warnings: [],
+            error: {
+              code: "invalid_canonical_file",
+              message: "Canonical Evory Agent credential file could not be parsed.",
+            },
+          };
+        },
+      },
+    }
+  );
+
+  assert.equal(result.success, false);
+  assert.match(result.steps.at(-1)?.detail ?? "", /could not be parsed/i);
 });
 
 test("resolvePostClaimSmokeContext prefers SMOKE_AGENT_API_KEY over local discovery", async () => {
@@ -305,6 +395,39 @@ test("resolvePostClaimSmokeContext uses discovered canonical credentials when ov
   assert.equal(context.agentId, "agt_canonical");
 });
 
+test("resolvePostClaimSmokeContext surfaces invalid canonical discovery errors", async () => {
+  await assert.rejects(
+    () =>
+      resolvePostClaimSmokeContext(
+        {
+          BASE_URL: "https://staging.example.com",
+        },
+        {
+          credentialStore: {
+            async discoverAgentCredential() {
+              return {
+                source: "canonical_file",
+                writable: true,
+                credential: null,
+                warnings: [],
+                error: {
+                  code: "invalid_canonical_file",
+                  message: "Canonical Evory Agent credential file is structurally invalid.",
+                },
+              };
+            },
+          },
+        }
+      ),
+    (error: unknown) => {
+      assert.ok(error instanceof StagingAgentSmokeError);
+      assert.equal(error.code, "INVALID_CREDENTIAL");
+      assert.match(error.message, /structurally invalid/i);
+      return true;
+    }
+  );
+});
+
 test("resolveRotatedCredentialVerificationContext uses the local env override when present", async () => {
   const context = await resolveRotatedCredentialVerificationContext(
     {
@@ -360,6 +483,39 @@ test("resolveRotatedCredentialVerificationContext uses canonical discovery when 
 
   assert.equal(context.credentialSource, "canonical_file");
   assert.equal(context.config.apiKey, "evory_canonical");
+});
+
+test("resolveRotatedCredentialVerificationContext surfaces invalid canonical discovery errors", async () => {
+  await assert.rejects(
+    () =>
+      resolveRotatedCredentialVerificationContext(
+        {
+          BASE_URL: "https://staging.example.com",
+        },
+        {
+          credentialStore: {
+            async discoverAgentCredential() {
+              return {
+                source: "canonical_file",
+                writable: true,
+                credential: null,
+                warnings: [],
+                error: {
+                  code: "invalid_canonical_file",
+                  message: "Canonical Evory Agent credential file could not be parsed.",
+                },
+              };
+            },
+          },
+        }
+      ),
+    (error: unknown) => {
+      assert.ok(error instanceof StagingAgentSmokeError);
+      assert.equal(error.code, "INVALID_CREDENTIAL");
+      assert.match(error.message, /could not be parsed/i);
+      return true;
+    }
+  );
 });
 
 test("runPostClaimSmoke promotes canonical credentials after the first successful official read", async () => {
@@ -431,6 +587,146 @@ test("runPostClaimSmoke fails clearly when canonical promotion fails", async () 
 
   assert.equal(result.success, false);
   assert.match(result.steps.at(-1)?.detail ?? "", /promote failed/);
+});
+
+test("runPostClaimSmoke exercises the full assignee verify flow when a second key is provided", async () => {
+  let taskCompleted = false;
+  const actorSequence: string[] = [];
+
+  const fullVerifyFetch = async (
+    url: string,
+    init?: { method?: string; headers?: Record<string, string> }
+  ) => {
+    const actor = init?.headers?.authorization ?? "none";
+
+    if (url.endsWith("/api/agent/tasks") && init?.method === "GET") {
+      return createJsonResponse(
+        200,
+        { success: true, data: [] },
+        { "X-Evory-Agent-API": "official" }
+      );
+    }
+
+    if (url.endsWith("/api/agent/forum/posts") && init?.method === "GET") {
+      return createJsonResponse(
+        200,
+        { success: true, data: [] },
+        { "X-Evory-Agent-API": "official" }
+      );
+    }
+
+    if (url.includes("/api/agent/knowledge/search") && init?.method === "GET") {
+      return createJsonResponse(
+        200,
+        { success: true, data: [] },
+        { "X-Evory-Agent-API": "official" }
+      );
+    }
+
+    if (url.endsWith("/api/agent/forum/posts") && init?.method === "POST") {
+      return createJsonResponse(
+        200,
+        { success: true, data: { id: "post_1" } },
+        { "X-Evory-Agent-API": "official" }
+      );
+    }
+
+    if (url.endsWith("/api/agent/knowledge/articles") && init?.method === "POST") {
+      return createJsonResponse(
+        200,
+        { success: true, data: { id: "article_1" } },
+        { "X-Evory-Agent-API": "official" }
+      );
+    }
+
+    if (url.endsWith("/api/agent/tasks") && init?.method === "POST") {
+      return createJsonResponse(
+        200,
+        { success: true, data: { id: "task_1" } },
+        { "X-Evory-Agent-API": "official" }
+      );
+    }
+
+    if (url.endsWith("/api/agent/tasks/task_1/claim") && init?.method === "POST") {
+      actorSequence.push(`claim:${actor}`);
+      return createJsonResponse(
+        200,
+        { success: true },
+        { "X-Evory-Agent-API": "official" }
+      );
+    }
+
+    if (url.endsWith("/api/agent/tasks/task_1/complete") && init?.method === "POST") {
+      actorSequence.push(`complete:${actor}`);
+      taskCompleted = true;
+      return createJsonResponse(
+        200,
+        { success: true },
+        { "X-Evory-Agent-API": "official" }
+      );
+    }
+
+    if (url.endsWith("/api/agent/tasks/task_1/verify") && init?.method === "POST") {
+      actorSequence.push(`verify:${actor}`);
+
+      if (actor === "Bearer evory_assignee") {
+        return createJsonResponse(
+          403,
+          { error: "Only the creator may verify this task." },
+          { "X-Evory-Agent-API": "official" }
+        );
+      }
+
+      if (actor === "Bearer evory_creator" && taskCompleted) {
+        return createJsonResponse(
+          200,
+          { success: true },
+          { "X-Evory-Agent-API": "official" }
+        );
+      }
+
+      return createJsonResponse(
+        400,
+        { error: "Task must be completed before verification." },
+        { "X-Evory-Agent-API": "official" }
+      );
+    }
+
+    throw new Error(`Unexpected fetch call: ${init?.method ?? "GET"} ${url}`);
+  };
+
+  const result = await runPostClaimSmoke(
+    {
+      config: {
+        baseUrl: "https://staging.example.com",
+        timeoutMs: 5000,
+        apiKey: "evory_creator",
+        assigneeApiKey: "evory_assignee",
+      },
+      credentialSource: "canonical_file",
+      credentialWarnings: [],
+      shouldPromoteCanonicalCredential: false,
+      agentId: "agt_canonical",
+    },
+    {
+      fetch: fullVerifyFetch,
+      now: new Date("2026-03-11T00:00:00.000Z"),
+    }
+  );
+
+  assert.equal(result.success, true);
+  assert.ok(
+    result.steps.some(
+      (step) => step.name === "verify-positive" && step.status === "PASS"
+    )
+  );
+  assert.deepEqual(actorSequence, [
+    "verify:Bearer evory_creator",
+    "claim:Bearer evory_assignee",
+    "complete:Bearer evory_assignee",
+    "verify:Bearer evory_assignee",
+    "verify:Bearer evory_creator",
+  ]);
 });
 
 test("runRotatedCredentialVerification validates the rotated credential with official reads", async () => {

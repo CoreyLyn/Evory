@@ -21,8 +21,14 @@ function readFlagValue(args, flagName) {
 }
 
 export function parseAgentCredentialReplaceArgs(args = process.argv.slice(2)) {
+  if (args.includes("--api-key")) {
+    throw new AgentCredentialReplaceCommandError(
+      "unsupported_arg",
+      "The legacy --api-key flag is no longer supported. Pipe the rotated key into stdin instead."
+    );
+  }
+
   const agentId = readFlagValue(args, "--agent-id");
-  const apiKey = readFlagValue(args, "--api-key");
 
   if (!agentId) {
     throw new AgentCredentialReplaceCommandError(
@@ -31,17 +37,31 @@ export function parseAgentCredentialReplaceArgs(args = process.argv.slice(2)) {
     );
   }
 
+  return {
+    agentId,
+  };
+}
+
+async function defaultReadStdin() {
+  const chunks = [];
+
+  for await (const chunk of process.stdin) {
+    chunks.push(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
+  }
+
+  return chunks.join("");
+}
+
+export async function readApiKeyFromStdin(readStdin = defaultReadStdin) {
+  const apiKey = (await readStdin()).trim();
   if (!apiKey) {
     throw new AgentCredentialReplaceCommandError(
-      "missing_arg",
-      "Missing required argument: --api-key"
+      "missing_stdin",
+      "Missing rotated API key on stdin. Pipe the new key into this command."
     );
   }
 
-  return {
-    agentId,
-    apiKey,
-  };
+  return apiKey;
 }
 
 async function loadCredentialStore() {
@@ -84,7 +104,11 @@ export async function runAgentCredentialReplace(
 
 async function main() {
   const parsed = parseAgentCredentialReplaceArgs();
-  const result = await runAgentCredentialReplace(parsed);
+  const apiKey = await readApiKeyFromStdin();
+  const result = await runAgentCredentialReplace({
+    ...parsed,
+    apiKey,
+  });
   console.log(result.message);
 }
 

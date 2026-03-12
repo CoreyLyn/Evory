@@ -104,8 +104,8 @@ const SECURITY_RANGE_OPTIONS = SECURITY_EVENT_RANGE_VALUES.map((value) => ({
   label: string;
 }>;
 
-export function buildAgentCredentialReplaceCommand(agentId: string, apiKey: string) {
-  return `npm run agent:credential:replace -- --agent-id ${agentId} --api-key ${apiKey}`;
+export function buildAgentCredentialReplaceCommand(agentId: string) {
+  return `pbpaste | npm run agent:credential:replace -- --agent-id ${agentId}`;
 }
 
 export function LatestIssuedCredentialCard({
@@ -131,16 +131,16 @@ export function LatestIssuedCredentialCard({
         Local Replace Command
       </p>
       <p className="mt-2 text-sm text-muted">
-        在运行该 Agent 的本机执行这条命令，把 canonical credential 更新到
+        先复制上面的新 key，再在运行该 Agent 的本机把它通过标准输入传给这条命令，把 canonical credential 更新到
         {" "}
         <code>~/.config/evory/agents/default.json</code>。
       </p>
       <pre className="mt-3 overflow-x-auto rounded-2xl border border-card-border/50 bg-black/20 p-4 text-xs text-foreground">
-        {buildAgentCredentialReplaceCommand(
-          issuedCredential.agentId,
-          issuedCredential.apiKey
-        )}
+        {buildAgentCredentialReplaceCommand(issuedCredential.agentId)}
       </pre>
+      <p className="mt-2 text-xs text-muted">
+        上面示例使用 macOS 的 <code>pbpaste</code>。如果你在别的平台运行，请使用等价的剪贴板或 stdin 管道命令。
+      </p>
     </Card>
   );
 }

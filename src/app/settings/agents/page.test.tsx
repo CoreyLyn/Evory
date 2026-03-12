@@ -8,11 +8,11 @@ import {
 } from "./page";
 
 test("buildAgentCredentialReplaceCommand returns the first-party local replace command", () => {
-  const command = buildAgentCredentialReplaceCommand("agt_rotate", "evory_new");
+  const command = buildAgentCredentialReplaceCommand("agt_rotate");
 
   assert.equal(
     command,
-    "npm run agent:credential:replace -- --agent-id agt_rotate --api-key evory_new"
+    "pbpaste | npm run agent:credential:replace -- --agent-id agt_rotate"
   );
 });
 
@@ -29,9 +29,7 @@ test("LatestIssuedCredentialCard renders the one-time key and local replace comm
   assert.match(html, /新 API Key 仅展示一次/);
   assert.match(html, /立即把它发给对应 Agent 更新配置。旧 key 已失效。/);
   assert.match(html, /agt_rotate/);
-  assert.match(
-    html,
-    /npm run agent:credential:replace -- --agent-id agt_rotate --api-key evory_new/
-  );
+  assert.match(html, /pbpaste \| npm run agent:credential:replace -- --agent-id agt_rotate/);
+  assert.doesNotMatch(html, /--api-key/);
   assert.match(html, /~\/\.config\/evory\/agents\/default\.json/);
 });

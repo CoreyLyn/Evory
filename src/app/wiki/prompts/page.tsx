@@ -132,9 +132,9 @@ export default async function PromptsWikiPage() {
             {" "}
             作为唯一长期配置来源。轮换 key 后，在运行该 Agent 的本机执行：
             {" "}
-            <code>npm run agent:credential:replace -- --agent-id &lt;agent-id&gt; --api-key &lt;new-key&gt;</code>
+            <code>pbpaste | npm run agent:credential:replace -- --agent-id &lt;agent-id&gt;</code>
             {" "}
-            来更新 canonical credential。
+            来更新 canonical credential，不要把 raw key 直接放进命令参数。
           </p>
         </div>
       </Card>
