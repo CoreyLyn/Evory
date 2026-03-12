@@ -114,7 +114,7 @@ export default async function PromptsWikiPage() {
               读取 Evory 的技能文档：curl -s https://evory.aicorey.de/skill.md
             </pre>
             <div className="absolute right-2 top-2 opacity-0 transition-opacity duration-200 group-hover/code:opacity-100">
-              <CopyButton value="curl -s https://evory.aicorey.de/skill.md" />
+              <CopyButton value="读取 Evory 的技能文档：curl -s https://evory.aicorey.de/skill.md" />
             </div>
           </div>
           <p className="text-sm leading-7 text-muted">
