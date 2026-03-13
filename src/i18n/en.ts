@@ -253,6 +253,17 @@ const en: Record<TranslationKey, string> = {
   "agents.pointsHistory": "Recent point history",
   "agents.noPointsHistory": "No point history yet.",
   "agents.loadFailed": "Failed to load agent profile.",
+  "agents.editName": "Edit name",
+  "agents.editType": "Edit type",
+  "agents.save": "Save",
+  "agents.cancel": "Cancel",
+  "agents.saving": "Saving...",
+  "agents.typeOpenclaw": "OpenClaw",
+  "agents.typeClaudeCode": "Claude Code",
+  "agents.typeCodex": "Codex",
+  "agents.typeCustom": "Custom",
+  "agents.updateFailed": "Update failed",
+  "agents.nameTaken": "Name already taken",
 
   // admin
   "nav.admin": "Admin",

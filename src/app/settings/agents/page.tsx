@@ -52,6 +52,12 @@ type ManagedAgent = {
   }>;
 };
 
+type EditingAgent = {
+  id: string;
+  field: "name" | "type";
+  value: string;
+};
+
 type SecurityEventItem = {
   id: string;
   type: string;
@@ -176,6 +182,9 @@ export default function ManageAgentsPage() {
   });
   const initialSecurityPageRef = useRef(1);
   const hasLoadedInitialSecurityPageRef = useRef(false);
+
+  const [editingAgent, setEditingAgent] = useState<EditingAgent | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const buildSecurityEventParams = useCallback((page: number) => {
     const securityEventParams = new URLSearchParams({
@@ -388,6 +397,33 @@ export default function ManageAgentsPage() {
       setError(nextError instanceof Error ? nextError.message : "停用失败");
     } finally {
       setBusyAgentId(null);
+    }
+  }
+
+  async function handleUpdateAgent(agentId: string, updates: { name?: string; type?: string }) {
+    setSavingEdit(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/users/me/agents/${agentId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      });
+      const json = await response.json();
+
+      if (!response.ok || !json.success) {
+        throw new Error(json.error ?? "更新失败");
+      }
+
+      setEditingAgent(null);
+      await loadData(securityEventsPage);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "更新失败");
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -605,13 +641,93 @@ export default function ManageAgentsPage() {
                 }`}
               >
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted/60">
-                      {agent.type}
-                    </p>
-                    <h2 className="mt-1 font-display text-2xl font-semibold text-foreground">
-                      {agent.name}
-                    </h2>
+                  <div className="flex-1">
+                    {editingAgent?.id === agent.id && editingAgent.field === "type" ? (
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={editingAgent.value}
+                          onChange={(e) => setEditingAgent({ ...editingAgent, value: e.target.value })}
+                          className="rounded-xl border border-accent/40 bg-background/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-foreground focus:border-accent focus:outline-none"
+                          disabled={savingEdit}
+                        >
+                          <option value="OPENCLAW">OpenClaw</option>
+                          <option value="CLAUDE_CODE">Claude Code</option>
+                          <option value="CODEX">Codex</option>
+                          <option value="CUSTOM">Custom</option>
+                        </select>
+                        <Button
+                          variant="secondary"
+                          onClick={() => void handleUpdateAgent(agent.id, { type: editingAgent.value })}
+                          disabled={savingEdit}
+                        >
+                          {savingEdit ? "保存中..." : "保存"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => setEditingAgent(null)}
+                          disabled={savingEdit}
+                        >
+                          取消
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted/60">
+                          {agent.type}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setEditingAgent({ id: agent.id, field: "type", value: agent.type })}
+                          className="text-muted/40 hover:text-accent transition-colors"
+                          disabled={busyAgentId === agent.id || agent.claimStatus === "REVOKED"}
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                    {editingAgent?.id === agent.id && editingAgent.field === "name" ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          type="text"
+                          value={editingAgent.value}
+                          onChange={(e) => setEditingAgent({ ...editingAgent, value: e.target.value })}
+                          className="flex-1 rounded-xl border border-accent/40 bg-background/60 px-3 py-1.5 text-2xl font-semibold text-foreground focus:border-accent focus:outline-none"
+                          disabled={savingEdit}
+                        />
+                        <Button
+                          variant="secondary"
+                          onClick={() => void handleUpdateAgent(agent.id, { name: editingAgent.value })}
+                          disabled={savingEdit || !editingAgent.value.trim()}
+                        >
+                          {savingEdit ? "保存中..." : "保存"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => setEditingAgent(null)}
+                          disabled={savingEdit}
+                        >
+                          取消
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 mt-1">
+                        <h2 className="font-display text-2xl font-semibold text-foreground">
+                          {agent.name}
+                        </h2>
+                        <button
+                          type="button"
+                          onClick={() => setEditingAgent({ id: agent.id, field: "name", value: agent.name })}
+                          className="text-muted/40 hover:text-accent transition-colors"
+                          disabled={busyAgentId === agent.id || agent.claimStatus === "REVOKED"}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
                     agent.claimStatus === "REVOKED"

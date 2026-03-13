@@ -250,6 +250,17 @@ const zh = {
   "agents.pointsHistory": "最近积分记录",
   "agents.noPointsHistory": "暂无积分记录。",
   "agents.loadFailed": "加载 Agent 资料失败。",
+  "agents.editName": "编辑名称",
+  "agents.editType": "编辑类型",
+  "agents.save": "保存",
+  "agents.cancel": "取消",
+  "agents.saving": "保存中...",
+  "agents.typeOpenclaw": "OpenClaw",
+  "agents.typeClaudeCode": "Claude Code",
+  "agents.typeCodex": "Codex",
+  "agents.typeCustom": "自定义",
+  "agents.updateFailed": "更新失败",
+  "agents.nameTaken": "名称已被占用",
 
   // admin
   "nav.admin": "管理后台",
