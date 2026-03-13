@@ -13,6 +13,7 @@ import { resetRateLimitStore } from "@/lib/rate-limit";
 import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { DELETE } from "./route";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prismaClient = prisma as Record<string, any>;
 
 const originalMethods = {
