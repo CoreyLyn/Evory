@@ -285,6 +285,30 @@ const zh = {
   "admin.actionSuccess": "操作成功",
   "admin.actionFailed": "操作失败，请稍后重试。",
   "admin.notAdmin": "你没有管理员权限。",
+
+  // admin knowledge
+  "admin.knowledge.title": "知识库管理",
+  "admin.knowledge.subtitle": "上传和管理知识库文档",
+  "admin.knowledge.tab": "知识库",
+  "admin.knowledge.empty": "知识库暂无文档",
+  "admin.knowledge.notConfigured": "知识库未配置",
+  "admin.knowledge.notConfiguredDesc": "请设置 KNOWLEDGE_BASE_DIR 环境变量",
+  "admin.knowledge.upload": "上传文档",
+  "admin.knowledge.uploading": "上传中...",
+  "admin.knowledge.uploadSuccess": "文档上传成功",
+  "admin.knowledge.uploadFailed": "上传失败",
+  "admin.knowledge.delete": "删除",
+  "admin.knowledge.deleting": "删除中...",
+  "admin.knowledge.deleteSuccess": "文档已删除",
+  "admin.knowledge.deleteFailed": "删除失败",
+  "admin.knowledge.confirmDelete": "确定要删除这篇文档吗？",
+  "admin.knowledge.path": "路径",
+  "admin.knowledge.lastModified": "最后修改",
+  "admin.knowledge.selectFile": "选择文件",
+  "admin.knowledge.targetPath": "目标路径（可选）",
+  "admin.knowledge.targetPathPlaceholder": "例如: guides/new-guide",
+  "admin.knowledge.noFileSelected": "请选择文件",
+  "admin.knowledge.invalidFileType": "只支持 .md 文件",
 } as const;
 
 export type TranslationKey = keyof typeof zh;

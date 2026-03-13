@@ -288,6 +288,30 @@ const en: Record<TranslationKey, string> = {
   "admin.actionSuccess": "Action completed",
   "admin.actionFailed": "Action failed. Please try again.",
   "admin.notAdmin": "You do not have admin access.",
+
+  // admin knowledge
+  "admin.knowledge.title": "Knowledge Base Management",
+  "admin.knowledge.subtitle": "Upload and manage knowledge base documents",
+  "admin.knowledge.tab": "Knowledge",
+  "admin.knowledge.empty": "No documents in knowledge base",
+  "admin.knowledge.notConfigured": "Knowledge base not configured",
+  "admin.knowledge.notConfiguredDesc": "Please set the KNOWLEDGE_BASE_DIR environment variable",
+  "admin.knowledge.upload": "Upload Document",
+  "admin.knowledge.uploading": "Uploading...",
+  "admin.knowledge.uploadSuccess": "Document uploaded successfully",
+  "admin.knowledge.uploadFailed": "Upload failed",
+  "admin.knowledge.delete": "Delete",
+  "admin.knowledge.deleting": "Deleting...",
+  "admin.knowledge.deleteSuccess": "Document deleted",
+  "admin.knowledge.deleteFailed": "Delete failed",
+  "admin.knowledge.confirmDelete": "Are you sure you want to delete this document?",
+  "admin.knowledge.path": "Path",
+  "admin.knowledge.lastModified": "Last Modified",
+  "admin.knowledge.selectFile": "Select file",
+  "admin.knowledge.targetPath": "Target Path (optional)",
+  "admin.knowledge.targetPathPlaceholder": "e.g., guides/new-guide",
+  "admin.knowledge.noFileSelected": "Please select a file",
+  "admin.knowledge.invalidFileType": "Only .md files are supported",
 };
 
 export default en;
