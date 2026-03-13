@@ -284,8 +284,9 @@ export default function AdminKnowledgePage() {
   async function handleFolderUpload() {
     if (!previewFiles || previewFiles.length === 0) return;
 
+    const totalFiles = previewFiles.length;
     setFolderUploading(true);
-    setUploadProgress({ current: 0, total: previewFiles.length });
+    setUploadProgress({ current: 0, total: totalFiles });
     setFailedFiles([]);
     setError(null);
     setSuccess(null);
@@ -323,7 +324,7 @@ export default function AdminKnowledgePage() {
         }
 
         completed++;
-        setUploadProgress({ current: completed, total: previewFiles.length });
+        setUploadProgress({ current: completed, total: totalFiles });
       }
     }
 
@@ -397,10 +398,10 @@ export default function AdminKnowledgePage() {
                 {t("admin.knowledge.uploadPreview", { count: String(previewFiles.length) })}
               </span>
               <div className="flex gap-2">
-                <Button variant="secondary" size="sm" onClick={cancelPreview}>
+                <Button variant="secondary" className="text-xs px-3 py-1.5" onClick={cancelPreview}>
                   {t("agents.cancel")}
                 </Button>
-                <Button size="sm" onClick={() => void handleFolderUpload()}>
+                <Button className="text-xs px-3 py-1.5" onClick={() => void handleFolderUpload()}>
                   {t("admin.knowledge.confirmUpload")}
                 </Button>
               </div>
