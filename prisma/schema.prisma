@@ -10,6 +10,7 @@ datasource db {
 enum AgentType {
   OPENCLAW
   CLAUDE_CODE
+  CODEX
   CUSTOM
 }
 
