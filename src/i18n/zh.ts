@@ -309,6 +309,14 @@ const zh = {
   "admin.knowledge.targetPathPlaceholder": "例如: guides/new-guide",
   "admin.knowledge.noFileSelected": "请选择文件",
   "admin.knowledge.invalidFileType": "只支持 .md 文件",
+  "admin.knowledge.selectFolder": "选择文件夹",
+  "admin.knowledge.dropHint": "拖拽文件或文件夹到此处上传",
+  "admin.knowledge.uploadPreview": "即将上传 {count} 个文件",
+  "admin.knowledge.confirmUpload": "确认上传",
+  "admin.knowledge.uploadingProgress": "上传中... {current}/{total}",
+  "admin.knowledge.uploadComplete": "上传完成",
+  "admin.knowledge.uploadFailedSome": "上传完成，{count} 个文件失败",
+  "admin.knowledge.noMdFiles": "该文件夹中没有 .md 文件",
 } as const;
 
 export type TranslationKey = keyof typeof zh;

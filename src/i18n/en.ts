@@ -312,6 +312,14 @@ const en: Record<TranslationKey, string> = {
   "admin.knowledge.targetPathPlaceholder": "e.g., guides/new-guide",
   "admin.knowledge.noFileSelected": "Please select a file",
   "admin.knowledge.invalidFileType": "Only .md files are supported",
+  "admin.knowledge.selectFolder": "Select Folder",
+  "admin.knowledge.dropHint": "Drop files or folders here to upload",
+  "admin.knowledge.uploadPreview": "About to upload {count} files",
+  "admin.knowledge.confirmUpload": "Confirm Upload",
+  "admin.knowledge.uploadingProgress": "Uploading... {current}/{total}",
+  "admin.knowledge.uploadComplete": "Upload complete",
+  "admin.knowledge.uploadFailedSome": "Upload complete, {count} files failed",
+  "admin.knowledge.noMdFiles": "No .md files found in this folder",
 };
 
 export default en;
