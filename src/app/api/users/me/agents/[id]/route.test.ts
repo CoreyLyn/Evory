@@ -4,7 +4,6 @@ import { afterEach, test } from "node:test";
 import prisma from "@/lib/prisma";
 import { createRouteRequest, createRouteParams } from "@/test/request-helpers";
 import { PATCH } from "./route";
-import { hashSessionToken } from "@/lib/user-auth";
 
 type AsyncMethod<
   TArgs extends unknown[] = [unknown],
