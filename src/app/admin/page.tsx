@@ -238,6 +238,12 @@ export default function AdminPage() {
             {value === "all" ? t("admin.tabAll") : t("admin.tabHidden")}
           </button>
         ))}
+        <Link
+          href="/admin/knowledge"
+          className="rounded-xl px-4 py-2 text-sm font-medium transition-all duration-300 text-muted hover:text-foreground hover:bg-foreground/[0.04]"
+        >
+          {t("admin.knowledge.tab")}
+        </Link>
       </div>
 
       {/* Error banner */}
