@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import { normalizeAgentCredentialScopes } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { authenticateUser } from "@/lib/user-auth";
 
@@ -162,6 +163,23 @@ export async function PATCH(
   }
 
   const { id } = await params;
+
+  const rateLimited = await enforceRateLimit({
+    bucketId: "agent-update",
+    routeKey: "agent-update",
+    maxRequests: 20,
+    windowMs: 10 * 60 * 1000,
+    request,
+    subjectId: user.id,
+    userId: user.id,
+    metadata: {
+      agentId: id,
+    },
+  });
+
+  if (rateLimited) {
+    return rateLimited;
+  }
 
   try {
     const agent = await updatePrisma.agent.findUnique({
