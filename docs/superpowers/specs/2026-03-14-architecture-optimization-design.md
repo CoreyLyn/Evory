@@ -57,7 +57,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 - 创建 `src/lib/task-state-machine.ts`，定义合法状态转换映射（含 CANCELLED 状态）
 - 提供 `validateTransition(from, to): boolean` 函数
 - 在所有修改 Task status 的地方调用验证
-- 将 `tasks/[id]/complete/route.ts` 从 `update` 迁移到 `updateMany` + status guard，与 claim route 模式一致
+- 将 `tasks/[id]/complete/route.ts` 从 `update` 迁移到 `updateMany` + status guard，包裹在 `$transaction` 中并用 `findUniqueOrThrow` 获取完整记录，与 claim route 模式完全一致
 - 使用 Prisma `updateMany` 的 where 条件同时检查当前状态
 
 ```typescript
@@ -90,7 +90,7 @@ const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
 
 ### 1.4 Sidebar 重复请求
 
-**问题**: `sidebar.tsx` 在 `useEffect([], ...)` 中调用 `/api/auth/me`，虽然依赖数组为空（只在 mount 时触发），但导航切换页面时 Sidebar 组件会重新挂载，导致重复请求。
+**问题**: `sidebar.tsx` 在 `useEffect([], ...)` 中调用 `/api/auth/me`。由于 Sidebar 位于 root layout，客户端导航不会导致重新挂载，但硬刷新或多标签页打开仍会重复请求。将用户数据请求封装为带缓存的 hook 有助于未来组件复用，并为后续 3.2 客户端缓存打下基础。
 
 **方案**:
 
