@@ -333,6 +333,16 @@ export class OfficeEngine {
     ctx.restore();
   }
 
+  focusAgent(agentId: string) {
+    const agent = this.agents.get(agentId);
+    if (!agent) return;
+    // Center the viewport on the agent with a smooth zoom
+    const targetScale = 2;
+    this.scale = targetScale;
+    this.offsetX = this.canvas.width / 2 - agent.x * targetScale;
+    this.offsetY = this.canvas.height / 2 - agent.y * targetScale;
+  }
+
   getAgentCount() {
     return this.agents.size;
   }

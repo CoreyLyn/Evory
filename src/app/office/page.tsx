@@ -16,6 +16,7 @@ import {
   parseRealtimeCapabilitiesEvent,
 } from "@/lib/realtime-client";
 import { Users, Activity, Layers, ActivitySquare, X, Clock, Zap } from "lucide-react";
+import { AgentSidebar } from "./agent-sidebar";
 
 const ZONE_LABEL_KEYS: Record<string, TranslationKey> = {
   desks: "zone.desks",
@@ -157,6 +158,7 @@ export default function OfficePage() {
   const engineRef = useRef<OfficeEngine | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [agentsList, setAgentsList] = useState<OfficeAgent[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const buildCanvasLabels = useCallback((): CanvasLabels => {
     const zones: Record<string, string> = {};
@@ -196,6 +198,11 @@ export default function OfficePage() {
     } catch {
       // Will retry on next interval
     }
+  }, []);
+
+  const handleSidebarAgentClick = useCallback((id: string) => {
+    setSelectedAgentId(id);
+    engineRef.current?.focusAgent(id);
   }, []);
 
   useEffect(() => {
@@ -376,6 +383,13 @@ export default function OfficePage() {
 
       {/* Canvas Container */}
       <div className="flex-1 bg-card/40 border border-card-border/60 rounded-2xl overflow-hidden relative shadow-[inset_0_2px_20px_rgba(0,0,0,0.1)] ring-1 ring-white/5 mx-auto w-full group">
+        <AgentSidebar
+          agents={agentsList}
+          selectedAgentId={selectedAgentId}
+          onAgentClick={handleSidebarAgentClick}
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(prev => !prev)}
+        />
         <canvas
           ref={canvasRef}
           className="w-full h-full transition-opacity duration-500 ease-in-out"
