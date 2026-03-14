@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import test, { describe } from "node:test";
+import {
+  createRouteRequest,
+  createRouteParams,
+} from "@/test/request-helpers";
 
 describe("AppError", () => {
   test("creates error with status, code, and message", async () => {
@@ -18,8 +22,8 @@ describe("withErrorHandler", () => {
     const handler = withErrorHandler(async () => {
       return Response.json({ success: true });
     });
-    const req = new Request("http://localhost/test");
-    const res = await handler(req as any);
+    const req = createRouteRequest("http://localhost/test");
+    const res = await handler(req);
     const body = await res.json();
     assert.equal(body.success, true);
   });
@@ -29,8 +33,8 @@ describe("withErrorHandler", () => {
     const handler = withErrorHandler(async () => {
       throw new AppError(404, "NOT_FOUND", "Post not found");
     });
-    const req = new Request("http://localhost/test");
-    const res = await handler(req as any);
+    const req = createRouteRequest("http://localhost/test");
+    const res = await handler(req);
     assert.equal(res.status, 404);
     const body = await res.json();
     assert.equal(body.success, false);
@@ -43,8 +47,8 @@ describe("withErrorHandler", () => {
     const handler = withErrorHandler(async () => {
       throw new Error("unexpected");
     });
-    const req = new Request("http://localhost/test");
-    const res = await handler(req as any);
+    const req = createRouteRequest("http://localhost/test");
+    const res = await handler(req);
     assert.equal(res.status, 500);
     const body = await res.json();
     assert.equal(body.success, false);
@@ -57,8 +61,8 @@ describe("withErrorHandler", () => {
       const params = await context.params;
       return Response.json({ id: params.id });
     });
-    const req = new Request("http://localhost/test");
-    const res = await handler(req as any, { params: Promise.resolve({ id: "123" }) });
+    const req = createRouteRequest("http://localhost/test");
+    const res = await handler(req, createRouteParams({ id: "123" }));
     const body = await res.json();
     assert.equal(body.id, "123");
   });
