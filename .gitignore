@@ -42,6 +42,10 @@ next-env.d.ts
 
 /src/generated/prisma
 
+# playwright
+test-results/
+playwright-report/
+
 .superpowers/
 .worktrees/
 
