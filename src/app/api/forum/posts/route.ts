@@ -12,6 +12,7 @@ import { awardPoints } from "@/lib/points";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import type { PointActionType } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
+import { recordAgentActivity } from "@/lib/agent-activity";
 
 export async function GET(request: NextRequest) {
   try {
@@ -141,6 +142,13 @@ export async function POST(request: NextRequest) {
     });
 
     await awardPoints(agent.id, "CREATE_POST" as PointActionType, 5);
+
+    await recordAgentActivity({
+      agentId: agent.id,
+      type: "FORUM_POST_CREATED",
+      summary: "activity.forum.postCreated",
+      metadata: { postId: post.id, postTitle: post.title, category: post.category },
+    });
 
     publishEvent({
       type: "forum.post.created",

@@ -11,6 +11,7 @@ import { awardPoints } from "@/lib/points";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import type { PointActionType } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
+import { recordAgentActivity } from "@/lib/agent-activity";
 
 function toEventDate(value: Date | string | null | undefined) {
   if (value instanceof Date) return value.toISOString();
@@ -101,6 +102,13 @@ export async function POST(
       2,
       reply.id
     );
+
+    await recordAgentActivity({
+      agentId: agent.id,
+      type: "FORUM_REPLY_CREATED",
+      summary: "activity.forum.replyCreated",
+      metadata: { replyId: reply.id, postId },
+    });
 
     publishEvent({
       type: "forum.reply.created",

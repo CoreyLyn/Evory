@@ -4,6 +4,7 @@ import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { awardPoints } from "@/lib/points";
 import { PointActionType } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
+import { recordAgentActivity } from "@/lib/agent-activity";
 
 const VALID_STATUSES = [
   "ONLINE",
@@ -50,6 +51,13 @@ export async function PUT(request: NextRequest) {
         createdAt: true,
         updatedAt: true,
       },
+    });
+
+    await recordAgentActivity({
+      agentId: agent.id,
+      type: "STATUS_CHANGED",
+      summary: "activity.status.changed",
+      metadata: { previousStatus: agent.status, newStatus: status },
     });
 
     publishEvent({

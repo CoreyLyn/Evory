@@ -1,27 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+
+import { useEffect, useState } from "react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
-  buildSecurityEventsQueryString,
-  normalizeSecurityEventsFilters,
-  parseSecurityEventsFilters,
-  SECURITY_EVENT_RANGE_VALUES,
-  SECURITY_EVENT_ROUTE_VALUES,
-  SECURITY_EVENT_SEVERITY_VALUES,
-  SECURITY_EVENT_TYPE_VALUES,
-  type SecurityEventsFilters,
-} from "@/lib/security-events-filters";
-import {
-  getSecurityEventMetadataEntries,
-  getSecurityEventRelatedAgent,
-  getSecurityEventTypeLabel,
-} from "@/lib/security-events-presenter";
+  VALID_ACTIVITY_CATEGORIES,
+  type ActivityCategory,
+  type UnifiedActivityItem,
+} from "@/lib/agent-activity-shared";
+import { useT } from "@/i18n";
 
 type UserSummary = {
   id: string;
@@ -58,57 +49,22 @@ type EditingAgent = {
   value: string;
 };
 
-type SecurityEventItem = {
-  id: string;
-  type: string;
-  routeKey: string;
-  agentId: string | null;
-  agentName: string | null;
-  ipAddress: string;
-  metadata: Record<string, unknown>;
-  scope: string;
-  severity: string;
-  operation: string;
-  summary: string;
-  retryAfterSeconds: number | null;
-  createdAt: string | null;
+type ActivityFilters = {
+  category: ActivityCategory;
+  agentId: string;
+  range: string;
 };
 
-const SECURITY_SEVERITY_OPTIONS = SECURITY_EVENT_SEVERITY_VALUES.map((value) => ({
-  value,
-  label:
-    value === "all" ? "全部级别" : value === "warning" ? "Warning" : "High",
-})) as ReadonlyArray<{
-  value: (typeof SECURITY_EVENT_SEVERITY_VALUES)[number];
-  label: string;
-}>;
-
-const SECURITY_ROUTE_OPTIONS = SECURITY_EVENT_ROUTE_VALUES.map((value) => ({
-  value,
-  label: value === "all" ? "全部路由" : value,
-})) as ReadonlyArray<{
-  value: (typeof SECURITY_EVENT_ROUTE_VALUES)[number];
-  label: string;
-}>;
-
-const SECURITY_TYPE_OPTIONS = SECURITY_EVENT_TYPE_VALUES.map((value) => ({
-  value,
-  label:
-    value === "all"
-      ? "全部类型"
-      : getSecurityEventTypeLabel(value),
-})) as ReadonlyArray<{
-  value: (typeof SECURITY_EVENT_TYPE_VALUES)[number];
-  label: string;
-}>;
-
-const SECURITY_RANGE_OPTIONS = SECURITY_EVENT_RANGE_VALUES.map((value) => ({
-  value,
-  label: value === "all" ? "全部时间" : value,
-})) as ReadonlyArray<{
-  value: (typeof SECURITY_EVENT_RANGE_VALUES)[number];
-  label: string;
-}>;
+const CATEGORY_ICON_COLORS: Record<string, { icon: string; color: string }> = {
+  security: { icon: "\u{1F6E1}\uFE0F", color: "text-red-400" },
+  forum: { icon: "\u{1F4AC}", color: "text-blue-400" },
+  task: { icon: "\u2705", color: "text-green-400" },
+  point: { icon: "\u2B50", color: "text-yellow-400" },
+  credential: { icon: "\u{1F511}", color: "text-purple-400" },
+  checkin: { icon: "\u{1F4C5}", color: "text-cyan-400" },
+  knowledge: { icon: "\u{1F4D6}", color: "text-indigo-400" },
+  status: { icon: "\u26AA", color: "text-gray-400" },
+};
 
 export function buildAgentCredentialReplaceCommand(agentId: string) {
   return `pbpaste | npm run agent:credential:replace -- --agent-id ${agentId}`;
@@ -152,8 +108,6 @@ export function LatestIssuedCredentialCard({
 }
 
 export default function ManageAgentsPage() {
-  const pathname = usePathname();
-  const router = useRouter();
   const [user, setUser] = useState<UserSummary | null>(null);
   const [agents, setAgents] = useState<ManagedAgent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -163,78 +117,65 @@ export default function ManageAgentsPage() {
   const [latestIssuedCredential, setLatestIssuedCredential] = useState<IssuedCredential | null>(
     null
   );
-  const [copiedSecurityLink, setCopiedSecurityLink] = useState(false);
-  const [exportingSecurityEvents, setExportingSecurityEvents] = useState(false);
-  const [selectedSecurityEventId, setSelectedSecurityEventId] = useState<string | null>(
-    null
-  );
-  const [securityEvents, setSecurityEvents] = useState<SecurityEventItem[]>([]);
-  const [securityEventsPage, setSecurityEventsPage] = useState(1);
-  const [securityEventsHasMore, setSecurityEventsHasMore] = useState(false);
-  const [securityEventsLoadingMore, setSecurityEventsLoadingMore] = useState(false);
-  const [securityFiltersReady, setSecurityFiltersReady] = useState(false);
-  const [securityFilters, setSecurityFilters] = useState<SecurityEventsFilters>({
-    type: "all",
-    severity: "all",
-    routeKey: "all",
-    range: "all",
-    page: 1,
+  const t = useT();
+  const [activities, setActivities] = useState<UnifiedActivityItem[]>([]);
+  const [activityCursor, setActivityCursor] = useState<string | null>(null);
+  const [activityHasMore, setActivityHasMore] = useState(false);
+  const [activityLoadingMore, setActivityLoadingMore] = useState(false);
+  const [activityFilters, setActivityFilters] = useState<ActivityFilters>({
+    category: "all",
+    agentId: "",
+    range: "",
   });
-  const initialSecurityPageRef = useRef(1);
-  const hasLoadedInitialSecurityPageRef = useRef(false);
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
 
   const [editingAgent, setEditingAgent] = useState<EditingAgent | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
-  const buildSecurityEventParams = useCallback((page: number) => {
-    const securityEventParams = new URLSearchParams({
-      limit: "20",
-      page: String(page),
-    });
+  const selectedActivity =
+    activities.find((item) => item.id === selectedActivityId) ??
+    activities[0] ??
+    null;
 
-    if (securityFilters.type !== "all") {
-      securityEventParams.set("type", securityFilters.type);
+  async function loadActivities(mode: "replace" | "append" = "replace") {
+    try {
+      const params = new URLSearchParams();
+      if (activityFilters.category !== "all") {
+        params.set("category", activityFilters.category);
+      }
+      if (activityFilters.agentId) {
+        params.set("agentId", activityFilters.agentId);
+      }
+      if (activityFilters.range) {
+        params.set("range", activityFilters.range);
+      }
+      params.set("limit", "20");
+      if (mode === "append" && activityCursor) {
+        params.set("cursor", activityCursor);
+      }
+
+      const response = await fetch(`/api/users/me/agent-activities?${params.toString()}`);
+      const json = await response.json();
+
+      if (!response.ok || !json.success) {
+        throw new Error(json.error ?? "加载活动记录失败");
+      }
+
+      const nextItems: UnifiedActivityItem[] = json.data?.items ?? [];
+
+      if (mode === "append") {
+        setActivities((prev) => [...prev, ...nextItems]);
+      } else {
+        setActivities(nextItems);
+      }
+      setActivityCursor(json.data?.nextCursor ?? null);
+      setActivityHasMore(Boolean(json.data?.hasMore));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载活动记录失败");
     }
+  }
 
-    if (securityFilters.severity !== "all") {
-      securityEventParams.set("severity", securityFilters.severity);
-    }
-
-    if (securityFilters.routeKey !== "all") {
-      securityEventParams.set("routeKey", securityFilters.routeKey);
-    }
-
-    if (securityFilters.range !== "all") {
-      securityEventParams.set("range", securityFilters.range);
-    }
-
-    return securityEventParams;
-  }, [
-    securityFilters.range,
-    securityFilters.routeKey,
-    securityFilters.severity,
-    securityFilters.type,
-  ]);
-
-  const loadSecurityEventsPage = useCallback(async (page: number, mode: "replace" | "append") => {
-    const securityEventsResponse = await fetch(
-      `/api/users/me/security-events?${buildSecurityEventParams(page).toString()}`
-    );
-    const securityEventsJson = await securityEventsResponse.json();
-
-    if (!securityEventsResponse.ok || !securityEventsJson.success) {
-      throw new Error(securityEventsJson.error ?? "加载安全事件失败");
-    }
-
-    const nextEvents = securityEventsJson.data ?? [];
-    setSecurityEvents((currentEvents) =>
-      mode === "append" ? [...currentEvents, ...nextEvents] : nextEvents
-    );
-    setSecurityEventsPage(securityEventsJson.pagination?.page ?? page);
-    setSecurityEventsHasMore(Boolean(securityEventsJson.pagination?.hasMore));
-  }, [buildSecurityEventParams]);
-
-  const loadData = useCallback(async (page: number) => {
+  async function loadData() {
     setLoading(true);
     setError(null);
 
@@ -245,9 +186,6 @@ export default function ManageAgentsPage() {
       if (!userResponse.ok || !userJson.success) {
         setUser(null);
         setAgents([]);
-        setSecurityEvents([]);
-        setSecurityEventsPage(1);
-        setSecurityEventsHasMore(false);
         return;
       }
 
@@ -260,62 +198,21 @@ export default function ManageAgentsPage() {
       }
 
       setAgents(agentsJson.data ?? []);
-      await loadSecurityEventsPage(page, "replace");
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "加载失败");
     } finally {
       setLoading(false);
     }
-  }, [loadSecurityEventsPage]);
+  }
 
   useEffect(() => {
-    const initialFilters = parseSecurityEventsFilters(
-      new URLSearchParams(window.location.search)
-    );
-
-    initialSecurityPageRef.current = initialFilters.page;
-    setSecurityFilters(initialFilters);
-    setSecurityEventsPage(initialFilters.page);
-    setSecurityFiltersReady(true);
+    void loadData();
   }, []);
 
   useEffect(() => {
-    if (!securityFiltersReady) return;
-
-    const query = buildSecurityEventsQueryString({
-      ...securityFilters,
-      page: securityEventsPage,
-    });
-    const target = query ? `${pathname}?${query}` : pathname;
-
-    router.replace(target, { scroll: false });
-  }, [pathname, router, securityEventsPage, securityFilters, securityFiltersReady]);
-
-  useEffect(() => {
-    if (!securityFiltersReady) return;
-
-    const targetPage = hasLoadedInitialSecurityPageRef.current
-      ? 1
-      : initialSecurityPageRef.current;
-
-    hasLoadedInitialSecurityPageRef.current = true;
-    setSecurityEventsPage(targetPage);
-    void loadData(targetPage);
-  }, [loadData, securityFilters, securityFiltersReady]);
-
-  useEffect(() => {
-    if (securityEvents.length === 0) {
-      setSelectedSecurityEventId(null);
-      return;
-    }
-
-    if (
-      !selectedSecurityEventId ||
-      !securityEvents.some((event) => event.id === selectedSecurityEventId)
-    ) {
-      setSelectedSecurityEventId(securityEvents[0].id);
-    }
-  }, [securityEvents, selectedSecurityEventId]);
+    void loadActivities("replace");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activityFilters.category, activityFilters.agentId, activityFilters.range]);
 
   async function handleClaim(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -339,7 +236,7 @@ export default function ManageAgentsPage() {
       }
 
       setClaimApiKey("");
-      await loadData(securityEventsPage);
+      await loadData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "认领失败");
     } finally {
@@ -370,7 +267,7 @@ export default function ManageAgentsPage() {
         agentId,
         apiKey: json.data.apiKey,
       });
-      await loadData(securityEventsPage);
+      await loadData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "轮换失败");
     } finally {
@@ -392,7 +289,7 @@ export default function ManageAgentsPage() {
         throw new Error(json.error ?? "停用失败");
       }
 
-      await loadData(securityEventsPage);
+      await loadData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "停用失败");
     } finally {
@@ -419,7 +316,7 @@ export default function ManageAgentsPage() {
       }
 
       setEditingAgent(null);
-      await loadData(securityEventsPage);
+      await loadData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "更新失败");
     } finally {
@@ -427,95 +324,18 @@ export default function ManageAgentsPage() {
     }
   }
 
-  async function handleLoadMoreSecurityEvents() {
-    if (!securityEventsHasMore || securityEventsLoadingMore) return;
-
-    setSecurityEventsLoadingMore(true);
-    setError(null);
-
+  async function handleLoadMoreActivities() {
+    if (!activityHasMore || activityLoadingMore) return;
+    setActivityLoadingMore(true);
     try {
-      await loadSecurityEventsPage(securityEventsPage + 1, "append");
-    } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : "加载更多安全事件失败"
-      );
+      await loadActivities("append");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载更多活动失败");
     } finally {
-      setSecurityEventsLoadingMore(false);
+      setActivityLoadingMore(false);
     }
   }
 
-  async function handleCopySecurityFiltersLink() {
-    const query = buildSecurityEventsQueryString({
-      ...securityFilters,
-      page: securityEventsPage,
-    });
-    const url = `${window.location.origin}${pathname}${query ? `?${query}` : ""}`;
-
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopiedSecurityLink(true);
-      setTimeout(() => setCopiedSecurityLink(false), 1600);
-    } catch {
-      setError("复制筛选链接失败");
-    }
-  }
-
-  async function handleExportSecurityEvents() {
-    setExportingSecurityEvents(true);
-    setError(null);
-
-    try {
-      const query = buildSecurityEventsQueryString(securityFilters, {
-        includePage: false,
-      });
-      const response = await fetch(
-        `/api/users/me/security-events/export${query ? `?${query}` : ""}`
-      );
-
-      if (!response.ok) {
-        const json = await response.json();
-        throw new Error(json.error ?? "导出安全事件失败");
-      }
-
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      const disposition = response.headers.get("content-disposition");
-      const filenameMatch = disposition?.match(/filename="([^"]+)"/);
-
-      link.href = downloadUrl;
-      link.download = filenameMatch?.[1] ?? "security-events.csv";
-      document.body.append(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : "导出安全事件失败"
-      );
-    } finally {
-      setExportingSecurityEvents(false);
-    }
-  }
-
-  const selectedSecurityEvent =
-    securityEvents.find((event) => event.id === selectedSecurityEventId) ??
-    securityEvents[0] ??
-    null;
-  const selectedSecurityEventRelatedAgent = selectedSecurityEvent
-    ? getSecurityEventRelatedAgent(selectedSecurityEvent, agents)
-    : null;
-
-  function handleFocusAgent(agentId: string) {
-    const element = document.getElementById(`managed-agent-${agentId}`);
-
-    if (!element) return;
-
-    element.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
-  }
 
   if (loading) {
     return (
@@ -635,7 +455,7 @@ export default function ManageAgentsPage() {
             <div key={agent.id} id={`managed-agent-${agent.id}`}>
               <Card
                 className={`border-card-border/60 bg-card/75 ${
-                  selectedSecurityEvent?.agentId === agent.id
+                  selectedActivity?.agentId === agent.id
                     ? "border-accent/50 shadow-[0_0_0_1px_rgba(255,107,74,0.18)]"
                     : ""
                 }`}
@@ -806,321 +626,175 @@ export default function ManageAgentsPage() {
         <div className="space-y-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted/60">
-              Security Events
+              {t("activity.subtitle")}
             </p>
             <h2 className="mt-1 font-display text-2xl font-semibold text-foreground">
-              最近的安全事件
+              {t("activity.title")}
             </h2>
             <p className="mt-2 text-sm text-muted">
-              这里只展示与你账号关联的认证、同源保护、Agent 滥用限制和生命周期风险事件。匿名注册命中会在服务端记录，但不会出现在个人控制台。
+              {t("activity.description")}
             </p>
           </div>
 
+          {/* Filters */}
           <div className="flex flex-wrap gap-3">
             <label className="flex items-center gap-2 text-sm text-muted">
-              <span>类型</span>
+              <span>{t("activity.filter.category")}</span>
               <select
-                value={securityFilters.type}
-                onChange={(event) => {
-                  setSecurityEventsPage(1);
-                  setSecurityFilters((current) =>
-                    normalizeSecurityEventsFilters(current, {
-                      type:
-                        event.target.value as (typeof SECURITY_EVENT_TYPE_VALUES)[number],
-                    })
-                  );
+                value={activityFilters.category}
+                onChange={(e) => {
+                  setActivityCursor(null);
+                  setActivityFilters((f) => ({
+                    ...f,
+                    category: e.target.value as ActivityCategory,
+                  }));
                 }}
                 className="rounded-xl border border-card-border/60 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none"
               >
-                {SECURITY_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+                {VALID_ACTIVITY_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {t(`activity.category.${cat}` as Parameters<typeof t>[0])}
                   </option>
                 ))}
               </select>
             </label>
 
             <label className="flex items-center gap-2 text-sm text-muted">
-              <span>级别</span>
+              <span>{t("activity.filter.agent")}</span>
               <select
-                value={securityFilters.severity}
-                onChange={(event) => {
-                  setSecurityEventsPage(1);
-                  setSecurityFilters((current) =>
-                    normalizeSecurityEventsFilters(current, {
-                      severity:
-                        event.target.value as (typeof SECURITY_EVENT_SEVERITY_VALUES)[number],
-                    })
-                  );
+                value={activityFilters.agentId}
+                onChange={(e) => {
+                  setActivityCursor(null);
+                  setActivityFilters((f) => ({
+                    ...f,
+                    agentId: e.target.value,
+                  }));
                 }}
                 className="rounded-xl border border-card-border/60 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none"
               >
-                {SECURITY_SEVERITY_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+                <option value="">{t("activity.filter.agentAll")}</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name}
                   </option>
                 ))}
               </select>
             </label>
 
             <label className="flex items-center gap-2 text-sm text-muted">
-              <span>路由</span>
+              <span>{t("activity.filter.range")}</span>
               <select
-                value={securityFilters.routeKey}
-                onChange={(event) => {
-                  setSecurityEventsPage(1);
-                  setSecurityFilters((current) =>
-                    normalizeSecurityEventsFilters(current, {
-                      routeKey:
-                        event.target.value as (typeof SECURITY_EVENT_ROUTE_VALUES)[number],
-                    })
-                  );
+                value={activityFilters.range}
+                onChange={(e) => {
+                  setActivityCursor(null);
+                  setActivityFilters((f) => ({
+                    ...f,
+                    range: e.target.value,
+                  }));
                 }}
                 className="rounded-xl border border-card-border/60 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none"
               >
-                {SECURITY_ROUTE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
+                <option value="">{t("activity.filter.range.all")}</option>
+                <option value="24h">{t("activity.filter.range.24h")}</option>
+                <option value="7d">{t("activity.filter.range.7d")}</option>
+                <option value="30d">{t("activity.filter.range.30d")}</option>
               </select>
             </label>
-
-            <label className="flex items-center gap-2 text-sm text-muted">
-              <span>时间</span>
-              <select
-                value={securityFilters.range}
-                onChange={(event) => {
-                  setSecurityEventsPage(1);
-                  setSecurityFilters((current) =>
-                    normalizeSecurityEventsFilters(current, {
-                      range:
-                        event.target.value as (typeof SECURITY_EVENT_RANGE_VALUES)[number],
-                    })
-                  );
-                }}
-                className="rounded-xl border border-card-border/60 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none"
-              >
-                {SECURITY_RANGE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <Button
-              variant="secondary"
-              type="button"
-              onClick={() => void handleCopySecurityFiltersLink()}
-            >
-              {copiedSecurityLink ? "已复制链接" : "复制当前链接"}
-            </Button>
-            <Button
-              variant="secondary"
-              type="button"
-              disabled={exportingSecurityEvents}
-              onClick={() => void handleExportSecurityEvents()}
-            >
-              {exportingSecurityEvents ? "导出中..." : "导出 CSV"}
-            </Button>
           </div>
 
-          {securityEvents.length === 0 ? (
-            <p className="text-sm text-muted">最近没有新的安全事件记录。</p>
+          {/* Timeline */}
+          {activities.length === 0 ? (
+            <p className="text-sm text-muted">{t("activity.empty")}</p>
           ) : (
             <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
               <div className="space-y-3">
                 <div className="space-y-2">
-                  {securityEvents.map((event) => (
-                    <button
-                      key={event.id}
-                      type="button"
-                      onClick={() => setSelectedSecurityEventId(event.id)}
-                      className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                        event.id === selectedSecurityEvent?.id
-                          ? "border-accent/50 bg-accent/10 shadow-[0_0_0_1px_rgba(255,107,74,0.18)]"
-                          : "border-card-border/50 bg-background/40 hover:border-card-border/80"
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-medium text-foreground">
-                              {event.summary}
+                  {activities.map((item) => {
+                    const config = CATEGORY_ICON_COLORS[item.category] ?? CATEGORY_ICON_COLORS.status;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setSelectedActivityId(item.id)}
+                        className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                          item.id === selectedActivityId
+                            ? "border-accent/50 bg-accent/10 shadow-[0_0_0_1px_rgba(255,107,74,0.18)]"
+                            : "border-card-border/50 bg-background/40 hover:border-card-border/80"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className={`text-lg ${config.color}`}>
+                            {config.icon}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-medium text-foreground">
+                                {t(item.summary as Parameters<typeof t>[0])}
+                              </p>
+                              {item.source === "security_event" && typeof item.metadata.severity === "string" && (
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                                  item.metadata.severity === "high"
+                                    ? "border border-danger/20 bg-danger/10 text-danger"
+                                    : "border border-amber-500/20 bg-amber-500/10 text-amber-300"
+                                }`}>
+                                  {String(item.metadata.severity)}
+                                </span>
+                              )}
+                              {item.agentName && (
+                                <span className="rounded-full border border-card-border/60 bg-card/70 px-2 py-0.5 text-[10px] font-semibold text-muted">
+                                  {item.agentName}
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs text-muted">
+                              {t(`activity.category.${item.category}` as Parameters<typeof t>[0])} · {item.type}
                             </p>
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
-                              event.severity === "high"
-                                ? "border border-danger/20 bg-danger/10 text-danger"
-                                : "border border-amber-500/20 bg-amber-500/10 text-amber-300"
-                            }`}>
-                              {event.severity}
-                            </span>
-                            <span className="rounded-full border border-card-border/60 bg-card/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
-                              {getSecurityEventTypeLabel(event.type)}
-                            </span>
                           </div>
-                          <p className="mt-1 text-xs text-muted">
-                            {event.operation} · {event.scope} · IP {event.ipAddress}
-                            {event.retryAfterSeconds
-                              ? ` · retry in ${event.retryAfterSeconds}s`
-                              : ""}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <span className="block text-xs text-muted">
-                            {event.createdAt ?? "暂无时间"}
-                          </span>
-                          <span className="mt-1 inline-block text-[11px] font-semibold uppercase tracking-[0.18em] text-accent/80">
-                            详情
+                          <span className="shrink-0 text-xs text-muted">
+                            {item.createdAt}
                           </span>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
 
-                {securityEventsHasMore && (
+                {activityHasMore && (
                   <Button
                     variant="secondary"
-                    disabled={securityEventsLoadingMore}
-                    onClick={() => void handleLoadMoreSecurityEvents()}
+                    disabled={activityLoadingMore}
+                    onClick={() => void handleLoadMoreActivities()}
                   >
-                    {securityEventsLoadingMore ? "加载中..." : "加载更多"}
+                    {activityLoadingMore ? t("activity.loading") : t("activity.loadMore")}
                   </Button>
                 )}
               </div>
 
-              {selectedSecurityEvent ? (
+              {/* Detail panel */}
+              {selectedActivity ? (
                 <div className="rounded-3xl border border-card-border/60 bg-background/40 p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted/60">
-                        Event Detail
-                      </p>
-                      <h3 className="mt-1 font-display text-2xl font-semibold text-foreground">
-                        {selectedSecurityEvent.summary}
-                      </h3>
-                    </div>
-                    <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
-                      selectedSecurityEvent.severity === "high"
-                        ? "border border-danger/20 bg-danger/10 text-danger"
-                        : "border border-amber-500/20 bg-amber-500/10 text-amber-300"
-                    }`}>
-                      {selectedSecurityEvent.severity}
-                    </span>
-                  </div>
-
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-card-border/50 bg-card/60 px-4 py-3">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted/50">
-                        Created At
-                      </p>
-                      <p className="mt-1 text-sm text-foreground">
-                        {selectedSecurityEvent.createdAt ?? "暂无时间"}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-card-border/50 bg-card/60 px-4 py-3">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted/50">
-                        Event Type
-                      </p>
-                      <p className="mt-1 text-sm text-foreground">
-                        {getSecurityEventTypeLabel(selectedSecurityEvent.type)}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-card-border/50 bg-card/60 px-4 py-3">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted/50">
-                        Route Key
-                      </p>
-                      <p className="mt-1 text-sm text-foreground">
-                        {selectedSecurityEvent.routeKey}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-card-border/50 bg-card/60 px-4 py-3">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted/50">
-                        Operation
-                      </p>
-                      <p className="mt-1 text-sm text-foreground">
-                        {selectedSecurityEvent.operation}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-card-border/50 bg-card/60 px-4 py-3">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted/50">
-                        Scope / IP
-                      </p>
-                      <p className="mt-1 text-sm text-foreground">
-                        {selectedSecurityEvent.scope} · {selectedSecurityEvent.ipAddress}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-card-border/50 bg-card/60 px-4 py-3 sm:col-span-2">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-muted/50">
-                            Associated Agent
-                          </p>
-                          <p className="mt-1 text-sm text-foreground">
-                            {selectedSecurityEventRelatedAgent
-                              ? selectedSecurityEventRelatedAgent.name
-                              : "未关联具体 Agent"}
-                          </p>
-                        </div>
-                        {selectedSecurityEventRelatedAgent?.id &&
-                        selectedSecurityEventRelatedAgent.isManaged ? (
-                          <Button
-                            variant="secondary"
-                            type="button"
-                            onClick={() =>
-                              handleFocusAgent(selectedSecurityEventRelatedAgent.id as string)
-                            }
-                          >
-                            定位到 Agent
-                          </Button>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 rounded-2xl border border-card-border/50 bg-card/60 px-4 py-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted/50">
-                        Metadata
-                      </p>
-                      {selectedSecurityEvent.retryAfterSeconds ? (
-                        <span className="text-xs text-muted">
-                          retry in {selectedSecurityEvent.retryAfterSeconds}s
-                        </span>
-                      ) : null}
-                    </div>
-                    {getSecurityEventMetadataEntries(selectedSecurityEvent.metadata).length === 0 ? (
-                      <p className="mt-3 text-sm text-muted">没有额外 metadata。</p>
-                    ) : (
-                      <div className="mt-3 space-y-2">
-                        {getSecurityEventMetadataEntries(selectedSecurityEvent.metadata).map(
-                          (entry) => (
-                            <div
-                              key={entry.key}
-                              className="flex items-start justify-between gap-4 rounded-2xl border border-card-border/40 bg-background/40 px-3 py-2"
-                            >
-                              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted/60">
-                                {entry.key}
-                              </span>
-                              <code className="max-w-[65%] break-all text-xs text-foreground">
-                                {entry.value}
-                              </code>
-                            </div>
-                          )
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-5 rounded-2xl border border-card-border/50 bg-black/20 px-4 py-4">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted/50">
-                      Raw JSON
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted/60">
+                      {t("activity.detail.title")}
                     </p>
-                    <pre className="mt-3 overflow-x-auto text-xs text-foreground">
-                      {JSON.stringify(selectedSecurityEvent.metadata, null, 2)}
-                    </pre>
+                    <h3 className="mt-1 font-display text-2xl font-semibold text-foreground">
+                      {t(selectedActivity.summary as Parameters<typeof t>[0])}
+                    </h3>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted/60">
+                      {t("activity.detail.metadata")}
+                    </p>
+                    <dl className="space-y-1.5">
+                      {Object.entries(selectedActivity.metadata).map(([key, value]) => (
+                        <div key={key} className="flex gap-2 text-sm">
+                          <dt className="font-medium text-muted/80">{key}</dt>
+                          <dd className="text-foreground/80">
+                            {typeof value === "object" ? JSON.stringify(value) : String(value ?? "")}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
                   </div>
                 </div>
               ) : null}
