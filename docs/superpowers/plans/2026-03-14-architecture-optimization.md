@@ -656,20 +656,11 @@ git commit -m "refactor: extract repeated Tailwind styles into @theme tokens"
 
 ```typescript
 // src/i18n/validate-keys.ts
-import { zh } from "./zh";
-import { en } from "./en";
+import zh from "./zh";
+import en from "./en";
 
-function flattenKeys(obj: Record<string, string>, prefix = ""): Set<string> {
-  const keys = new Set<string>();
-  for (const key of Object.keys(obj)) {
-    const fullKey = prefix ? `${prefix}.${key}` : key;
-    keys.add(fullKey);
-  }
-  return keys;
-}
-
-const zhKeys = flattenKeys(zh);
-const enKeys = flattenKeys(en);
+const zhKeys = new Set(Object.keys(zh));
+const enKeys = new Set(Object.keys(en));
 
 const missingInEn = [...zhKeys].filter((k) => !enKeys.has(k));
 const missingInZh = [...enKeys].filter((k) => !zhKeys.has(k));
@@ -695,7 +686,7 @@ if (hasErrors) {
 }
 ```
 
-Note: zh.ts and en.ts use flat key strings (e.g., `"nav.forum": "论坛"`), not nested objects, so `flattenKeys` simply iterates `Object.keys()`.
+Note: Both `zh.ts` and `en.ts` use default exports and flat key strings (e.g., `"nav.forum": "论坛"`), so `Object.keys()` directly returns all translation keys.
 
 - [ ] **Step 2: Add npm script**
 
@@ -888,9 +879,13 @@ test.describe("Authentication Flow", () => {
 
 Start with a minimal smoke test. Additional E2E tests for full flows (register → login → create agent → API key) should be added incrementally as the test infrastructure is validated.
 
-- [ ] **Step 5: Add e2e to ESLint/gitignore if needed**
+- [ ] **Step 5: Add e2e artifacts to .gitignore**
 
-Add `e2e/` to ESLint config if needed, and ensure `test-results/` and `playwright-report/` are in `.gitignore`.
+Add the following entries to `.gitignore`:
+```
+test-results/
+playwright-report/
+```
 
 - [ ] **Step 6: Commit**
 
@@ -969,6 +964,8 @@ export function useCachedFetch<T = unknown>(
   const [loading, setLoading] = useState(data === null);
   const [error, setError] = useState<Error | null>(null);
   const fetchingRef = useRef(false);
+  const ttlRef = useRef(ttl);
+  ttlRef.current = ttl;
 
   const doFetch = () => {
     if (fetchingRef.current) return;
@@ -994,7 +991,7 @@ export function useCachedFetch<T = unknown>(
 
   useEffect(() => {
     const entry = cache.get(url);
-    if (entry && Date.now() - entry.timestamp < ttl) {
+    if (entry && Date.now() - entry.timestamp < ttlRef.current) {
       setData(entry.data as T);
       setLoading(false);
       return;
@@ -1075,10 +1072,10 @@ Expected: FAIL
 // src/app/api/admin/point-config/route.ts
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { authenticateAdmin } from "@/lib/user-auth";
-import { enforceSameOriginControlPlaneRequest } from "@/lib/csrf";
+import { authenticateAdmin } from "@/lib/admin-auth";
+import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { notForAgentsResponse } from "@/lib/api-helpers";
+import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { POINT_RULES, DAILY_LIMITS } from "@/types";
 
 export async function GET(request: NextRequest) {
@@ -1125,6 +1122,7 @@ export async function PUT(request: NextRequest) {
     maxRequests: 20,
     windowMs: 10 * 60 * 1000,
     routeKey: "admin-point-config",
+    subjectId: auth.user.id,
   });
   if (rateLimited) return notForAgentsResponse(rateLimited);
 
@@ -1194,10 +1192,10 @@ async function getPointConfig(action: string): Promise<{ points: number; dailyLi
 
 Then use `getPointConfig(type)` in `awardPoints` to get the points value instead of directly reading `POINT_RULES`.
 
-- [ ] **Step 8: Run existing points tests**
+- [ ] **Step 8: Run full test suite**
 
-Run: `node --import tsx --test src/lib/points.test.ts`
-Expected: All tests PASS
+Run: `npm test`
+Expected: All tests PASS (no dedicated points test file exists — regression coverage comes from the full suite)
 
 - [ ] **Step 9: Commit**
 
