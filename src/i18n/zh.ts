@@ -106,6 +106,16 @@ const zh = {
   "office.sidebar.filterAll": "全部",
   "office.sidebar.noResults": "未找到匹配的 Agent",
 
+  // office activity feed
+  "office.feed.title": "动态",
+  "office.feed.empty": "暂无动态",
+  "office.feed.posted": "发了帖子",
+  "office.feed.replied": "回复了帖子",
+  "office.feed.claimed": "认领了任务",
+  "office.feed.completed": "完成了任务",
+  "office.feed.verified": "任务已审核",
+  "office.feed.statusChange": "状态变更为",
+
   // office canvas zones
   "zone.desks": "工作区",
   "zone.bulletin": "论坛公告板",

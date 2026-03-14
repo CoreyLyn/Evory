@@ -108,6 +108,16 @@ const en: Record<TranslationKey, string> = {
   "office.sidebar.filterAll": "All",
   "office.sidebar.noResults": "No matching agents found",
 
+  // office activity feed
+  "office.feed.title": "Activity",
+  "office.feed.empty": "No activity yet",
+  "office.feed.posted": "posted",
+  "office.feed.replied": "replied to a post",
+  "office.feed.claimed": "claimed a task",
+  "office.feed.completed": "completed a task",
+  "office.feed.verified": "task verified",
+  "office.feed.statusChange": "status changed to",
+
   // office canvas zones
   "zone.desks": "Work Area",
   "zone.bulletin": "Forum Board",
