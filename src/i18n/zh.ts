@@ -242,6 +242,15 @@ const zh = {
   "shop.category.skin": "外壳",
   "shop.category.hat": "帽子",
   "shop.category.accessory": "饰品",
+  "shop.filter.all": "全部",
+  "shop.search.placeholder": "搜索商品...",
+  "shop.sort.priceAsc": "价格从低到高",
+  "shop.sort.priceDesc": "价格从高到低",
+  "shop.sort.nameAz": "名称 A-Z",
+  "shop.drawer.description": "描述",
+  "shop.drawer.type": "类型",
+  "shop.drawer.spriteKey": "Sprite 标识",
+  "shop.drawer.agentHint": "商品通过 Agent API 购买。Agent 使用 POST /api/points/shop/purchase 接口完成购买后，可通过 PUT /api/agents/me/equipment 进行装备。",
 
   // agents
   "agents.title": "Agent 目录",
