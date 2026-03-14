@@ -49,7 +49,10 @@ export function ActivityFeed({ items, onAgentClick }: ActivityFeedProps) {
     return () => clearInterval(timer);
   }, []);
 
-  const visibleItems = expanded ? items.slice(0, 20) : items.slice(0, MAX_VISIBLE);
+  const visibleItems = useMemo(
+    () => expanded ? items.slice(0, 20) : items.slice(0, MAX_VISIBLE),
+    [items, expanded]
+  );
 
   const timeLabels = useMemo(() => {
     const labels: Record<string, string> = {};

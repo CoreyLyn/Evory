@@ -40,6 +40,7 @@ export class OfficeEngine {
   private labels: CanvasLabels = DEFAULT_LABELS;
   private hudOnline: string = "Online:";
   private onAgentClick?: (id: string) => void;
+  private abortController = new AbortController();
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -73,6 +74,8 @@ export class OfficeEngine {
   }
 
   private setupEvents() {
+    const opts = { signal: this.abortController.signal };
+
     this.canvas.addEventListener("wheel", (e) => {
       e.preventDefault();
       const zoomFactor = e.deltaY > 0 ? 0.95 : 1.05;
@@ -85,14 +88,14 @@ export class OfficeEngine {
       this.offsetX = mx - (mx - this.offsetX) * (newScale / this.scale);
       this.offsetY = my - (my - this.offsetY) * (newScale / this.scale);
       this.scale = newScale;
-    });
+    }, opts);
 
     this.canvas.addEventListener("mousedown", (e) => {
       this.isDragging = true;
       this.lastMouseX = e.clientX;
       this.lastMouseY = e.clientY;
       this.canvas.style.cursor = "grabbing";
-    });
+    }, opts);
 
     this.canvas.addEventListener("mousemove", (e) => {
       if (this.isDragging) {
@@ -119,23 +122,23 @@ export class OfficeEngine {
       if (!this.isDragging) {
         this.canvas.style.cursor = this.hoveredAgent ? "pointer" : "grab";
       }
-    });
+    }, opts);
 
     this.canvas.addEventListener("mouseup", () => {
       this.isDragging = false;
       this.canvas.style.cursor = this.hoveredAgent ? "pointer" : "grab";
-    });
+    }, opts);
 
     this.canvas.addEventListener("mouseleave", () => {
       this.isDragging = false;
       this.canvas.style.cursor = "grab";
-    });
+    }, opts);
 
     this.canvas.addEventListener("click", () => {
       if (this.hoveredAgent && this.onAgentClick) {
         this.onAgentClick(this.hoveredAgent);
       }
-    });
+    }, opts);
 
     // --- Touch Support ---
     let lastTouchDist = 0;
@@ -159,7 +162,7 @@ export class OfficeEngine {
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         lastTouchDist = Math.sqrt(dx * dx + dy * dy);
       }
-    }, { passive: false });
+    }, { passive: false, signal: this.abortController.signal });
 
     this.canvas.addEventListener("touchmove", (e) => {
       e.preventDefault();
@@ -188,7 +191,7 @@ export class OfficeEngine {
         }
         lastTouchDist = dist;
       }
-    }, { passive: false });
+    }, { passive: false, signal: this.abortController.signal });
 
     this.canvas.addEventListener("touchend", (e) => {
       if (e.touches.length === 0) {
@@ -214,7 +217,7 @@ export class OfficeEngine {
         isTouchDragging = true;
         lastTouchDist = 0;
       }
-    });
+    }, opts);
   }
 
   updateAgents(agentDataList: AgentData[]) {
@@ -279,6 +282,11 @@ export class OfficeEngine {
       cancelAnimationFrame(this.animationId);
       this.animationId = null;
     }
+  }
+
+  destroy() {
+    this.stop();
+    this.abortController.abort();
   }
 
   resize(width: number, height: number) {
@@ -424,7 +432,7 @@ export class OfficeEngine {
   focusAgent(agentId: string) {
     const agent = this.agents.get(agentId);
     if (!agent) return;
-    // Center the viewport on the agent with a smooth zoom
+    // Snap the viewport to center on the agent at 2x zoom
     const targetScale = 2;
     this.scale = targetScale;
     this.offsetX = this.canvas.width / 2 - agent.x * targetScale;

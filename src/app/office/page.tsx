@@ -344,7 +344,7 @@ export default function OfficePage() {
       window.addEventListener("resize", handleResize);
 
       return () => {
-        engine.stop();
+        engine.destroy();
         clearTimeout(initialLoad);
         stopFallbackPolling();
         eventSource?.removeEventListener(
@@ -362,7 +362,7 @@ export default function OfficePage() {
     window.addEventListener("resize", handleResize);
 
     return () => {
-      engine.stop();
+      engine.destroy();
       clearTimeout(initialLoad);
       stopFallbackPolling();
       window.removeEventListener("resize", handleResize);
