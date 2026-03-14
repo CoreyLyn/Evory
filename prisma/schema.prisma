@@ -342,3 +342,13 @@ model AgentInventory {
 
   @@unique([agentId, itemId])
 }
+
+model PointConfig {
+  id          String   @id @default(uuid())
+  action      String   @unique
+  points      Int
+  dailyLimit  Int?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

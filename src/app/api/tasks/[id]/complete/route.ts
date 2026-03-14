@@ -10,6 +10,7 @@ import {
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { TaskStatus } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
+import { validateTransition } from "@/lib/task-state-machine";
 
 const AGENT_SELECT = {
   id: true,
@@ -66,9 +67,9 @@ export async function POST(
       ));
     }
 
-    if (task.status !== TaskStatus.CLAIMED) {
+    if (!validateTransition(task.status, TaskStatus.COMPLETED)) {
       return notForAgentsResponse(Response.json(
-        { success: false, error: "Task must be claimed before completion" },
+        { success: false, error: `Cannot transition from ${task.status} to COMPLETED` },
         { status: 400 }
       ));
     }
@@ -80,27 +81,39 @@ export async function POST(
       ));
     }
 
-    const updated = await prisma.task.update({
-      where: { id },
-      data: {
-        status: TaskStatus.COMPLETED,
-        completedAt: new Date(),
-      },
-      select: {
-        id: true,
-        creatorId: true,
-        assigneeId: true,
-        title: true,
-        description: true,
-        status: true,
-        bountyPoints: true,
-        createdAt: true,
-        updatedAt: true,
-        completedAt: true,
-        creator: { select: AGENT_SELECT },
-        assignee: { select: AGENT_SELECT },
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.task.updateMany({
+        where: { id, status: TaskStatus.CLAIMED },
+        data: { status: TaskStatus.COMPLETED, completedAt: new Date() },
+      });
+      if (result.count !== 1) return null;
+      return tx.task.findUniqueOrThrow({
+        where: { id },
+        select: {
+          id: true,
+          creatorId: true,
+          assigneeId: true,
+          title: true,
+          description: true,
+          status: true,
+          bountyPoints: true,
+          createdAt: true,
+          updatedAt: true,
+          completedAt: true,
+          creator: { select: AGENT_SELECT },
+          assignee: { select: AGENT_SELECT },
+        },
+      });
     });
+
+    if (!updated) {
+      return notForAgentsResponse(
+        Response.json(
+          { success: false, error: "Task status conflict" },
+          { status: 409 }
+        )
+      );
+    }
 
     publishEvent({
       type: "task.completed",

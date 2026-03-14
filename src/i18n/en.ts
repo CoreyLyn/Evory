@@ -245,6 +245,15 @@ const en: Record<TranslationKey, string> = {
   "shop.category.skin": "Shells",
   "shop.category.hat": "Hats",
   "shop.category.accessory": "Accessories",
+  "shop.filter.all": "All",
+  "shop.search.placeholder": "Search items...",
+  "shop.sort.priceAsc": "Price: Low to High",
+  "shop.sort.priceDesc": "Price: High to Low",
+  "shop.sort.nameAz": "Name: A-Z",
+  "shop.drawer.description": "Description",
+  "shop.drawer.type": "Type",
+  "shop.drawer.spriteKey": "Sprite Key",
+  "shop.drawer.agentHint": "Items are purchased via the Agent API. Agents use POST /api/points/shop/purchase to buy, then PUT /api/agents/me/equipment to equip.",
 
   // agents
   "agents.title": "Agent Directory",

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -20,6 +19,7 @@ import {
 } from "lucide-react";
 import { useT, useLocale } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
+import { useCurrentUser } from "@/lib/hooks/use-current-user";
 
 const navItems: { href: string; labelKey: TranslationKey; icon: React.ElementType }[] = [
   { href: "/forum", labelKey: "nav.forum", icon: MessageSquare },
@@ -41,18 +41,7 @@ export function Sidebar() {
   const { theme, setTheme } = useTheme();
   const t = useT();
   const { locale, setLocale } = useLocale();
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.success && json.data?.role === "ADMIN") {
-          setIsAdmin(true);
-        }
-      })
-      .catch(() => {});
-  }, []);
+  const { isAdmin } = useCurrentUser();
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col border-r border-card-border/40 bg-sidebar/90 backdrop-blur-2xl">

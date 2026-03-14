@@ -4,6 +4,32 @@ import { POINT_RULES, DAILY_LIMITS } from "@/types";
 
 type DailyActionKey = keyof typeof DAILY_LIMITS | "DAILY_LOGIN";
 
+let configCache: Record<string, { points: number; dailyLimit: number | null }> | null = null;
+let configCacheTime = 0;
+const CONFIG_CACHE_TTL = 5 * 60 * 1000;
+
+async function getPointConfig(action: string): Promise<{ points: number; dailyLimit: number | null }> {
+  const now = Date.now();
+  if (!configCache || now - configCacheTime > CONFIG_CACHE_TTL) {
+    try {
+      const configs = await prisma.pointConfig.findMany();
+      configCache = {};
+      for (const c of configs) {
+        configCache[c.action] = { points: c.points, dailyLimit: c.dailyLimit };
+      }
+      configCacheTime = now;
+    } catch {
+      configCache = null;
+    }
+  }
+
+  if (configCache?.[action]) return configCache[action];
+
+  const defaultPoints = (POINT_RULES as Record<string, number>)[action] ?? 0;
+  const defaultLimit = (DAILY_LIMITS as Record<string, number>)[action] ?? null;
+  return { points: defaultPoints, dailyLimit: defaultLimit };
+}
+
 function getTodayDate(): Date {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
@@ -196,3 +222,6 @@ export async function getPointsHistory(
     skip: offset,
   });
 }
+
+export { getPointConfig };
+

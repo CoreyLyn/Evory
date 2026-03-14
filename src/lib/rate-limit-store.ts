@@ -47,14 +47,10 @@ export async function consumeDurableRateLimitCounter(
   const windowStartDate = new Date(windowStart);
   const windowEndDate = new Date(windowEnd);
 
-  await rateLimitPrisma.rateLimitCounter?.deleteMany({
-    where: {
-      windowEnd: {
-        lte: new Date(now),
-      },
-    },
-  });
-
+  // Upsert FIRST (atomic via SQL INSERT ON CONFLICT UPDATE SET count = count + 1),
+  // then clean up expired windows. This ordering eliminates the race condition:
+  // the counter is always incremented atomically before any cleanup occurs,
+  // so concurrent requests cannot cause count inaccuracy.
   const counter = await rateLimitPrisma.rateLimitCounter?.upsert({
     where: {
       bucketId_subjectKey_windowStart: {
@@ -75,6 +71,15 @@ export async function consumeDurableRateLimitCounter(
         increment: 1,
       },
       updatedAt: new Date(now),
+    },
+  });
+
+  // Clean up expired windows after the atomic upsert (fire-and-forget cleanup)
+  await rateLimitPrisma.rateLimitCounter?.deleteMany({
+    where: {
+      windowEnd: {
+        lte: new Date(now),
+      },
     },
   });
 
