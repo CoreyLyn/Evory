@@ -36,6 +36,7 @@ export class OfficeEngine {
   private lastMouseY: number = 0;
   private hoveredAgent: string | null = null;
   private bubbles: ActivityBubble[] = [];
+  private bgThrottleMs: number = 50; // default: 50ms (~20fps)
   private labels: CanvasLabels = DEFAULT_LABELS;
   private hudOnline: string = "Online:";
   private onAgentClick?: (id: string) => void;
@@ -296,10 +297,18 @@ export class OfficeEngine {
   }
 
   private update() {
+    let anyMoving = false;
     for (const [id, agent] of this.agents) {
-      this.agents.set(id, updateAgentPosition(agent));
+      const updated = updateAgentPosition(agent);
+      this.agents.set(id, updated);
+      const dx = updated.targetX - updated.x;
+      const dy = updated.targetY - updated.y;
+      if (Math.sqrt(dx * dx + dy * dy) > 2) anyMoving = true;
     }
     this.bubbles = updateBubbles(this.bubbles);
+
+    // Throttle background redraws: 50ms when active, 200ms when quiet
+    this.bgThrottleMs = (anyMoving || this.bubbles.length > 0) ? 50 : 200;
   }
 
   private draw() {
@@ -316,8 +325,8 @@ export class OfficeEngine {
     ctx.scale(this.scale, this.scale);
 
     // Throttled Background Rendering (Cache to Offscreen Canvas)
-    // Redraw glow at most every 50ms (~20 FPS) instead of 60 FPS
-    if (now - this.lastBgRenderTime > 50) {
+    // Redraw at most every bgThrottleMs: 50ms (~20 FPS) when active, 200ms (~5 FPS) when quiet
+    if (now - this.lastBgRenderTime > this.bgThrottleMs) {
       this.bgCtx.clearRect(0, 0, OFFICE_WIDTH, OFFICE_HEIGHT);
       drawOffice(this.bgCtx, this.labels, now);
       this.lastBgRenderTime = now;
