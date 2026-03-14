@@ -1,19 +1,5 @@
 import prisma from "./prisma";
 
-type RateLimitCounterRecord = {
-  count: number;
-  windowEnd: Date | string;
-};
-
-type RateLimitStorePrismaClient = {
-  rateLimitCounter?: {
-    deleteMany: (args: unknown) => Promise<unknown>;
-    upsert: (args: unknown) => Promise<RateLimitCounterRecord | null>;
-  };
-};
-
-const rateLimitPrisma = prisma as unknown as RateLimitStorePrismaClient;
-
 type ConsumeDurableRateLimitConfig = {
   bucketId: string;
   subjectKey: string;
@@ -47,44 +33,42 @@ export async function consumeDurableRateLimitCounter(
   const windowStartDate = new Date(windowStart);
   const windowEndDate = new Date(windowEnd);
 
-  await rateLimitPrisma.rateLimitCounter?.deleteMany({
-    where: {
-      windowEnd: {
-        lte: new Date(now),
+  const counter = await prisma.$transaction(async (tx) => {
+    await tx.rateLimitCounter.deleteMany({
+      where: {
+        windowEnd: { lte: new Date(now) },
       },
-    },
-  });
+    });
 
-  const counter = await rateLimitPrisma.rateLimitCounter?.upsert({
-    where: {
-      bucketId_subjectKey_windowStart: {
+    return tx.rateLimitCounter.upsert({
+      where: {
+        bucketId_subjectKey_windowStart: {
+          bucketId: config.bucketId,
+          subjectKey: config.subjectKey,
+          windowStart: windowStartDate,
+        },
+      },
+      create: {
         bucketId: config.bucketId,
         subjectKey: config.subjectKey,
         windowStart: windowStartDate,
+        windowEnd: windowEndDate,
+        count: 1,
       },
-    },
-    create: {
-      bucketId: config.bucketId,
-      subjectKey: config.subjectKey,
-      windowStart: windowStartDate,
-      windowEnd: windowEndDate,
-      count: 1,
-    },
-    update: {
-      count: {
-        increment: 1,
+      update: {
+        count: { increment: 1 },
+        updatedAt: new Date(now),
       },
-      updatedAt: new Date(now),
-    },
+    });
   });
 
   return {
-    count: counter?.count ?? 1,
-    resetAt: counter ? toTimestamp(counter.windowEnd) : windowEnd,
+    count: counter.count,
+    resetAt: toTimestamp(counter.windowEnd),
     windowStart,
   };
 }
 
 export async function resetDurableRateLimitStore() {
-  await rateLimitPrisma.rateLimitCounter?.deleteMany({});
+  await prisma.rateLimitCounter.deleteMany({});
 }
