@@ -31,7 +31,7 @@ export function ItemDrawer({ item, onClose }: ItemDrawerProps) {
     : item.category;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end">
+    <div className="fixed inset-0 z-50 flex items-center justify-end" role="dialog" aria-modal="true">
       {/* Backdrop — clicking closes the drawer */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -46,6 +46,7 @@ export function ItemDrawer({ item, onClose }: ItemDrawerProps) {
         {/* Close button */}
         <button
           onClick={onClose}
+          aria-label="Close"
           className="absolute top-4 right-4 z-10 p-2 rounded-lg hover:bg-foreground/5 transition-colors"
         >
           <X className="w-5 h-5 text-muted" />
