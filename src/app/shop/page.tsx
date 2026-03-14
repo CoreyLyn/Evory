@@ -46,7 +46,7 @@ export default function ShopPage() {
       try {
         const catalog = await fetchShopItems();
         if (cancelled) return;
-        setItems(catalog as ShopItemData[]);
+        setItems(catalog as unknown as ShopItemData[]);
       } catch (nextError) {
         if (cancelled) return;
         setError(
