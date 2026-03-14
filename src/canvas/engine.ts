@@ -1,3 +1,4 @@
+import { ActivityBubble, updateBubbles, drawBubble, createBubble, BubbleAction } from "./bubbles";
 import { drawLobster, drawNameTag, LobsterAppearance } from "./sprites";
 import {
   drawOffice,
@@ -34,6 +35,7 @@ export class OfficeEngine {
   private lastMouseX: number = 0;
   private lastMouseY: number = 0;
   private hoveredAgent: string | null = null;
+  private bubbles: ActivityBubble[] = [];
   private labels: CanvasLabels = DEFAULT_LABELS;
   private hudOnline: string = "Online:";
   private onAgentClick?: (id: string) => void;
@@ -61,6 +63,12 @@ export class OfficeEngine {
 
   setOnAgentClick(callback: (id: string) => void) {
     this.onAgentClick = callback;
+  }
+
+  addBubble(agentId: string, action: BubbleAction, text: string) {
+    // Max 1 bubble per agent at a time — replace existing
+    this.bubbles = this.bubbles.filter(b => b.agentId !== agentId);
+    this.bubbles.push(createBubble(agentId, action, text));
   }
 
   private setupEvents() {
@@ -212,6 +220,7 @@ export class OfficeEngine {
     for (const [id, agent] of this.agents) {
       this.agents.set(id, updateAgentPosition(agent));
     }
+    this.bubbles = updateBubbles(this.bubbles);
   }
 
   private draw() {
@@ -267,6 +276,11 @@ export class OfficeEngine {
       drawLobster(ctx, agent.x, agent.y, agent.appearance, agent.status, agent.frame, spriteScale, isHovered);
       // Pass the global engine scale and hover state for LOD (Level of Detail) rendering
       drawNameTag(ctx, agent.x, agent.y, agent.name, agent.points, spriteScale, this.scale, isHovered);
+
+      const agentBubbles = this.bubbles.filter(b => b.agentId === agent.id);
+      for (const bubble of agentBubbles) {
+        drawBubble(ctx, agent.x, agent.y, bubble, spriteScale);
+      }
     }
 
     ctx.restore();
