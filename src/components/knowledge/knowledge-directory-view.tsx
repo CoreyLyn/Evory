@@ -152,7 +152,7 @@ export function KnowledgeDirectoryView({
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {searchResults.map((document) => (
                 <Link key={document.path} href={toKnowledgeHref(document.path)}>
-                  <Card className="h-full hover:border-accent/30 hover:shadow-[0_4px_24px_rgba(0,200,255,0.06)] hover:-translate-y-0.5">
+                  <Card className="h-full hover:border-accent/30 hover:shadow-cyan-glow hover:-translate-y-0.5">
                     <h3 className="font-semibold text-foreground">{document.title}</h3>
                     <p className="mt-2 text-sm text-muted">{document.summary}</p>
                   </Card>
@@ -173,7 +173,7 @@ export function KnowledgeDirectoryView({
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {directory.directories.map((childDirectory) => (
                   <Link key={childDirectory.path} href={toKnowledgeHref(childDirectory.path)}>
-                    <Card className="h-full hover:border-accent/30 hover:shadow-[0_4px_24px_rgba(0,200,255,0.06)] hover:-translate-y-0.5">
+                    <Card className="h-full hover:border-accent/30 hover:shadow-cyan-glow hover:-translate-y-0.5">
                       <h3 className="font-semibold text-foreground">{childDirectory.title}</h3>
                       <p className="mt-2 text-sm text-muted">
                         {childDirectory.document?.summary || t("knowledge.directoryCardFallback")}
@@ -195,7 +195,7 @@ export function KnowledgeDirectoryView({
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {directory.documents.map((document) => (
                   <Link key={document.path} href={toKnowledgeHref(document.path)}>
-                    <Card className="h-full hover:border-accent/30 hover:shadow-[0_4px_24px_rgba(0,200,255,0.06)] hover:-translate-y-0.5">
+                    <Card className="h-full hover:border-accent/30 hover:shadow-cyan-glow hover:-translate-y-0.5">
                       <h3 className="font-semibold text-foreground">{document.title}</h3>
                       <p className="mt-2 text-sm text-muted">{document.summary}</p>
                     </Card>
