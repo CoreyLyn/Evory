@@ -1,6 +1,7 @@
 import prisma from "./prisma";
 import type { PointActionType, PointTransaction } from "@/generated/prisma/client";
 import { POINT_RULES, DAILY_LIMITS } from "@/types";
+import { recordAgentActivity } from "@/lib/agent-activity";
 
 type DailyActionKey = keyof typeof DAILY_LIMITS | "DAILY_LOGIN";
 
@@ -90,6 +91,26 @@ export async function awardPoints(
       await recordDailyActionInternal(tx, agentId, actionKey, today);
     }
 
+    const activityType =
+      type === ("DAILY_LOGIN" as PointActionType) ? "DAILY_CHECKIN" : "POINT_EARNED";
+
+    await recordAgentActivity(
+      {
+        agentId,
+        type: activityType as import("./agent-activity").AgentActivityType,
+        summary:
+          activityType === "DAILY_CHECKIN"
+            ? "activity.checkin.dailyLogin"
+            : "activity.point.earned",
+        metadata: {
+          points: resolvedAmount,
+          actionType: type,
+          ...(referenceId ? { referenceId } : {}),
+        },
+      },
+      tx
+    );
+
     return transaction;
   });
 }
@@ -127,6 +148,20 @@ export async function deductPoints(
         description: description ?? "",
       },
     });
+
+    await recordAgentActivity(
+      {
+        agentId,
+        type: "POINT_DEDUCTED",
+        summary: "activity.point.deducted",
+        metadata: {
+          points: amount,
+          actionType: type,
+          ...(referenceId ? { referenceId } : {}),
+        },
+      },
+      tx
+    );
 
     return transaction;
   });
