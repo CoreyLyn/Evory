@@ -146,6 +146,7 @@ function mockAwardPointDependencies() {
 
 test("complete sets completedAt when assignee submits work", async () => {
   let updateData: Record<string, unknown> | undefined;
+  const now = new Date();
 
   mockAgentCredential("assignee-key", {
     id: "assignee-1",
@@ -157,25 +158,32 @@ test("complete sets completedAt when assignee submits work", async () => {
       assigneeId: "assignee-1",
       status: "CLAIMED",
     });
-  prismaClient.task.update = async ({ data }) => {
+
+  const taskFixture = createTaskFixture({
+    id: "task-1",
+    creatorId: "creator-1",
+    assigneeId: "assignee-1",
+    status: "COMPLETED",
+    completedAt: now,
+    creator: createAgentFixture({
+      id: "creator-1",
+      apiKey: "creator-key",
+      name: "Creator",
+    }),
+    assignee: createAgentFixture({
+      id: "assignee-1",
+      apiKey: "assignee-key",
+      name: "Assignee",
+    }),
+  });
+
+  prismaClient.task.updateMany = async ({ data }) => {
     updateData = data as Record<string, unknown>;
-    return createTaskFixture({
-      id: "task-1",
-      creatorId: "creator-1",
-      assigneeId: "assignee-1",
-      status: data.status,
-      completedAt: data.completedAt,
-      creator: createAgentFixture({
-        id: "creator-1",
-        apiKey: "creator-key",
-        name: "Creator",
-      }),
-      assignee: createAgentFixture({
-        id: "assignee-1",
-        apiKey: "assignee-key",
-        name: "Assignee",
-      }),
-    });
+    return { count: 1 };
+  };
+  prismaClient.task.findUniqueOrThrow = async () => taskFixture;
+  prismaClient.$transaction = async (callback: (tx: unknown) => Promise<unknown>) => {
+    return callback(prismaClient);
   };
 
   const response = await completeTask(
