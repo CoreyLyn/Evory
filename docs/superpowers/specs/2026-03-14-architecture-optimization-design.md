@@ -16,7 +16,7 @@
 
 ### 1.1 统一错误处理
 
-**问题**: 代码中散布 61 处 `console.error()`，每个 API route handler 各自 try-catch，格式不一致，难以监控。
+**问题**: 代码中散布 61 处 `console.error()`（分布在约 52 个文件中，包括 API route、lib 工具和组件），每个 API route handler 各自 try-catch，格式不一致，难以监控。
 
 **方案**:
 
@@ -46,25 +46,27 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 
 **文件变更**:
 - 新建: `src/lib/api-utils.ts`（AppError 类 + withErrorHandler）
-- 修改: 所有 63 条 API route（可逐步迁移）
+- 修改: 61 处 `console.error` 所在的约 52 个文件（可逐步迁移）
 
 ### 1.2 Task 状态机约束
 
-**问题**: Task 状态转换（OPEN → CLAIMED → COMPLETED → VERIFIED）仅在业务代码中检查，数据库层无约束。并发操作可能导致非法状态转换。
+**问题**: Task 状态转换（OPEN → CLAIMED → COMPLETED → VERIFIED / CANCELLED）仅在业务代码中检查，数据库层无约束。并发操作可能导致非法状态转换。此外，`tasks/[id]/complete/route.ts` 使用 `prisma.task.update` 而非 `updateMany` + status guard，存在并发竞态。
 
 **方案**:
 
-- 创建 `src/lib/task-state-machine.ts`，定义合法状态转换映射
+- 创建 `src/lib/task-state-machine.ts`，定义合法状态转换映射（含 CANCELLED 状态）
 - 提供 `validateTransition(from, to): boolean` 函数
 - 在所有修改 Task status 的地方调用验证
+- 将 `tasks/[id]/complete/route.ts` 从 `update` 迁移到 `updateMany` + status guard，与 claim route 模式一致
 - 使用 Prisma `updateMany` 的 where 条件同时检查当前状态
 
 ```typescript
 const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
-  OPEN: ["CLAIMED"],
-  CLAIMED: ["OPEN", "COMPLETED"],
-  COMPLETED: ["VERIFIED"],
-  VERIFIED: [],
+  OPEN: ["CLAIMED", "CANCELLED"],
+  CLAIMED: ["OPEN", "COMPLETED", "CANCELLED"],
+  COMPLETED: ["VERIFIED", "CLAIMED"],  // CLAIMED 用于验证被拒回退
+  VERIFIED: [],   // 终态
+  CANCELLED: [],  // 终态
 };
 ```
 
@@ -74,25 +76,25 @@ const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
 
 ### 1.3 速率限制竞态条件
 
-**问题**: `rate-limit.ts` 使用 Prisma 的 upsert 做计数，高并发下多个请求可能同时读到旧值，导致限制失效。
+**问题**: `rate-limit-store.ts` 的 `increment` 方法分两步执行：先 `deleteMany` 清除过期窗口，再 `upsert` 递增计数。虽然 Prisma 的 `increment` 操作本身是原子的（转换为 `SET count = count + 1`），但 `deleteMany` 和 `upsert` 之间存在竞态窗口——并发请求可能在过期窗口被清除后、新 upsert 之前插入记录，导致计数不准确。
 
 **方案**:
 
-- 使用 Prisma 的 `$executeRaw` 执行 PostgreSQL 原子递增：`UPDATE ... SET count = count + 1 WHERE ... RETURNING count`
-- 在单条 SQL 中完成「读+写+判断」，消除竞态窗口
-- 保持现有的 `checkRateLimit` 接口不变，仅改内部实现
+- 将 `deleteMany` + `upsert` 合并为单条 raw SQL 事务，使用 `$executeRaw` 执行
+- 在单条 SQL 中完成「清理过期 + 递增 + 返回计数」，消除两步操作间的竞态窗口
+- 保持现有的 `checkRateLimit` 接口不变，仅改 store 内部实现
 - 不引入 Redis，保持单实例架构的简洁性
 
 **文件变更**:
-- 修改: `src/lib/rate-limit.ts`（内部实现变更，接口不变）
+- 修改: `src/lib/rate-limit-store.ts`（内部实现变更，接口不变）
 
 ### 1.4 Sidebar 重复请求
 
-**问题**: `sidebar.tsx` 在 `useEffect` 中调用 `/api/auth/me`，每次组件渲染都会发请求。导航切换页面时重复调用。
+**问题**: `sidebar.tsx` 在 `useEffect([], ...)` 中调用 `/api/auth/me`，虽然依赖数组为空（只在 mount 时触发），但导航切换页面时 Sidebar 组件会重新挂载，导致重复请求。
 
 **方案**:
 
-- 创建 `src/lib/hooks/use-current-user.ts`，封装 `/api/auth/me` 请求并缓存结果
+- 创建 `src/lib/hooks/use-current-user.ts`（新建 `src/lib/hooks/` 目录作为自定义 hook 的统一存放位置），封装 `/api/auth/me` 请求并缓存结果
 - 使用 `useRef` + 状态管理避免重复请求（请求进行中不发新请求）
 - 添加适当的缓存时间（5 分钟内不重复请求）
 - 不引入 SWR/React Query 等新依赖
@@ -117,20 +119,21 @@ const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
 **文件变更**:
 - 修改: `package.json`、`package-lock.json`
 
-### 2.2 提取 Tailwind 配置
+### 2.2 提取 Tailwind 设计 token
 
 **问题**: 组件中大量重复的内联样式（渐变、阴影、圆角组合），修改主题需全局搜索替换。
 
 **方案**:
 
-- 创建 `tailwind.config.ts`，提取重复 3 次以上的设计 token：
-  - `colors`: 品牌色（accent、accent-secondary）
-  - `boxShadow`: 常用阴影组合
-  - `backgroundImage`: 常用渐变
+- 项目使用 Tailwind CSS v4，配置通过 CSS `@theme` 指令完成（而非传统的 `tailwind.config.ts`）
+- 在 `src/app/globals.css` 中使用 `@theme` 块注册重复 3 次以上的设计 token：
+  - 自定义颜色（accent、accent-secondary 等品牌色已通过 CSS 变量定义，确认 `@theme` 注册）
+  - 常用阴影组合
+  - 常用渐变
 - 组件中用语义化 class 替代冗长内联样式
 
 **文件变更**:
-- 新建: `tailwind.config.ts`
+- 修改: `src/app/globals.css`（添加 `@theme` 块）
 - 修改: 引用重复样式的组件文件
 
 ### 2.3 国际化 key 一致性校验
@@ -203,7 +206,7 @@ const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
 **方案**:
 
 - 新增 Prisma model `PointConfig`（action、points、dailyLimit、description）
-- 管理 API: `GET/PUT /api/admin/point-config`
+- 管理 API: `GET/PUT /api/admin/point-config`（PUT 需 CSRF 校验 `enforceSameOriginControlPlaneRequest`、用户会话认证、Admin 角色检查、速率限制——遵循现有 `/api/admin/` 路由模式）
 - `src/lib/points.ts` 启动时加载配置并缓存，配置变更时刷新
 - 保留代码中的默认值作为 fallback
 - Admin 页面增加积分规则管理界面
@@ -243,13 +246,13 @@ const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
 
 第 2 批（可并行）:
   2.1 清理 socket.io ──┐
-  2.2 Tailwind 配置  ──┤── 互不依赖，可并行
+  2.2 Tailwind token  ──┤── 互不依赖，可并行
   2.3 i18n 校验     ──┤
   2.4 类型文件拆分   ──┘
 
 第 3 批（部分依赖）:
   3.1 E2E 测试       ──── 独立
-  3.2 客户端缓存     ──── 依赖 1.4（扩展 useCurrentUser 模式）
+  3.2 客户端缓存     ──── 建议在 1.4 之后实现（复用 hook 模式），但无硬依赖
   3.3 积分规则配置化  ──── 依赖 2.4（常量已迁移到 constants.ts）
   3.4 API 响应缓存   ──── 独立
 ```
