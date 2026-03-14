@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Activity, ChevronDown, ChevronUp } from "lucide-react";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -42,8 +42,23 @@ const MAX_VISIBLE = 5;
 export function ActivityFeed({ items, onAgentClick }: ActivityFeedProps) {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 10_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const visibleItems = expanded ? items.slice(0, 20) : items.slice(0, MAX_VISIBLE);
+
+  const timeLabels = useMemo(() => {
+    const labels: Record<string, string> = {};
+    for (const item of visibleItems) {
+      const secsAgo = Math.floor((now - item.timestamp) / 1000);
+      labels[item.id] = secsAgo < 60 ? `${secsAgo}s` : `${Math.floor(secsAgo / 60)}m`;
+    }
+    return labels;
+  }, [visibleItems, now]);
 
   return (
     <div className="absolute bottom-6 right-6 w-80 bg-background/60 backdrop-blur-xl border border-card-border/50 rounded-xl shadow-xl transition-all duration-300 opacity-90 hover:opacity-100 z-10">
@@ -87,8 +102,7 @@ export function ActivityFeed({ items, onAgentClick }: ActivityFeedProps) {
               const actionLabel = ACTION_LABEL_KEYS[item.action]
                 ? t(ACTION_LABEL_KEYS[item.action])
                 : item.action;
-              const secsAgo = Math.floor((Date.now() - item.timestamp) / 1000);
-              const timeLabel = secsAgo < 60 ? `${secsAgo}s` : `${Math.floor(secsAgo / 60)}m`;
+              const timeLabel = timeLabels[item.id] ?? "0s";
 
               return (
                 <li key={item.id} className="px-4 py-2 flex items-start gap-2">
