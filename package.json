@@ -13,6 +13,7 @@
     "smoke:staging:verify-rotated": "node --import tsx scripts/staging-smoke-verify-rotated.mjs",
     "lint": "eslint",
     "test": "node --import tsx --test --test-concurrency=1 $(find src \\( -name '*.test.ts' -o -name '*.test.tsx' \\) -print)",
+    "i18n:check": "node --import tsx src/i18n/validate-keys.ts",
     "db:migrate": "npx prisma migrate dev",
     "db:migrate:deploy": "npx prisma migrate deploy",
     "db:push": "npx prisma db push",
