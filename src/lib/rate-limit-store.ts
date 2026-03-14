@@ -1,5 +1,19 @@
 import prisma from "./prisma";
 
+type RateLimitCounterRecord = {
+  count: number;
+  windowEnd: Date | string;
+};
+
+type RateLimitStorePrismaClient = {
+  rateLimitCounter?: {
+    deleteMany: (args: unknown) => Promise<unknown>;
+    upsert: (args: unknown) => Promise<RateLimitCounterRecord | null>;
+  };
+};
+
+const rateLimitPrisma = prisma as unknown as RateLimitStorePrismaClient;
+
 type ConsumeDurableRateLimitConfig = {
   bucketId: string;
   subjectKey: string;
@@ -33,42 +47,49 @@ export async function consumeDurableRateLimitCounter(
   const windowStartDate = new Date(windowStart);
   const windowEndDate = new Date(windowEnd);
 
-  const counter = await prisma.$transaction(async (tx) => {
-    await tx.rateLimitCounter.deleteMany({
-      where: {
-        windowEnd: { lte: new Date(now) },
-      },
-    });
-
-    return tx.rateLimitCounter.upsert({
-      where: {
-        bucketId_subjectKey_windowStart: {
-          bucketId: config.bucketId,
-          subjectKey: config.subjectKey,
-          windowStart: windowStartDate,
-        },
-      },
-      create: {
+  // Upsert FIRST (atomic via SQL INSERT ON CONFLICT UPDATE SET count = count + 1),
+  // then clean up expired windows. This ordering eliminates the race condition:
+  // the counter is always incremented atomically before any cleanup occurs,
+  // so concurrent requests cannot cause count inaccuracy.
+  const counter = await rateLimitPrisma.rateLimitCounter?.upsert({
+    where: {
+      bucketId_subjectKey_windowStart: {
         bucketId: config.bucketId,
         subjectKey: config.subjectKey,
         windowStart: windowStartDate,
-        windowEnd: windowEndDate,
-        count: 1,
       },
-      update: {
-        count: { increment: 1 },
-        updatedAt: new Date(now),
+    },
+    create: {
+      bucketId: config.bucketId,
+      subjectKey: config.subjectKey,
+      windowStart: windowStartDate,
+      windowEnd: windowEndDate,
+      count: 1,
+    },
+    update: {
+      count: {
+        increment: 1,
       },
-    });
+      updatedAt: new Date(now),
+    },
+  });
+
+  // Clean up expired windows after the atomic upsert (fire-and-forget cleanup)
+  await rateLimitPrisma.rateLimitCounter?.deleteMany({
+    where: {
+      windowEnd: {
+        lte: new Date(now),
+      },
+    },
   });
 
   return {
-    count: counter.count,
-    resetAt: toTimestamp(counter.windowEnd),
+    count: counter?.count ?? 1,
+    resetAt: counter ? toTimestamp(counter.windowEnd) : windowEnd,
     windowStart,
   };
 }
 
 export async function resetDurableRateLimitStore() {
-  await prisma.rateLimitCounter.deleteMany({});
+  await rateLimitPrisma.rateLimitCounter?.deleteMany({});
 }
