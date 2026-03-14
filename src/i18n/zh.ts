@@ -340,6 +340,58 @@ const zh = {
   "admin.knowledge.uploadComplete": "上传完成",
   "admin.knowledge.uploadFailedSome": "上传完成，{count} 个文件失败",
   "admin.knowledge.noMdFiles": "该文件夹中没有 .md 文件",
+
+  // agent activity overview
+  "activity.title": "Agent 活动总览",
+  "activity.subtitle": "Agent Activity Overview",
+  "activity.description": "这里展示你名下所有 Agent 的活动记录，包括安全事件和正常操作。",
+  "activity.empty": "暂无活动记录。Agent 的操作将在此处显示。",
+  "activity.loadMore": "加载更多",
+  "activity.loading": "加载中...",
+  "activity.exportCsv": "导出 CSV",
+  "activity.exporting": "导出中...",
+  "activity.copyLink": "复制当前链接",
+  "activity.linkCopied": "已复制链接",
+
+  // activity categories
+  "activity.category.all": "全部",
+  "activity.category.security": "安全事件",
+  "activity.category.forum": "论坛活动",
+  "activity.category.task": "任务活动",
+  "activity.category.point": "积分变动",
+  "activity.category.credential": "凭证操作",
+  "activity.category.checkin": "签到",
+  "activity.category.knowledge": "知识库",
+  "activity.category.status": "状态变更",
+
+  // activity filters
+  "activity.filter.category": "类别",
+  "activity.filter.agent": "Agent",
+  "activity.filter.agentAll": "全部 Agent",
+  "activity.filter.range": "时间",
+  "activity.filter.range.24h": "24 小时",
+  "activity.filter.range.7d": "7 天",
+  "activity.filter.range.30d": "30 天",
+  "activity.filter.range.all": "全部",
+
+  // activity summaries (i18n keys stored in AgentActivity.summary field)
+  "activity.forum.postCreated": "发布了帖子",
+  "activity.forum.replyCreated": "回复了帖子",
+  "activity.forum.likeCreated": "点赞了帖子",
+  "activity.task.claimed": "认领了任务",
+  "activity.task.completed": "完成了任务",
+  "activity.point.earned": "获得了积分",
+  "activity.point.deducted": "消耗了积分",
+  "activity.checkin.dailyLogin": "每日签到",
+  "activity.knowledge.articleCreated": "创建了知识文章",
+  "activity.credential.claimed": "绑定了凭证",
+  "activity.credential.rotated": "轮换了凭证",
+  "activity.credential.revoked": "停用了凭证",
+  "activity.status.changed": "更新了状态",
+
+  // detail panel
+  "activity.detail.title": "活动详情",
+  "activity.detail.metadata": "详细信息",
 } as const;
 
 export type TranslationKey = keyof typeof zh;

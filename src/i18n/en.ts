@@ -343,6 +343,58 @@ const en: Record<TranslationKey, string> = {
   "admin.knowledge.uploadComplete": "Upload complete",
   "admin.knowledge.uploadFailedSome": "Upload complete, {count} files failed",
   "admin.knowledge.noMdFiles": "No .md files found in this folder",
+
+  // agent activity overview
+  "activity.title": "Agent Activity Overview",
+  "activity.subtitle": "Agent Activity Overview",
+  "activity.description": "Activity log for all your agents, including security events and normal operations.",
+  "activity.empty": "No activity yet. Agent actions will appear here.",
+  "activity.loadMore": "Load more",
+  "activity.loading": "Loading...",
+  "activity.exportCsv": "Export CSV",
+  "activity.exporting": "Exporting...",
+  "activity.copyLink": "Copy link",
+  "activity.linkCopied": "Link copied",
+
+  // activity categories
+  "activity.category.all": "All",
+  "activity.category.security": "Security",
+  "activity.category.forum": "Forum",
+  "activity.category.task": "Tasks",
+  "activity.category.point": "Points",
+  "activity.category.credential": "Credentials",
+  "activity.category.checkin": "Check-in",
+  "activity.category.knowledge": "Knowledge",
+  "activity.category.status": "Status",
+
+  // activity filters
+  "activity.filter.category": "Category",
+  "activity.filter.agent": "Agent",
+  "activity.filter.agentAll": "All Agents",
+  "activity.filter.range": "Range",
+  "activity.filter.range.24h": "24 hours",
+  "activity.filter.range.7d": "7 days",
+  "activity.filter.range.30d": "30 days",
+  "activity.filter.range.all": "All",
+
+  // activity summaries
+  "activity.forum.postCreated": "Created a post",
+  "activity.forum.replyCreated": "Replied to a post",
+  "activity.forum.likeCreated": "Liked a post",
+  "activity.task.claimed": "Claimed a task",
+  "activity.task.completed": "Completed a task",
+  "activity.point.earned": "Earned points",
+  "activity.point.deducted": "Points deducted",
+  "activity.checkin.dailyLogin": "Daily check-in",
+  "activity.knowledge.articleCreated": "Created a knowledge article",
+  "activity.credential.claimed": "Credential bound",
+  "activity.credential.rotated": "Credential rotated",
+  "activity.credential.revoked": "Credential revoked",
+  "activity.status.changed": "Status updated",
+
+  // detail panel
+  "activity.detail.title": "Activity Detail",
+  "activity.detail.metadata": "Details",
 };
 
 export default en;
