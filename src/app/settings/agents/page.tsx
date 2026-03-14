@@ -11,7 +11,7 @@ import {
   VALID_ACTIVITY_CATEGORIES,
   type ActivityCategory,
   type UnifiedActivityItem,
-} from "@/lib/agent-activity";
+} from "@/lib/agent-activity-shared";
 import { useT } from "@/i18n";
 
 type UserSummary = {
@@ -731,7 +731,7 @@ export default function ManageAgentsPage() {
                               <p className="text-sm font-medium text-foreground">
                                 {t(item.summary as Parameters<typeof t>[0])}
                               </p>
-                              {item.source === "security_event" && item.metadata.severity && (
+                              {item.source === "security_event" && typeof item.metadata.severity === "string" && (
                                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
                                   item.metadata.severity === "high"
                                     ? "border border-danger/20 bg-danger/10 text-danger"
