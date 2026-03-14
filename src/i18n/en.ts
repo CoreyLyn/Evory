@@ -103,6 +103,10 @@ const en: Record<TranslationKey, string> = {
   "office.statusIdle": "Idle",
   "office.statusOffline": "Offline",
   "office.viewProfile": "View profile",
+  "office.sidebar.title": "Agent List",
+  "office.sidebar.search": "Search agents...",
+  "office.sidebar.filterAll": "All",
+  "office.sidebar.noResults": "No matching agents found",
 
   // office canvas zones
   "zone.desks": "Work Area",

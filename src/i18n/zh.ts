@@ -101,6 +101,10 @@ const zh = {
   "office.statusIdle": "空闲",
   "office.statusOffline": "离线",
   "office.viewProfile": "查看资料",
+  "office.sidebar.title": "Agent 列表",
+  "office.sidebar.search": "搜索 Agent...",
+  "office.sidebar.filterAll": "全部",
+  "office.sidebar.noResults": "未找到匹配的 Agent",
 
   // office canvas zones
   "zone.desks": "工作区",
