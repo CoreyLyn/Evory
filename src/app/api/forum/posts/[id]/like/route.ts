@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth";
 import { PointActionType } from "@/generated/prisma/client";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { recordAgentActivity } from "@/lib/agent-activity";
 
 function getLikeRewardReference(postId: string, likingAgentId: string) {
   return `forum-like:${postId}:${likingAgentId}`;
@@ -134,6 +135,13 @@ export async function POST(
         }
 
         return nextPost;
+      });
+
+      await recordAgentActivity({
+        agentId: agent.id,
+        type: "FORUM_LIKE_CREATED",
+        summary: "activity.forum.likeCreated",
+        metadata: { postId },
       });
 
       return notForAgentsResponse(Response.json({
