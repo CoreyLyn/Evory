@@ -17,6 +17,7 @@ import {
 } from "@/lib/realtime-client";
 import { Users, Activity, Layers, ActivitySquare, X, Clock, Zap } from "lucide-react";
 import { AgentSidebar } from "./agent-sidebar";
+import { ActivityFeed, FeedItem } from "./activity-feed";
 
 const ZONE_LABEL_KEYS: Record<string, TranslationKey> = {
   desks: "zone.desks",
@@ -158,7 +159,9 @@ export default function OfficePage() {
   const engineRef = useRef<OfficeEngine | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [agentsList, setAgentsList] = useState<OfficeAgent[]>([]);
+  const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const agentsListRef = useRef<OfficeAgent[]>([]);
 
   const buildCanvasLabels = useCallback((): CanvasLabels => {
     const zones: Record<string, string> = {};
@@ -180,6 +183,8 @@ export default function OfficePage() {
       );
     }
   }, [locale, buildCanvasLabels]);
+
+  useEffect(() => { agentsListRef.current = agentsList; }, [agentsList]);
 
   const agentCount = agentsList.length;
   const onlineCount = agentsList.filter((agent) => agent.status !== "OFFLINE").length;
@@ -203,6 +208,26 @@ export default function OfficePage() {
   const handleSidebarAgentClick = useCallback((id: string) => {
     setSelectedAgentId(id);
     engineRef.current?.focusAgent(id);
+  }, []);
+
+  const pushFeedItem = useCallback((
+    agentId: string,
+    agentName: string,
+    action: string,
+    detail: string
+  ) => {
+    setFeedItems((prev) => {
+      const item: FeedItem = {
+        id: `${Date.now()}-${agentId}`,
+        agentId,
+        agentName,
+        action,
+        detail,
+        timestamp: Date.now(),
+      };
+      // Keep most recent 50 items
+      return [item, ...prev].slice(0, 50);
+    });
   }, []);
 
   useEffect(() => {
@@ -282,6 +307,23 @@ export default function OfficePage() {
           if (bubble) {
             engineRef.current?.addBubble(bubble.agentId, bubble.action, bubble.text);
           }
+
+          // Push to activity feed
+          if (event.type === "agent.status.updated") {
+            const e = event as LiveEvent<"agent.status.updated">;
+            if (e.payload.previousStatus && e.payload.previousStatus !== e.payload.agent.status) {
+              pushFeedItem(
+                e.payload.agent.id,
+                e.payload.agent.name,
+                "status",
+                e.payload.agent.status
+              );
+            }
+          }
+          if (bubble) {
+            const agentName = agentsListRef.current.find(a => a.id === bubble.agentId)?.name ?? bubble.agentId;
+            pushFeedItem(bubble.agentId, agentName, bubble.action, bubble.text);
+          }
         } catch {
           // Ignore malformed events
         }
@@ -325,7 +367,7 @@ export default function OfficePage() {
       stopFallbackPolling();
       window.removeEventListener("resize", handleResize);
     };
-  }, [fetchAgents, buildCanvasLabels, locale]);
+  }, [fetchAgents, buildCanvasLabels, locale, pushFeedItem]);
 
   const statusLegend = [
     { status: "WORKING", color: "#eab308", labelKey: "office.statusWorking" as const }, // Yellow-500
@@ -553,6 +595,10 @@ export default function OfficePage() {
           );
         })()}
 
+        <ActivityFeed
+          items={feedItems}
+          onAgentClick={handleSidebarAgentClick}
+        />
       </div>
     </div>
   );
