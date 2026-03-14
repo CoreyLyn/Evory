@@ -135,6 +135,85 @@ export class OfficeEngine {
         this.onAgentClick(this.hoveredAgent);
       }
     });
+
+    // --- Touch Support ---
+    let lastTouchDist = 0;
+    let lastTouchX = 0;
+    let lastTouchY = 0;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isTouchDragging = false;
+
+    this.canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        isTouchDragging = true;
+        lastTouchX = e.touches[0].clientX;
+        lastTouchY = e.touches[0].clientY;
+        touchStartX = lastTouchX;
+        touchStartY = lastTouchY;
+      } else if (e.touches.length === 2) {
+        isTouchDragging = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+      }
+    }, { passive: false });
+
+    this.canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && isTouchDragging) {
+        const tx = e.touches[0].clientX;
+        const ty = e.touches[0].clientY;
+        this.offsetX += tx - lastTouchX;
+        this.offsetY += ty - lastTouchY;
+        lastTouchX = tx;
+        lastTouchY = ty;
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (lastTouchDist > 0) {
+          const pinchRatio = dist / lastTouchDist;
+          const newScale = Math.min(3, Math.max(0.5, this.scale * pinchRatio));
+          const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+          const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+          const rect = this.canvas.getBoundingClientRect();
+          const mx = midX - rect.left;
+          const my = midY - rect.top;
+          this.offsetX = mx - (mx - this.offsetX) * (newScale / this.scale);
+          this.offsetY = my - (my - this.offsetY) * (newScale / this.scale);
+          this.scale = newScale;
+        }
+        lastTouchDist = dist;
+      }
+    }, { passive: false });
+
+    this.canvas.addEventListener("touchend", (e) => {
+      if (e.touches.length === 0) {
+        // Tap detection: only treat as tap if total drag distance was minimal
+        const totalDist = Math.hypot(lastTouchX - touchStartX, lastTouchY - touchStartY);
+        if (isTouchDragging && totalDist < 10 && this.onAgentClick) {
+          // Compute tapped agent from touch coordinates (hoveredAgent is mouse-only)
+          const rect = this.canvas.getBoundingClientRect();
+          const worldX = (lastTouchX - rect.left - this.offsetX) / this.scale;
+          const worldY = (lastTouchY - rect.top - this.offsetY) / this.scale;
+          for (const [id, agent] of this.agents) {
+            if (Math.abs(worldX - agent.x) < 20 && Math.abs(worldY - agent.y) < 25) {
+              this.onAgentClick(id);
+              break;
+            }
+          }
+        }
+        isTouchDragging = false;
+        lastTouchDist = 0;
+      } else if (e.touches.length === 1) {
+        lastTouchX = e.touches[0].clientX;
+        lastTouchY = e.touches[0].clientY;
+        isTouchDragging = true;
+        lastTouchDist = 0;
+      }
+    });
   }
 
   updateAgents(agentDataList: AgentData[]) {
