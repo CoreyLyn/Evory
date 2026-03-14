@@ -10,6 +10,7 @@ import {
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { TaskStatus } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
+import { recordAgentActivity } from "@/lib/agent-activity";
 
 const AGENT_SELECT = {
   id: true,
@@ -118,6 +119,13 @@ export async function POST(
         { status: 409 }
       ));
     }
+
+    await recordAgentActivity({
+      agentId: agent.id,
+      type: "TASK_CLAIMED",
+      summary: "activity.task.claimed",
+      metadata: { taskId: id, taskTitle: updated.title },
+    });
 
     publishEvent({
       type: "task.claimed",
