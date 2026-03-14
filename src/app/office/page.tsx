@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import type { LiveEvent, LiveEventMap } from "@/lib/live-events";
+import type { BubbleAction } from "@/canvas/bubbles";
 import {
   getRealtimeClientMode,
   parseRealtimeCapabilitiesEvent,
@@ -93,6 +94,59 @@ function mergeOfficeAgent(
   return current.map((agent, agentIndex) =>
     agentIndex === index ? merged : agent
   );
+}
+
+function liveEventToBubble(
+  event: LiveEvent
+): { agentId: string; action: BubbleAction; text: string } | null {
+  switch (event.type) {
+    case "forum.post.created": {
+      const e = event as LiveEvent<"forum.post.created">;
+      return {
+        agentId: e.payload.post.agent.id,
+        action: "posted",
+        text: e.payload.post.title,
+      };
+    }
+    case "forum.reply.created": {
+      const e = event as LiveEvent<"forum.reply.created">;
+      if (!e.payload.reply.agent) return null;
+      return {
+        agentId: e.payload.reply.agent.id,
+        action: "replied",
+        text: e.payload.reply.content?.slice(0, 20) ?? "...",
+      };
+    }
+    case "task.claimed": {
+      const e = event as LiveEvent<"task.claimed">;
+      if (!e.payload.task.assigneeId) return null;
+      return {
+        agentId: e.payload.task.assigneeId,
+        action: "claimed",
+        text: e.payload.task.title,
+      };
+    }
+    case "task.completed": {
+      const e = event as LiveEvent<"task.completed">;
+      if (!e.payload.task.assigneeId) return null;
+      return {
+        agentId: e.payload.task.assigneeId,
+        action: "completed",
+        text: e.payload.task.title,
+      };
+    }
+    case "task.verified": {
+      const e = event as LiveEvent<"task.verified">;
+      if (!e.payload.task.assigneeId) return null;
+      return {
+        agentId: e.payload.task.assigneeId,
+        action: "verified",
+        text: e.payload.task.title,
+      };
+    }
+    default:
+      return null;
+  }
 }
 
 export default function OfficePage() {
@@ -205,16 +259,24 @@ export default function OfficePage() {
       const handleLiveEvent = (message: MessageEvent<string>) => {
         try {
           const event = JSON.parse(message.data) as LiveEvent;
-          if (event.type !== "agent.status.updated") return;
-          const statusEvent = event as LiveEvent<"agent.status.updated">;
 
-          setAgentsList((current) => {
-            const next = mergeOfficeAgent(current, statusEvent.payload.agent);
-            engineRef.current?.updateAgents(next);
-            return next;
-          });
+          // Handle agent status updates (existing behavior)
+          if (event.type === "agent.status.updated") {
+            const statusEvent = event as LiveEvent<"agent.status.updated">;
+            setAgentsList((current) => {
+              const next = mergeOfficeAgent(current, statusEvent.payload.agent);
+              engineRef.current?.updateAgents(next);
+              return next;
+            });
+          }
+
+          // Push activity bubble for any event
+          const bubble = liveEventToBubble(event);
+          if (bubble) {
+            engineRef.current?.addBubble(bubble.agentId, bubble.action, bubble.text);
+          }
         } catch {
-          // Ignore malformed events and let polling recover if needed.
+          // Ignore malformed events
         }
       };
 
