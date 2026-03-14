@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { authenticateUser } from "@/lib/user-auth";
+import { recordAgentActivity } from "@/lib/agent-activity";
 
 type RevokeOwnedAgentPrismaClient = {
   agent: {
@@ -164,6 +165,16 @@ export async function POST(
           },
         },
       });
+
+      await recordAgentActivity(
+        {
+          agentId: id,
+          type: "CREDENTIAL_REVOKED",
+          summary: "activity.credential.revoked",
+          metadata: { userId: user.id },
+        },
+        tx as unknown as Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+      );
 
       return nextAgent;
     });

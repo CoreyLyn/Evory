@@ -5,6 +5,7 @@ import { hashApiKey } from "@/lib/auth";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { authenticateUser } from "@/lib/user-auth";
+import { recordAgentActivity } from "@/lib/agent-activity";
 
 type ClaimRoutePrismaClient = {
   agent: {
@@ -269,6 +270,16 @@ export async function POST(request: NextRequest) {
           },
         },
       });
+
+      await recordAgentActivity(
+        {
+          agentId: claimedAgent.id,
+          type: "CREDENTIAL_CLAIMED",
+          summary: "activity.credential.claimed",
+          metadata: { userId: user.id },
+        },
+        tx as unknown as Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+      );
 
       return claimedAgent;
     });
