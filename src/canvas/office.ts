@@ -1,3 +1,5 @@
+import { CANVAS_FONTS } from "./theme";
+
 export interface OfficeZone {
   name: string;
   x: number;
@@ -120,7 +122,7 @@ export function drawAnimatedOverlay(ctx: CanvasRenderingContext2D, labels: Canva
     ctx.strokeStyle = zone.borderColor;
     ctx.lineWidth = 1;
     ctx.stroke();
-    ctx.font = "12px system-ui, -apple-system, sans-serif";
+    ctx.font = CANVAS_FONTS.label;
     ctx.fillStyle = "rgba(226, 232, 240, 0.9)";
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
@@ -132,7 +134,7 @@ export function drawAnimatedOverlay(ctx: CanvasRenderingContext2D, labels: Canva
   ctx.shadowColor = `rgba(56, 189, 248, ${0.4 + breathe * 0.4})`;
   ctx.shadowBlur = 8 + breathe * 6;
   ctx.fillStyle = `rgba(56, 189, 248, ${0.7 + breathe * 0.3})`;
-  ctx.font = "12px system-ui, -apple-system, sans-serif";
+  ctx.font = CANVAS_FONTS.label;
   ctx.textAlign = "center";
   ctx.fillText(labels.entrance, OFFICE_WIDTH / 2, OFFICE_HEIGHT - 15);
   ctx.shadowBlur = 0;
@@ -189,20 +191,23 @@ function drawZoneDetails(ctx: CanvasRenderingContext2D, zone: OfficeZone, labels
       ctx.roundRect(zone.x + 20, zone.y + 50, zone.w - 40, zone.h - 70, 4);
       ctx.fill();
 
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,0.3)";
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 2;
       for (let i = 0; i < 9; i++) {
         ctx.fillStyle = NOTE_COLORS[i % NOTE_COLORS.length];
         const nx = zone.x + 40 + (i % 4) * 60;
         const ny = zone.y + 65 + Math.floor(i / 4) * 45;
-
-        ctx.shadowColor = "rgba(0,0,0,0.3)";
-        ctx.shadowBlur = 4;
-        ctx.shadowOffsetY = 2;
         ctx.fillRect(nx, ny, 40, 30);
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetY = 0;
+      }
+      ctx.restore();
 
-        // Pin
-        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      // Pins (no shadow needed)
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      for (let i = 0; i < 9; i++) {
+        const nx = zone.x + 40 + (i % 4) * 60;
+        const ny = zone.y + 65 + Math.floor(i / 4) * 45;
         ctx.beginPath();
         ctx.arc(nx + 20, ny + 4, 1.5, 0, Math.PI * 2);
         ctx.fill();
@@ -244,24 +249,24 @@ function drawZoneDetails(ctx: CanvasRenderingContext2D, zone: OfficeZone, labels
         ctx.fill();
 
         // Column header
-        ctx.font = "10px system-ui, sans-serif";
+        ctx.font = CANVAS_FONTS.small;
         ctx.fillStyle = "rgba(226, 232, 240, 0.8)";
         ctx.textAlign = "center";
         ctx.fillText(cols[c], cx + 32, zone.y + 75);
 
         // Cards
         for (let card = 0; card < 2 + (c % 2); card++) {
-          ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; // White-ish cards
+          ctx.save();
+          ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
           ctx.shadowColor = "rgba(0,0,0,0.2)";
           ctx.shadowBlur = 3;
           ctx.shadowOffsetY = 1;
           ctx.beginPath();
           ctx.roundRect(cx + 8, zone.y + 85 + card * 30, 49, 22, 3);
           ctx.fill();
-          ctx.shadowBlur = 0;
-          ctx.shadowOffsetY = 0;
+          ctx.restore();
 
-          // Card content mock
+          // Card content mock (no shadow)
           ctx.fillStyle = "rgba(100, 116, 139, 0.5)";
           ctx.fillRect(cx + 12, zone.y + 90 + card * 30, 30, 3);
           ctx.fillRect(cx + 12, zone.y + 95 + card * 30, 20, 3);
