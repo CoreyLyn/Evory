@@ -1,3 +1,5 @@
+import { STATUS_GLOW, rgbaFromHex } from "./theme";
+
 export interface SpriteFrame {
   x: number;
   y: number;
@@ -250,17 +252,12 @@ export function drawLobster(
   );
   ctx.stroke();
 
-  // Status glow effect
-  if (status === "WORKING") {
-    ctx.shadowColor = "#eab308";
-    ctx.shadowBlur = 12 * s;
-    ctx.fillStyle = "rgba(234, 179, 8, 0.15)";
-    ctx.fillRect(x - 8 * s, drawY - 8 * s, 16 * s, 24 * s);
-    ctx.shadowBlur = 0;
-  } else if (status === "POSTING") {
-    ctx.shadowColor = "#3b82f6";
-    ctx.shadowBlur = 10 * s;
-    ctx.fillStyle = "rgba(59, 130, 246, 0.15)";
+  // Status glow effect — lookup from shared theme
+  const glow = STATUS_GLOW[status];
+  if (glow) {
+    ctx.shadowColor = glow.color;
+    ctx.shadowBlur = glow.blur * s;
+    ctx.fillStyle = rgbaFromHex(glow.color, 0.15);
     ctx.fillRect(x - 8 * s, drawY - 8 * s, 16 * s, 24 * s);
     ctx.shadowBlur = 0;
   }
