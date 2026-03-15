@@ -312,7 +312,7 @@ export class OfficeEngine {
       const dy = agent.targetY - agent.y;
       if (dx * dx + dy * dy > 4) anyMoving = true;
     }
-    this.bubbles = updateBubbles(this.bubbles);
+    updateBubbles(this.bubbles);
 
     // Throttle background redraws: 50ms when active, 200ms when quiet
     this.bgThrottleMs = (anyMoving || this.bubbles.length > 0) ? 50 : 200;

@@ -46,19 +46,18 @@ export function createBubble(
   };
 }
 
-export function updateBubbles(bubbles: ActivityBubble[]): ActivityBubble[] {
-  const result: ActivityBubble[] = [];
-  for (const b of bubbles) {
-    const nextTtl = b.ttl - 1;
-    if (nextTtl <= 0) continue;
-    result.push({
-      ...b,
-      ttl: nextTtl,
-      opacity: Math.min(1, nextTtl / 60), // fade out over last 60 frames
-      offsetY: b.offsetY + 0.3,           // float upward
-    });
+/** Mutate bubbles array in-place: decrement TTL, remove expired, update animation. */
+export function updateBubbles(bubbles: ActivityBubble[]): void {
+  let write = 0;
+  for (let i = 0; i < bubbles.length; i++) {
+    const b = bubbles[i];
+    b.ttl--;
+    if (b.ttl <= 0) continue;
+    b.opacity = Math.min(1, b.ttl / 60);
+    b.offsetY += 0.3;
+    bubbles[write++] = b;
   }
-  return result;
+  bubbles.length = write;
 }
 
 export function drawBubble(
