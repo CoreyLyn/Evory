@@ -41,6 +41,9 @@ export class OfficeEngine {
   private hudOnline: string = "Online:";
   private onAgentClick?: (id: string) => void;
   private abortController = new AbortController();
+  private sortedAgents: AgentPosition[] = [];
+  private bubbleMap: Map<string, ActivityBubble> = new Map();
+  private onlineCount: number = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -265,6 +268,12 @@ export class OfficeEngine {
     for (const id of existingIds) {
       this.agents.delete(id);
     }
+
+    // Track online count for HUD
+    this.onlineCount = 0;
+    for (const agent of this.agents.values()) {
+      if (agent.status !== "OFFLINE") this.onlineCount++;
+    }
   }
 
   start() {
@@ -352,9 +361,20 @@ export class OfficeEngine {
     // Sprite drawing bounds padding (agents are roughly 60x60 max with shadows/names)
     const renderPadding = 60;
 
-    const sortedAgents = Array.from(this.agents.values()).sort((a, b) => a.y - b.y);
+    // Pre-index bubbles by agentId (max 1 per agent), reuse Map
+    this.bubbleMap.clear();
+    for (const b of this.bubbles) {
+      this.bubbleMap.set(b.agentId, b);
+    }
 
-    for (const agent of sortedAgents) {
+    // Reuse sorted array — populate then sort
+    this.sortedAgents.length = 0;
+    for (const agent of this.agents.values()) {
+      this.sortedAgents.push(agent);
+    }
+    this.sortedAgents.sort((a, b) => a.y - b.y);
+
+    for (const agent of this.sortedAgents) {
       // Frustum Culling: Skip if completely off-screen
       if (
         agent.x + renderPadding < viewWorldMinX ||
@@ -367,13 +387,11 @@ export class OfficeEngine {
 
       const isHovered = this.hoveredAgent === agent.id;
       const spriteScale = isHovered ? 2.3 : 2;
-      // Pass isHovered for the selection ring and drop shadow animations
       drawLobster(ctx, agent.x, agent.y, agent.appearance, agent.status, agent.frame, spriteScale, isHovered);
-      // Pass the global engine scale and hover state for LOD (Level of Detail) rendering
       drawNameTag(ctx, agent.x, agent.y, agent.name, agent.points, spriteScale, this.scale, isHovered);
 
-      const agentBubbles = this.bubbles.filter(b => b.agentId === agent.id);
-      for (const bubble of agentBubbles) {
+      const bubble = this.bubbleMap.get(agent.id);
+      if (bubble) {
         drawBubble(ctx, agent.x, agent.y, bubble, spriteScale);
       }
     }
@@ -381,7 +399,7 @@ export class OfficeEngine {
     ctx.restore();
 
     // HUD overlay
-    const onlineCount = Array.from(this.agents.values()).filter(a => a.status !== "OFFLINE").length;
+    const onlineCount = this.onlineCount;
     const totalCount = this.agents.size;
     const hudText = `${this.hudOnline} ${onlineCount} / ${totalCount}`;
 
@@ -443,6 +461,6 @@ export class OfficeEngine {
   }
 
   getOnlineCount() {
-    return Array.from(this.agents.values()).filter(a => a.status !== "OFFLINE").length;
+    return this.onlineCount;
   }
 }
