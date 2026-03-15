@@ -21,6 +21,12 @@ const TILE_SIZE = 16;
 export const OFFICE_WIDTH = 1200;
 export const OFFICE_HEIGHT = 800;
 
+// Zone decoration color constants
+const NOTE_COLORS = ["rgba(250, 204, 21, 0.8)", "rgba(248, 113, 113, 0.8)", "rgba(74, 222, 128, 0.8)", "rgba(96, 165, 250, 0.8)"];
+const BOOK_COLORS = ["rgba(239, 68, 68, 0.7)", "rgba(59, 130, 246, 0.7)", "rgba(16, 185, 129, 0.7)", "rgba(245, 158, 11, 0.7)", "rgba(139, 92, 246, 0.7)"];
+const ITEM_COLORS = ["rgba(250, 204, 21, 0.7)", "rgba(244, 114, 182, 0.7)", "rgba(56, 189, 248, 0.7)"];
+const COL_COLORS = ["rgba(250, 204, 21, 0.3)", "rgba(56, 189, 248, 0.3)", "rgba(74, 222, 128, 0.3)"];
+
 export const DEFAULT_LABELS: CanvasLabels = {
   zones: {
     desks: "工作区",
@@ -183,9 +189,8 @@ function drawZoneDetails(ctx: CanvasRenderingContext2D, zone: OfficeZone, labels
       ctx.roundRect(zone.x + 20, zone.y + 50, zone.w - 40, zone.h - 70, 4);
       ctx.fill();
 
-      const noteColors = ["rgba(250, 204, 21, 0.8)", "rgba(248, 113, 113, 0.8)", "rgba(74, 222, 128, 0.8)", "rgba(96, 165, 250, 0.8)"];
       for (let i = 0; i < 9; i++) {
-        ctx.fillStyle = noteColors[i % noteColors.length];
+        ctx.fillStyle = NOTE_COLORS[i % NOTE_COLORS.length];
         const nx = zone.x + 40 + (i % 4) * 60;
         const ny = zone.y + 65 + Math.floor(i / 4) * 45;
 
@@ -211,9 +216,8 @@ function drawZoneDetails(ctx: CanvasRenderingContext2D, zone: OfficeZone, labels
         ctx.fillStyle = "rgba(63, 62, 54, 0.8)";
         ctx.fillRect(zone.x + 20, sy + 35, zone.w - 40, 6);
 
-        const bookColors = ["rgba(239, 68, 68, 0.7)", "rgba(59, 130, 246, 0.7)", "rgba(16, 185, 129, 0.7)", "rgba(245, 158, 11, 0.7)", "rgba(139, 92, 246, 0.7)"];
         for (let b = 0; b < 10; b++) {
-          ctx.fillStyle = bookColors[(row * 7 + b) % bookColors.length];
+          ctx.fillStyle = BOOK_COLORS[(row * 7 + b) % BOOK_COLORS.length];
           // Slight random height/width for books
           const bw = 12 + (Math.sin(b * row) * 4);
           const bh = 25 + (Math.cos(b * row) * 5);
@@ -229,13 +233,12 @@ function drawZoneDetails(ctx: CanvasRenderingContext2D, zone: OfficeZone, labels
       ctx.fill();
 
       const cols = labels.taskCols;
-      const colColors = ["rgba(250, 204, 21, 0.3)", "rgba(56, 189, 248, 0.3)", "rgba(74, 222, 128, 0.3)"];
 
       for (let c = 0; c < 3; c++) {
         const cx = zone.x + 20 + c * 75;
 
         // Column bg
-        ctx.fillStyle = colColors[c];
+        ctx.fillStyle = COL_COLORS[c];
         ctx.beginPath();
         ctx.roundRect(cx, zone.y + 60, 65, zone.h - 90, 4);
         ctx.fill();
@@ -313,10 +316,9 @@ function drawZoneDetails(ctx: CanvasRenderingContext2D, zone: OfficeZone, labels
 
         // Items
         for (let i = 0; i < 3; i++) {
-          const itemColors = ["rgba(250, 204, 21, 0.7)", "rgba(244, 114, 182, 0.7)", "rgba(56, 189, 248, 0.7)"];
-          ctx.fillStyle = itemColors[(row + i) % 3];
+          ctx.fillStyle = ITEM_COLORS[(row + i) % 3];
 
-          ctx.shadowColor = itemColors[(row + i) % 3];
+          ctx.shadowColor = ITEM_COLORS[(row + i) % 3];
           ctx.shadowBlur = 8;
           ctx.beginPath();
           ctx.arc(zone.x + 50 + i * 80, sy + 22, 12, 0, Math.PI * 2);
