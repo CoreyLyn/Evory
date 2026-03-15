@@ -306,12 +306,11 @@ export class OfficeEngine {
 
   private update() {
     let anyMoving = false;
-    for (const [id, agent] of this.agents) {
-      const updated = updateAgentPosition(agent);
-      this.agents.set(id, updated);
-      const dx = updated.targetX - updated.x;
-      const dy = updated.targetY - updated.y;
-      if (Math.sqrt(dx * dx + dy * dy) > 2) anyMoving = true;
+    for (const agent of this.agents.values()) {
+      updateAgentPosition(agent);
+      const dx = agent.targetX - agent.x;
+      const dy = agent.targetY - agent.y;
+      if (dx * dx + dy * dy > 4) anyMoving = true;
     }
     this.bubbles = updateBubbles(this.bubbles);
 

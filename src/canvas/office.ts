@@ -358,51 +358,39 @@ export function getRandomPositionInZone(zone: OfficeZone): { x: number; y: numbe
   };
 }
 
-export function updateAgentPosition(agent: AgentPosition, easeFactor: number = 0.04): AgentPosition {
+export function updateAgentPosition(agent: AgentPosition, easeFactor: number = 0.04): void {
   const dx = agent.targetX - agent.x;
   const dy = agent.targetY - agent.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
+  const distSq = dx * dx + dy * dy;
 
-  // If very close, snap to target or pick new destination
-  if (dist < 1.0) {
-    if (Math.random() < 0.02) { // Slightly increased chance to roam when idle
+  agent.frame++;
+
+  if (distSq < 1.0) {
+    agent.x = agent.targetX;
+    agent.y = agent.targetY;
+    if (Math.random() < 0.02) {
       const zone = getZoneForStatus(agent.status);
       const newPos = getRandomPositionInZone(zone);
-      return {
-        ...agent,
-        x: agent.targetX,
-        y: agent.targetY,
-        targetX: newPos.x,
-        targetY: newPos.y,
-        frame: agent.frame + 1,
-      };
+      agent.targetX = newPos.x;
+      agent.targetY = newPos.y;
     }
-    return { ...agent, x: agent.targetX, y: agent.targetY, frame: agent.frame + 1 };
+    return;
   }
 
-  // Easing motion: velocity decreases as distance decreases
   let vx = dx * easeFactor;
   let vy = dy * easeFactor;
+  const speed = Math.sqrt(vx * vx + vy * vy);
 
-  // Enforce a minimum speed so they don't get infinitely stuck Zeno's paradox style
-  const minSpeed = 0.3;
-  const currentSpeed = Math.sqrt(vx * vx + vy * vy);
-  if (currentSpeed < minSpeed && currentSpeed > 0) {
-    vx = (vx / currentSpeed) * minSpeed;
-    vy = (vy / currentSpeed) * minSpeed;
+  if (speed < 0.3) {
+    const scale = 0.3 / speed;
+    vx *= scale;
+    vy *= scale;
+  } else if (speed > 4.0) {
+    const scale = 4.0 / speed;
+    vx *= scale;
+    vy *= scale;
   }
 
-  // Max speed limit to prevent sudden teleports
-  const maxSpeed = 4.0;
-  if (currentSpeed > maxSpeed) {
-    vx = (vx / currentSpeed) * maxSpeed;
-    vy = (vy / currentSpeed) * maxSpeed;
-  }
-
-  return {
-    ...agent,
-    x: agent.x + vx,
-    y: agent.y + vy,
-    frame: agent.frame + 1,
-  };
+  agent.x += vx;
+  agent.y += vy;
 }
