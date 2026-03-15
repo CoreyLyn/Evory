@@ -48,6 +48,7 @@ export class OfficeEngine {
   private sortedAgents: AgentPosition[] = [];
   private bubbleMap: Map<string, ActivityBubble> = new Map();
   private onlineCount: number = 0;
+  private focusTarget: { x: number; y: number; scale: number } | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -103,6 +104,7 @@ export class OfficeEngine {
       this.offsetX = mx - (mx - this.offsetX) * (newScale / this.scale);
       this.offsetY = my - (my - this.offsetY) * (newScale / this.scale);
       this.scale = newScale;
+      this.focusTarget = null;
     }, opts);
 
     this.canvas.addEventListener("mousedown", (e) => {
@@ -110,6 +112,7 @@ export class OfficeEngine {
       this.lastMouseX = e.clientX;
       this.lastMouseY = e.clientY;
       this.canvas.style.cursor = "grabbing";
+      this.focusTarget = null;
     }, opts);
 
     this.canvas.addEventListener("mousemove", (e) => {
@@ -171,6 +174,7 @@ export class OfficeEngine {
         lastTouchY = e.touches[0].clientY;
         touchStartX = lastTouchX;
         touchStartY = lastTouchY;
+        this.focusTarget = null;
       } else if (e.touches.length === 2) {
         isTouchDragging = false;
         const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -335,8 +339,26 @@ export class OfficeEngine {
     }
     updateBubbles(this.bubbles);
 
+    // Focus easing
+    if (this.focusTarget) {
+      const ease = 0.12;
+      this.scale += (this.focusTarget.scale - this.scale) * ease;
+      this.offsetX += (this.focusTarget.x - this.offsetX) * ease;
+      this.offsetY += (this.focusTarget.y - this.offsetY) * ease;
+      const done =
+        Math.abs(this.focusTarget.scale - this.scale) < 0.01 &&
+        Math.abs(this.focusTarget.x - this.offsetX) < 0.5 &&
+        Math.abs(this.focusTarget.y - this.offsetY) < 0.5;
+      if (done) {
+        this.scale = this.focusTarget.scale;
+        this.offsetX = this.focusTarget.x;
+        this.offsetY = this.focusTarget.y;
+        this.focusTarget = null;
+      }
+    }
+
     // Throttle background redraws: 50ms when active, 200ms when quiet
-    this.bgThrottleMs = (anyMoving || this.bubbles.length > 0) ? 50 : 200;
+    this.bgThrottleMs = (anyMoving || this.bubbles.length > 0 || this.focusTarget !== null) ? 50 : 200;
   }
 
   private draw() {
@@ -469,11 +491,12 @@ export class OfficeEngine {
   focusAgent(agentId: string) {
     const agent = this.agents.get(agentId);
     if (!agent) return;
-    // Snap the viewport to center on the agent at 2x zoom
     const targetScale = 2;
-    this.scale = targetScale;
-    this.offsetX = this.canvas.width / 2 - agent.x * targetScale;
-    this.offsetY = this.canvas.height / 2 - agent.y * targetScale;
+    this.focusTarget = {
+      scale: targetScale,
+      x: this.canvas.width / 2 - agent.x * targetScale,
+      y: this.canvas.height / 2 - agent.y * targetScale,
+    };
   }
 
   getAgentCount() {
