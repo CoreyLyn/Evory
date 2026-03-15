@@ -54,22 +54,21 @@ export function getZoneForStatus(status: string): OfficeZone {
   }
 }
 
-export function drawOffice(ctx: CanvasRenderingContext2D, labels: CanvasLabels = DEFAULT_LABELS, time: number = 0) {
-  // Background with subtle radial gradient
+/** Draw once: gradient, grid, walls, entrance bar. Never changes. */
+export function drawStaticBackground(ctx: CanvasRenderingContext2D, labels: CanvasLabels = DEFAULT_LABELS) {
+  // Background gradient
   const bgGradient = ctx.createRadialGradient(
     OFFICE_WIDTH / 2, OFFICE_HEIGHT / 2, 100,
     OFFICE_WIDTH / 2, OFFICE_HEIGHT / 2, OFFICE_WIDTH
   );
-  bgGradient.addColorStop(0, "#0f172a"); // slate-900
-  bgGradient.addColorStop(1, "#020617"); // slate-950
-
+  bgGradient.addColorStop(0, "#0f172a");
+  bgGradient.addColorStop(1, "#020617");
   ctx.fillStyle = bgGradient;
   ctx.fillRect(0, 0, OFFICE_WIDTH, OFFICE_HEIGHT);
 
-  // Soft Grid pattern
-  ctx.strokeStyle = "rgba(148, 163, 184, 0.05)"; // very faint slate
+  // Grid
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.05)";
   ctx.lineWidth = 1;
-
   ctx.beginPath();
   for (let x = 0; x < OFFICE_WIDTH; x += TILE_SIZE) {
     ctx.moveTo(x, 0);
@@ -81,67 +80,62 @@ export function drawOffice(ctx: CanvasRenderingContext2D, labels: CanvasLabels =
   }
   ctx.stroke();
 
-  // Dynamic breathe scale (0 to 1)
+  // Outer Walls
+  ctx.strokeStyle = "rgba(51, 65, 85, 0.8)";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(2, 2, OFFICE_WIDTH - 4, OFFICE_HEIGHT - 4);
+
+  // Door bar
+  ctx.fillStyle = "rgba(30, 41, 59, 0.9)";
+  ctx.fillRect(OFFICE_WIDTH / 2 - 40, OFFICE_HEIGHT - 8, 80, 8);
+}
+
+/** Draw throttled: zone glows, decorations, animated elements. */
+export function drawAnimatedOverlay(ctx: CanvasRenderingContext2D, labels: CanvasLabels = DEFAULT_LABELS, time: number = 0) {
   const breathe = (Math.sin(time / 1000) + 1) / 2;
 
-  // Draw Zones with Glow Effects
   for (const zone of ZONES) {
     ctx.save();
-
-    // Zone Background
     ctx.fillStyle = zone.color;
     ctx.shadowColor = zone.borderColor;
-    ctx.shadowBlur = 10 + breathe * 10; // Dynamic bounding glow
+    ctx.shadowBlur = 10 + breathe * 10;
     ctx.fillRect(zone.x, zone.y, zone.w, zone.h);
-
-    // Reset shadow for inner elements
     ctx.shadowBlur = 0;
-
-    // Zone Border
     ctx.strokeStyle = zone.borderColor;
     ctx.lineWidth = 1.5;
     ctx.strokeRect(zone.x, zone.y, zone.w, zone.h);
-
-    // Draw inner details
     drawZoneDetails(ctx, zone, labels, time);
 
-    // Zone UI Label Pill
     const zoneLabel = labels.zones[zone.name] ?? zone.label;
-
-    ctx.fillStyle = "rgba(15, 23, 42, 0.8)"; // slate-900 bg for label
+    ctx.fillStyle = "rgba(15, 23, 42, 0.8)";
     ctx.beginPath();
     ctx.roundRect(zone.x + 12, zone.y + 12, 100, 24, 6);
     ctx.fill();
     ctx.strokeStyle = zone.borderColor;
     ctx.lineWidth = 1;
     ctx.stroke();
-
     ctx.font = "12px system-ui, -apple-system, sans-serif";
-    ctx.fillStyle = "rgba(226, 232, 240, 0.9)"; // slate-200 text
+    ctx.fillStyle = "rgba(226, 232, 240, 0.9)";
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillText(`${zone.icon} ${zoneLabel}`, zone.x + 20, zone.y + 24);
-
     ctx.restore();
   }
 
-  // Outer Walls
-  ctx.strokeStyle = "rgba(51, 65, 85, 0.8)"; // slate-700
-  ctx.lineWidth = 4;
-  ctx.strokeRect(2, 2, OFFICE_WIDTH - 4, OFFICE_HEIGHT - 4);
-
-  // Door/Entrance
-  ctx.fillStyle = "rgba(30, 41, 59, 0.9)"; // slate-800
-  ctx.fillRect(OFFICE_WIDTH / 2 - 40, OFFICE_HEIGHT - 8, 80, 8);
-
-  // Door Glow (Dynamic)
-  ctx.shadowColor = `rgba(56, 189, 248, ${0.4 + breathe * 0.4})`; // sky-400
+  // Door Glow (animated)
+  ctx.shadowColor = `rgba(56, 189, 248, ${0.4 + breathe * 0.4})`;
   ctx.shadowBlur = 8 + breathe * 6;
-  ctx.fillStyle = `rgba(56, 189, 248, ${0.7 + breathe * 0.3})`; // sky-400
+  ctx.fillStyle = `rgba(56, 189, 248, ${0.7 + breathe * 0.3})`;
   ctx.font = "12px system-ui, -apple-system, sans-serif";
   ctx.textAlign = "center";
   ctx.fillText(labels.entrance, OFFICE_WIDTH / 2, OFFICE_HEIGHT - 15);
   ctx.shadowBlur = 0;
+}
+
+/** @deprecated Use drawStaticBackground + drawAnimatedOverlay instead */
+export function drawOffice(ctx: CanvasRenderingContext2D, labels: CanvasLabels = DEFAULT_LABELS, time: number = 0) {
+  drawStaticBackground(ctx, labels);
+  drawAnimatedOverlay(ctx, labels, time);
 }
 
 function drawZoneDetails(ctx: CanvasRenderingContext2D, zone: OfficeZone, labels: CanvasLabels, time: number = 0) {

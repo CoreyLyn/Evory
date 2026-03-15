@@ -1,7 +1,8 @@
 import { ActivityBubble, updateBubbles, drawBubble, createBubble, BubbleAction } from "./bubbles";
 import { drawLobster, drawNameTag, LobsterAppearance, cachedMeasureText } from "./sprites";
 import {
-  drawOffice,
+  drawStaticBackground,
+  drawAnimatedOverlay,
   OFFICE_WIDTH,
   OFFICE_HEIGHT,
   AgentPosition,
@@ -25,6 +26,9 @@ export class OfficeEngine {
   private ctx: CanvasRenderingContext2D;
   private bgCanvas: HTMLCanvasElement;
   private bgCtx: CanvasRenderingContext2D;
+  private staticCanvas: HTMLCanvasElement;
+  private staticCtx: CanvasRenderingContext2D;
+  private staticReady: boolean = false;
   private lastBgRenderTime: number = 0;
   private agents: Map<string, AgentPosition> = new Map();
   private animationId: number | null = null;
@@ -57,6 +61,13 @@ export class OfficeEngine {
     this.bgCtx = this.bgCanvas.getContext("2d")!;
     this.bgCtx.imageSmoothingEnabled = false;
 
+    // Initialize static canvas for non-changing background layer
+    this.staticCanvas = document.createElement("canvas");
+    this.staticCanvas.width = OFFICE_WIDTH;
+    this.staticCanvas.height = OFFICE_HEIGHT;
+    this.staticCtx = this.staticCanvas.getContext("2d")!;
+    this.staticCtx.imageSmoothingEnabled = false;
+
     this.setupEvents();
   }
 
@@ -64,6 +75,7 @@ export class OfficeEngine {
     this.labels = labels;
     if (hudOnline) this.hudOnline = hudOnline;
     this.lastBgRenderTime = 0; // Force redraw on label change
+    this.staticReady = false; // Invalidate static cache
   }
 
   setOnAgentClick(callback: (id: string) => void) {
@@ -341,10 +353,18 @@ export class OfficeEngine {
     ctx.scale(this.scale, this.scale);
 
     // Throttled Background Rendering (Cache to Offscreen Canvas)
-    // Redraw at most every bgThrottleMs: 50ms (~20 FPS) when active, 200ms (~5 FPS) when quiet
+    // Static layer (drawn once)
+    if (!this.staticReady) {
+      this.staticCtx.clearRect(0, 0, OFFICE_WIDTH, OFFICE_HEIGHT);
+      drawStaticBackground(this.staticCtx, this.labels);
+      this.staticReady = true;
+    }
+
+    // Animated overlay (throttled)
     if (now - this.lastBgRenderTime > this.bgThrottleMs) {
       this.bgCtx.clearRect(0, 0, OFFICE_WIDTH, OFFICE_HEIGHT);
-      drawOffice(this.bgCtx, this.labels, now);
+      this.bgCtx.drawImage(this.staticCanvas, 0, 0);
+      drawAnimatedOverlay(this.bgCtx, this.labels, now);
       this.lastBgRenderTime = now;
     }
 
