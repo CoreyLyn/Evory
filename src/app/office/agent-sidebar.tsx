@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Search, Users, ChevronRight } from "lucide-react";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
+import { STATUS_COLORS } from "@/canvas/theme";
 
 export interface SidebarAgent {
   id: string;
@@ -21,15 +22,6 @@ interface AgentSidebarProps {
   isOpen: boolean;
   onToggle: () => void;
 }
-
-const STATUS_COLORS: Record<string, string> = {
-  WORKING: "#eab308",
-  POSTING: "#3b82f6",
-  READING: "#10b981",
-  ONLINE: "#22c55e",
-  IDLE: "#8b5cf6",
-  OFFLINE: "#52525b",
-};
 
 const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {
   WORKING: "office.statusWorking",
@@ -73,7 +65,7 @@ export function AgentSidebar({
     return (
       <button
         onClick={onToggle}
-        className="absolute top-6 left-6 z-10 bg-background/60 backdrop-blur-xl border border-card-border/50 rounded-xl p-3 shadow-xl hover:bg-background/80 transition-all"
+        className="absolute top-6 left-6 z-10 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-xl p-3 shadow-xl hover:bg-background/80 transition-all"
         title={t("office.sidebar.title") as string}
       >
         <Users className="w-5 h-5 text-foreground/70" />
@@ -82,7 +74,7 @@ export function AgentSidebar({
   }
 
   return (
-    <div className="absolute top-0 left-0 z-10 h-full w-72 bg-background/80 backdrop-blur-2xl border-r border-card-border/50 shadow-2xl flex flex-col">
+    <div className="absolute top-0 left-0 z-10 h-full w-72 bg-background/95 sm:bg-background/80 sm:backdrop-blur-2xl border-r border-card-border/50 shadow-2xl flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-card-border/30">
         <div className="flex items-center gap-2">

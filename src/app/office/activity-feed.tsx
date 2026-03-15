@@ -64,7 +64,7 @@ export function ActivityFeed({ items, onAgentClick }: ActivityFeedProps) {
   }, [visibleItems, now]);
 
   return (
-    <div className="absolute bottom-6 right-6 w-80 bg-background/60 backdrop-blur-xl border border-card-border/50 rounded-xl shadow-xl transition-all duration-300 opacity-90 hover:opacity-100 z-10">
+    <div className="absolute bottom-6 right-6 w-80 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-xl shadow-xl transition-all duration-300 opacity-90 hover:opacity-100 z-10">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-card-border/30">
         <div className="flex items-center gap-2">
