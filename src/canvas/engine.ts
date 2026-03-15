@@ -49,6 +49,9 @@ export class OfficeEngine {
   private bubbleMap: Map<string, ActivityBubble> = new Map();
   private onlineCount: number = 0;
   private focusTarget: { x: number; y: number; scale: number } | null = null;
+  private dpr: number = 1;
+  private logicalWidth: number = 0;
+  private logicalHeight: number = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -315,8 +318,14 @@ export class OfficeEngine {
   }
 
   resize(width: number, height: number) {
-    this.canvas.width = width;
-    this.canvas.height = height;
+    this.dpr = window.devicePixelRatio || 1;
+    this.logicalWidth = width;
+    this.logicalHeight = height;
+
+    this.canvas.width = width * this.dpr;
+    this.canvas.height = height * this.dpr;
+    this.canvas.style.width = `${width}px`;
+    this.canvas.style.height = `${height}px`;
     this.ctx.imageSmoothingEnabled = false;
 
     if (this.offsetX === 0 && this.offsetY === 0) {
@@ -327,6 +336,7 @@ export class OfficeEngine {
 
     // Force a background redraw on next frame
     this.lastBgRenderTime = 0;
+    this.staticReady = false;
   }
 
   private update() {
@@ -371,6 +381,9 @@ export class OfficeEngine {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
+    ctx.scale(this.dpr, this.dpr);
+
+    ctx.save();
     ctx.translate(this.offsetX, this.offsetY);
     ctx.scale(this.scale, this.scale);
 
@@ -397,8 +410,8 @@ export class OfficeEngine {
     // How much of the world is currently visible on the screen?
     const viewWorldMinX = -this.offsetX / this.scale;
     const viewWorldMinY = -this.offsetY / this.scale;
-    const viewWorldMaxX = viewWorldMinX + canvas.width / this.scale;
-    const viewWorldMaxY = viewWorldMinY + canvas.height / this.scale;
+    const viewWorldMaxX = viewWorldMinX + canvas.width / this.scale / this.dpr;
+    const viewWorldMaxY = viewWorldMinY + canvas.height / this.scale / this.dpr;
 
     // Sprite drawing bounds padding (agents are roughly 60x60 max with shadows/names)
     const renderPadding = 60;
@@ -453,7 +466,7 @@ export class OfficeEngine {
     const pillWidth = cachedMeasureText(ctx, hudText, hudFont) + 24;
     const pillHeight = 28;
     const pillX = 16;
-    const pillY = canvas.height - pillHeight - 16;
+    const pillY = this.logicalHeight - pillHeight - 16;
 
     // HUD Pill Background
     ctx.fillStyle = "rgba(15, 23, 42, 0.7)"; // slate-900 / 0.7
@@ -486,6 +499,7 @@ export class OfficeEngine {
     ctx.shadowBlur = 0;
 
     ctx.restore();
+    ctx.restore(); // DPR scale
   }
 
   focusAgent(agentId: string) {
@@ -494,8 +508,8 @@ export class OfficeEngine {
     const targetScale = 2;
     this.focusTarget = {
       scale: targetScale,
-      x: this.canvas.width / 2 - agent.x * targetScale,
-      y: this.canvas.height / 2 - agent.y * targetScale,
+      x: this.logicalWidth / 2 - agent.x * targetScale,
+      y: this.logicalHeight / 2 - agent.y * targetScale,
     };
   }
 
