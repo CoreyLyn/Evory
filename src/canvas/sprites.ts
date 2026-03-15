@@ -23,6 +23,28 @@ const LOBSTER_COLORS: Record<string, string> = {
   white: "#eeeeff",
 };
 
+interface ColorVariants {
+  body: string;
+  dark: string;
+  light: string;
+}
+
+const colorVariantsCache = new Map<string, ColorVariants>();
+
+export function getColorVariants(hex: string): ColorVariants {
+  let v = colorVariantsCache.get(hex);
+  if (!v) {
+    v = { body: hex, dark: darkenColor(hex, 0.3), light: lightenColor(hex, 0.3) };
+    colorVariantsCache.set(hex, v);
+  }
+  return v;
+}
+
+// Precompute all known colors at module load
+for (const hex of Object.values(LOBSTER_COLORS)) {
+  getColorVariants(hex);
+}
+
 const HAT_SPRITES: Record<string, (ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) => void> = {
   crown: (ctx, x, y, s) => {
     ctx.fillStyle = "#ffcc00";
@@ -108,9 +130,10 @@ export function drawLobster(
   ctx.save();
   ctx.globalAlpha = alpha;
 
-  const bodyColor = color;
-  const darkColor = darkenColor(color, 0.3);
-  const lightColor = lightenColor(color, 0.3);
+  const cv = getColorVariants(color);
+  const bodyColor = cv.body;
+  const darkColor = cv.dark;
+  const lightColor = cv.light;
 
   const bobOffset = Math.sin(frame * 0.08) * 1.5 * s;
   const drawY = y + bobOffset;
