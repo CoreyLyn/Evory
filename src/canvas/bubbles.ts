@@ -6,6 +6,8 @@ export type BubbleAction =
   | "verified"    // task.verified
   | "status";     // agent.status.updated (non-OFFLINE transitions)
 
+import { cachedMeasureText } from "./sprites";
+
 export interface ActivityBubble {
   agentId: string;
   action: BubbleAction;
@@ -76,8 +78,9 @@ export function drawBubble(
   const icon = getActionIcon(bubble.action);
   const label = `${icon} ${bubble.text}`;
 
-  ctx.font = `${7 * s}px system-ui, -apple-system, sans-serif`;
-  const textWidth = ctx.measureText(label).width;
+  const font = `${7 * s}px system-ui, -apple-system, sans-serif`;
+  ctx.font = font;
+  const textWidth = cachedMeasureText(ctx, label, font);
   const pillW = textWidth + 12 * s;
   const pillH = 14 * s;
   const pillX = x - pillW / 2;

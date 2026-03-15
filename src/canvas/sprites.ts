@@ -11,6 +11,20 @@ export interface LobsterAppearance {
   accessory: string | null;
 }
 
+/** Cache for text width measurements. Bounded by working set (agent names + bubble texts). */
+const textWidthCache = new Map<string, number>();
+
+export function cachedMeasureText(ctx: CanvasRenderingContext2D, text: string, font: string): number {
+  const key = `${font}\0${text}`;
+  let w = textWidthCache.get(key);
+  if (w === undefined) {
+    ctx.font = font;
+    w = ctx.measureText(text).width;
+    textWidthCache.set(key, w);
+  }
+  return w;
+}
+
 const LOBSTER_COLORS: Record<string, string> = {
   red: "#ff4444",
   orange: "#ff8844",
@@ -279,14 +293,15 @@ export function drawNameTag(
   const s = scale;
   ctx.save();
 
-  ctx.font = `${8 * s}px monospace`;
+  const font = `${8 * s}px monospace`;
+  ctx.font = font;
   ctx.textAlign = "center";
 
   // LOD Logic: Only measure and draw points if zoomed in enough, or hovered
   const showPoints = engineScale >= 1.2 || isHovered;
 
   ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-  const textWidth = ctx.measureText(name).width;
+  const textWidth = cachedMeasureText(ctx, name, font);
 
   // Adjust pill background height based on whether we show points
   const bgHeight = showPoints ? 18 * s : 10 * s;

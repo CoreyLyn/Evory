@@ -1,5 +1,5 @@
 import { ActivityBubble, updateBubbles, drawBubble, createBubble, BubbleAction } from "./bubbles";
-import { drawLobster, drawNameTag, LobsterAppearance } from "./sprites";
+import { drawLobster, drawNameTag, LobsterAppearance, cachedMeasureText } from "./sprites";
 import {
   drawOffice,
   OFFICE_WIDTH,
@@ -404,11 +404,11 @@ export class OfficeEngine {
     const hudText = `${this.hudOnline} ${onlineCount} / ${totalCount}`;
 
     ctx.save();
-    ctx.font = "12px system-ui, -apple-system, sans-serif";
+    const hudFont = "12px system-ui, -apple-system, sans-serif";
+    ctx.font = hudFont;
 
     // Measure text for pill width
-    const textMetrics = ctx.measureText(hudText);
-    const pillWidth = textMetrics.width + 24;
+    const pillWidth = cachedMeasureText(ctx, hudText, hudFont) + 24;
     const pillHeight = 28;
     const pillX = 16;
     const pillY = canvas.height - pillHeight - 16;
