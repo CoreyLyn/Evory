@@ -52,6 +52,8 @@ export class OfficeEngine {
   private dpr: number = 1;
   private logicalWidth: number = 0;
   private logicalHeight: number = 0;
+  private dirty: boolean = true;
+  private idleFrames: number = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -80,6 +82,7 @@ export class OfficeEngine {
     if (hudOnline) this.hudOnline = hudOnline;
     this.lastBgRenderTime = 0; // Force redraw on label change
     this.staticReady = false; // Invalidate static cache
+    this.dirty = true;
   }
 
   setOnAgentClick(callback: (id: string) => void) {
@@ -90,6 +93,7 @@ export class OfficeEngine {
     // Max 1 bubble per agent at a time — replace existing
     this.bubbles = this.bubbles.filter(b => b.agentId !== agentId);
     this.bubbles.push(createBubble(agentId, action, text));
+    this.dirty = true;
   }
 
   private setupEvents() {
@@ -107,10 +111,12 @@ export class OfficeEngine {
       this.offsetX = mx - (mx - this.offsetX) * (newScale / this.scale);
       this.offsetY = my - (my - this.offsetY) * (newScale / this.scale);
       this.scale = newScale;
+      this.dirty = true;
       this.focusTarget = null;
     }, opts);
 
     this.canvas.addEventListener("mousedown", (e) => {
+      this.dirty = true;
       this.isDragging = true;
       this.lastMouseX = e.clientX;
       this.lastMouseY = e.clientY;
@@ -130,6 +136,7 @@ export class OfficeEngine {
       const worldX = (e.clientX - rect.left - this.offsetX) / this.scale;
       const worldY = (e.clientY - rect.top - this.offsetY) / this.scale;
 
+      const prevHovered = this.hoveredAgent;
       this.hoveredAgent = null;
       for (const [id, agent] of this.agents) {
         const dx = worldX - agent.x;
@@ -139,6 +146,8 @@ export class OfficeEngine {
           break;
         }
       }
+
+      if (this.hoveredAgent !== prevHovered) this.dirty = true;
 
       if (!this.isDragging) {
         this.canvas.style.cursor = this.hoveredAgent ? "pointer" : "grab";
@@ -170,6 +179,7 @@ export class OfficeEngine {
     let isTouchDragging = false;
 
     this.canvas.addEventListener("touchstart", (e) => {
+      this.dirty = true;
       e.preventDefault();
       if (e.touches.length === 1) {
         isTouchDragging = true;
@@ -187,6 +197,7 @@ export class OfficeEngine {
     }, { passive: false, signal: this.abortController.signal });
 
     this.canvas.addEventListener("touchmove", (e) => {
+      this.dirty = true;
       e.preventDefault();
       if (e.touches.length === 1 && isTouchDragging) {
         const tx = e.touches[0].clientX;
@@ -293,13 +304,28 @@ export class OfficeEngine {
     for (const agent of this.agents.values()) {
       if (agent.status !== "OFFLINE") this.onlineCount++;
     }
+
+    this.dirty = true;
   }
 
   start() {
-    this.lastBgRenderTime = 0; // Force initial render
+    this.lastBgRenderTime = 0;
     const render = () => {
       this.update();
-      this.draw();
+
+      // Skip drawing if scene is stable
+      const isActive = this.dirty ||
+        this.bubbles.length > 0 ||
+        this.focusTarget !== null;
+
+      if (isActive) {
+        this.draw();
+        this.dirty = false;
+        this.idleFrames = 0;
+      } else {
+        this.idleFrames++;
+      }
+
       this.animationId = requestAnimationFrame(render);
     };
     this.animationId = requestAnimationFrame(render);
@@ -337,6 +363,7 @@ export class OfficeEngine {
     // Force a background redraw on next frame
     this.lastBgRenderTime = 0;
     this.staticReady = false;
+    this.dirty = true;
   }
 
   private update() {
@@ -348,6 +375,8 @@ export class OfficeEngine {
       if (dx * dx + dy * dy > 4) anyMoving = true;
     }
     updateBubbles(this.bubbles);
+
+    if (anyMoving) this.dirty = true;
 
     // Focus easing
     if (this.focusTarget) {
