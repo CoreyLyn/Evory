@@ -133,7 +133,8 @@ export function drawLobster(
   y: number,
   appearance: LobsterAppearance,
   status: string,
-  frame: number,
+  time: number,
+  phaseOffset: number,
   scale: number = 2,
   isHovered: boolean = false
 ) {
@@ -149,15 +150,20 @@ export function drawLobster(
   const darkColor = cv.dark;
   const lightColor = cv.light;
 
-  const bobOffset = Math.sin(frame * 0.08) * 1.5 * s;
+  // Time-based animation: t is in seconds with per-agent phase offset
+  const t = time / 1000 + phaseOffset;
+
+  // Conversions from frame-based (at 60fps):
+  //   frame * rate  →  t * (rate * 60)
+  const bobOffset = Math.sin(t * 4.8) * 1.5 * s;
   const drawY = y + bobOffset;
 
   // 1. Draw Selection/Hover Ring
   if (isHovered && status !== "OFFLINE") {
-    const pulse = (Math.sin(Date.now() / 200) + 1) / 2; // 0 to 1
+    const pulse = (Math.sin(time / 200) + 1) / 2;
     ctx.beginPath();
     ctx.ellipse(x, y + 14 * s, 14 * s + pulse * 2 * s, 6 * s + pulse * s, 0, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(56, 189, 248, ${0.3 + pulse * 0.2})`; // sky-400
+    ctx.fillStyle = `rgba(56, 189, 248, ${0.3 + pulse * 0.2})`;
     ctx.fill();
     ctx.strokeStyle = `rgba(56, 189, 248, ${0.6 + pulse * 0.4})`;
     ctx.lineWidth = s * 0.8;
@@ -168,10 +174,9 @@ export function drawLobster(
   ctx.beginPath();
   ctx.ellipse(x, y + 14 * s, 10 * s, 4 * s, 0, 0, Math.PI * 2);
   ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-  // Decrease shadow intensity as character bobs up
   ctx.globalAlpha = alpha * (1 - (bobOffset + 1.5 * s) / (6 * s));
   ctx.fill();
-  ctx.globalAlpha = alpha; // Restore alpha for body
+  ctx.globalAlpha = alpha;
 
   // Tail
   ctx.fillStyle = darkColor;
@@ -191,15 +196,14 @@ export function drawLobster(
   ctx.fillRect(x - 4 * s, drawY - 5 * s, 3 * s, 3 * s);
   ctx.fillRect(x + 1 * s, drawY - 5 * s, 3 * s, 3 * s);
   ctx.fillStyle = "#111111";
-  const eyePhase = Math.floor(frame / 30) % 4;
+  const eyePhase = Math.floor(t * 2) % 4;
   const eyeOffX = eyePhase === 1 ? s : eyePhase === 3 ? -s : 0;
   ctx.fillRect(x - 3 * s + eyeOffX, drawY - 4 * s, 1.5 * s, 1.5 * s);
   ctx.fillRect(x + 2 * s + eyeOffX, drawY - 4 * s, 1.5 * s, 1.5 * s);
 
   // Claws
-  const clawAngle = Math.sin(frame * 0.06) * 0.15;
+  const clawAngle = Math.sin(t * 3.6) * 0.15;
   ctx.fillStyle = lightColor;
-  // Left claw
   ctx.save();
   ctx.translate(x - 6 * s, drawY);
   ctx.rotate(-0.3 + clawAngle);
@@ -207,7 +211,6 @@ export function drawLobster(
   ctx.fillRect(-10 * s, -4 * s, 4 * s, 3 * s);
   ctx.fillRect(-10 * s, 1 * s, 4 * s, 3 * s);
   ctx.restore();
-  // Right claw
   ctx.save();
   ctx.translate(x + 6 * s, drawY);
   ctx.rotate(0.3 - clawAngle);
@@ -220,7 +223,7 @@ export function drawLobster(
   ctx.fillStyle = darkColor;
   for (let i = 0; i < 4; i++) {
     const legY = drawY + i * 2.5 * s;
-    const legWiggle = Math.sin(frame * 0.1 + i * 0.8) * s;
+    const legWiggle = Math.sin(t * 6.0 + i * 0.8) * s;
     ctx.fillRect(x - 7 * s + legWiggle, legY, 2 * s, s);
     ctx.fillRect(x + 5 * s - legWiggle, legY, 2 * s, s);
   }
@@ -231,31 +234,31 @@ export function drawLobster(
   ctx.beginPath();
   ctx.moveTo(x - 3 * s, drawY - 6 * s);
   ctx.quadraticCurveTo(
-    x - 6 * s + Math.sin(frame * 0.05) * 2 * s,
+    x - 6 * s + Math.sin(t * 3.0) * 2 * s,
     drawY - 14 * s,
-    x - 4 * s + Math.sin(frame * 0.07) * 3 * s,
+    x - 4 * s + Math.sin(t * 4.2) * 3 * s,
     drawY - 16 * s
   );
   ctx.stroke();
   ctx.beginPath();
   ctx.moveTo(x + 3 * s, drawY - 6 * s);
   ctx.quadraticCurveTo(
-    x + 6 * s + Math.sin(frame * 0.05 + 1) * 2 * s,
+    x + 6 * s + Math.sin(t * 3.0 + 1) * 2 * s,
     drawY - 14 * s,
-    x + 4 * s + Math.sin(frame * 0.07 + 1) * 3 * s,
+    x + 4 * s + Math.sin(t * 4.2 + 1) * 3 * s,
     drawY - 16 * s
   );
   ctx.stroke();
 
   // Status glow effect
   if (status === "WORKING") {
-    ctx.shadowColor = "#eab308"; // yellow-500
+    ctx.shadowColor = "#eab308";
     ctx.shadowBlur = 12 * s;
     ctx.fillStyle = "rgba(234, 179, 8, 0.15)";
     ctx.fillRect(x - 8 * s, drawY - 8 * s, 16 * s, 24 * s);
     ctx.shadowBlur = 0;
   } else if (status === "POSTING") {
-    ctx.shadowColor = "#3b82f6"; // blue-500
+    ctx.shadowColor = "#3b82f6";
     ctx.shadowBlur = 10 * s;
     ctx.fillStyle = "rgba(59, 130, 246, 0.15)";
     ctx.fillRect(x - 8 * s, drawY - 8 * s, 16 * s, 24 * s);

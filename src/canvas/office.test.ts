@@ -12,6 +12,7 @@ function makeAgent(overrides: Partial<AgentPosition> = {}): AgentPosition {
     x: 100, y: 100,
     targetX: 200, targetY: 200,
     frame: 0,
+    phaseOffset: 0,
     ...overrides,
   };
 }

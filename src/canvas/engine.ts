@@ -291,6 +291,7 @@ export class OfficeEngine {
           targetX: pos.x,
           targetY: pos.y,
           frame: Math.floor(Math.random() * 1000),
+          phaseOffset: Math.random() * Math.PI * 2,
         });
       }
     }
@@ -471,7 +472,7 @@ export class OfficeEngine {
 
       const isHovered = this.hoveredAgent === agent.id;
       const spriteScale = isHovered ? 2.3 : 2;
-      drawLobster(ctx, agent.x, agent.y, agent.appearance, agent.status, agent.frame, spriteScale, isHovered);
+      drawLobster(ctx, agent.x, agent.y, agent.appearance, agent.status, now, agent.phaseOffset, spriteScale, isHovered);
       drawNameTag(ctx, agent.x, agent.y, agent.name, agent.points, spriteScale, this.scale, isHovered);
 
       const bubble = this.bubbleMap.get(agent.id);

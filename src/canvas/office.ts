@@ -343,7 +343,9 @@ export interface AgentPosition {
   y: number;
   targetX: number;
   targetY: number;
+  /** @deprecated Kept for backward compat. Rendering uses time + phaseOffset instead. */
   frame: number;
+  phaseOffset: number;  // Random offset so agents don't animate in sync
 }
 
 export function getRandomPositionInZone(zone: OfficeZone): { x: number; y: number } {
