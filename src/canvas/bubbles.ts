@@ -28,6 +28,10 @@ const ACTION_ICONS: Record<BubbleAction, string> = {
   status: "\u{1F504}",    // arrows
 };
 
+// Static rgba constants — avoid per-frame string allocation
+const BUBBLE_BG = "rgba(15, 23, 42, 0.85)";
+const BUBBLE_TEXT = "rgba(241, 245, 249, 0.95)";
+
 export function getActionIcon(action: BubbleAction): string {
   return ACTION_ICONS[action] ?? "";
 }
@@ -87,7 +91,7 @@ export function drawBubble(
   const pillY = drawY - pillH / 2;
 
   // Pill background
-  ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+  ctx.fillStyle = BUBBLE_BG;
   ctx.beginPath();
   ctx.roundRect(pillX, pillY, pillW, pillH, 4 * s);
   ctx.fill();
@@ -98,7 +102,7 @@ export function drawBubble(
   ctx.stroke();
 
   // Text
-  ctx.fillStyle = "rgba(241, 245, 249, 0.95)";
+  ctx.fillStyle = BUBBLE_TEXT;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(label, x, drawY);
