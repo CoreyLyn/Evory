@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { OfficeEngine, AgentData } from "@/canvas/engine";
 import { ZONES, type CanvasLabels } from "@/canvas/office";
+import { STATUS_COLORS } from "@/canvas/theme";
 import { useT, useLocale } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 import { Badge } from "@/components/ui/badge";
@@ -370,12 +371,12 @@ export default function OfficePage() {
   }, [fetchAgents, buildCanvasLabels, locale, pushFeedItem]);
 
   const statusLegend = [
-    { status: "WORKING", color: "#eab308", labelKey: "office.statusWorking" as const }, // Yellow-500
-    { status: "POSTING", color: "#3b82f6", labelKey: "office.statusPosting" as const }, // Blue-500
-    { status: "READING", color: "#10b981", labelKey: "office.statusReading" as const }, // Emerald-500
-    { status: "ONLINE", color: "#22c55e", labelKey: "office.statusOnline" as const },  // Green-500
-    { status: "IDLE", color: "#8b5cf6", labelKey: "office.statusIdle" as const },      // Violet-500
-    { status: "OFFLINE", color: "#52525b", labelKey: "office.statusOffline" as const },// Zinc-600
+    { status: "WORKING", color: STATUS_COLORS.WORKING, labelKey: "office.statusWorking" as const },
+    { status: "POSTING", color: STATUS_COLORS.POSTING, labelKey: "office.statusPosting" as const },
+    { status: "READING", color: STATUS_COLORS.READING, labelKey: "office.statusReading" as const },
+    { status: "ONLINE", color: STATUS_COLORS.ONLINE, labelKey: "office.statusOnline" as const },
+    { status: "IDLE", color: STATUS_COLORS.IDLE, labelKey: "office.statusIdle" as const },
+    { status: "OFFLINE", color: STATUS_COLORS.OFFLINE, labelKey: "office.statusOffline" as const },
   ];
 
   return (
@@ -434,12 +435,12 @@ export default function OfficePage() {
         />
         <canvas
           ref={canvasRef}
-          className="w-full h-full transition-opacity duration-500 ease-in-out"
+          className="w-full h-full"
           style={{ cursor: "grab" }}
         />
 
         {/* Floating Zones Legend */}
-        <div className="absolute bottom-6 left-6 bg-background/60 backdrop-blur-xl border border-card-border/50 rounded-xl p-4 shadow-xl pointer-events-none transition-all duration-300 opacity-90 group-hover:opacity-100">
+        <div className="absolute bottom-6 left-6 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-xl p-4 shadow-xl pointer-events-none opacity-95">
           <div className="flex items-center gap-2 mb-3">
             <Layers className="w-4 h-4 text-foreground/60" />
             <p className="text-xs text-foreground/80 font-semibold tracking-wider uppercase">{t("office.zones")}</p>
@@ -456,8 +457,9 @@ export default function OfficePage() {
           </div>
         </div>
 
-        {/* Floating Status Legend */}
-        <div className="absolute top-6 right-6 bg-background/60 backdrop-blur-xl border border-card-border/50 rounded-xl p-4 shadow-xl pointer-events-none transition-all duration-300 opacity-90 group-hover:opacity-100">
+        {/* Floating Status Legend — hidden when detail card is open */}
+        {!selectedAgentId && (
+        <div className="absolute top-6 right-6 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-xl p-4 shadow-xl pointer-events-none opacity-95">
           <div className="flex items-center gap-2 mb-3">
             <ActivitySquare className="w-4 h-4 text-foreground/60" />
             <p className="text-xs text-foreground/80 font-semibold tracking-wider uppercase">{t("office.status")}</p>
@@ -477,6 +479,7 @@ export default function OfficePage() {
             ))}
           </div>
         </div>
+        )}
 
         {/* Interactive Agent Detail Card Overlay */}
         {selectedAgentId && (() => {
@@ -487,14 +490,14 @@ export default function OfficePage() {
           const statusLabelKey = statusLegend.find(s => s.status === agent.status)?.labelKey || "office.statusOffline";
 
           return (
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-48 w-80 bg-slate-900/80 backdrop-blur-2xl border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-48 w-80 bg-card/80 sm:backdrop-blur-2xl border border-card-border/60 rounded-2xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-4 duration-300">
 
               {/* Header / Banner */}
               <div className="h-16 w-full relative" style={{ backgroundColor: `${statusColor}20` }}>
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
                 <button
                   onClick={() => setSelectedAgentId(null)}
-                  className="absolute top-3 right-3 p-1.5 rounded-full bg-slate-900/40 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors z-10"
+                  className="absolute top-3 right-3 p-1.5 rounded-full bg-background/40 text-muted hover:text-foreground hover:bg-card transition-colors z-10"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -504,21 +507,21 @@ export default function OfficePage() {
               <div className="px-6 pb-6 relative -mt-8">
                 <div className="flex items-end gap-4 mb-4">
                   <div
-                    className="w-16 h-16 rounded-2xl border-2 border-slate-800 flex items-center justify-center shadow-lg relative bg-slate-800"
+                    className="w-16 h-16 rounded-2xl border-2 border-card-border flex items-center justify-center shadow-lg relative bg-background-alt"
                     style={{ boxShadow: `0 0 20px ${statusColor}40` }}
                   >
                     <span className="text-3xl filter drop-shadow-md">👾</span>
                     {/* Status Dot */}
                     <span
-                      className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-900"
+                      className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-background"
                       style={{ backgroundColor: statusColor }}
                     />
                   </div>
                   <div className="pb-1">
-                    <h3 className="text-xl font-bold tracking-tight text-white m-0 leading-tight">
+                    <h3 className="text-xl font-bold tracking-tight text-foreground m-0 leading-tight">
                       {agent.name}
                     </h3>
-                    <p className="text-sm text-slate-400 font-medium">#{agent.id.slice(0, 6)}</p>
+                    <p className="text-sm text-muted font-medium">#{agent.id.slice(0, 6)}</p>
                   </div>
                 </div>
 
@@ -530,12 +533,12 @@ export default function OfficePage() {
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 gap-3 mb-5">
-                  <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 flex flex-col gap-1">
-                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5"><Zap className="w-3 h-3 text-yellow-500" />{t("agents.points")}</span>
-                    <span className="text-lg font-bold text-white leading-none">{agent.points}</span>
+                  <div className="bg-card p-3 rounded-xl border border-card-border/50 flex flex-col gap-1">
+                    <span className="text-xs text-muted font-medium flex items-center gap-1.5"><Zap className="w-3 h-3 text-yellow-500" />{t("agents.points")}</span>
+                    <span className="text-lg font-bold text-foreground leading-none">{agent.points}</span>
                   </div>
-                  <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 flex flex-col gap-1">
-                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5"><ActivitySquare className="w-3 h-3 text-sky-400" />{t("office.status")}</span>
+                  <div className="bg-card p-3 rounded-xl border border-card-border/50 flex flex-col gap-1">
+                    <span className="text-xs text-muted font-medium flex items-center gap-1.5"><ActivitySquare className="w-3 h-3 text-sky-400" />{t("office.status")}</span>
                     <span className="text-sm font-bold leading-none mt-1" style={{ color: statusColor }}>
                       {t(statusLabelKey)}
                     </span>
@@ -544,11 +547,11 @@ export default function OfficePage() {
 
                 <div className="space-y-3">
                   {agent.bio && (
-                    <div className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-3">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
+                    <div className="rounded-xl border border-card-border/50 bg-card/50 p-3">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-muted/70">
                         {t("agents.bio")}
                       </p>
-                      <p className="mt-2 text-sm leading-relaxed text-slate-200">
+                      <p className="mt-2 text-sm leading-relaxed text-foreground/90">
                         {agent.bio}
                       </p>
                     </div>
@@ -556,12 +559,12 @@ export default function OfficePage() {
 
                   {agent.createdAt && (
                     <div className="flex items-center gap-3 text-sm">
-                      <Clock className="w-4 h-4 text-slate-500" />
+                      <Clock className="w-4 h-4 text-muted/70" />
                       <div className="flex flex-col">
-                        <span className="text-slate-200">
+                        <span className="text-foreground/90">
                           {formatTimeAgo(agent.createdAt)}
                         </span>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-muted/70">
                           {t("agents.joined")}
                         </span>
                       </div>
@@ -570,12 +573,12 @@ export default function OfficePage() {
 
                   {agent.updatedAt && (
                     <div className="flex items-center gap-3 text-sm">
-                      <ActivitySquare className="w-4 h-4 text-slate-500" />
+                      <ActivitySquare className="w-4 h-4 text-muted/70" />
                       <div className="flex flex-col">
-                        <span className="text-slate-200">
+                        <span className="text-foreground/90">
                           {formatTimeAgo(agent.updatedAt)}
                         </span>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-muted/70">
                           {t("agents.updated")}
                         </span>
                       </div>
