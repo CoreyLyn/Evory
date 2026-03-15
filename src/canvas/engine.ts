@@ -12,6 +12,15 @@ import {
   DEFAULT_LABELS,
   type CanvasLabels,
 } from "./office";
+import { CANVAS_FONTS } from "./theme";
+
+// Static HUD rgba constants — avoid per-frame allocation
+const HUD_BG = "rgba(15, 23, 42, 0.7)";
+const HUD_SHADOW = "rgba(0, 0, 0, 0.3)";
+const HUD_BORDER = "rgba(51, 65, 85, 0.5)";
+const HUD_TEXT_COLOR = "rgba(241, 245, 249, 0.9)";
+const HUD_DOT_COLOR = "rgba(34, 197, 94, 0.9)";
+const HUD_DOT_HEX = "#22c55e";
 
 export interface AgentData {
   id: string;
@@ -60,17 +69,12 @@ export class OfficeEngine {
     this.ctx = canvas.getContext("2d")!;
     this.ctx.imageSmoothingEnabled = false;
 
-    // Initialize offscreen canvas for caching the background
+    // Initialize offscreen canvases — sized in resize() with DPR
     this.bgCanvas = document.createElement("canvas");
-    this.bgCanvas.width = OFFICE_WIDTH;
-    this.bgCanvas.height = OFFICE_HEIGHT;
     this.bgCtx = this.bgCanvas.getContext("2d")!;
     this.bgCtx.imageSmoothingEnabled = false;
 
-    // Initialize static canvas for non-changing background layer
     this.staticCanvas = document.createElement("canvas");
-    this.staticCanvas.width = OFFICE_WIDTH;
-    this.staticCanvas.height = OFFICE_HEIGHT;
     this.staticCtx = this.staticCanvas.getContext("2d")!;
     this.staticCtx.imageSmoothingEnabled = false;
 
@@ -355,6 +359,18 @@ export class OfficeEngine {
     this.canvas.style.height = `${height}px`;
     this.ctx.imageSmoothingEnabled = false;
 
+    // Scale offscreen canvases by DPR for Retina sharpness
+    const ow = OFFICE_WIDTH * this.dpr;
+    const oh = OFFICE_HEIGHT * this.dpr;
+    this.bgCanvas.width = ow;
+    this.bgCanvas.height = oh;
+    this.bgCtx.imageSmoothingEnabled = false;
+    this.bgCtx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.staticCanvas.width = ow;
+    this.staticCanvas.height = oh;
+    this.staticCtx.imageSmoothingEnabled = false;
+    this.staticCtx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+
     if (this.offsetX === 0 && this.offsetY === 0) {
       this.scale = Math.min(width / OFFICE_WIDTH, height / OFFICE_HEIGHT) * 0.9;
       this.offsetX = (width - OFFICE_WIDTH * this.scale) / 2;
@@ -489,7 +505,7 @@ export class OfficeEngine {
     const hudText = `${this.hudOnline} ${onlineCount} / ${totalCount}`;
 
     ctx.save();
-    const hudFont = "12px system-ui, -apple-system, sans-serif";
+    const hudFont = CANVAS_FONTS.hud;
     ctx.font = hudFont;
 
     // Measure text for pill width
@@ -499,8 +515,8 @@ export class OfficeEngine {
     const pillY = this.logicalHeight - pillHeight - 16;
 
     // HUD Pill Background
-    ctx.fillStyle = "rgba(15, 23, 42, 0.7)"; // slate-900 / 0.7
-    ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+    ctx.fillStyle = HUD_BG;
+    ctx.shadowColor = HUD_SHADOW;
     ctx.shadowBlur = 8;
     ctx.beginPath();
     ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 14);
@@ -508,25 +524,28 @@ export class OfficeEngine {
     ctx.shadowBlur = 0;
 
     // HUD Pill Border
-    ctx.strokeStyle = "rgba(51, 65, 85, 0.5)"; // slate-700
+    ctx.strokeStyle = HUD_BORDER;
     ctx.lineWidth = 1;
     ctx.stroke();
 
     // HUD Text
-    ctx.fillStyle = "rgba(241, 245, 249, 0.9)"; // slate-100
+    ctx.fillStyle = HUD_TEXT_COLOR;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillText(hudText, pillX + 12, pillY + pillHeight / 2);
 
-    // Status Indicator Dot (Pulsing)
-    ctx.fillStyle = "rgba(34, 197, 94, 0.9)"; // green-500
+    // Status Indicator Dot (Pulsing) — use globalAlpha to avoid template string
+    ctx.fillStyle = HUD_DOT_HEX;
     const pulseFade = ((Math.sin(now / 300) + 1) / 2);
-    ctx.shadowColor = `rgba(34, 197, 94, ${0.4 + pulseFade * 0.4})`;
+    const dotAlpha = 0.4 + pulseFade * 0.4;
+    ctx.shadowColor = HUD_DOT_COLOR;
+    ctx.globalAlpha = dotAlpha;
     ctx.shadowBlur = 4 + pulseFade * 4;
     ctx.beginPath();
     ctx.arc(pillX + pillWidth - 14, pillY + pillHeight / 2, 3, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
 
     ctx.restore();
     ctx.restore(); // DPR scale
