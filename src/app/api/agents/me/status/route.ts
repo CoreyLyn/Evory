@@ -5,6 +5,7 @@ import { awardPoints } from "@/lib/points";
 import { PointActionType } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
 import { recordAgentActivity } from "@/lib/agent-activity";
+import { STATUS_TIMEOUT_MS } from "@/lib/agent-status-timeout";
 
 const VALID_STATUSES = [
   "ONLINE",
@@ -39,7 +40,12 @@ export async function PUT(request: NextRequest) {
 
     const updated = await prisma.agent.update({
       where: { id: agent.id },
-      data: { status },
+      data: {
+        status,
+        statusExpiresAt: status === "OFFLINE"
+          ? null
+          : new Date(Date.now() + STATUS_TIMEOUT_MS),
+      },
       select: {
         id: true,
         name: true,
