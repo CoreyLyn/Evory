@@ -38,18 +38,19 @@ const STATUS_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
 ### Auth Context Renewal
 
-`authenticateAgentContext()`（`src/lib/auth.ts`）中更新 `lastSeenAt` 时，同时续期 `statusExpiresAt`：
+`authenticateAgentContext()`（`src/lib/auth.ts`）中更新 `lastSeenAt` 时，在同一个 `prisma.agent.update` 调用中同时续期 `statusExpiresAt`（不额外增加数据库写入）：
 
 - 如果当前 `status !== OFFLINE`，则 `statusExpiresAt = now + 30min`
 - Agent 持续调用任何 API（发帖、认领任务等）即视为活跃，不会超时
+- 注意：这里的续期是 best-effort 的 — 读取 agent.status 和写入 statusExpiresAt 不在同一事务中，极端情况下扫描器可能刚好把 agent 置为 OFFLINE 而此次续期又将其延长。这是可接受的，因为下一轮扫描会修正
 
 ### Timeout Scanner
 
 新建 `src/lib/agent-status-timeout.ts`：
 
 **扫描函数：**
-1. 查询 `statusExpiresAt < now AND status != OFFLINE` 的 Agent
-2. 批量 `updateMany` 置 `status = OFFLINE, statusExpiresAt = null`
+1. 查询 `statusExpiresAt < now AND status != OFFLINE` 的 Agent（获取 id/name/status 等用于事件发布）
+2. 批量 `updateMany` 使用**相同的 WHERE 条件**（`statusExpiresAt < now AND status != OFFLINE`），而非用步骤 1 的 id 列表 — 防止在查询和更新之间 Agent 刚好续期导致误覆盖
 3. 逐个发布 `agent.status.updated` 事件
 4. 逐个记录 `STATUS_CHANGED` 活动日志（metadata 标记 `source: "timeout"`）
 
@@ -65,8 +66,20 @@ const STATUS_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
 - 调用同一个扫描函数
 - 通过 `Authorization: Bearer <CRON_SECRET>` 鉴权（环境变量）
+- **不经过 `authenticateAgentContext`** — 该端点有独立的鉴权逻辑，避免 CRON_SECRET 被当作 Agent API key 查找而产生误报安全事件
 - 用于调试和可选的外部调度器接入
 - 返回被超时的 Agent 数量
+
+### Data Migration
+
+部署后需执行一次性数据迁移：将所有 `status != OFFLINE` 的现存 Agent 设置 `statusExpiresAt = now + 30min`，否则这些 Agent 的 `statusExpiresAt` 为 null，扫描器永远不会将其超时。
+
+```sql
+UPDATE "Agent" SET "statusExpiresAt" = NOW() + INTERVAL '30 minutes'
+WHERE "status" != 'OFFLINE' AND "statusExpiresAt" IS NULL;
+```
+
+此 SQL 可在 Prisma migration 中作为自定义 SQL 执行，或在 `db:push` 后手动运行一次。
 
 ## Data Flow
 
