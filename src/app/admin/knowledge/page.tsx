@@ -387,14 +387,14 @@ export default function AdminKnowledgePage() {
       )}
 
       {/* Upload section */}
-      <Card className="p-4">
+      <Card className="p-5">
         <h2 className="font-semibold text-foreground mb-4">{t("admin.knowledge.upload")}</h2>
 
         {/* Preview area for folder upload */}
         {previewFiles && !folderUploading && (
-          <div className="mb-4 p-3 rounded-lg border border-accent/30 bg-accent/5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-medium text-foreground">
+          <div className="mb-4 p-4 rounded-xl border border-accent/20 bg-accent/5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="font-medium text-foreground text-sm">
                 {t("admin.knowledge.uploadPreview", { count: String(previewFiles.length) })}
               </span>
               <div className="flex gap-2">
@@ -406,12 +406,15 @@ export default function AdminKnowledgePage() {
                 </Button>
               </div>
             </div>
-            <div className="max-h-40 overflow-y-auto text-sm text-muted">
+            <div className="max-h-40 overflow-y-auto text-sm text-muted space-y-0.5">
               {previewFiles.slice(0, 10).map((f) => (
-                <div key={f.relativePath}>• {f.relativePath}</div>
+                <div key={f.relativePath} className="flex items-center gap-1.5">
+                  <FileText className="h-3 w-3 shrink-0 text-muted/50" />
+                  <span className="truncate">{f.relativePath}</span>
+                </div>
               ))}
               {previewFiles.length > 10 && (
-                <div className="text-muted/60">... and {previewFiles.length - 10} more</div>
+                <div className="text-muted/60 pl-[18px]">... and {previewFiles.length - 10} more</div>
               )}
             </div>
           </div>
@@ -419,15 +422,15 @@ export default function AdminKnowledgePage() {
 
         {/* Upload progress */}
         {folderUploading && (
-          <div className="mb-4 p-3 rounded-lg border border-accent/30 bg-accent/5">
+          <div className="mb-4 p-4 rounded-xl border border-accent/20 bg-accent/5">
             <div className="flex items-center gap-3">
-              <div className="flex-1 h-2 bg-background rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 bg-background rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-accent transition-all"
+                  className="h-full bg-accent rounded-full transition-all duration-300"
                   style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
                 />
               </div>
-              <span className="text-sm text-muted whitespace-nowrap">
+              <span className="text-sm text-muted whitespace-nowrap tabular-nums">
                 {t("admin.knowledge.uploadingProgress", {
                   current: String(uploadProgress.current),
                   total: String(uploadProgress.total),
@@ -439,46 +442,65 @@ export default function AdminKnowledgePage() {
 
         {/* Failed files list */}
         {failedFiles.length > 0 && (
-          <div className="mb-4 p-3 rounded-lg border border-danger/30 bg-danger/5">
-            <p className="text-sm text-danger mb-2">
+          <div className="mb-4 p-4 rounded-xl border border-danger/20 bg-danger/5">
+            <p className="text-sm text-danger font-medium mb-2">
               {t("admin.knowledge.uploadFailedSome", { count: String(failedFiles.length) })}
             </p>
-            <div className="max-h-32 overflow-y-auto text-sm text-muted">
+            <div className="max-h-32 overflow-y-auto text-sm text-muted space-y-0.5">
               {failedFiles.map((f) => (
-                <div key={f.path}>• {f.path}: {f.error}</div>
+                <div key={f.path} className="flex items-center gap-1.5">
+                  <span className="text-danger/60 shrink-0">&times;</span>
+                  <span className="truncate">{f.path}</span>
+                  <span className="text-muted/50 shrink-0">{f.error}</span>
+                </div>
               ))}
             </div>
           </div>
         )}
 
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm text-muted mb-1">
-              {t("admin.knowledge.selectFile")}
-            </label>
+        {/* Upload controls */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <label className="group flex items-center gap-3 rounded-xl border border-card-border/50 bg-background/40 px-4 py-3 cursor-pointer hover:border-accent/30 hover:bg-accent/[0.03] transition-all">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent group-hover:bg-accent/15 transition-colors">
+              <FileText className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium text-foreground">{t("admin.knowledge.selectFile")}</div>
+              <div className="text-xs text-muted truncate">
+                {selectedFile ? selectedFile.name : ".md"}
+              </div>
+            </div>
             <input
               ref={fileInputRef}
               type="file"
               accept=".md"
               onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-              className="block w-full text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-accent/10 file:text-accent hover:file:bg-accent/20"
+              className="sr-only"
             />
-          </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm text-muted mb-1">
-              {t("admin.knowledge.selectFolder")}
-            </label>
+          </label>
+
+          <label className="group flex items-center gap-3 rounded-xl border border-card-border/50 bg-background/40 px-4 py-3 cursor-pointer hover:border-accent/30 hover:bg-accent/[0.03] transition-all">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent group-hover:bg-accent/15 transition-colors">
+              <Folder className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium text-foreground">{t("admin.knowledge.selectFolder")}</div>
+              <div className="text-xs text-muted">.md</div>
+            </div>
             <input
               ref={folderInputRef}
               type="file"
               // @ts-expect-error webkitdirectory is not in types
               webkitdirectory=""
               onChange={handleFolderSelect}
-              className="block w-full text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-accent/10 file:text-accent hover:file:bg-accent/20"
+              className="sr-only"
             />
-          </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm text-muted mb-1">
+          </label>
+        </div>
+
+        <div className="flex items-end gap-3">
+          <div className="flex-1">
+            <label className="block text-xs text-muted mb-1.5">
               {t("admin.knowledge.targetPath")}
             </label>
             <input
@@ -486,12 +508,13 @@ export default function AdminKnowledgePage() {
               value={targetPath}
               onChange={(e) => setTargetPath(e.target.value)}
               placeholder={t("admin.knowledge.targetPathPlaceholder")}
-              className="w-full rounded-lg border border-card-border bg-card px-4 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+              className="w-full rounded-xl border border-card-border/50 bg-background/40 px-4 py-2.5 text-sm text-foreground placeholder:text-muted/60 focus:border-accent/40 focus:outline-none transition-colors"
             />
           </div>
           <Button
             onClick={() => void handleUpload()}
             disabled={uploading || !selectedFile || folderUploading}
+            className="shrink-0"
           >
             <Upload className="h-4 w-4 mr-2" />
             {uploading ? t("admin.knowledge.uploading") : t("admin.knowledge.upload")}
@@ -502,9 +525,12 @@ export default function AdminKnowledgePage() {
         <div
           onDrop={handleDrop}
           onDragOver={handleDragOver}
-          className="mt-4 p-6 border-2 border-dashed border-card-border rounded-lg text-center text-sm text-muted hover:border-accent/50 transition-colors cursor-pointer"
+          className="group mt-4 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-card-border/60 bg-background/20 py-8 text-center transition-all hover:border-accent/40 hover:bg-accent/[0.02] cursor-pointer"
         >
-          {t("admin.knowledge.dropHint")}
+          <Upload className="h-5 w-5 text-muted/40 group-hover:text-accent/50 transition-colors" />
+          <span className="text-sm text-muted/70 group-hover:text-muted transition-colors">
+            {t("admin.knowledge.dropHint")}
+          </span>
         </div>
       </Card>
 
@@ -514,24 +540,37 @@ export default function AdminKnowledgePage() {
           <span className="text-muted animate-pulse">{t("common.loading")}</span>
         </div>
       ) : !state?.configured ? (
-        <Card className="text-center py-12">
-          <Folder className="mx-auto h-10 w-10 text-muted/40 mb-3" />
-          <p className="text-muted">{t("admin.knowledge.notConfigured")}</p>
-          <p className="text-sm text-muted/60 mt-1">{t("admin.knowledge.notConfiguredDesc")}</p>
+        <Card className="text-center py-16">
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/[0.06]">
+              <Folder className="h-7 w-7 text-muted/30" />
+            </div>
+            <div>
+              <p className="text-foreground/70 font-medium">{t("admin.knowledge.notConfigured")}</p>
+              <p className="text-sm text-muted/60 mt-1">{t("admin.knowledge.notConfiguredDesc")}</p>
+            </div>
+          </div>
         </Card>
       ) : state.documents.length === 0 ? (
-        <Card className="text-center py-12">
-          <FileText className="mx-auto h-10 w-10 text-muted/40 mb-3" />
-          <p className="text-muted">{t("admin.knowledge.empty")}</p>
+        <Card className="text-center py-16">
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/[0.06]">
+              <FileText className="h-7 w-7 text-muted/30" />
+            </div>
+            <p className="text-foreground/70 font-medium">{t("admin.knowledge.empty")}</p>
+          </div>
         </Card>
       ) : (
         <Card className="p-0 overflow-hidden">
           <div className="divide-y divide-card-border/30">
             {state.documents.map((doc) => (
-              <div key={doc.path} className="flex items-center gap-3 px-4 py-3">
+              <div key={doc.path} className="group flex items-center gap-3 px-5 py-3.5 hover:bg-foreground/[0.02] transition-colors">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/[0.07] text-accent/60">
+                  <FileText className="h-4 w-4" />
+                </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground">
+                    <span className="font-medium text-sm text-foreground">
                       {doc.title}
                     </span>
                     {doc.isDirectoryIndex && (
@@ -541,14 +580,14 @@ export default function AdminKnowledgePage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-muted">
-                    <span>{t("admin.knowledge.path")}: {doc.path || "/"}</span>
+                    <span className="truncate">{doc.path || "/"}</span>
                     <span>&middot;</span>
-                    <span>{formatTimeAgo(doc.lastModified)}</span>
+                    <span className="shrink-0">{formatTimeAgo(doc.lastModified)}</span>
                   </div>
                 </div>
                 <Button
                   variant="danger"
-                  className="shrink-0 text-xs px-3 py-1.5"
+                  className="shrink-0 text-xs px-3 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
                   disabled={deletingPath === doc.path}
                   onClick={() => void handleDelete(doc.path)}
                 >
