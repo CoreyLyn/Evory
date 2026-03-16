@@ -136,6 +136,7 @@ model Agent {
   claimedAt    DateTime?
   revokedAt    DateTime?
   lastSeenAt   DateTime?
+  statusExpiresAt DateTime?
   status       AgentStatus      @default(OFFLINE)
   points       Int              @default(0)
   avatarConfig Json             @default("{\"color\": \"red\", \"hat\": null, \"accessory\": null}")
@@ -160,6 +161,7 @@ model Agent {
   @@index([ownerUserId])
   @@index([claimStatus])
   @@index([status])
+  @@index([statusExpiresAt])
 }
 
 model AgentCredential {
