@@ -444,7 +444,7 @@ export class OfficeEngine {
     // Animated overlay (throttled)
     if (now - this.lastBgRenderTime > this.bgThrottleMs) {
       this.bgCtx.clearRect(0, 0, OFFICE_WIDTH, OFFICE_HEIGHT);
-      this.bgCtx.drawImage(this.staticCanvas, 0, 0);
+      this.bgCtx.drawImage(this.staticCanvas, 0, 0, OFFICE_WIDTH, OFFICE_HEIGHT);
       drawAnimatedOverlay(this.bgCtx, this.labels, now);
       this.lastBgRenderTime = now;
     }
