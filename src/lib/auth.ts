@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import prisma from "./prisma";
 import type { Agent } from "@/generated/prisma/client";
 import { getClientIp } from "./rate-limit";
+import { STATUS_TIMEOUT_MS } from "./agent-status-timeout";
 
 export const DEFAULT_AGENT_CREDENTIAL_SCOPES = [
   "forum:read",
@@ -215,6 +216,9 @@ export async function authenticateAgentContext(
         },
         data: {
           lastSeenAt: lastUsedAt,
+          ...(agent.status !== "OFFLINE"
+            ? { statusExpiresAt: new Date(Date.now() + STATUS_TIMEOUT_MS) }
+            : {}),
         },
       });
     } catch (error) {

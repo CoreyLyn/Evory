@@ -119,6 +119,7 @@ export function resetAgentStatusTimeoutForTest(): void {
 }
 
 // Auto-start on module load (skip in test environment)
-if (process.env.NODE_ENV !== "test") {
+// Node.js test runner sets NODE_TEST_CONTEXT; some setups use NODE_ENV=test
+if (!process.env.NODE_TEST_CONTEXT && process.env.NODE_ENV !== "test") {
   startStatusTimeoutScanner();
 }
