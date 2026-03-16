@@ -16,7 +16,7 @@ import {
   getRealtimeClientMode,
   parseRealtimeCapabilitiesEvent,
 } from "@/lib/realtime-client";
-import { Users, Activity, Layers, ActivitySquare, X, Clock, Zap } from "lucide-react";
+import { Users, Activity, Layers, ActivitySquare, X, Clock, Zap, ChevronRight } from "lucide-react";
 import { AgentSidebar } from "./agent-sidebar";
 import { ActivityFeed, FeedItem } from "./activity-feed";
 
@@ -171,6 +171,7 @@ export default function OfficePage() {
   const [agentsList, setAgentsList] = useState<OfficeAgent[]>([]);
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [legendExpanded, setLegendExpanded] = useState(false);
   const agentsListRef = useRef<OfficeAgent[]>([]);
 
   const buildCanvasLabels = useCallback((): CanvasLabels => {
@@ -452,22 +453,28 @@ export default function OfficePage() {
           style={{ cursor: "grab" }}
         />
 
-        {/* Floating Zones Legend — hidden on mobile (canvas has zone labels) */}
-        <div className="hidden sm:block absolute bottom-6 left-6 bg-background/60 backdrop-blur-xl border border-card-border/50 rounded-xl p-4 shadow-xl pointer-events-none opacity-95">
-          <div className="flex items-center gap-2 mb-3">
+        {/* Floating Zones Legend — collapsible, click to toggle  */}
+        <div
+          className={`hidden sm:block absolute bottom-6 left-6 bg-background/60 backdrop-blur-xl border border-card-border/50 rounded-xl shadow-xl transition-all duration-300 cursor-pointer select-none ${legendExpanded ? 'p-4 opacity-95' : 'px-3 py-2 opacity-80 hover:opacity-95'}`}
+          onClick={() => setLegendExpanded(prev => !prev)}
+        >
+          <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-foreground/60" />
             <p className="text-xs text-foreground/80 font-semibold tracking-wider uppercase">{t("office.zones")}</p>
+            <ChevronRight className={`w-3 h-3 text-muted transition-transform duration-200 ${legendExpanded ? 'rotate-90' : ''}`} />
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2.5">
-            {ZONES.map((zone) => (
-              <div key={zone.name} className="flex items-center gap-2 text-xs">
-                <span className="text-sm bg-foreground/5 p-1 rounded-md">{zone.icon}</span>
-                <span className="text-foreground/80 font-medium">
-                  {ZONE_LABEL_KEYS[zone.name] ? t(ZONE_LABEL_KEYS[zone.name]) : zone.label}
-                </span>
-              </div>
-            ))}
-          </div>
+          {legendExpanded && (
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2.5 mt-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              {ZONES.map((zone) => (
+                <div key={zone.name} className="flex items-center gap-2 text-xs">
+                  <span className="text-sm bg-foreground/5 p-1 rounded-md">{zone.icon}</span>
+                  <span className="text-foreground/80 font-medium">
+                    {ZONE_LABEL_KEYS[zone.name] ? t(ZONE_LABEL_KEYS[zone.name]) : zone.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Floating Status Legend — compact dot-only mode when detail card is open */}
@@ -505,7 +512,7 @@ export default function OfficePage() {
           const statusLabelKey = STATUS_LEGEND.find(s => s.status === agent.status)?.labelKey || "office.statusOffline";
 
           return (
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-48 w-80 bg-card/80 sm:backdrop-blur-2xl border border-card-border/60 rounded-2xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-6 w-80 bg-card/80 sm:backdrop-blur-2xl border border-card-border/60 rounded-2xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-4 duration-300" style={{ maxHeight: 'calc(100% - 3rem)' }}>
 
               {/* Header / Banner */}
               <div className="h-16 w-full relative" style={{ backgroundColor: `${statusColor}20` }}>

@@ -73,10 +73,18 @@ export function AgentSidebar({
     return (
       <button
         onClick={onToggle}
-        className="absolute top-6 left-6 z-10 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-xl p-3 shadow-xl hover:bg-background/80 transition-all"
+        className="absolute top-6 left-6 z-10 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-xl p-3 shadow-xl hover:bg-background/80 transition-all group"
         title={t("office.sidebar.title") as string}
       >
-        <Users className="w-5 h-5 text-foreground/70" />
+        <Users className="w-5 h-5 text-foreground/70 group-hover:text-foreground transition-colors" />
+        {/* Pulse ring for discoverability */}
+        <span className="absolute inset-0 rounded-xl border-2 border-primary/30 animate-ping opacity-30 pointer-events-none" style={{ animationDuration: '3s' }} />
+        {/* Count badge */}
+        {agents.length > 0 && (
+          <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full">
+            {agents.length}
+          </span>
+        )}
       </button>
     );
   }

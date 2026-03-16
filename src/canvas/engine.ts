@@ -14,6 +14,35 @@ import {
 } from "./office";
 import { CANVAS_FONTS } from "./theme";
 
+// Ambient floating particles for atmosphere
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  alpha: number;
+  hue: number; // 0-360
+}
+
+const PARTICLE_COUNT = 15;
+
+function createParticles(): Particle[] {
+  const particles: Particle[] = [];
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    particles.push({
+      x: Math.random() * OFFICE_WIDTH,
+      y: Math.random() * OFFICE_HEIGHT,
+      vx: (Math.random() - 0.5) * 0.15,
+      vy: (Math.random() - 0.5) * 0.1,
+      radius: 1 + Math.random() * 2,
+      alpha: 0.1 + Math.random() * 0.15,
+      hue: [200, 210, 260, 170, 190][Math.floor(Math.random() * 5)],
+    });
+  }
+  return particles;
+}
+
 // Static HUD rgba constants — avoid per-frame allocation
 const HUD_BG = "rgba(15, 23, 42, 0.7)";
 const HUD_SHADOW = "rgba(0, 0, 0, 0.3)";
@@ -51,6 +80,7 @@ export class OfficeEngine {
   private bubbles: ActivityBubble[] = [];
   private bgThrottleMs: number = 50; // default: 50ms (~20fps)
   private labels: CanvasLabels = DEFAULT_LABELS;
+  private particles: Particle[] = createParticles();
   private hudOnline: string = "Online:";
   private onAgentClick?: (id: string) => void;
   private onEmptyClick?: () => void;
@@ -441,6 +471,17 @@ export class OfficeEngine {
     }
     updateBubbles(this.bubbles);
 
+    // Update ambient particles
+    for (const p of this.particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      // Wrap around
+      if (p.x < 0) p.x = OFFICE_WIDTH;
+      if (p.x > OFFICE_WIDTH) p.x = 0;
+      if (p.y < 0) p.y = OFFICE_HEIGHT;
+      if (p.y > OFFICE_HEIGHT) p.y = 0;
+    }
+
     if (anyMoving) this.dirty = true;
 
     // Focus easing
@@ -499,6 +540,15 @@ export class OfficeEngine {
 
     // Draw the cached background
     ctx.drawImage(this.bgCanvas, 0, 0, OFFICE_WIDTH, OFFICE_HEIGHT);
+
+    // Draw ambient particles
+    for (const p of this.particles) {
+      const pAlpha = p.alpha * (0.7 + 0.3 * Math.sin(now / 2000 + p.x * 0.01));
+      ctx.fillStyle = `hsla(${p.hue}, 60%, 75%, ${pAlpha})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // Calculate Frustum Culling Viewport
     // How much of the world is currently visible on the screen?

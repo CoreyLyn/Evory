@@ -293,30 +293,46 @@ export function drawNameTag(
   const s = scale;
   ctx.save();
 
-  const font = `${8 * s}px monospace`;
+  const font = `${8 * s}px system-ui, -apple-system, sans-serif`;
   ctx.font = font;
   ctx.textAlign = "center";
 
   // LOD Logic: Only measure and draw points if zoomed in enough, or hovered
   const showPoints = engineScale >= 1.2 || isHovered;
 
-  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
   const textWidth = cachedMeasureText(ctx, name, font);
+  const pillPad = 6 * s;
+  const pillW = textWidth + pillPad * 2;
+  const pillH = showPoints ? 20 * s : 12 * s;
+  const pillX = x - pillW / 2;
+  const pillY = y + 18 * s;
+  const pillR = 5 * s;
 
-  // Adjust pill background height based on whether we show points
-  const bgHeight = showPoints ? 18 * s : 10 * s;
-  ctx.fillRect(x - textWidth / 2 - 4 * s, y + 18 * s, textWidth + 8 * s, bgHeight);
+  // Pill background with subtle gradient
+  const bgGrad = ctx.createLinearGradient(pillX, pillY, pillX, pillY + pillH);
+  bgGrad.addColorStop(0, "rgba(15, 23, 42, 0.75)");
+  bgGrad.addColorStop(1, "rgba(15, 23, 42, 0.6)");
+  ctx.fillStyle = bgGrad;
+  ctx.beginPath();
+  ctx.roundRect(pillX, pillY, pillW, pillH, pillR);
+  ctx.fill();
+
+  // Pill border
+  ctx.strokeStyle = isHovered ? "rgba(56, 189, 248, 0.5)" : "rgba(148, 163, 184, 0.2)";
+  ctx.lineWidth = s * 0.5;
+  ctx.stroke();
 
   // Name Text
-  ctx.fillStyle = "#e0e0ff";
-  ctx.fillText(name, x, y + 26 * s); // Adjusted Y slightly for better centering when no points
+  ctx.fillStyle = isHovered ? "#f1f5f9" : "#e0e0ff";
+  ctx.textBaseline = "middle";
+  ctx.fillText(name, x, pillY + (showPoints ? 7 * s : pillH / 2));
 
   // Points Text
   if (showPoints) {
-    ctx.font = `${6 * s}px monospace`;
-    ctx.fillStyle = "#ffcc00"; // yellow-400 equivalent
-    // Use the actual 'points' value, plus a small diamond or star icon for flair
-    ctx.fillText(`✦ ${points}`, x, y + 34 * s);
+    const ptFont = `${6 * s}px system-ui, -apple-system, sans-serif`;
+    ctx.font = ptFont;
+    ctx.fillStyle = "#fbbf24";
+    ctx.fillText(`✦ ${points}`, x, pillY + 15 * s);
   }
 
   ctx.restore();

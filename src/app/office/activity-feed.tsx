@@ -65,7 +65,7 @@ export function ActivityFeed({ items, onAgentClick }: ActivityFeedProps) {
   }, [visibleItems, now]);
 
   return (
-    <div className="absolute bottom-0 right-0 sm:bottom-6 sm:right-6 w-full sm:w-80 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-none sm:rounded-xl shadow-xl transition-all duration-300 opacity-90 hover:opacity-100 z-10">
+    <div className={`absolute bottom-0 right-0 sm:bottom-6 sm:right-6 w-full sm:w-72 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-none sm:rounded-xl shadow-xl transition-all duration-500 z-10 ${items.length === 0 ? 'opacity-0 pointer-events-none translate-y-2' : 'opacity-90 hover:opacity-100'}`}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-card-border/30">
         <div className="flex items-center gap-2">
