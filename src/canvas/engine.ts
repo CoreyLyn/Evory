@@ -597,55 +597,6 @@ export class OfficeEngine {
 
     ctx.restore();
 
-    // HUD overlay
-    const onlineCount = this.onlineCount;
-    const totalCount = this.agents.size;
-    const hudText = `${this.hudOnline} ${onlineCount} / ${totalCount}`;
-
-    ctx.save();
-    const hudFont = CANVAS_FONTS.hud;
-    ctx.font = hudFont;
-
-    // Measure text for pill width
-    const pillWidth = cachedMeasureText(ctx, hudText, hudFont) + 24;
-    const pillHeight = 28;
-    const pillX = 16;
-    const pillY = this.logicalHeight - pillHeight - 16;
-
-    // HUD Pill Background
-    ctx.fillStyle = HUD_BG;
-    ctx.shadowColor = HUD_SHADOW;
-    ctx.shadowBlur = 8;
-    ctx.beginPath();
-    ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 14);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-
-    // HUD Pill Border
-    ctx.strokeStyle = HUD_BORDER;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // HUD Text
-    ctx.fillStyle = HUD_TEXT_COLOR;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    ctx.fillText(hudText, pillX + 12, pillY + pillHeight / 2);
-
-    // Status Indicator Dot (Pulsing) — use globalAlpha to avoid template string
-    ctx.fillStyle = HUD_DOT_HEX;
-    const pulseFade = ((Math.sin(now / 300) + 1) / 2);
-    const dotAlpha = 0.4 + pulseFade * 0.4;
-    ctx.shadowColor = HUD_DOT_COLOR;
-    ctx.globalAlpha = dotAlpha;
-    ctx.shadowBlur = 4 + pulseFade * 4;
-    ctx.beginPath();
-    ctx.arc(pillX + pillWidth - 14, pillY + pillHeight / 2, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = 1;
-
-    ctx.restore();
     ctx.restore(); // DPR scale
   }
 
