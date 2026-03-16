@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { Search, Users, ChevronRight } from "lucide-react";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -44,6 +44,14 @@ export function AgentSidebar({
   const t = useT();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const listRef = useRef<HTMLUListElement>(null);
+
+  const focusListItem = useCallback((index: number) => {
+    const buttons = listRef.current?.querySelectorAll<HTMLButtonElement>(":scope > li > button");
+    if (buttons && buttons[index]) {
+      buttons[index].focus();
+    }
+  }, []);
 
   const filteredAgents = useMemo(() => {
     return agents.filter((agent) => {
@@ -102,6 +110,15 @@ export function AgentSidebar({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && filteredAgents.length > 0) {
+                e.preventDefault();
+                onAgentClick(filteredAgents[0].id);
+              } else if (e.key === "ArrowDown") {
+                e.preventDefault();
+                focusListItem(0);
+              }
+            }}
             placeholder={t("office.sidebar.search") as string}
             className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-card-border/40 bg-foreground/[0.02] text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary/30 transition-colors"
           />
@@ -145,11 +162,20 @@ export function AgentSidebar({
             {t("office.sidebar.noResults")}
           </p>
         ) : (
-          <ul className="space-y-0.5">
-            {filteredAgents.map((agent) => (
+          <ul ref={listRef} className="space-y-0.5">
+            {filteredAgents.map((agent, i) => (
               <li key={agent.id}>
                 <button
                   onClick={() => onAgentClick(agent.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      focusListItem(i + 1);
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      if (i > 0) focusListItem(i - 1);
+                    }
+                  }}
                   className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all ${
                     selectedAgentId === agent.id
                       ? "bg-primary/10 ring-1 ring-primary/20"

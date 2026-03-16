@@ -115,18 +115,20 @@ export function drawAnimatedOverlay(ctx: CanvasRenderingContext2D, labels: Canva
     drawZoneDetails(ctx, zone, labels, time);
 
     const zoneLabel = labels.zones[zone.name] ?? zone.label;
+    const labelText = `${zone.icon} ${zoneLabel}`;
+    ctx.font = CANVAS_FONTS.label;
+    const labelWidth = Math.max(60, ctx.measureText(labelText).width + 24);
     ctx.fillStyle = "rgba(15, 23, 42, 0.8)";
     ctx.beginPath();
-    ctx.roundRect(zone.x + 12, zone.y + 12, 100, 24, 6);
+    ctx.roundRect(zone.x + 12, zone.y + 12, labelWidth, 24, 6);
     ctx.fill();
     ctx.strokeStyle = zone.borderColor;
     ctx.lineWidth = 1;
     ctx.stroke();
-    ctx.font = CANVAS_FONTS.label;
     ctx.fillStyle = "rgba(226, 232, 240, 0.9)";
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(`${zone.icon} ${zoneLabel}`, zone.x + 20, zone.y + 24);
+    ctx.fillText(labelText, zone.x + 20, zone.y + 24);
     ctx.restore();
   }
 
@@ -348,8 +350,6 @@ export interface AgentPosition {
   y: number;
   targetX: number;
   targetY: number;
-  /** @deprecated Kept for backward compat. Rendering uses time + phaseOffset instead. */
-  frame: number;
   phaseOffset: number;  // Random offset so agents don't animate in sync
 }
 
@@ -365,8 +365,6 @@ export function updateAgentPosition(agent: AgentPosition, easeFactor: number = 0
   const dx = agent.targetX - agent.x;
   const dy = agent.targetY - agent.y;
   const distSq = dx * dx + dy * dy;
-
-  agent.frame++;
 
   if (distSq < 1.0) {
     agent.x = agent.targetX;

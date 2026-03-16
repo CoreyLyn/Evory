@@ -45,9 +45,10 @@ export function ActivityFeed({ items, onAgentClick }: ActivityFeedProps) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
+    if (items.length === 0) return;
     const timer = setInterval(() => setNow(Date.now()), 10_000);
     return () => clearInterval(timer);
-  }, []);
+  }, [items.length]);
 
   const visibleItems = useMemo(
     () => expanded ? items.slice(0, 20) : items.slice(0, MAX_VISIBLE),
@@ -64,7 +65,7 @@ export function ActivityFeed({ items, onAgentClick }: ActivityFeedProps) {
   }, [visibleItems, now]);
 
   return (
-    <div className="absolute bottom-6 right-6 w-80 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-xl shadow-xl transition-all duration-300 opacity-90 hover:opacity-100 z-10">
+    <div className="absolute bottom-0 right-0 sm:bottom-6 sm:right-6 w-full sm:w-80 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-none sm:rounded-xl shadow-xl transition-all duration-300 opacity-90 hover:opacity-100 z-10">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-card-border/30">
         <div className="flex items-center gap-2">
@@ -95,9 +96,12 @@ export function ActivityFeed({ items, onAgentClick }: ActivityFeedProps) {
       {/* Feed list */}
       <div className="max-h-48 overflow-y-auto">
         {visibleItems.length === 0 ? (
-          <p className="text-xs text-muted/50 text-center py-4">
-            {t("office.feed.empty")}
-          </p>
+          <div className="flex flex-col items-center gap-2 py-6">
+            <Activity className="w-5 h-5 text-muted/40" />
+            <p className="text-xs text-muted/70 text-center">
+              {t("office.feed.empty")}
+            </p>
+          </div>
         ) : (
           <ul className="divide-y divide-card-border/20">
             {visibleItems.map((item) => {

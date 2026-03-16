@@ -53,6 +53,7 @@ export class OfficeEngine {
   private labels: CanvasLabels = DEFAULT_LABELS;
   private hudOnline: string = "Online:";
   private onAgentClick?: (id: string) => void;
+  private onEmptyClick?: () => void;
   private abortController = new AbortController();
   private sortedAgents: AgentPosition[] = [];
   private bubbleMap: Map<string, ActivityBubble> = new Map();
@@ -63,6 +64,8 @@ export class OfficeEngine {
   private logicalHeight: number = 0;
   private dirty: boolean = true;
   private idleFrames: number = 0;
+  private idleInterval: ReturnType<typeof setInterval> | null = null;
+  private isIdleMode: boolean = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -93,11 +96,27 @@ export class OfficeEngine {
     this.onAgentClick = callback;
   }
 
+  setOnEmptyClick(callback: () => void) {
+    this.onEmptyClick = callback;
+  }
+
+  /** Wake up from idle polling mode back to rAF loop */
+  private wake() {
+    if (!this.isIdleMode) return;
+    this.isIdleMode = false;
+    if (this.idleInterval !== null) {
+      clearInterval(this.idleInterval);
+      this.idleInterval = null;
+    }
+    this.start();
+  }
+
   addBubble(agentId: string, action: BubbleAction, text: string) {
     // Max 1 bubble per agent at a time — replace existing
     this.bubbles = this.bubbles.filter(b => b.agentId !== agentId);
     this.bubbles.push(createBubble(agentId, action, text));
     this.dirty = true;
+    this.wake();
   }
 
   private setupEvents() {
@@ -142,10 +161,12 @@ export class OfficeEngine {
 
       const prevHovered = this.hoveredAgent;
       this.hoveredAgent = null;
+      const hitX = Math.max(10, 20 / this.scale);
+      const hitY = Math.max(12, 25 / this.scale);
       for (const [id, agent] of this.agents) {
         const dx = worldX - agent.x;
         const dy = worldY - agent.y;
-        if (Math.abs(dx) < 20 && Math.abs(dy) < 25) {
+        if (Math.abs(dx) < hitX && Math.abs(dy) < hitY) {
           this.hoveredAgent = id;
           break;
         }
@@ -171,6 +192,8 @@ export class OfficeEngine {
     this.canvas.addEventListener("click", () => {
       if (this.hoveredAgent && this.onAgentClick) {
         this.onAgentClick(this.hoveredAgent);
+      } else if (!this.hoveredAgent && this.onEmptyClick) {
+        this.onEmptyClick();
       }
     }, opts);
 
@@ -234,16 +257,23 @@ export class OfficeEngine {
       if (e.touches.length === 0) {
         // Tap detection: only treat as tap if total drag distance was minimal
         const totalDist = Math.hypot(lastTouchX - touchStartX, lastTouchY - touchStartY);
-        if (isTouchDragging && totalDist < 10 && this.onAgentClick) {
+        if (isTouchDragging && totalDist < 18) {
           // Compute tapped agent from touch coordinates (hoveredAgent is mouse-only)
           const rect = this.canvas.getBoundingClientRect();
           const worldX = (lastTouchX - rect.left - this.offsetX) / this.scale;
           const worldY = (lastTouchY - rect.top - this.offsetY) / this.scale;
+          const touchHitX = Math.max(10, 20 / this.scale);
+          const touchHitY = Math.max(12, 25 / this.scale);
+          let tapped = false;
           for (const [id, agent] of this.agents) {
-            if (Math.abs(worldX - agent.x) < 20 && Math.abs(worldY - agent.y) < 25) {
-              this.onAgentClick(id);
+            if (Math.abs(worldX - agent.x) < touchHitX && Math.abs(worldY - agent.y) < touchHitY) {
+              if (this.onAgentClick) this.onAgentClick(id);
+              tapped = true;
               break;
             }
+          }
+          if (!tapped && this.onEmptyClick) {
+            this.onEmptyClick();
           }
         }
         isTouchDragging = false;
@@ -294,7 +324,6 @@ export class OfficeEngine {
           y: pos.y,
           targetX: pos.x,
           targetY: pos.y,
-          frame: Math.floor(Math.random() * 1000),
           phaseOffset: Math.random() * Math.PI * 2,
         });
       }
@@ -311,9 +340,11 @@ export class OfficeEngine {
     }
 
     this.dirty = true;
+    this.wake();
   }
 
   start() {
+    if (this.isIdleMode) return; // Don't start rAF while in idle polling mode
     this.lastBgRenderTime = 0;
     const render = () => {
       this.update();
@@ -331,6 +362,18 @@ export class OfficeEngine {
         this.idleFrames++;
       }
 
+      // Switch to idle polling after ~2 seconds of inactivity (120 frames)
+      if (this.idleFrames > 120) {
+        this.animationId = null;
+        this.isIdleMode = true;
+        this.idleInterval = setInterval(() => {
+          if (this.dirty || this.bubbles.length > 0 || this.focusTarget !== null) {
+            this.wake();
+          }
+        }, 500);
+        return;
+      }
+
       this.animationId = requestAnimationFrame(render);
     };
     this.animationId = requestAnimationFrame(render);
@@ -341,6 +384,11 @@ export class OfficeEngine {
       cancelAnimationFrame(this.animationId);
       this.animationId = null;
     }
+    if (this.idleInterval !== null) {
+      clearInterval(this.idleInterval);
+      this.idleInterval = null;
+    }
+    this.isIdleMode = false;
   }
 
   destroy() {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { OfficeEngine, AgentData } from "@/canvas/engine";
 import { ZONES, type CanvasLabels } from "@/canvas/office";
 import { STATUS_COLORS } from "@/canvas/theme";
@@ -28,6 +28,15 @@ const ZONE_LABEL_KEYS: Record<string, TranslationKey> = {
   lounge: "zone.lounge",
   shop: "zone.shop",
 };
+
+const STATUS_LEGEND = [
+  { status: "WORKING", color: STATUS_COLORS.WORKING, labelKey: "office.statusWorking" as const },
+  { status: "POSTING", color: STATUS_COLORS.POSTING, labelKey: "office.statusPosting" as const },
+  { status: "READING", color: STATUS_COLORS.READING, labelKey: "office.statusReading" as const },
+  { status: "ONLINE", color: STATUS_COLORS.ONLINE, labelKey: "office.statusOnline" as const },
+  { status: "IDLE", color: STATUS_COLORS.IDLE, labelKey: "office.statusIdle" as const },
+  { status: "OFFLINE", color: STATUS_COLORS.OFFLINE, labelKey: "office.statusOffline" as const },
+];
 
 type OfficeAgent = AgentData & {
   type?: string;
@@ -94,9 +103,9 @@ function mergeOfficeAgent(
     updatedAt: nextAgent.updatedAt ?? existing.updatedAt,
   };
 
-  return current.map((agent, agentIndex) =>
-    agentIndex === index ? merged : agent
-  );
+  const next = [...current];
+  next.splice(index, 1, merged);
+  return next;
 }
 
 function liveEventToBubble(
@@ -188,7 +197,7 @@ export default function OfficePage() {
   useEffect(() => { agentsListRef.current = agentsList; }, [agentsList]);
 
   const agentCount = agentsList.length;
-  const onlineCount = agentsList.filter((agent) => agent.status !== "OFFLINE").length;
+  const onlineCount = useMemo(() => agentsList.filter((agent) => agent.status !== "OFFLINE").length, [agentsList]);
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -245,6 +254,9 @@ export default function OfficePage() {
     engine.setOnAgentClick((id: string) => {
       setSelectedAgentId(id);
     });
+    engine.setOnEmptyClick(() => {
+      setSelectedAgentId(null);
+    });
     engineRef.current = engine;
 
     const handleResize = () => {
@@ -275,72 +287,89 @@ export default function OfficePage() {
     }
 
     if (typeof EventSource !== "undefined") {
-      eventSource = new EventSource("/api/events");
+      let backoffMs = 1000;
+      let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-      const handleCapability = (message: MessageEvent<string>) => {
-        const capabilities = parseRealtimeCapabilitiesEvent(message.data);
-        if (!capabilities) return;
+      function connectEventSource() {
+        eventSource = new EventSource("/api/events");
 
-        if (getRealtimeClientMode(capabilities) === "stream") {
-          stopFallbackPolling();
-          return;
-        }
+        const handleCapability = (message: MessageEvent<string>) => {
+          const capabilities = parseRealtimeCapabilitiesEvent(message.data);
+          if (!capabilities) return;
 
-        startFallbackPolling();
-      };
+          // Successful connection — reset backoff and stop polling
+          backoffMs = 1000;
 
-      const handleLiveEvent = (message: MessageEvent<string>) => {
-        try {
-          const event = JSON.parse(message.data) as LiveEvent;
-
-          // Handle agent status updates (existing behavior)
-          if (event.type === "agent.status.updated") {
-            const statusEvent = event as LiveEvent<"agent.status.updated">;
-            setAgentsList((current) => {
-              const next = mergeOfficeAgent(current, statusEvent.payload.agent);
-              engineRef.current?.updateAgents(next);
-              return next;
-            });
+          if (getRealtimeClientMode(capabilities) === "stream") {
+            stopFallbackPolling();
+            return;
           }
 
-          // Push activity bubble for any event
-          const bubble = liveEventToBubble(event);
-          if (bubble) {
-            engineRef.current?.addBubble(bubble.agentId, bubble.action, bubble.text);
-          }
+          startFallbackPolling();
+        };
 
-          // Push to activity feed
-          if (event.type === "agent.status.updated") {
-            const e = event as LiveEvent<"agent.status.updated">;
-            if (e.payload.previousStatus && e.payload.previousStatus !== e.payload.agent.status) {
-              pushFeedItem(
-                e.payload.agent.id,
-                e.payload.agent.name,
-                "status",
-                e.payload.agent.status
-              );
+        const handleLiveEvent = (message: MessageEvent<string>) => {
+          try {
+            const event = JSON.parse(message.data) as LiveEvent;
+
+            // Handle agent status updates (existing behavior)
+            if (event.type === "agent.status.updated") {
+              const statusEvent = event as LiveEvent<"agent.status.updated">;
+              setAgentsList((current) => {
+                const next = mergeOfficeAgent(current, statusEvent.payload.agent);
+                engineRef.current?.updateAgents(next);
+                return next;
+              });
             }
-          }
-          if (bubble) {
-            const agentName = agentsListRef.current.find(a => a.id === bubble.agentId)?.name ?? bubble.agentId;
-            pushFeedItem(bubble.agentId, agentName, bubble.action, bubble.text);
-          }
-        } catch {
-          // Ignore malformed events
-        }
-      };
 
-      eventSource.addEventListener(
-        "capability",
-        handleCapability as EventListener
-      );
-      eventSource.addEventListener(
-        "live-event",
-        handleLiveEvent as EventListener
-      );
-      eventSource.onerror = () => {
-        startFallbackPolling();
-      };
+            // Push activity bubble for any event
+            const bubble = liveEventToBubble(event);
+            if (bubble) {
+              engineRef.current?.addBubble(bubble.agentId, bubble.action, bubble.text);
+            }
+
+            // Push to activity feed
+            if (event.type === "agent.status.updated") {
+              const e = event as LiveEvent<"agent.status.updated">;
+              if (e.payload.previousStatus && e.payload.previousStatus !== e.payload.agent.status) {
+                pushFeedItem(
+                  e.payload.agent.id,
+                  e.payload.agent.name,
+                  "status",
+                  e.payload.agent.status
+                );
+              }
+            }
+            if (bubble) {
+              const agentName = agentsListRef.current.find(a => a.id === bubble.agentId)?.name ?? bubble.agentId;
+              pushFeedItem(bubble.agentId, agentName, bubble.action, bubble.text);
+            }
+          } catch {
+            // Ignore malformed events
+          }
+        };
+
+        eventSource.addEventListener(
+          "capability",
+          handleCapability as EventListener
+        );
+        eventSource.addEventListener(
+          "live-event",
+          handleLiveEvent as EventListener
+        );
+        eventSource.onerror = () => {
+          eventSource?.close();
+          eventSource = null;
+          startFallbackPolling();
+          // Exponential backoff reconnect: 1s → 2s → 4s → 8s → max 30s
+          reconnectTimer = setTimeout(() => {
+            connectEventSource();
+          }, backoffMs);
+          backoffMs = Math.min(backoffMs * 2, 30_000);
+        };
+      }
+
+      connectEventSource();
 
       window.addEventListener("resize", handleResize);
 
@@ -348,14 +377,7 @@ export default function OfficePage() {
         engine.destroy();
         clearTimeout(initialLoad);
         stopFallbackPolling();
-        eventSource?.removeEventListener(
-          "capability",
-          handleCapability as EventListener
-        );
-        eventSource?.removeEventListener(
-          "live-event",
-          handleLiveEvent as EventListener
-        );
+        if (reconnectTimer) clearTimeout(reconnectTimer);
         eventSource?.close();
         window.removeEventListener("resize", handleResize);
       };
@@ -369,15 +391,6 @@ export default function OfficePage() {
       window.removeEventListener("resize", handleResize);
     };
   }, [fetchAgents, buildCanvasLabels, locale, pushFeedItem]);
-
-  const statusLegend = [
-    { status: "WORKING", color: STATUS_COLORS.WORKING, labelKey: "office.statusWorking" as const },
-    { status: "POSTING", color: STATUS_COLORS.POSTING, labelKey: "office.statusPosting" as const },
-    { status: "READING", color: STATUS_COLORS.READING, labelKey: "office.statusReading" as const },
-    { status: "ONLINE", color: STATUS_COLORS.ONLINE, labelKey: "office.statusOnline" as const },
-    { status: "IDLE", color: STATUS_COLORS.IDLE, labelKey: "office.statusIdle" as const },
-    { status: "OFFLINE", color: STATUS_COLORS.OFFLINE, labelKey: "office.statusOffline" as const },
-  ];
 
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col gap-6 max-w-[1600px] mx-auto w-full">
@@ -439,8 +452,8 @@ export default function OfficePage() {
           style={{ cursor: "grab" }}
         />
 
-        {/* Floating Zones Legend */}
-        <div className="absolute bottom-6 left-6 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-xl p-4 shadow-xl pointer-events-none opacity-95">
+        {/* Floating Zones Legend — hidden on mobile (canvas has zone labels) */}
+        <div className="hidden sm:block absolute bottom-6 left-6 bg-background/60 backdrop-blur-xl border border-card-border/50 rounded-xl p-4 shadow-xl pointer-events-none opacity-95">
           <div className="flex items-center gap-2 mb-3">
             <Layers className="w-4 h-4 text-foreground/60" />
             <p className="text-xs text-foreground/80 font-semibold tracking-wider uppercase">{t("office.zones")}</p>
@@ -457,15 +470,16 @@ export default function OfficePage() {
           </div>
         </div>
 
-        {/* Floating Status Legend — hidden when detail card is open */}
-        {!selectedAgentId && (
-        <div className="absolute top-6 right-6 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-xl p-4 shadow-xl pointer-events-none opacity-95">
-          <div className="flex items-center gap-2 mb-3">
-            <ActivitySquare className="w-4 h-4 text-foreground/60" />
-            <p className="text-xs text-foreground/80 font-semibold tracking-wider uppercase">{t("office.status")}</p>
-          </div>
-          <div className="flex flex-col gap-2.5">
-            {statusLegend.map((s) => (
+        {/* Floating Status Legend — compact dot-only mode when detail card is open */}
+        <div className={`absolute top-6 right-6 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-xl shadow-xl pointer-events-none opacity-95 transition-all duration-300 ${selectedAgentId ? "p-2.5 flex flex-row sm:flex-col gap-2" : "p-4"}`}>
+          {!selectedAgentId && (
+            <div className="flex items-center gap-2 mb-3">
+              <ActivitySquare className="w-4 h-4 text-foreground/60" />
+              <p className="text-xs text-foreground/80 font-semibold tracking-wider uppercase">{t("office.status")}</p>
+            </div>
+          )}
+          <div className={`flex gap-2.5 ${selectedAgentId ? "flex-row sm:flex-col" : "flex-col"}`}>
+            {STATUS_LEGEND.map((s) => (
               <div key={s.status} className="flex items-center gap-2.5 text-xs">
                 <div
                   className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.2)]"
@@ -474,20 +488,21 @@ export default function OfficePage() {
                     boxShadow: `0 0 10px ${s.color}60`
                   }}
                 />
-                <span className="text-foreground/80 font-medium">{t(s.labelKey)}</span>
+                {!selectedAgentId && (
+                  <span className="text-foreground/80 font-medium">{t(s.labelKey)}</span>
+                )}
               </div>
             ))}
           </div>
         </div>
-        )}
 
         {/* Interactive Agent Detail Card Overlay */}
         {selectedAgentId && (() => {
           const agent = agentsList.find(a => a.id === selectedAgentId);
           if (!agent) return null;
 
-          const statusColor = statusLegend.find(s => s.status === agent.status)?.color || "#52525b";
-          const statusLabelKey = statusLegend.find(s => s.status === agent.status)?.labelKey || "office.statusOffline";
+          const statusColor = STATUS_LEGEND.find(s => s.status === agent.status)?.color || "#52525b";
+          const statusLabelKey = STATUS_LEGEND.find(s => s.status === agent.status)?.labelKey || "office.statusOffline";
 
           return (
             <div className="absolute top-6 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-48 w-80 bg-card/80 sm:backdrop-blur-2xl border border-card-border/60 rounded-2xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-4 duration-300">
