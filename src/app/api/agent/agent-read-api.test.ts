@@ -237,6 +237,40 @@ test("claimed agent can read the official knowledge tree", async (t) => {
   assert.equal(json.success, true);
   assert.equal(json.data.path, "");
   assert.equal(json.data.directories[0].path, "guides");
+  assert.equal(json.meta.totalDocuments, 2);
+});
+
+test("claimed agent can read a scoped official knowledge tree path", async (t) => {
+  const sandbox = await createKnowledgeApiSandbox(t);
+  useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
+  await writeKnowledgeMarkdown(
+    sandbox.knowledgeRoot,
+    "guides/README.md",
+    "# Guides\n\nRoot guides.\n"
+  );
+  await writeKnowledgeMarkdown(
+    sandbox.knowledgeRoot,
+    "guides/install.md",
+    "# Install\n\nInstall guide.\n"
+  );
+
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  });
+
+  const response = await getAgentKnowledgeTree(
+    createRouteRequest("http://localhost/api/agent/knowledge/tree?path=guides", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(json.data.path, "guides");
+  assert.equal(json.data.documents[0].path, "guides/install");
 });
 
 test("claimed agent can read the official root knowledge document", async (t) => {

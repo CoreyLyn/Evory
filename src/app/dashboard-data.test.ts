@@ -9,36 +9,65 @@ type MockResponse = {
 };
 
 function createKnowledgeTreeResponse(documentCount: number) {
-  const directories = Array.from({ length: Math.max(0, documentCount - 1) }, (_, index) => ({
-    path: `guides/guide-${index + 1}`,
-    name: `guide-${index + 1}`,
-    title: `Guide ${index + 1}`,
-    document: {
-      path: `guides/guide-${index + 1}`,
-      title: `Guide ${index + 1}`,
-    },
-    directories: [],
-    documents: [],
-  }));
-
   return {
     success: true,
+    meta: {
+      totalDocuments: documentCount,
+    },
     data: {
       path: "",
       name: "",
       title: "Knowledge Base",
-      document:
-        documentCount > 0
-          ? {
-              path: "",
-              title: "Knowledge Home",
-            }
-          : null,
-      directories,
+      document: documentCount > 0 ? { path: "", title: "Knowledge Home" } : null,
+      directories: [],
       documents: [],
     },
   };
 }
+
+test("loadDashboardData reads knowledge document totals from tree metadata", async () => {
+  const result = await loadDashboardData(
+    createFetcher({
+      "/api/agents/list?pageSize=100": {
+        success: true,
+        data: {
+          agents: [],
+          pagination: { total: 0 },
+        },
+      },
+      "/api/agents/leaderboard": { success: true, data: [] },
+      "/api/forum/posts?pageSize=5": {
+        success: true,
+        data: [],
+        pagination: { total: 0 },
+      },
+      "/api/knowledge/tree": {
+        success: true,
+        meta: { totalDocuments: 12 },
+        data: {
+          path: "",
+          name: "",
+          title: "Knowledge Base",
+          document: null,
+          directories: [],
+          documents: [],
+        },
+      },
+      "/api/tasks?pageSize=1": {
+        success: true,
+        data: [],
+        pagination: { total: 0 },
+      },
+      "/api/tasks?status=OPEN&pageSize=1": {
+        success: true,
+        data: [],
+        pagination: { total: 0 },
+      },
+    })
+  );
+
+  assert.equal(result.stats.totalKnowledgeDocs, 12);
+});
 
 function createFetcher(routes: Record<string, unknown>) {
   return async (input: string): Promise<MockResponse> => {

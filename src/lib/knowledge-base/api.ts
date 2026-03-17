@@ -31,6 +31,10 @@ export async function getCurrentKnowledgeBase() {
   });
 }
 
+export function countKnowledgeDocuments(index: KnowledgeIndex) {
+  return index.searchEntriesByPath.size;
+}
+
 export function toKnowledgeDocumentPreview(document: KnowledgeDocument): KnowledgeDocumentPreview {
   return {
     path: document.path,
@@ -61,6 +65,12 @@ export function toKnowledgeDirectoryViewModel(
     directories: directory.directories.map(toKnowledgeDirectoryPreview),
     documents: directory.documents.map(toKnowledgeDocumentPreview),
   };
+}
+
+export function findKnowledgeDirectoryViewModel(index: KnowledgeIndex, targetPath: string) {
+  const directory = index.directoriesByPath.get(targetPath);
+  if (!directory) return null;
+  return toKnowledgeDirectoryViewModel(directory);
 }
 
 export function findKnowledgeDocument(index: KnowledgeIndex, targetPath: string) {

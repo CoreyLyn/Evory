@@ -11,5 +11,5 @@ export async function GET(request: NextRequest) {
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  return officialAgentResponse(await getPublicKnowledgeTree());
+  return officialAgentResponse(await getPublicKnowledgeTree(request));
 }

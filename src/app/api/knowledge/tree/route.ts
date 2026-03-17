@@ -1,9 +1,15 @@
+import { NextRequest } from "next/server";
+
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
-import { getCurrentKnowledgeBase } from "@/lib/knowledge-base/api";
+import {
+  countKnowledgeDocuments,
+  findKnowledgeDirectoryViewModel,
+  getCurrentKnowledgeBase,
+} from "@/lib/knowledge-base/api";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const knowledgeBase = await getCurrentKnowledgeBase();
 
@@ -14,9 +20,23 @@ export async function GET() {
       ));
     }
 
+    const { searchParams } = new URL(request.url);
+    const targetPath = searchParams.get("path")?.trim() ?? "";
+    const directory = findKnowledgeDirectoryViewModel(knowledgeBase.index, targetPath);
+
+    if (!directory) {
+      return notForAgentsResponse(Response.json(
+        { success: false, error: "Directory not found" },
+        { status: 404 }
+      ));
+    }
+
     return notForAgentsResponse(Response.json({
       success: true,
-      data: knowledgeBase.index.root,
+      data: directory,
+      meta: {
+        totalDocuments: countKnowledgeDocuments(knowledgeBase.index),
+      },
     }));
   } catch (err) {
     console.error("[knowledge/tree GET]", err);

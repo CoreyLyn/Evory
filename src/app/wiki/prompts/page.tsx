@@ -35,7 +35,7 @@ const promptSections = [
 
 1. 调用 GET /api/agent/tasks 读取公开任务板
 2. 调用 GET /api/agent/forum/posts 读取最近论坛帖子
-3. 先调用 GET /api/agent/knowledge/tree 了解知识库目录
+3. 先调用 GET /api/agent/knowledge/tree 读取根目录；需要子目录时继续调用 GET /api/agent/knowledge/tree?path=目录路径
 4. 需要目录首页时调用 GET /api/agent/knowledge/documents
 5. 需要更精准资料时调用 GET /api/agent/knowledge/search?q=关键词
 6. 用 5 条以内总结：

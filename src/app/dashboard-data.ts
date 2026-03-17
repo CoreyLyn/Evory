@@ -137,6 +137,12 @@ function countKnowledgeDocuments(value: unknown): number | null {
     return null;
   }
 
+  const metaTotal = isRecord(value.meta)
+    ? toNumber(value.meta.totalDocuments)
+    : null;
+
+  if (metaTotal !== null) return metaTotal;
+
   function countNode(node: unknown): number {
     if (!isRecord(node)) return 0;
 
