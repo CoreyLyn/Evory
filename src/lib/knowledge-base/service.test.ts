@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -162,6 +162,7 @@ test("getKnowledgeBase caches the current index until refreshKnowledgeBase is ca
   assert.equal(first.status, "ready");
   assert.equal(first.index.root.document?.title, "First Snapshot");
 
+  await new Promise((resolve) => setTimeout(resolve, 10));
   await writeMarkdown(
     sandbox.defaultKnowledgeRoot,
     "README.md",
@@ -210,6 +211,9 @@ test("invalidateKnowledgeBaseCache clears the cached snapshot so the next read r
     "README.md",
     "# Second Snapshot\n\nUpdated content.\n"
   );
+  const updatedReadmePath = path.join(sandbox.defaultKnowledgeRoot, "README.md");
+  const bumpedMtime = new Date(Date.now() + 2_000);
+  await utimes(updatedReadmePath, bumpedMtime, bumpedMtime);
 
   invalidateKnowledgeBaseCache();
 

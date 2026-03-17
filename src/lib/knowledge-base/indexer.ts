@@ -12,6 +12,14 @@ import type {
 
 type BuildKnowledgeBaseIndexOptions = {
   rootDir: string;
+  previousIndex?: KnowledgeIndex;
+  fileSystem?: Partial<KnowledgeFileSystem>;
+};
+
+type KnowledgeFileSystem = {
+  readdir: typeof readdir;
+  stat: typeof stat;
+  readFile: typeof readFile;
 };
 
 type Frontmatter = {
@@ -77,18 +85,14 @@ function parseMarkdown(content: string) {
 }
 
 function toDocument({
-  rootDir,
   absolutePath,
-  relativePath,
   logicalPath,
   isDirectoryIndex,
   fileName,
   content,
   modifiedAt,
 }: {
-  rootDir: string;
   absolutePath: string;
-  relativePath: string;
   logicalPath: string;
   isDirectoryIndex: boolean;
   fileName: string;
@@ -139,13 +143,29 @@ function toSearchEntry(document: KnowledgeDocument): KnowledgeSearchEntry {
   };
 }
 
-async function walkMarkdownFiles(rootDir: string, currentDir: string, files: string[]) {
-  const entries = await readdir(currentDir, { withFileTypes: true });
+function getKnowledgeFileSystem(
+  overrides?: Partial<KnowledgeFileSystem>
+): KnowledgeFileSystem {
+  return {
+    readdir,
+    stat,
+    readFile,
+    ...overrides,
+  };
+}
+
+async function walkMarkdownFiles(
+  fileSystem: KnowledgeFileSystem,
+  rootDir: string,
+  currentDir: string,
+  files: string[]
+) {
+  const entries = await fileSystem.readdir(currentDir, { withFileTypes: true });
 
   for (const entry of entries) {
     const absolutePath = path.join(currentDir, entry.name);
     if (entry.isDirectory()) {
-      await walkMarkdownFiles(rootDir, absolutePath, files);
+      await walkMarkdownFiles(fileSystem, rootDir, absolutePath, files);
       continue;
     }
 
@@ -187,11 +207,20 @@ function ensureDirectoryNode(
   return node;
 }
 
+function findIndexedDocument(index: KnowledgeIndex, targetPath: string) {
+  return index.documentsByPath.get(targetPath)
+    ?? index.directoriesByPath.get(targetPath)?.document
+    ?? null;
+}
+
 export async function buildKnowledgeBaseIndex({
   rootDir,
+  previousIndex,
+  fileSystem: fileSystemOverrides,
 }: BuildKnowledgeBaseIndexOptions): Promise<KnowledgeIndex> {
+  const fileSystem = getKnowledgeFileSystem(fileSystemOverrides);
   const markdownFiles: string[] = [];
-  await walkMarkdownFiles(rootDir, rootDir, markdownFiles);
+  await walkMarkdownFiles(fileSystem, rootDir, rootDir, markdownFiles);
 
   const directoriesByPath = new Map<string, KnowledgeDirectoryNode>();
   const documentsByPath = new Map<string, KnowledgeDocument>();
@@ -202,8 +231,7 @@ export async function buildKnowledgeBaseIndex({
 
   for (const relativePath of markdownFiles.sort()) {
     const absolutePath = path.join(rootDir, relativePath);
-    const fileStat = await stat(absolutePath);
-    const content = await readFile(absolutePath, "utf8");
+    const fileStat = await fileSystem.stat(absolutePath);
     const normalizedRelative = relativePath.split(path.sep).join(path.posix.sep);
     const isReadme = path.posix.basename(normalizedRelative).toLowerCase() === "readme.md";
     const logicalPath = isReadme
@@ -226,17 +254,22 @@ export async function buildKnowledgeBaseIndex({
         ? ""
         : path.posix.dirname(logicalPath);
     const directory = ensureDirectoryNode(directoriesByPath, directoryPath);
-
-    const document = toDocument({
-      rootDir,
-      absolutePath,
-      relativePath: normalizedRelative,
-      logicalPath,
-      isDirectoryIndex: isReadme,
-      fileName: path.posix.basename(normalizedRelative),
-      content,
-      modifiedAt: fileStat.mtime,
-    });
+    const lastModified = fileStat.mtime.toISOString();
+    const previousDocument = previousIndex
+      ? findIndexedDocument(previousIndex, logicalPath)
+      : null;
+    const document = previousDocument
+      && previousDocument.sourcePath === absolutePath
+      && previousDocument.lastModified === lastModified
+      ? previousDocument
+      : toDocument({
+          absolutePath,
+          logicalPath,
+          isDirectoryIndex: isReadme,
+          fileName: path.posix.basename(normalizedRelative),
+          content: await fileSystem.readFile(absolutePath, "utf8"),
+          modifiedAt: fileStat.mtime,
+        });
 
     if (isReadme) {
       const landingDirectory = ensureDirectoryNode(directoriesByPath, logicalPath);

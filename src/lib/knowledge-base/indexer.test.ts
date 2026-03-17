@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -186,4 +186,68 @@ Readable body still loads.
     index.searchEntriesByPath.get("broken")?.summary,
     "Readable body still loads."
   );
+});
+
+test("buildKnowledgeBaseIndex reuses unchanged documents from the previous index", async (t) => {
+  const sandbox = await createSandbox();
+  t.after(async () => sandbox.cleanup());
+
+  await writeMarkdown(
+    sandbox.knowledgeRoot,
+    "README.md",
+    "# Home\n\nRoot summary.\n"
+  );
+  await writeMarkdown(
+    sandbox.knowledgeRoot,
+    "guides/alpha.md",
+    "# Alpha\n\nOriginal alpha body.\n"
+  );
+  await writeMarkdown(
+    sandbox.knowledgeRoot,
+    "guides/beta.md",
+    "# Beta\n\nOriginal beta body.\n"
+  );
+
+  const reads: string[] = [];
+  const first = await buildKnowledgeBaseIndex({
+    rootDir: sandbox.knowledgeRoot,
+    fileSystem: {
+      readFile: async (absolutePath, encoding) => {
+        reads.push(path.basename(absolutePath));
+        return await readFile(absolutePath, encoding);
+      },
+    },
+  });
+
+  assert.deepEqual(reads.sort(), ["README.md", "alpha.md", "beta.md"]);
+
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  await writeMarkdown(
+    sandbox.knowledgeRoot,
+    "guides/beta.md",
+    "# Beta\n\nUpdated beta body.\n"
+  );
+
+  const refreshedReads: string[] = [];
+  const refreshed = await buildKnowledgeBaseIndex({
+    rootDir: sandbox.knowledgeRoot,
+    previousIndex: first,
+    fileSystem: {
+      readFile: async (absolutePath, encoding) => {
+        refreshedReads.push(path.basename(absolutePath));
+        return await readFile(absolutePath, encoding);
+      },
+    },
+  });
+
+  assert.deepEqual(refreshedReads, ["beta.md"]);
+  assert.equal(
+    refreshed.documentsByPath.get("guides/alpha")?.body,
+    "# Alpha\n\nOriginal alpha body."
+  );
+  assert.equal(
+    refreshed.documentsByPath.get("guides/beta")?.body,
+    "# Beta\n\nUpdated beta body."
+  );
+  assert.equal(refreshed.root.document?.summary, "Root summary.");
 });
