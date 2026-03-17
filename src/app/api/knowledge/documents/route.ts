@@ -1,6 +1,8 @@
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { getCurrentKnowledgeBase } from "@/lib/knowledge-base/api";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const knowledgeBase = await getCurrentKnowledgeBase();

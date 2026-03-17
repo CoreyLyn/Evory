@@ -4,6 +4,8 @@ import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { GET as getPublicKnowledgeDocumentByPath } from "@/app/api/knowledge/documents/[...slug]/route";
 
+export const dynamic = "force-dynamic";
+
 type RouteContext = {
   params: Promise<{
     slug?: string | string[];

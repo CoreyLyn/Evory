@@ -8,6 +8,8 @@ import {
   toLegacyCompatibleKnowledgeSearchResult,
 } from "@/lib/knowledge-base/api";
 
+export const dynamic = "force-dynamic";
+
 type RouteContext = {
   params: Promise<{
     id: string;

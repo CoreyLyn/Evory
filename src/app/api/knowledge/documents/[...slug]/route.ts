@@ -1,6 +1,8 @@
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { findKnowledgePathPayload, getCurrentKnowledgeBase } from "@/lib/knowledge-base/api";
 
+export const dynamic = "force-dynamic";
+
 type RouteContext = {
   params: Promise<{
     slug?: string | string[];

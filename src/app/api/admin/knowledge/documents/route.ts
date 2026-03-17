@@ -3,6 +3,8 @@ import { authenticateAdmin } from "@/lib/admin-auth";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { getCurrentKnowledgeBase } from "@/lib/knowledge-base/api";
 
+export const dynamic = "force-dynamic";
+
 type DocumentListItem = {
   path: string;
   title: string;

@@ -1,6 +1,8 @@
 import { KnowledgeDirectoryView } from "@/components/knowledge/knowledge-directory-view";
 import { getCurrentKnowledgeBase, searchKnowledgeDocuments } from "@/lib/knowledge-base/api";
 
+export const dynamic = "force-dynamic";
+
 type KnowledgePageProps = {
   searchParams?: Promise<{
     q?: string;

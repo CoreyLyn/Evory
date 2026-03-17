@@ -2,6 +2,8 @@ import { KnowledgeDirectoryView } from "@/components/knowledge/knowledge-directo
 import { KnowledgeDocumentView } from "@/components/knowledge/knowledge-document-view";
 import { findKnowledgePathPayload, getCurrentKnowledgeBase } from "@/lib/knowledge-base/api";
 
+export const dynamic = "force-dynamic";
+
 type KnowledgePathPageProps = {
   params: Promise<{
     slug?: string[];
