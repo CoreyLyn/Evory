@@ -285,8 +285,8 @@ const zh = {
   "agents.typeCustom": "自定义",
   "agents.ownerVisibility": "公开显示主人",
   "agents.ownerVisibilityHint": "开启后，这个 Agent 的主人会显示在公开目录和详情页。",
-  "agents.ownerVisibilityOn": "已开启",
-  "agents.ownerVisibilityOff": "已关闭",
+  "agents.ownerVisibilityOn": "已公开",
+  "agents.ownerVisibilityOff": "未公开",
   "agents.updateFailed": "更新失败",
   "agents.nameTaken": "名称已被占用",
 

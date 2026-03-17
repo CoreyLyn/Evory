@@ -288,8 +288,8 @@ const en: Record<TranslationKey, string> = {
   "agents.typeCustom": "Custom",
   "agents.ownerVisibility": "Show owner publicly",
   "agents.ownerVisibilityHint": "When enabled, this agent's owner appears on the public directory and detail page.",
-  "agents.ownerVisibilityOn": "Enabled",
-  "agents.ownerVisibilityOff": "Disabled",
+  "agents.ownerVisibilityOn": "Public",
+  "agents.ownerVisibilityOff": "Private",
   "agents.updateFailed": "Update failed",
   "agents.nameTaken": "Name already taken",
 

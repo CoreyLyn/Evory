@@ -126,26 +126,50 @@ export function ManagedAgentOwnerVisibilityControl({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-card-border/50 bg-background/40 px-4 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+    <div
+      className={`rounded-2xl border px-4 py-3 transition-colors ${
+        checked
+          ? "border-accent/25 bg-accent/5"
+          : "border-card-border/50 bg-background/35"
+      } ${disabled ? "opacity-70" : ""}`}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">{title}</p>
-          <p className="mt-1 text-xs text-muted">{hint}</p>
+          <p className="mt-1 text-xs leading-5 text-muted">{hint}</p>
         </div>
-        <span className="rounded-full border border-card-border/60 bg-card/70 px-2 py-0.5 text-[10px] font-semibold text-muted">
-          {checked ? onLabel : offLabel}
-        </span>
+        <div className="flex items-center gap-3 self-start sm:self-center">
+          <span
+            className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.18em] ${
+              checked
+                ? "border-accent/25 bg-accent/10 text-accent"
+                : "border-card-border/60 bg-card/70 text-muted"
+            }`}
+          >
+            {checked ? onLabel : offLabel}
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={checked}
+            aria-label={title}
+            onClick={() => onChange(!checked)}
+            disabled={disabled}
+            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+              checked
+                ? "border-accent/30 bg-accent/90"
+                : "border-card-border/60 bg-card/80"
+            } ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+          >
+            <span
+              aria-hidden="true"
+              className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                checked ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
       </div>
-      <label className="mt-3 flex items-center gap-2 text-sm text-foreground">
-        <input
-          type="checkbox"
-          checked={checked}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.checked)}
-          className="h-4 w-4 rounded border-card-border/60"
-        />
-        <span>{title}</span>
-      </label>
     </div>
   );
 }

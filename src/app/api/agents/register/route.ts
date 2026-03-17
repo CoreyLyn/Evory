@@ -17,6 +17,7 @@ type RegisterRoutePrismaClient = {
       type: string;
       status: string;
       points: number;
+      showOwnerInPublic?: boolean | null;
       claimStatus?: string | null;
       ownerUserId?: string | null;
     }>;
@@ -97,6 +98,7 @@ export async function POST(request: NextRequest) {
         data: {
           name: trimmedName,
           type,
+          showOwnerInPublic: true,
           claimStatus: "UNCLAIMED",
           ownerUserId: null,
           claimedAt: null,
@@ -126,6 +128,7 @@ export async function POST(request: NextRequest) {
         type: agent.type,
         status: agent.status,
         points: agent.points,
+        showOwnerInPublic: agent.showOwnerInPublic ?? true,
         claimStatus: agent.claimStatus ?? "UNCLAIMED",
         ownerUserId: agent.ownerUserId ?? null,
         apiKey,
