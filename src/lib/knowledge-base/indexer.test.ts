@@ -89,7 +89,8 @@ More content lives here.
   assert.equal(index.searchEntriesByPath.get("")?.title, "Knowledge Home");
   assert.equal(index.searchEntriesByPath.get("")?.summary, "Start here first");
   assert.deepEqual(index.searchEntriesByPath.get("")?.tags, ["home", "intro"]);
-  assert.match(index.searchEntriesByPath.get("")?.body ?? "", /# Welcome/);
+  assert.ok(!("body" in (index.searchEntriesByPath.get("") ?? {})));
+  assert.ok(!("searchText" in (index.searchEntriesByPath.get("") ?? {})));
 
   const installDirectory = index.directoriesByPath.get("guides/install");
   assert.ok(installDirectory);
@@ -115,10 +116,8 @@ More content lives here.
     index.searchEntriesByPath.get("guides/install/nginx")?.tags,
     []
   );
-  assert.match(
-    index.searchEntriesByPath.get("guides/install/nginx")?.body ?? "",
-    /More content lives here/
-  );
+  assert.ok(!("body" in (index.searchEntriesByPath.get("guides/install/nginx") ?? {})));
+  assert.ok(!("searchText" in (index.searchEntriesByPath.get("guides/install/nginx") ?? {})));
 });
 
 test("buildKnowledgeBaseIndex rejects document paths that collide with directory landing paths", async (t) => {

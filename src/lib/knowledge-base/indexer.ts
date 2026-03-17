@@ -136,15 +136,6 @@ function toSearchEntry(document: KnowledgeDocument): KnowledgeSearchEntry {
     title: document.title,
     summary: document.summary,
     tags: document.tags,
-    body: document.body,
-    searchText: [
-      document.title,
-      document.summary,
-      document.tags.join(" "),
-      document.body,
-    ]
-      .filter(Boolean)
-      .join("\n"),
   };
 }
 
