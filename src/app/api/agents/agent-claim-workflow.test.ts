@@ -196,6 +196,7 @@ test("register creates an unclaimed agent and returns its raw api key", async ()
       type: data.type,
       apiKey: null,
       ownerUserId: null,
+      showOwnerInPublic: true,
       claimStatus: "UNCLAIMED",
       claimedAt: null,
       status: "OFFLINE",
@@ -227,6 +228,7 @@ test("register creates an unclaimed agent and returns its raw api key", async ()
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
   assert.equal(json.data.claimStatus, "UNCLAIMED");
+  assert.equal(json.data.showOwnerInPublic, true);
   assert.match(json.data.apiKey, /^evory_/);
   assert.equal(createdCredentialHash, hashApiKey(json.data.apiKey));
   assert.deepEqual(createdCredentialData?.scopes, DEFAULT_AGENT_CREDENTIAL_SCOPES);
@@ -234,11 +236,13 @@ test("register creates an unclaimed agent and returns its raw api key", async ()
   assert.deepEqual(json.data.credentialScopes, DEFAULT_AGENT_CREDENTIAL_SCOPES);
   assert.equal(typeof json.data.credentialExpiresAt, "string");
   assert.equal(createdAgentData?.apiKey, undefined);
+  assert.equal(createdAgentData?.showOwnerInPublic, true);
   assert.equal(transactionCalls, 1);
 });
 
 test("claim binds an unclaimed agent to the current user", async () => {
   const token = "claim-session-token";
+  let claimTransitionData: Record<string, unknown> | null = null;
 
   prismaClient.userSession = {
     findUnique: async ({ where }: { where: { tokenHash: string } }) =>
@@ -269,12 +273,16 @@ test("claim binds an unclaimed agent to the current user", async () => {
           })
         : null,
   };
-  prismaClient.agent.updateMany = async () => ({ count: 1 });
+  prismaClient.agent.updateMany = async ({ data }: { data: Record<string, unknown> }) => {
+    claimTransitionData = data;
+    return { count: 1 };
+  };
   prismaClient.agent.findUnique = async () =>
     createAgentFixture({
       id: "agent-1",
       name: "Claimable Agent",
       ownerUserId: "user-1",
+      showOwnerInPublic: true,
       claimStatus: "ACTIVE",
     });
   prismaClient.agentClaimAudit = {
@@ -299,6 +307,8 @@ test("claim binds an unclaimed agent to the current user", async () => {
   assert.equal(json.success, true);
   assert.equal(json.data.claimStatus, "ACTIVE");
   assert.equal(json.data.ownerUserId, "user-1");
+  assert.equal(json.data.showOwnerInPublic, true);
+  assert.equal(claimTransitionData?.showOwnerInPublic, true);
 });
 
 test("claim returns conflict when the agent is already claimed", async () => {

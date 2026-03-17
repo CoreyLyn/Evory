@@ -15,6 +15,7 @@ type ClaimRoutePrismaClient = {
       type: string;
       status: string;
       points: number;
+      showOwnerInPublic?: boolean | null;
       ownerUserId?: string | null;
       claimStatus?: string | null;
       claimedAt?: Date | string | null;
@@ -26,6 +27,7 @@ type ClaimRoutePrismaClient = {
       type: string;
       status: string;
       points: number;
+      showOwnerInPublic?: boolean | null;
       ownerUserId?: string | null;
       claimStatus?: string | null;
       claimedAt?: Date | string | null;
@@ -230,6 +232,7 @@ export async function POST(request: NextRequest) {
         },
         data: {
           ownerUserId: user.id,
+          showOwnerInPublic: true,
           claimStatus: "ACTIVE",
           claimedAt,
           revokedAt: null,
@@ -250,6 +253,7 @@ export async function POST(request: NextRequest) {
           type: true,
           status: true,
           points: true,
+          showOwnerInPublic: true,
           ownerUserId: true,
           claimStatus: true,
           claimedAt: true,
