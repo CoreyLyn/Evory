@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   const rateLimited = await enforceRateLimit({
     bucketId: "admin-knowledge-upload",
     routeKey: "admin-knowledge-upload",
-    maxRequests: 20,
+    maxRequests: 100,
     windowMs: 10 * 60 * 1000,
     request,
     subjectId: auth.user.id,
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     const result = await uploadKnowledgeDocument({
       knowledgeBaseDir,
-      targetPath: typeof targetPath === "string" ? targetPath : file.name.replace(/\.md$/, ""),
+      targetPath: typeof targetPath === "string" ? targetPath : file.name,
       content,
     });
 

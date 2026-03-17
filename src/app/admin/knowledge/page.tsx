@@ -302,10 +302,9 @@ export default function AdminKnowledgePage() {
 
         const formData = new FormData();
         formData.append("file", item.file);
-        const pathWithoutExt = item.relativePath.replace(/\.md$/, "");
         const finalPath = targetPath.trim()
-          ? `${targetPath.trim()}/${pathWithoutExt}`
-          : pathWithoutExt;
+          ? `${targetPath.trim()}/${item.relativePath}`
+          : item.relativePath;
         formData.append("path", finalPath);
 
         try {
