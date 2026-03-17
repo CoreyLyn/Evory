@@ -11,6 +11,11 @@ type CachedKnowledgeBase = {
 };
 
 let cachedKnowledgeBase: CachedKnowledgeBase | null = null;
+let rebuildInFlight: {
+  cacheKey: string;
+  promise: Promise<KnowledgeBaseState>;
+} | null = null;
+let buildObserverForTests: ((event: { phase: "start" | "finish"; cacheKey: string }) => void | Promise<void>) | null = null;
 
 function getCacheKey(rootDir: string) {
   return rootDir;
@@ -51,6 +56,40 @@ async function buildKnowledgeBaseState(
   };
 }
 
+async function rebuildKnowledgeBase(
+  options: KnowledgeBaseConfigOptions,
+  cacheKey: string,
+  previousValue?: KnowledgeBaseState
+) {
+  await buildObserverForTests?.({ phase: "start", cacheKey });
+
+  try {
+    const value = await buildKnowledgeBaseState(options, previousValue);
+    cachedKnowledgeBase = { cacheKey, value, dirty: false };
+    return value;
+  } finally {
+    rebuildInFlight = null;
+    await buildObserverForTests?.({ phase: "finish", cacheKey });
+  }
+}
+
+function getOrStartRebuild(
+  options: KnowledgeBaseConfigOptions,
+  cacheKey: string,
+  previousValue?: KnowledgeBaseState
+) {
+  if (rebuildInFlight?.cacheKey === cacheKey) {
+    return rebuildInFlight.promise;
+  }
+
+  const promise = rebuildKnowledgeBase(options, cacheKey, previousValue);
+  rebuildInFlight = {
+    cacheKey,
+    promise,
+  };
+  return promise;
+}
+
 export async function getKnowledgeBase(
   options: KnowledgeBaseConfigOptions
 ): Promise<KnowledgeBaseState> {
@@ -64,9 +103,7 @@ export async function getKnowledgeBase(
   const previousValue = cachedKnowledgeBase?.cacheKey === cacheKey
     ? cachedKnowledgeBase.value
     : undefined;
-  const value = await buildKnowledgeBaseState(options, previousValue);
-  cachedKnowledgeBase = { cacheKey, value, dirty: false };
-  return value;
+  return getOrStartRebuild(options, cacheKey, previousValue);
 }
 
 export async function refreshKnowledgeBase(
@@ -93,6 +130,30 @@ export function invalidateKnowledgeBaseCache() {
   };
 }
 
+export function warmKnowledgeBase(
+  options: KnowledgeBaseConfigOptions
+): Promise<KnowledgeBaseState> {
+  const rootDir = resolveKnowledgeBaseRoot(options);
+  const cacheKey = getCacheKey(rootDir);
+
+  if (cachedKnowledgeBase?.cacheKey === cacheKey && !cachedKnowledgeBase.dirty) {
+    return Promise.resolve(cachedKnowledgeBase.value);
+  }
+
+  const previousValue = cachedKnowledgeBase?.cacheKey === cacheKey
+    ? cachedKnowledgeBase.value
+    : undefined;
+  return getOrStartRebuild(options, cacheKey, previousValue);
+}
+
+export function setKnowledgeBaseBuildObserverForTests(
+  observer: ((event: { phase: "start" | "finish"; cacheKey: string }) => void | Promise<void>) | null
+) {
+  buildObserverForTests = observer;
+}
+
 export function resetKnowledgeBaseCacheForTests() {
   cachedKnowledgeBase = null;
+  rebuildInFlight = null;
+  buildObserverForTests = null;
 }

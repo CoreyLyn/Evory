@@ -9,7 +9,7 @@ import {
   uploadKnowledgeDocument,
   validateMarkdownContent,
 } from "@/lib/admin-knowledge-upload";
-import { invalidateKnowledgeBaseCache } from "@/lib/knowledge-base/service";
+import { invalidateKnowledgeBaseCache, warmKnowledgeBase } from "@/lib/knowledge-base/service";
 
 export async function POST(request: NextRequest) {
   const auth = await authenticateAdmin(request);
@@ -76,6 +76,9 @@ export async function POST(request: NextRequest) {
     }
 
     invalidateKnowledgeBaseCache();
+    void warmKnowledgeBase({ cwd: process.cwd(), env: process.env }).catch((error) => {
+      console.error("[admin/knowledge/upload warmKnowledgeBase]", error);
+    });
 
     return notForAgentsResponse(
       Response.json({

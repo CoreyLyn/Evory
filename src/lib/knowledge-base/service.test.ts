@@ -9,6 +9,8 @@ import {
   invalidateKnowledgeBaseCache,
   refreshKnowledgeBase,
   resetKnowledgeBaseCacheForTests,
+  setKnowledgeBaseBuildObserverForTests,
+  warmKnowledgeBase,
 } from "./service";
 
 async function createSandbox() {
@@ -230,4 +232,104 @@ test("invalidateKnowledgeBaseCache clears the cached snapshot so the next read r
   assert.equal(rebuilt.index.root.document?.title, "Second Snapshot");
   assert.equal(cachedAgain.index.root.document?.title, "Second Snapshot");
   assert.equal(rebuilt.index.root.document?.title, cachedAgain.index.root.document?.title);
+});
+
+test("warmKnowledgeBase deduplicates concurrent background rebuilds", async (t) => {
+  const sandbox = await createSandbox();
+  const buildStarts: string[] = [];
+  const releaseBuild = Promise.withResolvers<void>();
+
+  t.after(async () => {
+    setKnowledgeBaseBuildObserverForTests(null);
+    resetKnowledgeBaseCacheForTests();
+    await sandbox.cleanup();
+  });
+
+  await writeMarkdown(
+    sandbox.defaultKnowledgeRoot,
+    "README.md",
+    "# First Snapshot\n\nOriginal content.\n"
+  );
+
+  await getKnowledgeBase({
+    cwd: sandbox.cwd,
+    env: {},
+  });
+
+  setKnowledgeBaseBuildObserverForTests(async ({ phase }) => {
+    if (phase === "start") {
+      buildStarts.push("start");
+      await releaseBuild.promise;
+    }
+  });
+
+  await writeMarkdown(
+    sandbox.defaultKnowledgeRoot,
+    "README.md",
+    "# Second Snapshot\n\nUpdated content.\n"
+  );
+  const updatedReadmePath = path.join(sandbox.defaultKnowledgeRoot, "README.md");
+  const bumpedMtime = new Date(Date.now() + 2_000);
+  await utimes(updatedReadmePath, bumpedMtime, bumpedMtime);
+
+  invalidateKnowledgeBaseCache();
+
+  const firstWarm = warmKnowledgeBase({ cwd: sandbox.cwd, env: {} });
+  const secondWarm = warmKnowledgeBase({ cwd: sandbox.cwd, env: {} });
+  releaseBuild.resolve();
+  await Promise.all([firstWarm, secondWarm]);
+
+  assert.equal(buildStarts.length, 1);
+});
+
+test("getKnowledgeBase joins an in-flight warmKnowledgeBase rebuild", async (t) => {
+  const sandbox = await createSandbox();
+  const buildStarts: string[] = [];
+  const releaseBuild = Promise.withResolvers<void>();
+
+  t.after(async () => {
+    setKnowledgeBaseBuildObserverForTests(null);
+    resetKnowledgeBaseCacheForTests();
+    await sandbox.cleanup();
+  });
+
+  await writeMarkdown(
+    sandbox.defaultKnowledgeRoot,
+    "README.md",
+    "# First Snapshot\n\nOriginal content.\n"
+  );
+
+  await getKnowledgeBase({
+    cwd: sandbox.cwd,
+    env: {},
+  });
+
+  setKnowledgeBaseBuildObserverForTests(async ({ phase }) => {
+    if (phase === "start") {
+      buildStarts.push("start");
+      await releaseBuild.promise;
+    }
+  });
+
+  await writeMarkdown(
+    sandbox.defaultKnowledgeRoot,
+    "README.md",
+    "# Second Snapshot\n\nUpdated content.\n"
+  );
+  const updatedReadmePath = path.join(sandbox.defaultKnowledgeRoot, "README.md");
+  const bumpedMtime = new Date(Date.now() + 2_000);
+  await utimes(updatedReadmePath, bumpedMtime, bumpedMtime);
+
+  invalidateKnowledgeBaseCache();
+
+  const warmPromise = warmKnowledgeBase({ cwd: sandbox.cwd, env: {} });
+  const readPromise = getKnowledgeBase({ cwd: sandbox.cwd, env: {} });
+  releaseBuild.resolve();
+  const [warmed, read] = await Promise.all([warmPromise, readPromise]);
+
+  assert.equal(buildStarts.length, 1);
+  assert.equal(warmed.status, "ready");
+  assert.equal(read.status, "ready");
+  assert.equal(warmed.index.root.document?.title, "Second Snapshot");
+  assert.equal(read.index.root.document?.title, "Second Snapshot");
 });
