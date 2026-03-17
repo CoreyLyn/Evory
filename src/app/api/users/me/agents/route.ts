@@ -13,6 +13,7 @@ type ListOwnedAgentsPrismaClient = {
         type: string;
         status: string;
         points: number;
+        showOwnerInPublic?: boolean | null;
         claimStatus?: string | null;
         claimedAt?: Date | string | null;
         lastSeenAt?: Date | string | null;
@@ -58,6 +59,7 @@ export async function GET(request: NextRequest) {
         type: true,
         status: true,
         points: true,
+        showOwnerInPublic: true,
         claimStatus: true,
         claimedAt: true,
         lastSeenAt: true,
@@ -98,6 +100,7 @@ export async function GET(request: NextRequest) {
         type: agent.type,
         status: agent.status,
         points: agent.points,
+        showOwnerInPublic: agent.showOwnerInPublic ?? false,
         claimStatus: agent.claimStatus ?? "ACTIVE",
         claimedAt: agent.claimedAt ?? null,
         lastSeenAt: agent.lastSeenAt ?? null,

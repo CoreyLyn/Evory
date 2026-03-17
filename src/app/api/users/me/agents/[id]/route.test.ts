@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
+import { afterEach, beforeEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
+import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteRequest, createRouteParams } from "@/test/request-helpers";
 import { PATCH } from "./route";
 
@@ -21,6 +22,10 @@ type UpdateAgentPrismaMock = {
   securityEvent?: {
     create: AsyncMethod;
   };
+  rateLimitCounter?: {
+    deleteMany: AsyncMethod;
+    upsert: AsyncMethod;
+  };
 };
 
 const prismaClient = prisma as unknown as UpdateAgentPrismaMock;
@@ -28,6 +33,7 @@ const originalAgentFindUnique = prismaClient.agent?.findUnique;
 const originalAgentUpdate = prismaClient.agent?.update;
 const originalUserSessionFindUnique = prismaClient.userSession?.findUnique;
 const originalSecurityEventCreate = prismaClient.securityEvent?.create;
+const originalRateLimitCounter = prismaClient.rateLimitCounter;
 
 const TEST_SESSION_TOKEN = "test-session-token";
 const TEST_USER_ID = "user-1";
@@ -52,6 +58,10 @@ function mockSecurityEvent() {
   };
 }
 
+beforeEach(() => {
+  installRateLimitStoreMock(prismaClient);
+});
+
 afterEach(() => {
   if (prismaClient.agent) {
     if (originalAgentFindUnique)
@@ -64,6 +74,7 @@ afterEach(() => {
   if (prismaClient.securityEvent && originalSecurityEventCreate) {
     prismaClient.securityEvent.create = originalSecurityEventCreate;
   }
+  prismaClient.rateLimitCounter = originalRateLimitCounter;
 });
 
 test("PATCH returns 401 when not authenticated", async () => {
@@ -284,4 +295,47 @@ test("PATCH accepts all valid agent types", async () => {
     assert.equal(json.success, true);
     assert.equal(json.data.type, type);
   }
+});
+
+test("PATCH updates agent public owner visibility successfully", async () => {
+  mockAuthenticatedUser();
+  mockSecurityEvent();
+
+  let updatedData: Record<string, unknown> | null = null;
+
+  prismaClient.agent = {
+    findUnique: async () => ({
+      id: "agt-1",
+      ownerUserId: TEST_USER_ID,
+      claimStatus: "ACTIVE",
+    }),
+    update: async (args: unknown) => {
+      updatedData = (args as { data: Record<string, unknown> }).data;
+
+      return {
+        id: "agt-1",
+        name: "Test Agent",
+        type: "CUSTOM",
+        showOwnerInPublic: true,
+      };
+    },
+  };
+
+  const response = await PATCH(
+    createRouteRequest("http://localhost/api/users/me/agents/agt-1", {
+      method: "PATCH",
+      json: { showOwnerInPublic: true },
+      headers: {
+        cookie: `evory_user_session=${TEST_SESSION_TOKEN}`,
+        origin: "http://localhost",
+      },
+    }),
+    createRouteParams({ id: "agt-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(json.data.showOwnerInPublic, true);
+  assert.equal(updatedData?.showOwnerInPublic, true);
 });

@@ -14,6 +14,7 @@ type OwnedAgentDetailPrismaClient = {
       type: string;
       status: string;
       points: number;
+      showOwnerInPublic?: boolean | null;
       ownerUserId?: string | null;
       claimStatus?: string | null;
       claimedAt?: Date | string | null;
@@ -57,6 +58,7 @@ export async function GET(
         type: true,
         status: true,
         points: true,
+        showOwnerInPublic: true,
         ownerUserId: true,
         claimStatus: true,
         claimedAt: true,
@@ -96,6 +98,7 @@ export async function GET(
         type: agent.type,
         status: agent.status,
         points: agent.points,
+        showOwnerInPublic: agent.showOwnerInPublic ?? false,
         claimStatus: agent.claimStatus ?? "ACTIVE",
         claimedAt: agent.claimedAt ?? null,
         revokedAt: agent.revokedAt ?? null,
@@ -133,6 +136,7 @@ type UpdateOwnedAgentPrismaClient = {
       id: string;
       name: string;
       type: string;
+      showOwnerInPublic?: boolean | null;
     }>;
   };
 };
@@ -212,6 +216,10 @@ export async function PATCH(
       updates.type = body.type;
     }
 
+    if (typeof body.showOwnerInPublic === "boolean") {
+      updates.showOwnerInPublic = body.showOwnerInPublic;
+    }
+
     if (Object.keys(updates).length === 0) {
       return Response.json(
         { success: false, error: "No valid fields to update" },
@@ -226,6 +234,7 @@ export async function PATCH(
         id: true,
         name: true,
         type: true,
+        showOwnerInPublic: true,
       },
     });
 

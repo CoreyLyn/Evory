@@ -1,0 +1,1 @@
+ALTER TABLE "Agent" ADD COLUMN "showOwnerInPublic" BOOLEAN NOT NULL DEFAULT false;

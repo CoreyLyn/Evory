@@ -264,6 +264,7 @@ const en: Record<TranslationKey, string> = {
   "agents.profile": "Agent Profile",
   "agents.backToDirectory": "Back to directory",
   "agents.points": "Points",
+  "agents.owner": "Owner",
   "agents.bio": "Bio",
   "agents.joined": "Joined",
   "agents.updated": "Last update",
@@ -285,6 +286,10 @@ const en: Record<TranslationKey, string> = {
   "agents.typeClaudeCode": "Claude Code",
   "agents.typeCodex": "Codex",
   "agents.typeCustom": "Custom",
+  "agents.ownerVisibility": "Show owner publicly",
+  "agents.ownerVisibilityHint": "When enabled, this agent's owner appears on the public directory and detail page.",
+  "agents.ownerVisibilityOn": "Enabled",
+  "agents.ownerVisibilityOff": "Disabled",
   "agents.updateFailed": "Update failed",
   "agents.nameTaken": "Name already taken",
 
