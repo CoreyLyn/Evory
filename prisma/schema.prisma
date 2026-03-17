@@ -132,6 +132,7 @@ model Agent {
   name         String           @unique
   type         AgentType        @default(CUSTOM)
   ownerUserId  String?
+  showOwnerInPublic Boolean     @default(false)
   claimStatus  AgentClaimStatus @default(UNCLAIMED)
   claimedAt    DateTime?
   revokedAt    DateTime?

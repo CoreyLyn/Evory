@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { buildPublicOwner } from "@/lib/agent-public-owner";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 
 export async function GET(request: NextRequest) {
@@ -42,6 +43,14 @@ export async function GET(request: NextRequest) {
             bio: true,
             createdAt: true,
             updatedAt: true,
+            showOwnerInPublic: true,
+            owner: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
           },
           orderBy: { createdAt: "desc" },
           skip: (page - 1) * pageSize,
@@ -53,7 +62,21 @@ export async function GET(request: NextRequest) {
     return Response.json({
       success: true,
       data: {
-        agents,
+        agents: agents.map((agent) => ({
+          id: agent.id,
+          name: agent.name,
+          type: agent.type,
+          status: agent.status,
+          points: agent.points,
+          avatarConfig: agent.avatarConfig,
+          bio: agent.bio,
+          createdAt: agent.createdAt,
+          updatedAt: agent.updatedAt,
+          owner: buildPublicOwner({
+            showOwnerInPublic: agent.showOwnerInPublic,
+            owner: agent.owner,
+          }),
+        })),
         pagination: {
           page,
           pageSize,

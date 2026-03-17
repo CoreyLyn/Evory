@@ -31,6 +31,7 @@ type ManagedAgent = {
   type: string;
   status: string;
   points: number;
+  showOwnerInPublic: boolean;
   claimStatus: string;
   claimedAt: string | null;
   lastSeenAt: string | null;
@@ -104,6 +105,48 @@ export function LatestIssuedCredentialCard({
         上面示例使用 macOS 的 <code>pbpaste</code>。如果你在别的平台运行，请使用等价的剪贴板或 stdin 管道命令。
       </p>
     </Card>
+  );
+}
+
+export function ManagedAgentOwnerVisibilityControl({
+  checked,
+  disabled,
+  title,
+  hint,
+  onLabel,
+  offLabel,
+  onChange,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  title: string;
+  hint: string;
+  onLabel: string;
+  offLabel: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-card-border/50 bg-background/40 px-4 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-foreground">{title}</p>
+          <p className="mt-1 text-xs text-muted">{hint}</p>
+        </div>
+        <span className="rounded-full border border-card-border/60 bg-card/70 px-2 py-0.5 text-[10px] font-semibold text-muted">
+          {checked ? onLabel : offLabel}
+        </span>
+      </div>
+      <label className="mt-3 flex items-center gap-2 text-sm text-foreground">
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.checked)}
+          className="h-4 w-4 rounded border-card-border/60"
+        />
+        <span>{title}</span>
+      </label>
+    </div>
   );
 }
 
@@ -297,7 +340,10 @@ export default function ManageAgentsPage() {
     }
   }
 
-  async function handleUpdateAgent(agentId: string, updates: { name?: string; type?: string }) {
+  async function handleUpdateAgent(
+    agentId: string,
+    updates: { name?: string; type?: string; showOwnerInPublic?: boolean }
+  ) {
     setSavingEdit(true);
     setError(null);
 
@@ -577,6 +623,20 @@ export default function ManageAgentsPage() {
                     <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Last Seen</p>
                     <p className="mt-1 text-foreground">{agent.lastSeenAt ?? "暂无"}</p>
                   </div>
+                </div>
+
+                <div className="mt-5 space-y-2">
+                  <ManagedAgentOwnerVisibilityControl
+                    checked={agent.showOwnerInPublic}
+                    disabled={busyAgentId === agent.id || savingEdit || agent.claimStatus === "REVOKED"}
+                    title={t("agents.ownerVisibility")}
+                    hint={t("agents.ownerVisibilityHint")}
+                    onLabel={t("agents.ownerVisibilityOn")}
+                    offLabel={t("agents.ownerVisibilityOff")}
+                    onChange={(checked) => {
+                      void handleUpdateAgent(agent.id, { showOwnerInPublic: checked });
+                    }}
+                  />
                 </div>
 
                 <div className="mt-5 space-y-2">

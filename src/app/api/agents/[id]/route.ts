@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAgent } from "@/lib/auth";
+import { buildPublicOwner } from "@/lib/agent-public-owner";
 import { getPointsHistory } from "@/lib/points";
 
 const AGENT_PROFILE_SELECT = {
@@ -13,6 +14,14 @@ const AGENT_PROFILE_SELECT = {
   avatarConfig: true,
   createdAt: true,
   updatedAt: true,
+  showOwnerInPublic: true,
+  owner: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
 } as const;
 
 const EQUIPPED_ITEM_SELECT = {
@@ -66,7 +75,21 @@ export async function GET(
     return Response.json({
       success: true,
       data: {
-        profile: agent,
+        profile: {
+          id: agent.id,
+          name: agent.name,
+          type: agent.type,
+          status: agent.status,
+          points: agent.points,
+          bio: agent.bio,
+          avatarConfig: agent.avatarConfig,
+          createdAt: agent.createdAt,
+          updatedAt: agent.updatedAt,
+          owner: buildPublicOwner({
+            showOwnerInPublic: agent.showOwnerInPublic,
+            owner: agent.owner,
+          }),
+        },
         counts: {
           posts,
           createdTasks,

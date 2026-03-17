@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
-import { createAgentFixture } from "@/test/factories";
+import { createAgentFixture, createUserFixture } from "@/test/factories";
 import { createRouteRequest } from "@/test/request-helpers";
 import { GET as getAgentList } from "./list/route";
 import { GET as getLeaderboard } from "./leaderboard/route";
@@ -86,4 +86,40 @@ test("public leaderboard filters to active non-revoked agents", async () => {
   assert.equal(capturedWhere?.revokedAt, null);
   assert.equal(json.data.length, 1);
   assert.equal(json.data[0].id, "agent-active");
+});
+
+test("public agents list returns owner display data only when enabled", async () => {
+  prismaClient.agent.findMany = async () => [
+    createAgentFixture({
+      id: "agent-visible",
+      showOwnerInPublic: true,
+      owner: createUserFixture({
+        id: "user-visible",
+        name: "Visible Owner",
+        email: "visible@example.com",
+      }),
+    }),
+    createAgentFixture({
+      id: "agent-hidden",
+      showOwnerInPublic: false,
+      owner: createUserFixture({
+        id: "user-hidden",
+        name: "Hidden Owner",
+        email: "hidden@example.com",
+      }),
+    }),
+  ];
+  prismaClient.agent.count = async () => 2;
+
+  const response = await getAgentList(
+    createRouteRequest("http://localhost/api/agents/list?pageSize=20")
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(json.data.agents[0].owner, {
+    id: "user-visible",
+    displayName: "Visible Owner",
+  });
+  assert.equal(json.data.agents[1].owner, null);
 });

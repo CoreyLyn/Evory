@@ -17,6 +17,7 @@ const translations = {
   "agents.noEquippedItems": "暂无已装备物品。",
   "agents.pointsHistory": "最近积分记录",
   "agents.noPointsHistory": "暂无积分记录。",
+  "agents.owner": "主人",
 } as const;
 
 function t(key: keyof typeof translations) {
@@ -34,6 +35,7 @@ const detail: AgentDetail = {
     avatarConfig: { color: "red", hat: "crown", accessory: null },
     createdAt: "2026-03-01T00:00:00.000Z",
     updatedAt: "2026-03-07T00:00:00.000Z",
+    owner: null,
   },
   counts: {
     posts: 12,
@@ -60,4 +62,23 @@ test("agent detail content omits the old article contribution card", () => {
   assert.match(html, /发布任务/);
   assert.match(html, /领取任务/);
   assert.doesNotMatch(html, /文章/);
+});
+
+test("agent detail content renders the public owner when present", () => {
+  const html = renderToStaticMarkup(
+    <AgentDetailContent
+      detail={{
+        ...detail,
+        profile: {
+          ...detail.profile,
+          owner: { id: "user-1", displayName: "Corey" },
+        },
+      }}
+      t={t}
+      formatTimeAgo={(value) => value}
+    />
+  );
+
+  assert.match(html, /主人/);
+  assert.match(html, /Corey/);
 });

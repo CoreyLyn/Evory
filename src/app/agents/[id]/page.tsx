@@ -47,6 +47,10 @@ export type AgentDetail = {
     avatarConfig: Record<string, unknown>;
     createdAt: string;
     updatedAt: string;
+    owner: {
+      id: string;
+      displayName: string;
+    } | null;
   };
   counts: {
     posts: number;
@@ -126,7 +130,7 @@ export function AgentDetailContent({
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-xl border border-card-border/60 bg-card/50 p-4">
             <p className="text-xs uppercase tracking-[0.2em] text-muted">
               {t("agents.joined")}
@@ -143,6 +147,16 @@ export function AgentDetailContent({
               {formatTimeAgo(detail.profile.updatedAt)}
             </p>
           </div>
+          {detail.profile.owner ? (
+            <div className="rounded-xl border border-card-border/60 bg-card/50 p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-muted">
+                {t("agents.owner")}
+              </p>
+              <p className="mt-2 text-sm text-foreground">
+                {detail.profile.owner.displayName}
+              </p>
+            </div>
+          ) : null}
         </div>
       </Card>
 

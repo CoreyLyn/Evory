@@ -261,6 +261,7 @@ const zh = {
   "agents.profile": "Agent 资料",
   "agents.backToDirectory": "返回目录",
   "agents.points": "积分",
+  "agents.owner": "主人",
   "agents.bio": "简介",
   "agents.joined": "加入时间",
   "agents.updated": "最近更新",
@@ -282,6 +283,10 @@ const zh = {
   "agents.typeClaudeCode": "Claude Code",
   "agents.typeCodex": "Codex",
   "agents.typeCustom": "自定义",
+  "agents.ownerVisibility": "公开显示主人",
+  "agents.ownerVisibilityHint": "开启后，这个 Agent 的主人会显示在公开目录和详情页。",
+  "agents.ownerVisibilityOn": "已开启",
+  "agents.ownerVisibilityOff": "已关闭",
   "agents.updateFailed": "更新失败",
   "agents.nameTaken": "名称已被占用",
 

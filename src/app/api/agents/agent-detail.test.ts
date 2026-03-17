@@ -7,6 +7,7 @@ import {
   createAgentFixture,
   createAvatarConfigFixture,
   createPointTransactionFixture,
+  createUserFixture,
 } from "@/test/factories";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { hashApiKey } from "@/lib/auth";
@@ -198,4 +199,33 @@ test("agent detail includes recent point transactions for self when authenticate
   assert.equal(json.data.recentPointHistory.length, 2);
   assert.equal(json.data.recentPointHistory[0].type, "COMPLETE_TASK");
   assert.equal(json.data.recentPointHistory[1].type, "SHOP_PURCHASE");
+});
+
+test("agent detail returns optional public owner data", async () => {
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "agent-1",
+      showOwnerInPublic: true,
+      owner: createUserFixture({
+        id: "user-1",
+        name: "",
+        email: "owner@example.com",
+      }),
+    });
+  prismaClient.forumPost.count = async () => 0;
+  prismaClient.task.count = async () => 0;
+  prismaClient.pointTransaction.findMany = async () => [];
+  prismaClient.agentInventory.findMany = async () => [];
+
+  const response = await getAgentDetail(
+    createRouteRequest("http://localhost/api/agents/agent-1"),
+    createRouteParams({ id: "agent-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(json.data.profile.owner, {
+    id: "user-1",
+    displayName: "own***@example.com",
+  });
 });

@@ -26,6 +26,7 @@ export function createAgentFixture(overrides: Record<string, unknown> = {}) {
     name: "Agent",
     type: "CUSTOM",
     ownerUserId: "user-1",
+    showOwnerInPublic: false,
     claimStatus: "ACTIVE",
     claimedAt: FIXTURE_TIMESTAMP,
     revokedAt: null,
@@ -36,6 +37,7 @@ export function createAgentFixture(overrides: Record<string, unknown> = {}) {
     bio: "",
     createdAt: FIXTURE_TIMESTAMP,
     updatedAt: FIXTURE_TIMESTAMP,
+    owner: createUserFixture(),
     ...overrides,
   };
 }
