@@ -1,10 +1,24 @@
 "use client";
 
 import { useState, useMemo, useRef, useCallback } from "react";
+import { useTheme } from "next-themes";
 import { Search, Users, ChevronRight } from "lucide-react";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 import { STATUS_COLORS } from "@/canvas/theme";
+import {
+  OFFICE_AGENT_ROW_IDLE_CLASS,
+  OFFICE_AGENT_ROW_SELECTED_CLASS,
+  OFFICE_FILTER_ACTIVE_CLASS,
+  OFFICE_FILTER_IDLE_CLASS,
+  OFFICE_HEADER_BADGE_CLASS,
+  OFFICE_SEARCH_INPUT_CLASS,
+  OFFICE_SIDEBAR_SURFACE_CLASS,
+  OFFICE_SIDEBAR_TOGGLE_CLASS,
+  getOfficeSearchInputStyle,
+  getOfficeSidebarSurfaceStyle,
+  getOfficeSidebarToggleStyle,
+} from "./overlay-styles";
 
 export interface SidebarAgent {
   id: string;
@@ -41,6 +55,7 @@ export function AgentSidebar({
   isOpen,
   onToggle,
 }: AgentSidebarProps) {
+  const { resolvedTheme } = useTheme();
   const t = useT();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -73,15 +88,16 @@ export function AgentSidebar({
     return (
       <button
         onClick={onToggle}
-        className="absolute top-6 left-6 z-10 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-xl p-3 shadow-xl hover:bg-background/80 transition-all group"
+        className={`absolute top-6 left-6 z-10 rounded-xl p-3 transition-all group ${OFFICE_SIDEBAR_TOGGLE_CLASS}`}
+        style={getOfficeSidebarToggleStyle(resolvedTheme)}
         title={t("office.sidebar.title") as string}
       >
-        <Users className="w-5 h-5 text-foreground/70 group-hover:text-foreground transition-colors" />
+        <Users className="w-5 h-5 text-slate-600 group-hover:text-slate-900 dark:text-foreground/70 dark:group-hover:text-foreground transition-colors" />
         {/* Pulse ring for discoverability */}
-        <span className="absolute inset-0 rounded-xl border-2 border-primary/30 animate-ping opacity-30 pointer-events-none" style={{ animationDuration: '3s' }} />
+        <span className="absolute inset-0 rounded-xl border-2 border-accent/25 animate-ping opacity-30 pointer-events-none" style={{ animationDuration: '3s' }} />
         {/* Count badge */}
         {agents.length > 0 && (
-          <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full">
+          <span className="absolute -top-1 -right-1 bg-accent text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full">
             {agents.length}
           </span>
         )}
@@ -90,7 +106,10 @@ export function AgentSidebar({
   }
 
   return (
-    <div className="absolute top-0 left-0 z-10 h-full w-72 bg-background/95 sm:bg-background/80 sm:backdrop-blur-2xl border-r border-card-border/50 shadow-2xl flex flex-col">
+    <div
+      className={`absolute top-0 left-0 z-10 h-full w-72 flex flex-col ${OFFICE_SIDEBAR_SURFACE_CLASS}`}
+      style={getOfficeSidebarSurfaceStyle(resolvedTheme)}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-card-border/30">
         <div className="flex items-center gap-2">
@@ -98,13 +117,13 @@ export function AgentSidebar({
           <span className="text-sm font-semibold text-foreground/80">
             {t("office.sidebar.title")}
           </span>
-          <span className="text-xs text-muted bg-foreground/5 px-1.5 py-0.5 rounded-md">
+          <span className={`text-xs px-1.5 py-0.5 rounded-md ${OFFICE_HEADER_BADGE_CLASS}`}>
             {agents.length}
           </span>
         </div>
         <button
           onClick={onToggle}
-          className="p-1.5 rounded-lg hover:bg-foreground/5 transition-colors"
+          className="p-1.5 rounded-lg hover:bg-slate-900/[0.05] dark:hover:bg-foreground/5 transition-colors"
         >
           <ChevronRight className="w-4 h-4 text-muted rotate-180" />
         </button>
@@ -128,7 +147,8 @@ export function AgentSidebar({
               }
             }}
             placeholder={t("office.sidebar.search") as string}
-            className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-card-border/40 bg-foreground/[0.02] text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary/30 transition-colors"
+            className={`w-full pl-8 pr-3 py-1.5 text-sm rounded-lg transition-colors ${OFFICE_SEARCH_INPUT_CLASS}`}
+            style={getOfficeSearchInputStyle(resolvedTheme)}
           />
         </div>
       </div>
@@ -147,8 +167,8 @@ export function AgentSidebar({
               onClick={() => setStatusFilter(status)}
               className={`text-[11px] px-2 py-0.5 rounded-md font-medium transition-colors ${
                 isActive
-                  ? "bg-primary/15 text-primary"
-                  : "bg-foreground/5 text-muted hover:text-foreground"
+                  ? OFFICE_FILTER_ACTIVE_CLASS
+                  : OFFICE_FILTER_IDLE_CLASS
               }`}
             >
               {status !== "ALL" && (
@@ -186,8 +206,8 @@ export function AgentSidebar({
                   }}
                   className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all ${
                     selectedAgentId === agent.id
-                      ? "bg-primary/10 ring-1 ring-primary/20"
-                      : "hover:bg-foreground/[0.03]"
+                      ? OFFICE_AGENT_ROW_SELECTED_CLASS
+                      : OFFICE_AGENT_ROW_IDLE_CLASS
                   }`}
                 >
                   <span
@@ -195,10 +215,10 @@ export function AgentSidebar({
                     style={{ backgroundColor: STATUS_COLORS[agent.status] ?? "#52525b" }}
                   />
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-foreground/90 block truncate">
+                    <span className="text-sm font-medium text-slate-800 dark:text-foreground/90 block truncate">
                       {agent.name}
                     </span>
-                    <span className="text-[11px] text-muted">
+                    <span className="text-[11px] text-slate-500 dark:text-muted">
                       {t(STATUS_LABEL_KEYS[agent.status] ?? "office.statusOffline")} · {agent.points} pts
                     </span>
                   </div>

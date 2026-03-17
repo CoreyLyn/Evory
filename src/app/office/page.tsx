@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useTheme } from "next-themes";
 import { OfficeEngine, AgentData } from "@/canvas/engine";
 import { ZONES, type CanvasLabels } from "@/canvas/office";
 import { STATUS_COLORS } from "@/canvas/theme";
@@ -19,6 +20,19 @@ import {
 import { Users, Activity, Layers, ActivitySquare, X, Clock, Zap, ChevronRight } from "lucide-react";
 import { AgentSidebar } from "./agent-sidebar";
 import { ActivityFeed, FeedItem } from "./activity-feed";
+import {
+  OFFICE_DETAIL_AVATAR_CLASS,
+  OFFICE_DETAIL_BANNER_FADE_CLASS,
+  OFFICE_DETAIL_CARD_SURFACE_CLASS,
+  OFFICE_DETAIL_CLOSE_BUTTON_CLASS,
+  OFFICE_INFO_CARD_CLASS,
+  OFFICE_LEGEND_SURFACE_CLASS,
+  OFFICE_STAT_CARD_CLASS,
+  getOfficeDetailCardStyle,
+  getOfficeInfoCardStyle,
+  getOfficeLegendSurfaceStyle,
+  getOfficeStatCardStyle,
+} from "./overlay-styles";
 
 const ZONE_LABEL_KEYS: Record<string, TranslationKey> = {
   desks: "zone.desks",
@@ -162,6 +176,7 @@ function liveEventToBubble(
 }
 
 export default function OfficePage() {
+  const { resolvedTheme } = useTheme();
   const t = useT();
   const { locale } = useLocale();
   const formatTimeAgo = useFormatTimeAgo();
@@ -403,8 +418,8 @@ export default function OfficePage() {
           <div className="flex flex-wrap gap-3 text-sm">
             {/* Total Agents Card */}
             <div className="flex items-center gap-3 bg-card/60 backdrop-blur-md border border-card-border/60 rounded-xl px-5 py-3 shadow-sm hover:shadow-md hover:bg-card/80 transition-all group">
-              <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                <Users className="w-4 h-4 text-primary" />
+              <div className="p-2 bg-accent/10 rounded-lg group-hover:bg-accent/20 transition-colors">
+                <Users className="w-4 h-4 text-accent" />
               </div>
               <div className="flex flex-col">
                 <span className="text-xs text-muted font-medium mb-0.5">{t("office.total")}</span>
@@ -455,7 +470,8 @@ export default function OfficePage() {
 
         {/* Floating Zones Legend — collapsible, click to toggle  */}
         <div
-          className={`hidden sm:block absolute bottom-6 left-6 bg-background/60 backdrop-blur-xl border border-card-border/50 rounded-xl shadow-xl transition-all duration-300 cursor-pointer select-none ${legendExpanded ? 'p-4 opacity-95' : 'px-3 py-2 opacity-80 hover:opacity-95'}`}
+          className={`hidden sm:block absolute bottom-6 left-6 rounded-xl transition-all duration-300 cursor-pointer select-none ${OFFICE_LEGEND_SURFACE_CLASS} ${legendExpanded ? 'p-4 opacity-95' : 'px-3 py-2 opacity-80 hover:opacity-95'}`}
+          style={getOfficeLegendSurfaceStyle(resolvedTheme)}
           onClick={() => setLegendExpanded(prev => !prev)}
         >
           <div className="flex items-center gap-2">
@@ -478,7 +494,10 @@ export default function OfficePage() {
         </div>
 
         {/* Floating Status Legend — compact dot-only mode when detail card is open */}
-        <div className={`absolute top-6 right-6 bg-background/90 sm:bg-background/60 sm:backdrop-blur-xl border border-card-border/50 rounded-xl shadow-xl pointer-events-none opacity-95 transition-all duration-300 ${selectedAgentId ? "p-2.5 flex flex-row sm:flex-col gap-2" : "p-4"}`}>
+        <div
+          className={`absolute top-6 right-6 rounded-xl pointer-events-none opacity-95 transition-all duration-300 ${OFFICE_LEGEND_SURFACE_CLASS} ${selectedAgentId ? "p-2.5 flex flex-row sm:flex-col gap-2" : "p-4"}`}
+          style={getOfficeLegendSurfaceStyle(resolvedTheme)}
+        >
           {!selectedAgentId && (
             <div className="flex items-center gap-2 mb-3">
               <ActivitySquare className="w-4 h-4 text-foreground/60" />
@@ -512,14 +531,20 @@ export default function OfficePage() {
           const statusLabelKey = STATUS_LEGEND.find(s => s.status === agent.status)?.labelKey || "office.statusOffline";
 
           return (
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-6 w-80 bg-card/80 sm:backdrop-blur-2xl border border-card-border/60 rounded-2xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-4 duration-300" style={{ maxHeight: 'calc(100% - 3rem)' }}>
+            <div
+              className={`absolute top-6 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-6 w-80 rounded-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-4 duration-300 ${OFFICE_DETAIL_CARD_SURFACE_CLASS}`}
+              style={{
+                maxHeight: 'calc(100% - 3rem)',
+                ...getOfficeDetailCardStyle(resolvedTheme),
+              }}
+            >
 
               {/* Header / Banner */}
               <div className="h-16 w-full relative" style={{ backgroundColor: `${statusColor}20` }}>
-                <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
+                <div className={`absolute inset-0 ${OFFICE_DETAIL_BANNER_FADE_CLASS}`} />
                 <button
                   onClick={() => setSelectedAgentId(null)}
-                  className="absolute top-3 right-3 p-1.5 rounded-full bg-background/40 text-muted hover:text-foreground hover:bg-card transition-colors z-10"
+                  className={`absolute top-3 right-3 p-1.5 rounded-full transition-colors z-10 ${OFFICE_DETAIL_CLOSE_BUTTON_CLASS}`}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -529,21 +554,21 @@ export default function OfficePage() {
               <div className="px-6 pb-6 relative -mt-8">
                 <div className="flex items-end gap-4 mb-4">
                   <div
-                    className="w-16 h-16 rounded-2xl border-2 border-card-border flex items-center justify-center shadow-lg relative bg-background-alt"
+                    className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center shadow-lg relative ${OFFICE_DETAIL_AVATAR_CLASS}`}
                     style={{ boxShadow: `0 0 20px ${statusColor}40` }}
                   >
                     <span className="text-3xl filter drop-shadow-md">👾</span>
                     {/* Status Dot */}
                     <span
-                      className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-background"
+                      className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-background"
                       style={{ backgroundColor: statusColor }}
                     />
                   </div>
                   <div className="pb-1">
-                    <h3 className="text-xl font-bold tracking-tight text-foreground m-0 leading-tight">
+                    <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-foreground m-0 leading-tight">
                       {agent.name}
                     </h3>
-                    <p className="text-sm text-muted font-medium">#{agent.id.slice(0, 6)}</p>
+                    <p className="text-sm text-slate-500 dark:text-muted font-medium">#{agent.id.slice(0, 6)}</p>
                   </div>
                 </div>
 
@@ -555,12 +580,18 @@ export default function OfficePage() {
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 gap-3 mb-5">
-                  <div className="bg-card p-3 rounded-xl border border-card-border/50 flex flex-col gap-1">
-                    <span className="text-xs text-muted font-medium flex items-center gap-1.5"><Zap className="w-3 h-3 text-yellow-500" />{t("agents.points")}</span>
-                    <span className="text-lg font-bold text-foreground leading-none">{agent.points}</span>
+                  <div
+                    className={`p-3 rounded-xl flex flex-col gap-1 ${OFFICE_STAT_CARD_CLASS}`}
+                    style={getOfficeStatCardStyle(resolvedTheme)}
+                  >
+                    <span className="text-xs text-slate-500 dark:text-muted font-medium flex items-center gap-1.5"><Zap className="w-3 h-3 text-yellow-500" />{t("agents.points")}</span>
+                    <span className="text-lg font-bold text-slate-900 dark:text-foreground leading-none">{agent.points}</span>
                   </div>
-                  <div className="bg-card p-3 rounded-xl border border-card-border/50 flex flex-col gap-1">
-                    <span className="text-xs text-muted font-medium flex items-center gap-1.5"><ActivitySquare className="w-3 h-3 text-sky-400" />{t("office.status")}</span>
+                  <div
+                    className={`p-3 rounded-xl flex flex-col gap-1 ${OFFICE_STAT_CARD_CLASS}`}
+                    style={getOfficeStatCardStyle(resolvedTheme)}
+                  >
+                    <span className="text-xs text-slate-500 dark:text-muted font-medium flex items-center gap-1.5"><ActivitySquare className="w-3 h-3 text-sky-400" />{t("office.status")}</span>
                     <span className="text-sm font-bold leading-none mt-1" style={{ color: statusColor }}>
                       {t(statusLabelKey)}
                     </span>
@@ -569,11 +600,14 @@ export default function OfficePage() {
 
                 <div className="space-y-3">
                   {agent.bio && (
-                    <div className="rounded-xl border border-card-border/50 bg-card/50 p-3">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-muted/70">
+                    <div
+                      className={`rounded-xl p-3 ${OFFICE_INFO_CARD_CLASS}`}
+                      style={getOfficeInfoCardStyle(resolvedTheme)}
+                    >
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400 dark:text-muted/70">
                         {t("agents.bio")}
                       </p>
-                      <p className="mt-2 text-sm leading-relaxed text-foreground/90">
+                      <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-foreground/90">
                         {agent.bio}
                       </p>
                     </div>
@@ -583,10 +617,10 @@ export default function OfficePage() {
                     <div className="flex items-center gap-3 text-sm">
                       <Clock className="w-4 h-4 text-muted/70" />
                       <div className="flex flex-col">
-                        <span className="text-foreground/90">
+                        <span className="text-slate-700 dark:text-foreground/90">
                           {formatTimeAgo(agent.createdAt)}
                         </span>
-                        <span className="text-xs text-muted/70">
+                        <span className="text-xs text-slate-400 dark:text-muted/70">
                           {t("agents.joined")}
                         </span>
                       </div>
@@ -597,10 +631,10 @@ export default function OfficePage() {
                     <div className="flex items-center gap-3 text-sm">
                       <ActivitySquare className="w-4 h-4 text-muted/70" />
                       <div className="flex flex-col">
-                        <span className="text-foreground/90">
+                        <span className="text-slate-700 dark:text-foreground/90">
                           {formatTimeAgo(agent.updatedAt)}
                         </span>
-                        <span className="text-xs text-muted/70">
+                        <span className="text-xs text-slate-400 dark:text-muted/70">
                           {t("agents.updated")}
                         </span>
                       </div>
@@ -610,7 +644,7 @@ export default function OfficePage() {
 
                 <Link
                   href={`/agents/${agent.id}`}
-                  className="block w-full mt-6 rounded-xl border border-primary/20 bg-primary/10 py-2.5 text-center text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+                  className="block w-full mt-6 rounded-xl border border-accent/20 bg-accent/10 py-2.5 text-center text-sm font-medium text-accent transition-colors hover:bg-accent/16"
                 >
                   {t("office.viewProfile")}
                 </Link>
