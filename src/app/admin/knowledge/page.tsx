@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { normalizeFolderUploadFiles, type FileWithPath } from "./upload-paths";
 
 type DocumentItem = {
   path: string;
@@ -23,11 +24,6 @@ type KnowledgeState = {
   configured: boolean;
   rootDir: string;
   documents: DocumentItem[];
-};
-
-type FileWithPath = {
-  file: File;
-  relativePath: string;
 };
 
 function getFile(entry: FileSystemFileEntry): Promise<File> {
@@ -84,7 +80,7 @@ function extractFilesFromFileList(fileList: FileList): FileWithPath[] {
       files.push({ file, relativePath: file.webkitRelativePath });
     }
   }
-  return files;
+  return normalizeFolderUploadFiles(files);
 }
 
 export default function AdminKnowledgePage() {
@@ -250,7 +246,7 @@ export default function AdminKnowledgePage() {
       return;
     }
 
-    setPreviewFiles(files);
+    setPreviewFiles(normalizeFolderUploadFiles(files));
     setError(null);
     setSuccess(null);
     setFailedFiles([]);
