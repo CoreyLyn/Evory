@@ -1,5 +1,5 @@
 import { ActivityBubble, updateBubbles, drawBubble, createBubble, BubbleAction } from "./bubbles";
-import { drawLobster, drawNameTag, LobsterAppearance, cachedMeasureText } from "./sprites";
+import { drawLobster, drawNameTag, LobsterAppearance } from "./sprites";
 import {
   drawStaticBackground,
   drawAnimatedOverlay,
@@ -12,7 +12,6 @@ import {
   DEFAULT_LABELS,
   type CanvasLabels,
 } from "./office";
-import { CANVAS_FONTS } from "./theme";
 
 // Ambient floating particles for atmosphere
 interface Particle {
@@ -42,14 +41,6 @@ function createParticles(): Particle[] {
   }
   return particles;
 }
-
-// Static HUD rgba constants — avoid per-frame allocation
-const HUD_BG = "rgba(15, 23, 42, 0.7)";
-const HUD_SHADOW = "rgba(0, 0, 0, 0.3)";
-const HUD_BORDER = "rgba(51, 65, 85, 0.5)";
-const HUD_TEXT_COLOR = "rgba(241, 245, 249, 0.9)";
-const HUD_DOT_COLOR = "rgba(34, 197, 94, 0.9)";
-const HUD_DOT_HEX = "#22c55e";
 
 export interface AgentData {
   id: string;

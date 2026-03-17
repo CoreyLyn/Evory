@@ -16,7 +16,37 @@ import { GET as listPosts } from "./route";
 import { POST as hidePost } from "./[id]/hide/route";
 import { POST as restorePost } from "./[id]/restore/route";
 
-const prismaClient = prisma as Record<string, any>;
+type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
+  ...args: TArgs
+) => Promise<TResult>;
+
+type SecurityEventData = {
+  type?: string;
+  routeKey?: string;
+  userId?: string;
+  metadata?: Record<string, unknown>;
+} & Record<string, unknown>;
+
+type AdminPostPrismaMock = {
+  userSession: {
+    findUnique: AsyncMethod;
+    deleteMany: AsyncMethod<[], { count: number }>;
+  };
+  forumPost: {
+    findMany: AsyncMethod;
+    findUnique: AsyncMethod;
+    update: AsyncMethod;
+    count: AsyncMethod;
+  };
+  securityEvent: {
+    create: AsyncMethod<[{
+      data: SecurityEventData;
+    }], unknown>;
+  };
+  rateLimitCounter: unknown;
+};
+
+const prismaClient = prisma as unknown as AdminPostPrismaMock;
 
 const originalMethods = {
   userSession: prismaClient.userSession,
@@ -312,7 +342,7 @@ test("POST hide — creates CONTENT_HIDDEN SecurityEvent", async () => {
     hiddenById: null,
   });
 
-  let capturedEvent: Record<string, any> | null = null;
+  let capturedEvent: SecurityEventData | null = null;
 
   prismaClient.forumPost = {
     ...prismaClient.forumPost,
@@ -324,7 +354,7 @@ test("POST hide — creates CONTENT_HIDDEN SecurityEvent", async () => {
     }),
   };
   prismaClient.securityEvent = {
-    create: async ({ data }: { data: Record<string, any> }) => {
+    create: async ({ data }: { data: SecurityEventData }) => {
       capturedEvent = data;
       return createSecurityEventFixture();
     },
@@ -346,7 +376,10 @@ test("POST hide — creates CONTENT_HIDDEN SecurityEvent", async () => {
   assert.equal(capturedEvent!.type, "CONTENT_HIDDEN");
   assert.equal(capturedEvent!.routeKey, "admin-forum-hide");
   assert.equal(capturedEvent!.userId, "admin-1");
-  assert.equal((capturedEvent!.metadata as any).postId, "post-1");
+  assert.equal(
+    (capturedEvent!.metadata as Record<string, unknown>).postId,
+    "post-1"
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -463,7 +496,7 @@ test("POST restore — creates CONTENT_RESTORED SecurityEvent", async () => {
     hiddenById: "admin-1",
   });
 
-  let capturedEvent: Record<string, any> | null = null;
+  let capturedEvent: SecurityEventData | null = null;
 
   prismaClient.forumPost = {
     ...prismaClient.forumPost,
@@ -475,7 +508,7 @@ test("POST restore — creates CONTENT_RESTORED SecurityEvent", async () => {
     }),
   };
   prismaClient.securityEvent = {
-    create: async ({ data }: { data: Record<string, any> }) => {
+    create: async ({ data }: { data: SecurityEventData }) => {
       capturedEvent = data;
       return createSecurityEventFixture();
     },
@@ -497,7 +530,10 @@ test("POST restore — creates CONTENT_RESTORED SecurityEvent", async () => {
   assert.equal(capturedEvent!.type, "CONTENT_RESTORED");
   assert.equal(capturedEvent!.routeKey, "admin-forum-restore");
   assert.equal(capturedEvent!.userId, "admin-1");
-  assert.equal((capturedEvent!.metadata as any).postId, "post-1");
+  assert.equal(
+    (capturedEvent!.metadata as Record<string, unknown>).postId,
+    "post-1"
+  );
 });
 
 // ---------------------------------------------------------------------------

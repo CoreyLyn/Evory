@@ -4,7 +4,6 @@ import { createRouteRequest, createRouteParams } from "@/test/request-helpers";
 import {
   createForumPostFixture,
   createForumReplyFixture,
-  createAgentFixture,
 } from "@/test/factories";
 import prisma from "@/lib/prisma";
 import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
@@ -13,7 +12,35 @@ import { resetRateLimitStore } from "@/lib/rate-limit";
 import { GET as getForumPosts } from "./route";
 import { GET as getForumPost } from "./[id]/route";
 
-const prismaClient = prisma as Record<string, any>;
+type ForumPostQueryArgs = {
+  where: Record<string, unknown>;
+  select?: Record<string, unknown>;
+};
+
+type PrismaForumFilterMock = {
+  forumPost: {
+    findMany: (args: ForumPostQueryArgs) => Promise<unknown[]>;
+    findUnique: (args: ForumPostQueryArgs) => Promise<unknown>;
+    count: (args: ForumPostQueryArgs) => Promise<number>;
+    update: (args: Record<string, unknown>) => Promise<unknown>;
+  };
+  forumLike: {
+    findUnique: (args: Record<string, unknown>) => Promise<unknown>;
+  };
+  agentCredential?: {
+    findUnique: (args: Record<string, unknown>) => Promise<unknown>;
+    update: (args: Record<string, unknown>) => Promise<unknown>;
+  };
+  agent?: {
+    update: (args: Record<string, unknown>) => Promise<unknown>;
+  };
+  securityEvent?: {
+    create: (args: Record<string, unknown>) => Promise<unknown>;
+  };
+  rateLimitCounter: unknown;
+};
+
+const prismaClient = prisma as unknown as PrismaForumFilterMock;
 
 const originalMethods = {
   forumPostFindMany: prismaClient.forumPost.findMany,
@@ -58,11 +85,11 @@ test("GET /api/forum/posts passes hiddenAt:null in where clause", async () => {
   let capturedFindManyWhere: Record<string, unknown> | undefined;
   let capturedCountWhere: Record<string, unknown> | undefined;
 
-  prismaClient.forumPost.findMany = async (args: Record<string, any>) => {
+  prismaClient.forumPost.findMany = async (args: ForumPostQueryArgs) => {
     capturedFindManyWhere = args.where;
     return [createForumPostFixture()];
   };
-  prismaClient.forumPost.count = async (args: Record<string, any>) => {
+  prismaClient.forumPost.count = async (args: ForumPostQueryArgs) => {
     capturedCountWhere = args.where;
     return 1;
   };
@@ -89,7 +116,7 @@ test("GET /api/forum/posts passes hiddenAt:null in where clause", async () => {
 test("GET /api/forum/posts passes hiddenAt:null with category filter", async () => {
   let capturedWhere: Record<string, unknown> | undefined;
 
-  prismaClient.forumPost.findMany = async (args: Record<string, any>) => {
+  prismaClient.forumPost.findMany = async (args: ForumPostQueryArgs) => {
     capturedWhere = args.where;
     return [];
   };
@@ -111,7 +138,7 @@ test("GET /api/forum/posts passes hiddenAt:null with category filter", async () 
 test("GET /api/forum/posts/[id] returns 404 for hidden post", async () => {
   // When hiddenAt: null is in the where clause, a hidden post won't match,
   // so findUnique returns null.
-  prismaClient.forumPost.findUnique = async (args: Record<string, any>) => {
+  prismaClient.forumPost.findUnique = async (args: ForumPostQueryArgs) => {
     // Verify the where clause includes hiddenAt: null
     assert.equal(
       args.where.hiddenAt,
@@ -139,9 +166,9 @@ test("GET /api/forum/posts/[id] returns 404 for hidden post", async () => {
 });
 
 test("GET /api/forum/posts/[id] filters hidden replies via where clause", async () => {
-  let capturedQuery: Record<string, any> | undefined;
+  let capturedQuery: ForumPostQueryArgs | undefined;
 
-  prismaClient.forumPost.findUnique = async (args: Record<string, any>) => {
+  prismaClient.forumPost.findUnique = async (args: ForumPostQueryArgs) => {
     capturedQuery = args;
     const visibleReply = createForumReplyFixture({ id: "reply-visible" });
     return createForumPostFixture({
