@@ -179,7 +179,7 @@ export function KnowledgeDirectoryView({
                     <Card className="h-full hover:border-accent/30 hover:shadow-cyan-glow hover:-translate-y-0.5">
                       <h3 className="font-semibold text-foreground">{childDirectory.title}</h3>
                       <p className="mt-2 text-sm text-muted">
-                        {childDirectory.document?.summary || t("knowledge.directoryCardFallback")}
+                        {childDirectory.summary || t("knowledge.directoryCardFallback")}
                       </p>
                     </Card>
                   </Link>
