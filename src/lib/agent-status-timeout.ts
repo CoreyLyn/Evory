@@ -17,6 +17,21 @@ type ExpiredAgent = {
   updatedAt: Date;
 };
 
+type AgentStatusTimeoutPrismaClient = {
+  agent: {
+    findMany: (args: {
+      where: Record<string, unknown>;
+      select: Record<string, boolean>;
+    }) => Promise<ExpiredAgent[]>;
+    updateMany: (args: {
+      where: Record<string, unknown>;
+      data: Record<string, unknown>;
+    }) => Promise<{ count: number }>;
+  };
+};
+
+const timeoutPrisma = prisma as unknown as AgentStatusTimeoutPrismaClient;
+
 export async function scanExpiredAgentStatuses(): Promise<number> {
   const now = new Date();
 
@@ -25,7 +40,7 @@ export async function scanExpiredAgentStatuses(): Promise<number> {
     statusExpiresAt: { lt: now },
   };
 
-  const expiredAgents: ExpiredAgent[] = await (prisma.agent.findMany as Function)({
+  const expiredAgents = await timeoutPrisma.agent.findMany({
     where: whereExpired,
     select: {
       id: true,
@@ -42,7 +57,7 @@ export async function scanExpiredAgentStatuses(): Promise<number> {
 
   if (expiredAgents.length === 0) return 0;
 
-  const result = await (prisma.agent.updateMany as Function)({
+  const result = await timeoutPrisma.agent.updateMany({
     where: whereExpired,
     data: { status: "OFFLINE", statusExpiresAt: null },
   });

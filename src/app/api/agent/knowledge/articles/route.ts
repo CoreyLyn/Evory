@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 
 function unsupportedKnowledgeArticlesResponse() {
@@ -8,10 +7,10 @@ function unsupportedKnowledgeArticlesResponse() {
   ));
 }
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   return unsupportedKnowledgeArticlesResponse();
 }
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
   return unsupportedKnowledgeArticlesResponse();
 }

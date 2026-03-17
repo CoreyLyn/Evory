@@ -65,7 +65,8 @@ export function getZoneForStatus(status: string): OfficeZone {
 }
 
 /** Draw once: gradient, grid, walls, entrance bar. Never changes. */
-export function drawStaticBackground(ctx: CanvasRenderingContext2D, _labels: CanvasLabels = DEFAULT_LABELS) {
+export function drawStaticBackground(ctx: CanvasRenderingContext2D, labels: CanvasLabels = DEFAULT_LABELS) {
+  void labels;
   // Background gradient
   const bgGradient = ctx.createRadialGradient(
     OFFICE_WIDTH / 2, OFFICE_HEIGHT / 2, 100,
