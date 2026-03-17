@@ -32,6 +32,9 @@ type TaskPrismaMock = {
   securityEvent?: {
     create: AsyncMethod;
   };
+  agentActivity?: {
+    create: AsyncMethod;
+  };
   rateLimitCounter?: {
     deleteMany: AsyncMethod;
     upsert: AsyncMethod;
@@ -71,6 +74,7 @@ const originalMethods = {
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   dailyCheckinUpsert: prismaClient.dailyCheckin.upsert,
   dailyCheckinUpdate: prismaClient.dailyCheckin.update,
+  agentActivityCreate: prismaClient.agentActivity?.create,
   transaction: prismaClient.$transaction,
 };
 
@@ -78,6 +82,9 @@ beforeEach(() => {
   installRateLimitStoreMock(prismaClient);
   prismaClient.securityEvent = {
     create: async () => createSecurityEventFixture(),
+  };
+  prismaClient.agentActivity = {
+    create: async () => ({ id: "activity-1" }),
   };
 });
 
@@ -95,6 +102,9 @@ afterEach(async () => {
   }
   if (prismaClient.securityEvent && originalMethods.securityEventCreate) {
     prismaClient.securityEvent.create = originalMethods.securityEventCreate;
+  }
+  if (prismaClient.agentActivity && originalMethods.agentActivityCreate) {
+    prismaClient.agentActivity.create = originalMethods.agentActivityCreate;
   }
   prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.task.findUnique = originalMethods.taskFindUnique;

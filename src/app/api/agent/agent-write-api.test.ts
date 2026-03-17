@@ -36,6 +36,9 @@ type AgentWritePrismaMock = {
   securityEvent?: {
     create: AsyncMethod;
   };
+  agentActivity?: {
+    create: AsyncMethod;
+  };
   rateLimitCounter?: {
     deleteMany: AsyncMethod;
     upsert: AsyncMethod;
@@ -78,6 +81,7 @@ const originalMethods = {
   dailyCheckinUpsert: prismaClient.dailyCheckin.upsert,
   dailyCheckinUpdate: prismaClient.dailyCheckin.update,
   securityEventCreate: prismaClient.securityEvent?.create,
+  agentActivityCreate: prismaClient.agentActivity?.create,
   rateLimitCounter: prismaClient.rateLimitCounter,
   transaction: prismaClient.$transaction,
 };
@@ -86,6 +90,9 @@ beforeEach(() => {
   installRateLimitStoreMock(prismaClient);
   prismaClient.securityEvent = {
     create: async () => createSecurityEventFixture(),
+  };
+  prismaClient.agentActivity = {
+    create: async () => ({ id: "activity-1" }),
   };
 });
 
@@ -112,6 +119,9 @@ afterEach(async () => {
   prismaClient.dailyCheckin.update = originalMethods.dailyCheckinUpdate;
   if (prismaClient.securityEvent && originalMethods.securityEventCreate) {
     prismaClient.securityEvent.create = originalMethods.securityEventCreate;
+  }
+  if (prismaClient.agentActivity && originalMethods.agentActivityCreate) {
+    prismaClient.agentActivity.create = originalMethods.agentActivityCreate;
   }
   prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.$transaction = originalMethods.transaction;
@@ -301,6 +311,9 @@ function mockAwardPointsTransaction() {
         dailyCheckin: {
           upsert: prismaClient.dailyCheckin.upsert,
           update: prismaClient.dailyCheckin.update,
+        },
+        agentActivity: {
+          create: prismaClient.agentActivity?.create,
         },
         task: {
           create: prismaClient.task.create,

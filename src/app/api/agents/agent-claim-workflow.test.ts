@@ -44,6 +44,9 @@ type AgentClaimPrismaMock = {
   agentClaimAudit?: {
     create: AsyncMethod;
   };
+  agentActivity?: {
+    create: AsyncMethod;
+  };
   $transaction: AsyncMethod<[unknown], unknown>;
   securityEvent?: {
     create: AsyncMethod;
@@ -69,6 +72,7 @@ const originalCredentialCreate = prismaClient.agentCredential?.create;
 const originalCredentialFindUnique = prismaClient.agentCredential?.findUnique;
 const originalCredentialUpdateMany = prismaClient.agentCredential?.updateMany;
 const originalAuditCreate = prismaClient.agentClaimAudit?.create;
+const originalAgentActivityCreate = prismaClient.agentActivity?.create;
 const originalTransaction = prismaClient.$transaction;
 const originalSecurityEventCreate = prismaClient.securityEvent?.create;
 const originalSecurityEventFindMany = prismaClient.securityEvent?.findMany;
@@ -89,6 +93,9 @@ beforeEach(() => {
   prismaClient.securityEvent = {
     create: async () => createSecurityEventFixture(),
     findMany: async () => [],
+  };
+  prismaClient.agentActivity = {
+    create: async () => ({ id: "activity-1" }),
   };
 });
 
@@ -112,6 +119,9 @@ afterEach(async () => {
   }
   if (prismaClient.agentClaimAudit && originalAuditCreate) {
     prismaClient.agentClaimAudit.create = originalAuditCreate;
+  }
+  if (prismaClient.agentActivity && originalAgentActivityCreate) {
+    prismaClient.agentActivity.create = originalAgentActivityCreate;
   }
   if (prismaClient.securityEvent && originalSecurityEventCreate) {
     prismaClient.securityEvent.create = originalSecurityEventCreate;
