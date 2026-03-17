@@ -53,7 +53,7 @@ export function AgentDirectoryCard({
   formatTimeAgo,
 }: {
   agent: Agent;
-  t: (key: string) => string;
+  t: ReturnType<typeof useT>;
   formatTimeAgo: (value: string) => string;
 }) {
   return (
