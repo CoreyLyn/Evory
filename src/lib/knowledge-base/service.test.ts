@@ -6,6 +6,7 @@ import test from "node:test";
 
 import {
   getKnowledgeBase,
+  invalidateKnowledgeBaseCache,
   refreshKnowledgeBase,
   resetKnowledgeBaseCacheForTests,
 } from "./service";
@@ -181,4 +182,48 @@ test("getKnowledgeBase caches the current index until refreshKnowledgeBase is ca
 
   assert.equal(refreshed.status, "ready");
   assert.equal(refreshed.index.root.document?.title, "Second Snapshot");
+});
+
+test("invalidateKnowledgeBaseCache clears the cached snapshot so the next read rebuilds once", async (t) => {
+  const sandbox = await createSandbox();
+  t.after(async () => {
+    resetKnowledgeBaseCacheForTests();
+    await sandbox.cleanup();
+  });
+
+  await writeMarkdown(
+    sandbox.defaultKnowledgeRoot,
+    "README.md",
+    "# First Snapshot\n\nOriginal content.\n"
+  );
+
+  const first = await getKnowledgeBase({
+    cwd: sandbox.cwd,
+    env: {},
+  });
+
+  assert.equal(first.status, "ready");
+  assert.equal(first.index.root.document?.title, "First Snapshot");
+
+  await writeMarkdown(
+    sandbox.defaultKnowledgeRoot,
+    "README.md",
+    "# Second Snapshot\n\nUpdated content.\n"
+  );
+
+  invalidateKnowledgeBaseCache();
+
+  const rebuilt = await getKnowledgeBase({
+    cwd: sandbox.cwd,
+    env: {},
+  });
+  const cachedAgain = await getKnowledgeBase({
+    cwd: sandbox.cwd,
+    env: {},
+  });
+
+  assert.equal(rebuilt.status, "ready");
+  assert.equal(rebuilt.index.root.document?.title, "Second Snapshot");
+  assert.equal(cachedAgain.index.root.document?.title, "Second Snapshot");
+  assert.equal(rebuilt.index.root.document?.title, cachedAgain.index.root.document?.title);
 });

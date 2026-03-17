@@ -1,6 +1,10 @@
 import { KnowledgeDirectoryView } from "@/components/knowledge/knowledge-directory-view";
 import { KnowledgeDocumentView } from "@/components/knowledge/knowledge-document-view";
-import { findKnowledgePathPayload, getCurrentKnowledgeBase } from "@/lib/knowledge-base/api";
+import {
+  findKnowledgePathPayload,
+  getCurrentKnowledgeBase,
+  toKnowledgeDirectoryViewModel,
+} from "@/lib/knowledge-base/api";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +45,7 @@ export default async function KnowledgePathPage({ params }: KnowledgePathPagePro
   }
 
   if (payload.kind === "directory") {
-    return <KnowledgeDirectoryView directory={payload} showSearch={false} />;
+    return <KnowledgeDirectoryView directory={toKnowledgeDirectoryViewModel(payload)} showSearch={false} />;
   }
 
   return <KnowledgeDocumentView document={payload} />;

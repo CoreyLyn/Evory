@@ -1,5 +1,9 @@
 import { KnowledgeDirectoryView } from "@/components/knowledge/knowledge-directory-view";
-import { getCurrentKnowledgeBase, searchKnowledgeDocuments } from "@/lib/knowledge-base/api";
+import {
+  getCurrentKnowledgeBase,
+  searchKnowledgeDocumentPreviews,
+  toKnowledgeDirectoryViewModel,
+} from "@/lib/knowledge-base/api";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +26,11 @@ export default async function KnowledgePage({ searchParams }: KnowledgePageProps
 
   return (
     <KnowledgeDirectoryView
-      directory={knowledgeBase.index.root}
+      directory={toKnowledgeDirectoryViewModel(knowledgeBase.index.root)}
       searchQuery={searchQuery}
-      searchResults={searchQuery ? searchKnowledgeDocuments(knowledgeBase.index, searchQuery) : []}
+      searchResults={
+        searchQuery ? searchKnowledgeDocumentPreviews(knowledgeBase.index, searchQuery) : []
+      }
     />
   );
 }

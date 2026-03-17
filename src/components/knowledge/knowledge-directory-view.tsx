@@ -8,13 +8,16 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
-import type { KnowledgeDirectoryNode, KnowledgeDocument } from "@/lib/knowledge-base/types";
+import type {
+  KnowledgeDirectoryViewModel,
+  KnowledgeDocumentPreview,
+} from "@/lib/knowledge-base/types";
 import { useT } from "@/i18n";
 
 type KnowledgeDirectoryViewProps = {
-  directory: KnowledgeDirectoryNode | null;
+  directory: KnowledgeDirectoryViewModel | null;
   searchQuery?: string;
-  searchResults?: KnowledgeDocument[];
+  searchResults?: KnowledgeDocumentPreview[];
   searchAction?: string;
   showSearch?: boolean;
   state?: "ready" | "not_configured";

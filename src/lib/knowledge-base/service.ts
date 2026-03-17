@@ -73,6 +73,10 @@ export async function refreshKnowledgeBase(
   return value;
 }
 
+export function invalidateKnowledgeBaseCache() {
+  cachedKnowledgeBase = null;
+}
+
 export function resetKnowledgeBaseCacheForTests() {
   cachedKnowledgeBase = null;
 }

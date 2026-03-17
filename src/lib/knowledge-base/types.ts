@@ -12,6 +12,15 @@ export type KnowledgeDocument = {
   lastModified: string;
 };
 
+export type KnowledgeDocumentPreview = Pick<KnowledgeDocument, "path" | "title" | "summary">;
+
+export type KnowledgeDirectoryPreview = {
+  path: string;
+  name: string;
+  title: string;
+  summary: string;
+};
+
 export type KnowledgeDirectoryNode = {
   path: string;
   name: string;
@@ -19,6 +28,15 @@ export type KnowledgeDirectoryNode = {
   document: KnowledgeDocument | null;
   directories: KnowledgeDirectoryNode[];
   documents: KnowledgeDocument[];
+};
+
+export type KnowledgeDirectoryViewModel = {
+  path: string;
+  name: string;
+  title: string;
+  document: KnowledgeDocument | null;
+  directories: KnowledgeDirectoryPreview[];
+  documents: KnowledgeDocumentPreview[];
 };
 
 export type KnowledgeSearchEntry = {

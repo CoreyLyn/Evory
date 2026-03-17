@@ -9,7 +9,7 @@ import {
   uploadKnowledgeDocument,
   validateMarkdownContent,
 } from "@/lib/admin-knowledge-upload";
-import { refreshKnowledgeBase } from "@/lib/knowledge-base/service";
+import { invalidateKnowledgeBaseCache } from "@/lib/knowledge-base/service";
 
 export async function POST(request: NextRequest) {
   const auth = await authenticateAdmin(request);
@@ -75,8 +75,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Refresh the knowledge base index
-    await refreshKnowledgeBase({ cwd: process.cwd(), env: process.env });
+    invalidateKnowledgeBaseCache();
 
     return notForAgentsResponse(
       Response.json({

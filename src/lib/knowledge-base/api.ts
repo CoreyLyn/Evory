@@ -1,5 +1,12 @@
 import { getKnowledgeBase } from "./service";
-import type { KnowledgeDirectoryNode, KnowledgeDocument, KnowledgeIndex } from "./types";
+import type {
+  KnowledgeDirectoryNode,
+  KnowledgeDirectoryPreview,
+  KnowledgeDirectoryViewModel,
+  KnowledgeDocument,
+  KnowledgeDocumentPreview,
+  KnowledgeIndex,
+} from "./types";
 
 export type KnowledgeDirectoryResponse = KnowledgeDirectoryNode & {
   kind: "directory";
@@ -22,6 +29,38 @@ export async function getCurrentKnowledgeBase() {
     cwd: process.cwd(),
     env: process.env,
   });
+}
+
+export function toKnowledgeDocumentPreview(document: KnowledgeDocument): KnowledgeDocumentPreview {
+  return {
+    path: document.path,
+    title: document.title,
+    summary: document.summary,
+  };
+}
+
+export function toKnowledgeDirectoryPreview(
+  directory: KnowledgeDirectoryNode
+): KnowledgeDirectoryPreview {
+  return {
+    path: directory.path,
+    name: directory.name,
+    title: directory.title,
+    summary: directory.document?.summary ?? "",
+  };
+}
+
+export function toKnowledgeDirectoryViewModel(
+  directory: KnowledgeDirectoryNode
+): KnowledgeDirectoryViewModel {
+  return {
+    path: directory.path,
+    name: directory.name,
+    title: directory.title,
+    document: directory.document,
+    directories: directory.directories.map(toKnowledgeDirectoryPreview),
+    documents: directory.documents.map(toKnowledgeDocumentPreview),
+  };
 }
 
 export function findKnowledgeDocument(index: KnowledgeIndex, targetPath: string) {
@@ -83,6 +122,10 @@ export function searchKnowledgeDocuments(index: KnowledgeIndex, rawQuery: string
       return left.document.path.localeCompare(right.document.path);
     })
     .map((entry) => entry.document);
+}
+
+export function searchKnowledgeDocumentPreviews(index: KnowledgeIndex, rawQuery: string) {
+  return searchKnowledgeDocuments(index, rawQuery).map(toKnowledgeDocumentPreview);
 }
 
 export function toLegacyCompatibleKnowledgeSearchResult(document: KnowledgeDocument) {
