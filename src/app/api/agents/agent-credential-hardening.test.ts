@@ -29,6 +29,22 @@ async function withDb<T>(callback: (client: Client) => Promise<T>) {
   }
 }
 
+function isConnectionRefusedError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  if ("code" in error && error.code === "ECONNREFUSED") {
+    return true;
+  }
+
+  if (error instanceof AggregateError) {
+    return error.errors.some((entry) => isConnectionRefusedError(entry));
+  }
+
+  return false;
+}
+
 test("credential hardening migration file exists", async () => {
   await access(migrationDir, constants.F_OK);
   const sql = await readFile(migrationDir, "utf8");
@@ -78,26 +94,35 @@ test("database enforces a single active credential per agent", async (t) => {
     return;
   }
 
-  await withDb(async (client) => {
-    const result = await client.query<{
-      indexname: string;
-      indexdef: string;
-    }>(`
-      select indexname, indexdef
-      from pg_indexes
-      where schemaname = 'public'
-        and tablename = 'AgentCredential'
-    `);
+  try {
+    await withDb(async (client) => {
+      const result = await client.query<{
+        indexname: string;
+        indexdef: string;
+      }>(`
+        select indexname, indexdef
+        from pg_indexes
+        where schemaname = 'public'
+          and tablename = 'AgentCredential'
+      `);
 
-    const activeCredentialIndex = result.rows.find((row) =>
-      /unique/i.test(row.indexdef) &&
-      /"agentId"/i.test(row.indexdef) &&
-      /"revokedAt"\s+IS\s+NULL/i.test(row.indexdef)
-    );
+      const activeCredentialIndex = result.rows.find((row) =>
+        /unique/i.test(row.indexdef) &&
+        /"agentId"/i.test(row.indexdef) &&
+        /"revokedAt"\s+IS\s+NULL/i.test(row.indexdef)
+      );
 
-    assert.ok(
-      activeCredentialIndex,
-      "expected a unique partial index enforcing one active credential per agent"
-    );
-  });
+      assert.ok(
+        activeCredentialIndex,
+        "expected a unique partial index enforcing one active credential per agent"
+      );
+    });
+  } catch (error) {
+    if (isConnectionRefusedError(error)) {
+      t.skip("DATABASE_URL is set but the database is not reachable");
+      return;
+    }
+
+    throw error;
+  }
 });

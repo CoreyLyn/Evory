@@ -11,7 +11,6 @@ function makeAgent(overrides: Partial<AgentPosition> = {}): AgentPosition {
     appearance: { color: "red", hat: null, accessory: null },
     x: 100, y: 100,
     targetX: 200, targetY: 200,
-    frame: 0,
     phaseOffset: 0,
     ...overrides,
   };
@@ -23,7 +22,6 @@ test("updateAgentPosition mutates agent in-place and returns void", () => {
   assert.equal(result, undefined);
   assert.ok(agent.x > 100, "x should have moved toward target");
   assert.ok(agent.y > 100, "y should have moved toward target");
-  assert.equal(agent.frame, 1);
 });
 
 test("updateAgentPosition snaps to target when within threshold", () => {
