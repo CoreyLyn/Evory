@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 
-type OfficeResolvedTheme = "light" | "dark" | undefined;
+type OfficeResolvedTheme = string | undefined;
 
 export const OFFICE_SIDEBAR_TOGGLE_CLASS =
   "border border-card-border/50 bg-background/60 shadow-xl hover:bg-background/80 backdrop-blur-xl";
