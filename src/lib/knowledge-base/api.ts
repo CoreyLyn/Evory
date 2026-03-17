@@ -100,17 +100,34 @@ export function findKnowledgePathPayload(
   };
 }
 
-function includesQuery(value: string, query: string) {
-  return value.toLocaleLowerCase().includes(query);
+function getNormalizedBody(index: KnowledgeIndex, entryPath: string) {
+  const entry = index.searchEntriesByPath.get(entryPath);
+  if (!entry) return "";
+
+  if (typeof entry.normalizedBody === "string") {
+    return entry.normalizedBody;
+  }
+
+  const document = findKnowledgeDocument(index, entryPath);
+  const normalizedBody = document?.body.toLocaleLowerCase() ?? "";
+  entry.normalizedBody = normalizedBody;
+  return normalizedBody;
 }
 
-function getSearchScore(document: KnowledgeDocument, query: string) {
+function getSearchScore(
+  index: KnowledgeIndex,
+  entryPath: string,
+  query: string
+) {
+  const entry = index.searchEntriesByPath.get(entryPath);
+  if (!entry) return 0;
+
   let score = 0;
 
-  if (includesQuery(document.title, query)) score += 100;
-  if (includesQuery(document.summary, query)) score += 40;
-  if (document.tags.some((tag) => includesQuery(tag, query))) score += 40;
-  if (includesQuery(document.body, query)) score += 10;
+  if (entry.normalizedTitle.includes(query)) score += 100;
+  if (entry.normalizedSummary.includes(query)) score += 40;
+  if (entry.normalizedTags.some((tag) => tag.includes(query))) score += 40;
+  if (getNormalizedBody(index, entryPath).includes(query)) score += 10;
 
   return score;
 }
@@ -120,11 +137,15 @@ export function searchKnowledgeDocuments(index: KnowledgeIndex, rawQuery: string
   if (!query) return [];
 
   return Array.from(index.searchEntriesByPath.keys())
-    .map((entryPath) => findKnowledgeDocument(index, entryPath))
-    .filter((document): document is KnowledgeDocument => document !== null)
-    .map((document) => ({
-      document,
-      score: getSearchScore(document, query),
+    .map((entryPath) => ({
+      entryPath,
+      document: findKnowledgeDocument(index, entryPath),
+    }))
+    .filter((entry): entry is { entryPath: string; document: KnowledgeDocument } => entry.document !== null)
+    .map((entry) => ({
+      entryPath: entry.entryPath,
+      document: entry.document,
+      score: getSearchScore(index, entry.entryPath, query),
     }))
     .filter((entry) => entry.score > 0)
     .sort((left, right) => {

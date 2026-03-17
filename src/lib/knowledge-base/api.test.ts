@@ -6,6 +6,7 @@ import test from "node:test";
 
 import { buildKnowledgeBaseIndex } from "./indexer";
 import {
+  searchKnowledgeDocuments,
   searchKnowledgeDocumentPreviews,
   toKnowledgeDirectoryViewModel,
 } from "./api";
@@ -95,4 +96,33 @@ test("searchKnowledgeDocumentPreviews omits document bodies from result cards", 
     summary: "Install body mentions rollout token.",
   });
   assert.ok(!("body" in results[0]));
+});
+
+test("searchKnowledgeDocuments lazily caches normalized body text for repeated queries", async (t) => {
+  const sandbox = await createSandbox();
+  t.after(async () => sandbox.cleanup());
+
+  await writeMarkdown(
+    sandbox.knowledgeRoot,
+    "guides/install.md",
+    "# Install\n\nInstallation keyword in body only.\n"
+  );
+
+  const index = await buildKnowledgeBaseIndex({
+    rootDir: sandbox.knowledgeRoot,
+  });
+
+  const entry = index.searchEntriesByPath.get("guides/install");
+  assert.ok(entry);
+  assert.equal(entry.normalizedBody, undefined);
+
+  const first = searchKnowledgeDocuments(index, "installation");
+  assert.equal(first[0]?.path, "guides/install");
+  assert.ok(typeof entry.normalizedBody === "string");
+
+  const cachedNormalizedBody = entry.normalizedBody;
+  const second = searchKnowledgeDocuments(index, "installation");
+
+  assert.equal(second[0]?.path, "guides/install");
+  assert.equal(entry.normalizedBody, cachedNormalizedBody);
 });

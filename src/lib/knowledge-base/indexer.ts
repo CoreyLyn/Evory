@@ -140,6 +140,9 @@ function toSearchEntry(document: KnowledgeDocument): KnowledgeSearchEntry {
     title: document.title,
     summary: document.summary,
     tags: document.tags,
+    normalizedTitle: document.title.toLocaleLowerCase(),
+    normalizedSummary: document.summary.toLocaleLowerCase(),
+    normalizedTags: document.tags.map((tag) => tag.toLocaleLowerCase()),
   };
 }
 
@@ -213,6 +216,10 @@ function findIndexedDocument(index: KnowledgeIndex, targetPath: string) {
     ?? null;
 }
 
+function findSearchEntry(index: KnowledgeIndex, targetPath: string) {
+  return index.searchEntriesByPath.get(targetPath) ?? null;
+}
+
 export async function buildKnowledgeBaseIndex({
   rootDir,
   previousIndex,
@@ -258,9 +265,10 @@ export async function buildKnowledgeBaseIndex({
     const previousDocument = previousIndex
       ? findIndexedDocument(previousIndex, logicalPath)
       : null;
-    const document = previousDocument
+    const reusePreviousDocument = previousDocument
       && previousDocument.sourcePath === absolutePath
-      && previousDocument.lastModified === lastModified
+      && previousDocument.lastModified === lastModified;
+    const document = reusePreviousDocument
       ? previousDocument
       : toDocument({
           absolutePath,
@@ -270,18 +278,25 @@ export async function buildKnowledgeBaseIndex({
           content: await fileSystem.readFile(absolutePath, "utf8"),
           modifiedAt: fileStat.mtime,
         });
+    const previousSearchEntry = previousIndex
+      ? findSearchEntry(previousIndex, logicalPath)
+      : null;
+    const searchEntry = reusePreviousDocument
+      && previousSearchEntry
+      ? previousSearchEntry
+      : toSearchEntry(document);
 
     if (isReadme) {
       const landingDirectory = ensureDirectoryNode(directoriesByPath, logicalPath);
       landingDirectory.document = document;
       landingDirectory.title = document.title;
-      searchEntriesByPath.set(document.path, toSearchEntry(document));
+      searchEntriesByPath.set(document.path, searchEntry);
       continue;
     }
 
     directory.documents.push(document);
     documentsByPath.set(document.path, document);
-    searchEntriesByPath.set(document.path, toSearchEntry(document));
+    searchEntriesByPath.set(document.path, searchEntry);
   }
 
   for (const node of directoriesByPath.values()) {

@@ -44,6 +44,10 @@ export type KnowledgeSearchEntry = {
   title: string;
   summary: string;
   tags: string[];
+  normalizedTitle: string;
+  normalizedSummary: string;
+  normalizedTags: string[];
+  normalizedBody?: string;
 };
 
 export type KnowledgeIndex = {
