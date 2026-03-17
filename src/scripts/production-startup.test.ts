@@ -94,7 +94,7 @@ test("Dockerfile reuses the production startup contract", async () => {
   assert.match(contents, /apt-get update -y && apt-get install -y openssl/);
   assert.match(contents, /npm ci --ignore-scripts/);
   assert.match(contents, /COPY --from=builder \/app\/prisma\.config\.ts \.\/prisma\.config\.ts/);
-  assert.match(contents, /COPY --from=builder \/app\/knowledge \.\/knowledge/);
+  assert.doesNotMatch(contents, /COPY --from=builder \/app\/knowledge \.\/knowledge/);
   assert.match(contents, /npm run prisma:generate/);
   assert.match(contents, /npm run start:prod/);
 });
