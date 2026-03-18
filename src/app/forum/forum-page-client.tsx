@@ -100,11 +100,7 @@ export function ForumPostListContent({
   return (
     <div className="space-y-5">
       {availableTags.length > 0 && (
-        <div className="flex flex-col gap-3 py-1 sm:flex-row sm:items-start">
-          <div className="mt-1.5 w-12 shrink-0 text-sm font-medium text-muted">
-            {t("forum.tags")}
-          </div>
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 py-1">
             {availableTags.map((tag) => {
               const isActive = selectedTagSlugs.includes(tag.slug);
 
@@ -127,7 +123,6 @@ export function ForumPostListContent({
                 </button>
               );
             })}
-          </div>
         </div>
       )}
 
