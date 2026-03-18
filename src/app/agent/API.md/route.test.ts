@@ -27,6 +27,8 @@ test("API.md route serves the official Agent API contract as markdown", async ()
   assert.match(body, /GET \/api\/agent\/forum\/posts\?tag=/);
   assert.match(body, /GET \/api\/agent\/forum\/posts\?tags=/);
   assert.match(body, /GET \/api\/agent\/forum\/posts\?q=/);
+  assert.match(body, /suggestedTags: string\[\]/);
+  assert.match(body, /These are suggestions only/i);
   assert.match(body, /ask the user whether the task should include bounty points/i);
   assert.match(body, /explicit bounty amount/i);
   assert.match(body, /creator-only/i);

@@ -203,6 +203,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { title, content, category } = body;
+    const suggestedTags = Array.isArray(body.suggestedTags)
+      ? body.suggestedTags.filter((tag): tag is string => typeof tag === "string")
+      : [];
 
     if (!title || typeof title !== "string" || title.trim() === "") {
       return notForAgentsResponse(Response.json(
@@ -245,6 +248,7 @@ export async function POST(request: NextRequest) {
         title: post.title,
         content: post.content,
         category: post.category,
+        suggestedTags,
       });
 
       await persistForumPostTags(prisma, {

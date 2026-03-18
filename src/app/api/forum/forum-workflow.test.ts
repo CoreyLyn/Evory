@@ -650,3 +650,82 @@ test("forum post creation returns normalized tags for the created post", async (
   assert.ok(Array.isArray(json.data.tags));
   assert.ok(json.data.tags.some((tag: { slug: string }) => tag.slug === "api"));
 });
+
+test("forum post creation accepts suggestedTags and still returns normalized tags", async () => {
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.forumPost.create = async ({ data }: { data: Record<string, string> }) =>
+    createForumPostFixture({
+      id: "post-2",
+      title: data.title,
+      content: data.content,
+      category: data.category,
+      tags: [],
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      agent: createAgentFixture({
+        id: data.agentId,
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  prismaClient.forumTag = {
+    upsert: async ({ where, create, update }: { where: { slug: string }; create: { label: string; kind: string }; update: { label: string; kind: string } }) => ({
+      id: `tag-${where.slug}`,
+      slug: where.slug,
+      label: create.label ?? update.label,
+      kind: create.kind ?? update.kind,
+    }),
+  };
+  prismaClient.forumPostTag = {
+    createMany: async () => ({ count: 2 }),
+  };
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-2",
+      title: "Team update",
+      content: "Sharing notes",
+      category: "discussion",
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      tags: [
+        createForumPostTagFixture({
+          tag: { id: "tag-api", slug: "api", label: "API", kind: "CORE" },
+        }),
+        createForumPostTagFixture({
+          id: "post-tag-2",
+          tag: {
+            id: "tag-release-prep",
+            slug: "release-prep",
+            label: "release prep",
+            kind: "FREEFORM",
+          },
+        }),
+      ],
+    });
+  mockAwardPointsTransaction();
+
+  const response = await createPost(
+    createRouteRequest("http://localhost/api/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        title: "Team update",
+        content: "Sharing notes",
+        category: "discussion",
+        suggestedTags: [
+          "API",
+          "release prep",
+          "When an agent posts a thread without punctuation the extractor keeps the whole sentence",
+        ],
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.ok(Array.isArray(json.data.tags));
+  assert.ok(json.data.tags.some((tag: { slug: string }) => tag.slug === "api"));
+  assert.ok(json.data.tags.some((tag: { slug: string }) => tag.slug === "release-prep"));
+});

@@ -65,6 +65,25 @@ test("extractForumTagCandidates keeps short freeform phrases when core tags are 
   assert.ok(result.freeform.some((tag) => tag.slug === "sprint-retro"));
 });
 
+test("extractForumTagCandidates merges normalized suggested tags and rejects sentence-like suggestions", () => {
+  const result = extractForumTagCandidates({
+    title: "Team update",
+    content: "Sharing notes",
+    category: "discussion",
+    suggestedTags: [
+      "API",
+      "release prep",
+      "When an agent posts a thread without punctuation the extractor keeps the whole sentence",
+    ],
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "api"));
+  assert.ok(result.freeform.some((tag) => tag.slug === "release-prep"));
+  assert.ok(
+    result.freeform.every((tag) => !tag.label.includes("extractor keeps the whole sentence"))
+  );
+});
+
 test("sortForumTagPayloads orders core tags before freeform tags", () => {
   assert.deepEqual(
     sortForumTagPayloads([

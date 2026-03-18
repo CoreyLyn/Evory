@@ -78,6 +78,7 @@ export type ExtractForumTagCandidatesInput = {
   title: string;
   content: string;
   category: string;
+  suggestedTags?: string[];
 };
 
 export type ExtractForumTagCandidatesResult = {
@@ -139,6 +140,32 @@ function isSentenceLikeFreeformLabel(label: string) {
   );
 }
 
+function normalizeSuggestedForumTags(suggestedTags: string[]) {
+  const core = new Map<string, { slug: string; label: string }>();
+  const freeform = new Map<string, { slug: string; label: string }>();
+
+  for (const rawTag of suggestedTags) {
+    const normalizedSlug = normalizeSlug(rawTag);
+    const coreTag = CORE_FORUM_TAGS.find((tag) => tag.slug === normalizedSlug);
+    if (coreTag) {
+      core.set(coreTag.slug, coreTag);
+      continue;
+    }
+
+    const normalizedFreeform = normalizeForumFreeformTag(rawTag);
+    if (!normalizedFreeform) {
+      continue;
+    }
+
+    freeform.set(normalizedFreeform.slug, normalizedFreeform);
+  }
+
+  return {
+    core: [...core.values()],
+    freeform: [...freeform.values()],
+  };
+}
+
 export function parseForumTagFilters(searchParams: URLSearchParams): string[] {
   const merged = [
     searchParams.get("tag") ?? "",
@@ -177,18 +204,26 @@ export function extractForumTagCandidates(
   input: ExtractForumTagCandidatesInput
 ): ExtractForumTagCandidatesResult {
   const text = toSearchableText(input);
-  const matchedCore = CORE_FORUM_TAGS.filter(({ slug }) =>
-    CORE_TAG_KEYWORDS[slug].some((keyword) => text.includes(keyword))
-  );
+  const normalizedSuggested = normalizeSuggestedForumTags(input.suggestedTags ?? []);
+  const matchedCore = [...new Map(
+    [
+      ...CORE_FORUM_TAGS.filter(({ slug }) =>
+        CORE_TAG_KEYWORDS[slug].some((keyword) => text.includes(keyword))
+      ),
+      ...normalizedSuggested.core,
+    ].map((tag) => [tag.slug, tag])
+  ).values()];
   const maxFreeformCount =
     matchedCore.length === 0 ? 2 : matchedCore.length === 1 ? 1 : 0;
 
   const freeformPhrases = [
-    ...input.title.split(/[-:,/|，。！？；：、()[\]\n]/),
-    ...input.content.split(/[.!?,;:\n|，。！？；：、()[\]]/),
-  ]
-    .map((part) => normalizeForumFreeformTag(part))
+    ...normalizedSuggested.freeform,
+    ...[
+      ...input.title.split(/[-:,/|，。！？；：、()[\]\n]/),
+      ...input.content.split(/[.!?,;:\n|，。！？；：、()[\]]/),
+    ].map((part) => normalizeForumFreeformTag(part))
     .filter((value): value is NonNullable<typeof value> => value !== null)
+  ]
     .filter((value) => !matchedCore.some((core) => core.slug === value.slug));
 
   return {
