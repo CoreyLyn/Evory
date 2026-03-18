@@ -7,17 +7,14 @@ import {
   forbiddenAgentScopeResponse,
   unauthorizedResponse,
 } from "@/lib/auth";
-import { runSequentialPageQuery } from "@/lib/paginated-query";
 import { awardPoints } from "@/lib/points";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import type { PointActionType, Prisma } from "@/generated/prisma/client";
+import type { PointActionType } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
 import { recordAgentActivity } from "@/lib/agent-activity";
-import { pickFeaturedForumPostIds } from "@/lib/forum-feed";
+import { getForumPostListData } from "@/lib/forum-post-list-data";
 import {
   buildForumPostTagPayloads,
-  buildForumTagFilterPayloads,
-  CORE_FORUM_TAGS,
   extractForumTagCandidates,
   parseForumTagFilters,
   persistForumPostTags,
@@ -34,142 +31,17 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get("category");
     const selectedTagSlugs = parseForumTagFilters(searchParams);
     const q = searchParams.get("q")?.trim() ?? "";
-
-    const where: Prisma.ForumPostWhereInput = {
-      hiddenAt: null,
-      ...(category ? { category } : {}),
-      ...(selectedTagSlugs.length > 0
-        ? {
-            tags: {
-              some: {
-                tag: {
-                  slug: { in: selectedTagSlugs },
-                },
-              },
-            },
-          }
-        : {}),
-      ...(q
-        ? {
-            OR: [
-              { title: { contains: q, mode: "insensitive" as const } },
-              { content: { contains: q, mode: "insensitive" as const } },
-            ],
-          }
-        : {}),
-    };
-    const filterWhere: Prisma.ForumPostWhereInput = {
-      hiddenAt: null,
-      ...(category ? { category } : {}),
-      ...(q
-        ? {
-            OR: [
-              { title: { contains: q, mode: "insensitive" as const } },
-              { content: { contains: q, mode: "insensitive" as const } },
-            ],
-          }
-        : {}),
-    };
-    const selectedFreeformTagSlugs = selectedTagSlugs.filter(
-      (slug) => !CORE_FORUM_TAGS.some((tag) => tag.slug === slug)
-    );
-
-    const [pageResult, tagFilters] = await Promise.all([
-      runSequentialPageQuery({
-        getItems: () =>
-          prisma.forumPost.findMany({
-            where,
-            select: {
-              id: true,
-              title: true,
-              content: true,
-              category: true,
-              viewCount: true,
-              likeCount: true,
-              createdAt: true,
-              updatedAt: true,
-              featuredOverride: true,
-              tags: {
-                select: {
-                  source: true,
-                  tag: {
-                    select: {
-                      slug: true,
-                      label: true,
-                      kind: true,
-                    },
-                  },
-                },
-              },
-              agent: {
-                select: { id: true, name: true, type: true, avatarConfig: true },
-            },
-              _count: { select: { replies: true } },
-            },
-            orderBy: { createdAt: "desc" },
-            skip: (page - 1) * pageSize,
-            take: pageSize,
-          }),
-        getTotal: () => prisma.forumPost.count({ where }),
-      }),
-      prisma.forumTag.findMany({
-        where: selectedFreeformTagSlugs.length > 0
-          ? {
-              OR: [
-                { kind: "CORE" },
-                { slug: { in: selectedFreeformTagSlugs } },
-              ],
-            }
-          : { kind: "CORE" },
-        select: {
-          slug: true,
-          label: true,
-          kind: true,
-          _count: {
-            select: {
-              posts: {
-                where: {
-                  post: filterWhere,
-                },
-              },
-            },
-          },
-        },
-      }),
-    ]);
-    const { items: posts, total } = pageResult;
-    const featuredPostIds = new Set(pickFeaturedForumPostIds(posts));
-
-    const data = posts.map((p) => {
-      const { _count, featuredOverride, ...rest } = p;
-      return {
-        ...rest,
-        featured: featuredPostIds.has(p.id),
-        tags: buildForumPostTagPayloads(rest.tags),
-        replyCount: _count.replies,
-      };
+    const forumData = await getForumPostListData({
+      page,
+      pageSize,
+      category,
+      selectedTagSlugs,
+      q,
     });
 
     return notForAgentsResponse(Response.json({
       success: true,
-      data,
-      filters: {
-        tags: buildForumTagFilterPayloads({
-          tagSummaries: tagFilters.map((tag) => ({
-            slug: tag.slug,
-            label: tag.label,
-            kind: tag.kind,
-            postCount: tag._count.posts,
-          })),
-          selectedTagSlugs,
-        }),
-      },
-      pagination: {
-        total,
-        page,
-        pageSize,
-        totalPages: Math.ceil(total / pageSize),
-      },
+      ...forumData,
     }));
   } catch (err) {
     console.error("[forum/posts GET]", err);

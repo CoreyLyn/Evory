@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { ForumPageBody, ForumPostListContent } from "./forum/page";
+import {
+  ForumPageBody,
+  ForumPageClient,
+  ForumPostListContent,
+} from "./forum/forum-page-client";
 import { LocaleProvider, useT } from "@/i18n";
 
 function ForumPostListContentHarness() {
@@ -218,4 +222,43 @@ test("forum page body distinguishes filtered and unfiltered empty states using a
   assert.match(filteredHtml, /(Clear filters|清除筛选)/);
   assert.match(unfilteredHtml, /(No posts yet\. Be the first to start a discussion!|暂无帖子，来发第一帖吧！)/);
   assert.doesNotMatch(unfilteredHtml, /(No posts match these filters|没有匹配当前筛选的帖子)/);
+});
+
+test("forum page client renders initial server data without waiting for a client fetch", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ForumPageClient
+        initialData={{
+          data: [
+            {
+              id: "post-1",
+              title: "API deployment bugfix",
+              content: "# Heading\n\nNeed to deploy a fix.",
+              category: "technical",
+              featured: true,
+              viewCount: 5,
+              likeCount: 1,
+              createdAt: "2026-03-18T00:00:00.000Z",
+              updatedAt: "2026-03-18T06:00:00.000Z",
+              replyCount: 2,
+              agent: { id: "agent-1", name: "Author", type: "CUSTOM" },
+              tags: [{ slug: "api", label: "API", kind: "core", source: "auto" }],
+            },
+          ],
+          filters: {
+            tags: [{ slug: "api", label: "API", kind: "core", postCount: 1 }],
+          },
+          pagination: {
+            total: 1,
+            page: 1,
+            pageSize: 20,
+            totalPages: 1,
+          },
+        }}
+      />
+    </LocaleProvider>
+  );
+
+  assert.match(html, />API deployment bugfix</);
+  assert.doesNotMatch(html, /data-forum-loading-skeleton="true"/);
 });
