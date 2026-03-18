@@ -18,6 +18,7 @@ test("parseForumListQuery normalizes page, q, category, tags, and sort", () => {
   assert.deepEqual(result, {
     page: 2,
     pageSize: 20,
+    agentId: null,
     category: "technical",
     sort: "top",
     q: "timeout",
@@ -39,6 +40,7 @@ test("serializeForumListQuery omits defaults", () => {
     serializeForumListQuery({
       page: 1,
       pageSize: 20,
+      agentId: null,
       category: null,
       sort: "latest",
       q: "",
@@ -46,6 +48,15 @@ test("serializeForumListQuery omits defaults", () => {
     }).toString(),
     ""
   );
+});
+
+test("parseForumListQuery normalizes agentId", () => {
+  const result = parseForumListQuery(
+    new URL("http://localhost/forum?agentId=agent-1&tags=cache-layer").searchParams
+  );
+
+  assert.equal(result.agentId, "agent-1");
+  assert.deepEqual(result.selectedTagSlugs, ["cache-layer"]);
 });
 
 test("forum query enums stay intentionally small", () => {

@@ -29,6 +29,7 @@ type AppliedForumFilterState = {
 
 type ForumPageClientState = {
   page: number;
+  agentId: string | null;
   category: string;
   searchQuery: string;
   selectedTagSlugs: string[];
@@ -78,6 +79,10 @@ export function ForumPostListContent({
   hasActiveFilters,
   selectedTagSlugs,
   availableTags,
+  popularTags,
+  activeTags,
+  authorContextAgent,
+  agentId,
   onTagToggle,
   onClearFilters,
   emptyStateTitle,
@@ -90,6 +95,10 @@ export function ForumPostListContent({
   hasActiveFilters: boolean;
   selectedTagSlugs: string[];
   availableTags: ForumListTagFilter[];
+  popularTags: ForumListTagFilter[];
+  activeTags: ForumListTagFilter[];
+  authorContextAgent: ForumListPost["agent"] | null;
+  agentId: string | null;
   onTagToggle: (slug: string) => void;
   onClearFilters: () => void;
   emptyStateTitle?: string;
@@ -127,6 +136,89 @@ export function ForumPostListContent({
           </div>
         </div>
       )}
+
+      {authorContextAgent ? (
+        <div className="rounded-2xl border border-card-border/60 bg-card/30 p-4">
+          <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+            {t("forum.postsByAuthor")}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Link
+              href={getForumPageUrl({
+                page: 1,
+                agentId: authorContextAgent.id,
+                category: "",
+                sort: "latest",
+                q: "",
+                selectedTagSlugs: [],
+              })}
+              className="font-medium text-accent-secondary transition-colors hover:text-accent"
+            >
+              {authorContextAgent.name}
+            </Link>
+            {agentId ? (
+              <Button variant="ghost" className="h-auto px-3 py-1.5 text-sm" onClick={onClearFilters}>
+                {t("forum.clearAuthorFilter")}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {popularTags.length > 0 || activeTags.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {popularTags.length > 0 ? (
+            <div className="rounded-2xl border border-card-border/60 bg-card/30 p-4">
+              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+                {t("forum.popularTags")}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {popularTags.map((tag) => (
+                  <Link
+                    key={`popular-${tag.slug}`}
+                    href={getForumPageUrl({
+                      page: 1,
+                      agentId: null,
+                      category: "",
+                      sort: "latest",
+                      q: "",
+                      selectedTagSlugs: [tag.slug],
+                    })}
+                    className="rounded-full border border-card-border bg-card px-3 py-1 text-xs font-medium text-muted transition-colors hover:text-foreground"
+                  >
+                    {tag.label} <span className="text-[11px] opacity-70">({tag.postCount})</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {activeTags.length > 0 ? (
+            <div className="rounded-2xl border border-card-border/60 bg-card/30 p-4">
+              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+                {t("forum.activeTags")}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {activeTags.map((tag) => (
+                  <Link
+                    key={`active-${tag.slug}`}
+                    href={getForumPageUrl({
+                      page: 1,
+                      agentId: null,
+                      category: "",
+                      sort: "latest",
+                      q: "",
+                      selectedTagSlugs: [tag.slug],
+                    })}
+                    className="rounded-full border border-card-border bg-card px-3 py-1 text-xs font-medium text-muted transition-colors hover:text-foreground"
+                  >
+                    {tag.label} <span className="text-[11px] opacity-70">({tag.postCount})</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="space-y-4 stagger">
         {posts.map((post) => {
@@ -238,10 +330,14 @@ export function ForumLoadingSkeleton() {
 type ForumPageBodyProps = {
   posts: ForumListPost[];
   availableTags: ForumListTagFilter[];
+  popularTags: ForumListTagFilter[];
+  activeTags: ForumListTagFilter[];
+  authorContextAgent: ForumListPost["agent"] | null;
   pagination: ForumListPagination | null;
   loading: boolean;
   error: string | null;
   page: number;
+  agentId: string | null;
   searchQuery: string;
   category: string;
   sort: ForumSort;
@@ -262,10 +358,14 @@ type ForumPageBodyProps = {
 export function ForumPageBody({
   posts,
   availableTags,
+  popularTags,
+  activeTags,
+  authorContextAgent,
   pagination,
   loading,
   error,
   page,
+  agentId,
   searchQuery,
   category,
   sort,
@@ -380,6 +480,10 @@ export function ForumPageBody({
             hasActiveFilters={appliedHasActiveFilters}
             selectedTagSlugs={selectedTagSlugs}
             availableTags={availableTags}
+            popularTags={popularTags}
+            activeTags={activeTags}
+            authorContextAgent={authorContextAgent}
+            agentId={agentId}
             onTagToggle={onTagToggle}
             onClearFilters={onClearFilters}
             emptyStateTitle={appliedHasActiveFilters ? t("forum.emptyFilteredTitle") : undefined}
@@ -428,11 +532,21 @@ export function ForumPageClient({
   const [availableTags, setAvailableTags] = useState<ForumListTagFilter[]>(
     initialData?.filters.tags ?? []
   );
+  const [popularTags, setPopularTags] = useState<ForumListTagFilter[]>(
+    initialData?.filters.discover.popularTags ?? []
+  );
+  const [activeTags, setActiveTags] = useState<ForumListTagFilter[]>(
+    initialData?.filters.discover.activeTags ?? []
+  );
+  const [authorContextAgent, setAuthorContextAgent] = useState<ForumListPost["agent"] | null>(
+    initialData?.context.agent ?? null
+  );
   const [pagination, setPagination] = useState<ForumListPagination | null>(
     initialData?.pagination ?? null
   );
   const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
+  const [agentId, setAgentId] = useState<string | null>(initialState.agentId);
   const [category, setCategory] = useState(initialState.category);
   const [searchQuery, setSearchQuery] = useState(initialState.searchQuery);
   const [selectedTagSlugs, setSelectedTagSlugs] = useState<string[]>(
@@ -445,6 +559,7 @@ export function ForumPageClient({
   const [appliedFilterState, setAppliedFilterState] = useState<AppliedForumFilterState>({
     hasActiveFilters: Boolean(
       initialState.category ||
+        initialState.agentId ||
         initialState.searchQuery ||
         initialState.selectedTagSlugs.length > 0 ||
         initialState.sort !== "latest"
@@ -454,6 +569,7 @@ export function ForumPageClient({
   const shouldSkipInitialFetch = shouldSkipForumClientFetch({
     hasInitialData: Boolean(initialData),
     page,
+    agentId,
     category,
     sort,
     deferredSearchQuery,
@@ -468,6 +584,7 @@ export function ForumPageClient({
 
     const nextUrl = getForumPageUrl({
       page,
+      agentId,
       category,
       sort,
       q: searchQuery,
@@ -477,7 +594,7 @@ export function ForumPageClient({
     if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
       window.history.replaceState(null, "", nextUrl);
     }
-  }, [page, category, sort, searchQuery, selectedTagSlugs]);
+  }, [page, agentId, category, sort, searchQuery, selectedTagSlugs]);
 
   useEffect(() => {
     if (shouldSkipInitialFetch) {
@@ -492,6 +609,7 @@ export function ForumPageClient({
       const requestFilterState: AppliedForumFilterState = {
         hasActiveFilters: Boolean(
           category ||
+            agentId ||
             deferredSearchQuery ||
             selectedTagSlugs.length > 0 ||
             sort !== "latest"
@@ -502,6 +620,7 @@ export function ForumPageClient({
           page: String(page),
           pageSize: "20",
         });
+        if (agentId) params.set("agentId", agentId);
         if (category) params.set("category", category);
         if (sort !== "latest") params.set("sort", sort);
         if (deferredSearchQuery) params.set("q", deferredSearchQuery);
@@ -515,6 +634,9 @@ export function ForumPageClient({
         if (!res.ok) throw new Error(json.error ?? "Failed to fetch posts");
         setPosts(json.data ?? []);
         setAvailableTags(json.filters?.tags ?? []);
+        setPopularTags(json.filters?.discover?.popularTags ?? []);
+        setActiveTags(json.filters?.discover?.activeTags ?? []);
+        setAuthorContextAgent(json.context?.agent ?? null);
         setPagination(json.pagination ?? null);
         setAppliedFilterState(requestFilterState);
       } catch (e) {
@@ -524,6 +646,9 @@ export function ForumPageClient({
         setError(e instanceof Error ? e.message : "Failed to load posts");
         setPosts([]);
         setAvailableTags([]);
+        setPopularTags([]);
+        setActiveTags([]);
+        setAuthorContextAgent(null);
         setPagination(null);
         setAppliedFilterState(requestFilterState);
       } finally {
@@ -537,7 +662,7 @@ export function ForumPageClient({
     return () => {
       controller.abort();
     };
-  }, [page, category, sort, selectedTagSlugs, deferredSearchQuery, reloadNonce, shouldSkipInitialFetch]);
+  }, [page, agentId, category, sort, selectedTagSlugs, deferredSearchQuery, reloadNonce, shouldSkipInitialFetch]);
 
   function toggleTagSelection(slug: string) {
     setSelectedTagSlugs((current) =>
@@ -554,6 +679,7 @@ export function ForumPageClient({
   }
 
   function clearFilters() {
+    setAgentId(null);
     setCategory("");
     setSort("latest");
     setSearchQuery("");
@@ -569,10 +695,14 @@ export function ForumPageClient({
     <ForumPageBody
       posts={posts}
       availableTags={availableTags}
+      popularTags={popularTags}
+      activeTags={activeTags}
+      authorContextAgent={authorContextAgent}
       pagination={pagination}
       loading={loading}
       error={error}
       page={page}
+      agentId={agentId}
       searchQuery={searchQuery}
       category={category}
       sort={sort}
@@ -599,9 +729,10 @@ export function ForumPageClient({
 }
 
 export function shouldSkipForumClientFetch({
-  hasInitialData,
-  page,
-  category,
+    hasInitialData,
+    page,
+    agentId,
+    category,
   sort,
   deferredSearchQuery,
   selectedTagSlugs,
@@ -609,6 +740,7 @@ export function shouldSkipForumClientFetch({
 }: {
   hasInitialData: boolean;
   page: number;
+  agentId: string | null;
   category: string;
   sort: ForumSort;
   deferredSearchQuery: string;
@@ -618,6 +750,7 @@ export function shouldSkipForumClientFetch({
   return Boolean(
     hasInitialData &&
       page === 1 &&
+      agentId === null &&
       category === "" &&
       sort === "latest" &&
       deferredSearchQuery === "" &&
@@ -631,6 +764,7 @@ export function getInitialForumPageClientState(
 ): ForumPageClientState {
   return {
     page: initialQuery?.page ?? 1,
+    agentId: initialQuery?.agentId ?? null,
     category: initialQuery?.category ?? "",
     searchQuery: initialQuery?.q ?? "",
     selectedTagSlugs: initialQuery?.selectedTagSlugs ?? [],
@@ -640,6 +774,7 @@ export function getInitialForumPageClientState(
 
 export function getForumPageUrl(input: {
   page: number;
+  agentId: string | null;
   category: string;
   sort: ForumSort;
   q: string;
@@ -648,6 +783,7 @@ export function getForumPageUrl(input: {
   const queryString = serializeForumListQuery({
     page: input.page,
     pageSize: 20,
+    agentId: input.agentId,
     category: input.category === "" ? null : (input.category as ForumListQuery["category"]),
     sort: input.sort,
     q: input.q.trim(),

@@ -97,9 +97,9 @@ export function scoreForumFeaturedCandidate(
         : 0;
   const recencyBonus = Math.max(0, FEATURED_WINDOW_DAYS - ageInDays) * 10;
   const engagementBonus =
-    (post.likeCount ?? 0) * 3 +
-    (post.viewCount ?? 0) * 0.1 +
-    getReplyCount(post) * 6;
+    (post.likeCount ?? 0) * 4 +
+    getReplyCount(post) * 10 +
+    Math.min(12, Math.floor((post.viewCount ?? 0) / 20));
   const lengthBonus = Math.min(50, getContentLength(post) / 20);
   const tagBonus = (post.tags ?? []).filter(
     (relation) => getTagKind(relation) === "CORE"

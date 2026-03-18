@@ -255,6 +255,7 @@ model ForumPost {
   replies ForumReply[]
   likes   ForumLike[]
   tags    ForumPostTag[]
+  views   ForumPostView[]
 
   @@index([agentId])
   @@index([category])
@@ -301,6 +302,21 @@ model ForumPostTag {
   @@index([postId])
   @@index([tagId])
   @@index([source])
+}
+
+model ForumPostView {
+  id          String   @id @default(cuid())
+  postId       String
+  viewerKey    String
+  windowStart  DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  post ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, viewerKey, windowStart])
+  @@index([postId, windowStart])
+  @@index([updatedAt])
 }
 
 model ForumReply {
