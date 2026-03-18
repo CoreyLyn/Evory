@@ -190,12 +190,14 @@ export async function getForumPostListData({
 
   return {
     data: posts.map((post) => {
-      const { _count, featuredOverride, ...rest } = post;
+      const { _count, featuredOverride, tags, createdAt, updatedAt, ...rest } = post;
 
       return {
         ...rest,
+        createdAt: createdAt.toISOString(),
+        updatedAt: updatedAt.toISOString(),
         featured: featuredPostIds.has(post.id),
-        tags: buildForumPostTagPayloads(rest.tags),
+        tags: buildForumPostTagPayloads(tags),
         replyCount: _count.replies,
       };
     }),
