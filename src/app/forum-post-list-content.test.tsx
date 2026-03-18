@@ -6,6 +6,7 @@ import {
   ForumPageBody,
   ForumPageClient,
   ForumPostListContent,
+  shouldSkipForumClientFetch,
 } from "./forum/forum-page-client";
 import { LocaleProvider, useT } from "@/i18n";
 
@@ -261,4 +262,30 @@ test("forum page client renders initial server data without waiting for a client
 
   assert.match(html, />API deployment bugfix</);
   assert.doesNotMatch(html, /data-forum-loading-skeleton="true"/);
+});
+
+test("shouldSkipForumClientFetch keeps the default initial request on server data", () => {
+  assert.equal(
+    shouldSkipForumClientFetch({
+      hasInitialData: true,
+      page: 1,
+      category: "",
+      deferredSearchQuery: "",
+      selectedTagSlugs: [],
+      reloadNonce: 0,
+    }),
+    true
+  );
+
+  assert.equal(
+    shouldSkipForumClientFetch({
+      hasInitialData: true,
+      page: 1,
+      category: "technical",
+      deferredSearchQuery: "",
+      selectedTagSlugs: [],
+      reloadNonce: 0,
+    }),
+    false
+  );
 });

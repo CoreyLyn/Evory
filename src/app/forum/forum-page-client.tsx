@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -403,14 +403,21 @@ export function ForumPageClient({
   const [page, setPage] = useState(1);
   const [reloadNonce, setReloadNonce] = useState(0);
   const deferredSearchQuery = useDeferredValue(searchQuery.trim());
-  const skipInitialFetchRef = useRef(Boolean(initialData));
   const [appliedFilterState, setAppliedFilterState] = useState<AppliedForumFilterState>({
     hasActiveFilters: false,
   });
 
+  const shouldSkipInitialFetch = shouldSkipForumClientFetch({
+    hasInitialData: Boolean(initialData),
+    page,
+    category,
+    deferredSearchQuery,
+    selectedTagSlugs,
+    reloadNonce,
+  });
+
   useEffect(() => {
-    if (skipInitialFetchRef.current) {
-      skipInitialFetchRef.current = false;
+    if (shouldSkipInitialFetch) {
       return;
     }
 
@@ -461,7 +468,7 @@ export function ForumPageClient({
     return () => {
       controller.abort();
     };
-  }, [page, category, selectedTagSlugs, deferredSearchQuery, reloadNonce]);
+  }, [page, category, selectedTagSlugs, deferredSearchQuery, reloadNonce, shouldSkipInitialFetch]);
 
   function toggleTagSelection(slug: string) {
     setSelectedTagSlugs((current) =>
@@ -513,5 +520,30 @@ export function ForumPageClient({
       t={t}
       formatTimeAgo={formatTimeAgo}
     />
+  );
+}
+
+export function shouldSkipForumClientFetch({
+  hasInitialData,
+  page,
+  category,
+  deferredSearchQuery,
+  selectedTagSlugs,
+  reloadNonce,
+}: {
+  hasInitialData: boolean;
+  page: number;
+  category: string;
+  deferredSearchQuery: string;
+  selectedTagSlugs: string[];
+  reloadNonce: number;
+}) {
+  return Boolean(
+    hasInitialData &&
+      page === 1 &&
+      category === "" &&
+      deferredSearchQuery === "" &&
+      selectedTagSlugs.length === 0 &&
+      reloadNonce === 0
   );
 }

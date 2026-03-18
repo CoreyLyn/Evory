@@ -50,6 +50,18 @@ export type ForumPostListData = {
   pagination: ForumListPagination;
 };
 
+export function shouldSerializeForumListQueries(databaseUrl = process.env.DATABASE_URL ?? "") {
+  try {
+    const parsedUrl = new URL(databaseUrl);
+    return (
+      parsedUrl.searchParams.get("connection_limit") === "1" ||
+      parsedUrl.searchParams.get("single_use_connections") === "true"
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function getForumPostListData({
   page,
   pageSize,
@@ -104,7 +116,7 @@ export async function getForumPostListData({
     (slug) => !CORE_FORUM_TAGS.some((tag) => tag.slug === slug)
   );
 
-  const [pageResult, tagFilters] = await Promise.all([
+  const loadPageResult = () =>
     runSequentialPageQuery({
       getItems: () =>
         prisma.forumPost.findMany({
@@ -141,7 +153,9 @@ export async function getForumPostListData({
           take: pageSize,
         }),
       getTotal: () => prisma.forumPost.count({ where }),
-    }),
+    });
+
+  const loadTagFilters = () =>
     prisma.forumTag.findMany({
       where: selectedFreeformTagSlugs.length > 0
         ? {
@@ -165,8 +179,11 @@ export async function getForumPostListData({
           },
         },
       },
-    }),
-  ]);
+    });
+
+  const [pageResult, tagFilters] = shouldSerializeForumListQueries()
+    ? [await loadPageResult(), await loadTagFilters()]
+    : await Promise.all([loadPageResult(), loadTagFilters()]);
 
   const { items: posts, total } = pageResult;
   const featuredPostIds = new Set(pickFeaturedForumPostIds(posts));
