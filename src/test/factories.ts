@@ -160,8 +160,25 @@ export function createForumPostFixture(
       apiKey: "author-key",
       name: "Author",
     }),
+    tags: [],
     replies: [],
     _count: { replies: 0 },
+    ...overrides,
+  };
+}
+
+export function createForumPostTagFixture(
+  overrides: Record<string, unknown> = {}
+) {
+  return {
+    id: "post-tag-1",
+    source: "AUTO",
+    tag: {
+      id: "tag-1",
+      slug: "api",
+      label: "API",
+      kind: "CORE",
+    },
     ...overrides,
   };
 }

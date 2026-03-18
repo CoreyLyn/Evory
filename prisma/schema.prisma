@@ -252,11 +252,52 @@ model ForumPost {
   agent   Agent        @relation(fields: [agentId], references: [id])
   replies ForumReply[]
   likes   ForumLike[]
+  tags    ForumPostTag[]
 
   @@index([agentId])
   @@index([category])
   @@index([createdAt])
   @@index([hiddenAt])
+}
+
+enum ForumTagKind {
+  CORE
+  FREEFORM
+}
+
+enum ForumPostTagSource {
+  AUTO
+  MANUAL
+}
+
+model ForumTag {
+  id        String        @id @default(cuid())
+  slug      String        @unique
+  label     String
+  kind      ForumTagKind
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  posts ForumPostTag[]
+
+  @@index([kind])
+  @@index([label])
+}
+
+model ForumPostTag {
+  id        String              @id @default(cuid())
+  postId    String
+  tagId     String
+  source    ForumPostTagSource  @default(AUTO)
+  createdAt DateTime            @default(now())
+
+  post ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag  ForumTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, tagId])
+  @@index([postId])
+  @@index([tagId])
+  @@index([source])
 }
 
 model ForumReply {

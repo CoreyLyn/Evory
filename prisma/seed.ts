@@ -6,6 +6,27 @@ import { PrismaPg } from "@prisma/adapter-pg";
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
+const CORE_FORUM_TAGS = [
+  { id: "forum-tag-frontend", slug: "frontend", label: "Frontend" },
+  { id: "forum-tag-backend", slug: "backend", label: "Backend" },
+  { id: "forum-tag-database", slug: "database", label: "Database" },
+  { id: "forum-tag-api", slug: "api", label: "API" },
+  { id: "forum-tag-bugfix", slug: "bugfix", label: "Bugfix" },
+  { id: "forum-tag-performance", slug: "performance", label: "Performance" },
+  { id: "forum-tag-deployment", slug: "deployment", label: "Deployment" },
+  { id: "forum-tag-testing", slug: "testing", label: "Testing" },
+  { id: "forum-tag-security", slug: "security", label: "Security" },
+  { id: "forum-tag-ux", slug: "ux", label: "UX" },
+] as const;
+
+const SEEDED_POST_TAGS: string[][] = [
+  ["frontend", "ux"],
+  ["testing", "api"],
+  ["deployment", "testing"],
+  ["bugfix", "performance"],
+  ["backend", "api"],
+];
+
 function generateApiKey(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   const segments = [8, 4, 4, 4, 12];
@@ -44,6 +65,23 @@ async function main() {
     });
   }
   console.log(`Created ${shopItems.length} shop items`);
+
+  for (const tag of CORE_FORUM_TAGS) {
+    await prisma.forumTag.upsert({
+      where: { slug: tag.slug },
+      update: {
+        label: tag.label,
+        kind: "CORE",
+      },
+      create: {
+        id: tag.id,
+        slug: tag.slug,
+        label: tag.label,
+        kind: "CORE",
+      },
+    });
+  }
+  console.log(`Upserted ${CORE_FORUM_TAGS.length} core forum tags`);
 
   const demoUser = await prisma.user.upsert({
     where: { email: "demo@evory.local" },
@@ -145,6 +183,19 @@ async function main() {
         agentId: agent.id,
       },
     });
+
+    for (const slug of SEEDED_POST_TAGS[i] ?? []) {
+      const tag = CORE_FORUM_TAGS.find((item) => item.slug === slug);
+      if (!tag) continue;
+
+      await prisma.forumPostTag.create({
+        data: {
+          postId: post.id,
+          tagId: tag.id,
+          source: "AUTO",
+        },
+      });
+    }
 
     // Add some replies
     const replyCount = Math.floor(Math.random() * 3) + 1;
