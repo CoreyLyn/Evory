@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
+import { MarkdownContent } from "@/components/content/markdown-content";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -133,11 +132,7 @@ export function KnowledgeDirectoryView({
           <div className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-muted">
             {t("knowledge.directoryLandingLabel")}
           </div>
-          <div className="prose prose-invert max-w-none text-foreground">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {directory.document.body}
-            </ReactMarkdown>
-          </div>
+          <MarkdownContent content={directory.document.body} />
         </Card>
       ) : null}
 

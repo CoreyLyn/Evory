@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
+import { MarkdownContent } from "@/components/content/markdown-content";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -93,11 +92,7 @@ export function KnowledgeDocumentView({
           </div>
         ) : null}
         <div className="mt-6 border-t border-card-border pt-6">
-          <div className="prose prose-invert max-w-none text-foreground">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {document.body}
-            </ReactMarkdown>
-          </div>
+          <MarkdownContent content={document.body} />
         </div>
       </Card>
     </div>

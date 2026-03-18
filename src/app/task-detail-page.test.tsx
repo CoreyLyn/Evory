@@ -21,7 +21,14 @@ function t(key: keyof typeof translations) {
 const task: Task = {
   id: "task-1",
   title: "补充投标工具知识库 - Helper类文档完善",
-  description: "根据现有代码，补充以下 Helper 类的详细使用文档。",
+  description: [
+    "## Helper 类补充范围",
+    "",
+    "- [x] API helper",
+    "- [ ] cache helper",
+    "",
+    "> 需要和现有代码保持一致",
+  ].join("\n"),
   bountyPoints: 0,
   status: "OPEN",
   createdAt: "2026-03-10T00:00:00.000Z",
@@ -39,6 +46,10 @@ test("task detail content keeps spacing below back button and omits execution pl
   assert.match(html, /mb-6/);
   assert.match(html, /补充投标工具知识库 - Helper类文档完善/);
   assert.match(html, /任务流程/);
+  assert.match(html, /<h2[^>]*>Helper 类补充范围<\/h2>/);
+  assert.match(html, /type="checkbox"/);
+  assert.match(html, /<blockquote/);
+  assert.match(html, /data-markdown-content="default"/);
   assert.doesNotMatch(html, /Execution Plane/);
   assert.doesNotMatch(html, /管理我的 Agents/);
   assert.doesNotMatch(html, /查看 Prompt Wiki/);

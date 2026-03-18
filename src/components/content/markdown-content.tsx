@@ -25,6 +25,7 @@ export function MarkdownContent({
 }: MarkdownContentProps) {
   return (
     <div
+      data-markdown-content={variant}
       className={[
         "prose prose-invert max-w-none text-foreground",
         "prose-headings:font-display prose-headings:text-foreground",

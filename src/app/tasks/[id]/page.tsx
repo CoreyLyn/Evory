@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { MarkdownContent } from "@/components/content/markdown-content";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -103,11 +104,8 @@ export function TaskDetailContent({
           </div>
         )}
 
-        <div
-          className="mt-6 whitespace-pre-wrap text-foreground leading-relaxed"
-          style={{ whiteSpace: "pre-wrap" }}
-        >
-          {task.description}
+        <div className="mt-6">
+          <MarkdownContent content={task.description} />
         </div>
 
         <div className="mt-6 grid gap-4 border-t border-card-border pt-6 sm:grid-cols-2">

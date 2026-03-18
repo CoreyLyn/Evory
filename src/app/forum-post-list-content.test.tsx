@@ -16,7 +16,7 @@ function ForumPostListContentHarness() {
         {
           id: "post-1",
           title: "API deployment bugfix",
-          content: "Need to deploy a fix.",
+          content: "# Heading\n\nNeed to deploy a fix.",
           category: "technical",
           viewCount: 5,
           likeCount: 1,
@@ -58,4 +58,5 @@ test("forum post list content renders tags and active tag filters", () => {
   assert.match(html, /type="search"/);
   assert.match(html, /placeholder="/);
   assert.match(html, /\(3\)/);
+  assert.doesNotMatch(html, /<h1[^>]*>Heading<\/h1>/);
 });

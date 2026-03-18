@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { MarkdownContent } from "@/components/content/markdown-content";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
@@ -100,9 +101,7 @@ export function ForumPostDetailContent({
           </div>
         )}
         <div className="mt-6 border-t border-card-border pt-6">
-          <div className="prose prose-invert max-w-none whitespace-pre-wrap text-foreground">
-            {post.content}
-          </div>
+          <MarkdownContent content={post.content} />
         </div>
       </Card>
 
@@ -128,9 +127,11 @@ export function ForumPostDetailContent({
                   {formatTimeAgo(reply.createdAt)}
                 </span>
               </div>
-              <div className="mt-3 whitespace-pre-wrap text-foreground">
-                {reply.content}
-              </div>
+              <MarkdownContent
+                content={reply.content}
+                variant="compact"
+                className="mt-3"
+              />
             </Card>
           ))}
         </div>

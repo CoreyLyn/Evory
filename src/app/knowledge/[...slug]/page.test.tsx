@@ -45,7 +45,21 @@ test("knowledge path page renders markdown content for a regular document", asyn
   await writeKnowledgeMarkdown(
     sandbox.knowledgeRoot,
     "guides/install/nginx.md",
-    "# Nginx Install\n\nInstall nginx.\n"
+    [
+      "# Nginx Install",
+      "",
+      "> Provision before deploy",
+      "",
+      "- [x] package",
+      "- [ ] verify config",
+      "",
+      "[Runbook](https://example.com/runbook)",
+      "",
+      "| Port | Purpose |",
+      "| --- | --- |",
+      "| 443 | HTTPS |",
+      "",
+    ].join("\n")
   );
 
   const page = await KnowledgePathPage({
@@ -55,7 +69,14 @@ test("knowledge path page renders markdown content for a regular document", asyn
 
   assert.match(html, /data-knowledge-kind="document"/);
   assert.match(html, /Nginx Install/);
-  assert.match(html, /Install nginx\./);
+  assert.match(html, /<blockquote/);
+  assert.match(html, /type="checkbox"/);
+  assert.match(html, /<table/);
+  assert.match(html, /data-markdown-content="default"/);
+  assert.match(
+    html,
+    /<a href="https:\/\/example\.com\/runbook" target="_blank" rel="noreferrer noopener">Runbook<\/a>/
+  );
 });
 
 test("knowledge path page renders a back-navigation affordance for missing documents", async (t) => {
