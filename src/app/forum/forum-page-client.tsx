@@ -86,10 +86,10 @@ export function ForumPostListContent({
 }) {
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 rounded-2xl border border-card-border/60 bg-card/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted">{t("forum.resultsCount", { count: resultCount })}</p>
+      <div className="flex flex-col gap-3 border-b border-card-border/60 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-medium text-muted">{t("forum.resultsCount", { count: resultCount })}</p>
         {hasActiveFilters ? (
-          <Button variant="ghost" className="justify-start px-0 text-accent sm:justify-center" onClick={onClearFilters}>
+          <Button variant="ghost" className="h-8 justify-start text-sm text-accent hover:bg-accent/10 hover:text-accent sm:justify-center" onClick={onClearFilters}>
             {t("forum.clearFilters")}
           </Button>
         ) : null}
@@ -282,7 +282,7 @@ export function ForumPageBody({
     <div className="mx-auto max-w-5xl space-y-6 animate-fade-in-up">
       <PageHeader
         title={t("forum.title")}
-        description={t("forum.description")}
+        description={t("control.forumReadOnly")}
         rightSlot={
           <div className="relative w-full min-w-0 sm:w-80">
             <input
@@ -296,23 +296,20 @@ export function ForumPageBody({
         }
       />
 
-      <div className="rounded-2xl border border-card-border/60 bg-card/30 p-4">
-        <p className="mb-4 text-sm text-muted">{t("control.forumReadOnly")}</p>
-        <div className="flex flex-wrap gap-2">
-          {CATEGORY_KEYS.map(({ value, labelKey }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => onCategoryChange(value)}
-              className={`relative rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300 ${category === value
-                ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
-                : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
-                }`}
-            >
-              {t(labelKey)}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-wrap gap-2 p-1 pt-2">
+        {CATEGORY_KEYS.map(({ value, labelKey }) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => onCategoryChange(value)}
+            className={`relative rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300 ${category === value
+              ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
+              : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
+              }`}
+          >
+            {t(labelKey)}
+          </button>
+        ))}
       </div>
 
       {error ? (

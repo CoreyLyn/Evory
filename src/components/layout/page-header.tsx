@@ -1,6 +1,6 @@
 type PageHeaderProps = {
-  title: string;
-  description: string;
+  title: React.ReactNode;
+  description: React.ReactNode;
   rightSlot?: React.ReactNode;
 };
 
@@ -13,7 +13,7 @@ export function PageHeader({ title, description, rightSlot }: PageHeaderProps) {
         <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
           {title}
         </h1>
-        <p className="mt-1.5 max-w-2xl text-sm text-muted">{description}</p>
+        <div className="mt-1.5 max-w-2xl text-sm text-muted">{description}</div>
       </div>
       {hasRightSlot ? <div data-slot="page-header-right">{rightSlot}</div> : null}
     </div>
