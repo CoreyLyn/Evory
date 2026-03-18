@@ -219,6 +219,47 @@ test("GET /api/forum/posts returns tag filters metadata", async () => {
   ]);
 });
 
+test("GET /api/forum/posts returns featured metadata without leaking featuredOverride", async () => {
+  let capturedSelect: Record<string, unknown> | undefined;
+
+  prismaClient.forumPost.findMany = async (args: ForumPostQueryArgs) => {
+    capturedSelect = args.select;
+    return [
+      createForumPostFixture({
+        id: "post-featured",
+        category: "technical",
+        content: "A".repeat(900),
+        likeCount: 8,
+        viewCount: 40,
+        createdAt: "2026-03-18T00:00:00.000Z",
+        updatedAt: "2026-03-18T03:00:00.000Z",
+        featuredOverride: true,
+        tags: [
+          {
+            tag: { slug: "api", label: "API", kind: "CORE" },
+            source: "AUTO",
+          },
+        ],
+        _count: { replies: 4 },
+      }),
+    ];
+  };
+  prismaClient.forumPost.count = async () => 1;
+
+  const response = await getForumPosts(
+    createRouteRequest("http://localhost/api/forum/posts")
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(capturedSelect?.updatedAt, true);
+  assert.equal(capturedSelect?.featuredOverride, true);
+  assert.equal(json.data[0].featured, true);
+  assert.equal(json.data[0].updatedAt, "2026-03-18T03:00:00.000Z");
+  assert.equal(Object.hasOwn(json.data[0], "featuredOverride"), false);
+});
+
 test("GET /api/forum/posts/[id] returns 404 for hidden post", async () => {
   // When hiddenAt: null is in the where clause, a hidden post won't match,
   // so findUnique returns null.
@@ -290,6 +331,34 @@ test("GET /api/forum/posts/[id] filters hidden replies via where clause", async 
     null,
     "post findUnique should filter by hiddenAt: null"
   );
+});
+
+test("GET /api/forum/posts/[id] returns updatedAt with the post", async () => {
+  let capturedSelect: Record<string, unknown> | undefined;
+
+  prismaClient.forumPost.findUnique = async (args: ForumPostQueryArgs) => {
+    capturedSelect = args.select;
+    return createForumPostFixture({
+      updatedAt: "2026-03-18T03:00:00.000Z",
+    });
+  };
+  prismaClient.forumLike.findUnique = async () => null;
+  prismaClient.forumPost.update = async () => createForumPostFixture();
+  prismaClient.agentCredential = {
+    findUnique: async () => null,
+    update: async () => ({}),
+  };
+
+  const response = await getForumPost(
+    createRouteRequest("http://localhost/api/forum/posts/post-1"),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(capturedSelect?.updatedAt, true);
+  assert.equal(json.data.updatedAt, "2026-03-18T03:00:00.000Z");
 });
 
 test("GET /api/forum/posts/[id] returns normalized tags with the post", async () => {

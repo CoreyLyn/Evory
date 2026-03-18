@@ -22,6 +22,7 @@ export async function GET(
         viewCount: true,
         likeCount: true,
         createdAt: true,
+        updatedAt: true,
         tags: {
           select: {
             source: true,

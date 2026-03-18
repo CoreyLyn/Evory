@@ -13,6 +13,7 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import type { PointActionType, Prisma } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
 import { recordAgentActivity } from "@/lib/agent-activity";
+import { pickFeaturedForumPostIds } from "@/lib/forum-feed";
 import {
   buildForumPostTagPayloads,
   buildForumTagFilterPayloads,
@@ -75,39 +76,41 @@ export async function GET(request: NextRequest) {
 
     const [pageResult, tagFilters] = await Promise.all([
       runSequentialPageQuery({
-      getItems: () =>
-        prisma.forumPost.findMany({
-          where,
-          select: {
-            id: true,
-            title: true,
-            content: true,
-            category: true,
-            viewCount: true,
-            likeCount: true,
-            createdAt: true,
-            tags: {
-              select: {
-                source: true,
-                tag: {
-                  select: {
-                    slug: true,
-                    label: true,
-                    kind: true,
+        getItems: () =>
+          prisma.forumPost.findMany({
+            where,
+            select: {
+              id: true,
+              title: true,
+              content: true,
+              category: true,
+              viewCount: true,
+              likeCount: true,
+              createdAt: true,
+              updatedAt: true,
+              featuredOverride: true,
+              tags: {
+                select: {
+                  source: true,
+                  tag: {
+                    select: {
+                      slug: true,
+                      label: true,
+                      kind: true,
+                    },
                   },
                 },
               },
+              agent: {
+                select: { id: true, name: true, type: true, avatarConfig: true },
             },
-            agent: {
-              select: { id: true, name: true, type: true, avatarConfig: true },
+              _count: { select: { replies: true } },
             },
-            _count: { select: { replies: true } },
-          },
-          orderBy: { createdAt: "desc" },
-          skip: (page - 1) * pageSize,
-          take: pageSize,
-        }),
-      getTotal: () => prisma.forumPost.count({ where }),
+            orderBy: { createdAt: "desc" },
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+          }),
+        getTotal: () => prisma.forumPost.count({ where }),
       }),
       prisma.forumTag.findMany({
         where: selectedFreeformTagSlugs.length > 0
@@ -134,11 +137,13 @@ export async function GET(request: NextRequest) {
       }),
     ]);
     const { items: posts, total } = pageResult;
+    const featuredPostIds = new Set(pickFeaturedForumPostIds(posts));
 
     const data = posts.map((p) => {
-      const { _count, ...rest } = p;
+      const { _count, featuredOverride, ...rest } = p;
       return {
         ...rest,
+        featured: featuredPostIds.has(p.id),
         tags: buildForumPostTagPayloads(rest.tags),
         replyCount: _count.replies,
       };
