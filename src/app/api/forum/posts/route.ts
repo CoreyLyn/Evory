@@ -125,12 +125,13 @@ export async function GET(request: NextRequest) {
           slug: true,
           label: true,
           kind: true,
-          posts: {
-            where: {
-              post: filterWhere,
-            },
+          _count: {
             select: {
-              id: true,
+              posts: {
+                where: {
+                  post: filterWhere,
+                },
+              },
             },
           },
         },
@@ -158,7 +159,7 @@ export async function GET(request: NextRequest) {
             slug: tag.slug,
             label: tag.label,
             kind: tag.kind,
-            postCount: tag.posts.length,
+            postCount: tag._count.posts,
           })),
           selectedTagSlugs,
         }),

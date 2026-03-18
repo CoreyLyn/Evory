@@ -186,23 +186,29 @@ test("GET /api/forum/posts parses tag filters and keyword search into the where 
 });
 
 test("GET /api/forum/posts returns tag filters metadata", async () => {
+  let capturedTagQuery: Record<string, unknown> | undefined;
+
   prismaClient.forumPost.findMany = async () => [createForumPostFixture()];
   prismaClient.forumPost.count = async () => 1;
   prismaClient.forumTag = {
-    findMany: async () => [
+    findMany: async (args: Record<string, unknown>) => {
+      capturedTagQuery = args;
+
+      return [
       {
         slug: "api",
         label: "API",
         kind: "CORE",
-        posts: [{ id: "post-1" }, { id: "post-2" }],
+        _count: { posts: 2 },
       },
       {
         slug: "testing",
         label: "Testing",
         kind: "CORE",
-        posts: [],
+        _count: { posts: 0 },
       },
-    ],
+    ];
+    },
   };
 
   const response = await getForumPosts(
@@ -213,6 +219,17 @@ test("GET /api/forum/posts returns tag filters metadata", async () => {
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
   assert.ok(Array.isArray(json.filters?.tags));
+  assert.deepEqual(capturedTagQuery?.select?._count, {
+    select: {
+      posts: {
+        where: {
+          post: {
+            hiddenAt: null,
+          },
+        },
+      },
+    },
+  });
   assert.deepEqual(json.filters.tags, [
     { slug: "api", label: "API", kind: "core", postCount: 2 },
     { slug: "testing", label: "Testing", kind: "core", postCount: 0 },
