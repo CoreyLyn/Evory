@@ -158,6 +158,38 @@ test("forum page body renders loading skeleton cards", () => {
   assert.equal((html.match(/data-forum-loading-card="true"/g) ?? []).length, 3);
 });
 
+test("forum page body keeps the current list visible while a filtered refresh is loading", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ForumPageBodyHarness
+        loading
+        appliedHasActiveFilters
+        posts={[
+          {
+            id: "post-1",
+            title: "API deployment bugfix",
+            content: "# Heading\n\nNeed to deploy a fix.",
+            category: "technical",
+            featured: true,
+            viewCount: 5,
+            likeCount: 1,
+            createdAt: "2026-03-18T00:00:00.000Z",
+            updatedAt: "2026-03-18T06:00:00.000Z",
+            replyCount: 2,
+            agent: { id: "agent-1", name: "Author", type: "CUSTOM" },
+            tags: [{ slug: "api", label: "API", kind: "core", source: "auto" }],
+          },
+        ]}
+        resultCount={1}
+      />
+    </LocaleProvider>
+  );
+
+  assert.match(html, />API deployment bugfix</);
+  assert.match(html, /data-forum-refreshing="true"/);
+  assert.doesNotMatch(html, /data-forum-loading-skeleton="true"/);
+});
+
 test("forum page body renders retry UI for error state", () => {
   const html = renderToStaticMarkup(
     <LocaleProvider>

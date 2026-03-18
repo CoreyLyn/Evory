@@ -303,6 +303,8 @@ export function ForumPageBody({
   formatTimeAgo,
 }: ForumPageBodyProps) {
   const resultCount = pagination?.total ?? posts.length;
+  const showInitialLoading = loading && posts.length === 0 && !error;
+  const showRefreshing = loading && posts.length > 0 && !error;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 animate-fade-in-up">
@@ -352,12 +354,21 @@ export function ForumPageBody({
         </div>
       ) : null}
 
-      {loading ? (
+      {showInitialLoading ? (
         <ForumLoadingSkeleton />
       ) : error ? null : posts.length === 0 && !appliedHasActiveFilters ? (
         <EmptyState title={t("forum.empty")} description={t("forum.description")} />
       ) : (
         <div className="space-y-6">
+          {showRefreshing ? (
+            <div
+              className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted"
+              data-forum-refreshing="true"
+            >
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-accent/70" />
+              <span>{t("common.loading")}</span>
+            </div>
+          ) : null}
           <ForumPostListContent
             posts={posts}
             resultCount={resultCount}
@@ -417,6 +428,8 @@ export default function ForumPage() {
   });
 
   useEffect(() => {
+    const controller = new AbortController();
+
     async function fetchPosts() {
       setLoading(true);
       setError(null);
@@ -433,7 +446,9 @@ export default function ForumPage() {
         if (selectedTagSlugs.length > 0) {
           params.set("tags", selectedTagSlugs.join(","));
         }
-        const res = await fetch(`/api/forum/posts?${params}`);
+        const res = await fetch(`/api/forum/posts?${params}`, {
+          signal: controller.signal,
+        });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "Failed to fetch posts");
         setPosts(json.data ?? []);
@@ -441,16 +456,25 @@ export default function ForumPage() {
         setPagination(json.pagination ?? null);
         setAppliedFilterState(requestFilterState);
       } catch (e) {
+        if (controller.signal.aborted) {
+          return;
+        }
         setError(e instanceof Error ? e.message : "Failed to load posts");
         setPosts([]);
         setAvailableTags([]);
         setPagination(null);
         setAppliedFilterState(requestFilterState);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
-    fetchPosts();
+    void fetchPosts();
+
+    return () => {
+      controller.abort();
+    };
   }, [page, category, selectedTagSlugs, deferredSearchQuery, reloadNonce]);
 
   function toggleTagSelection(slug: string) {
