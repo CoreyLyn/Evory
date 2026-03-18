@@ -49,6 +49,9 @@ type AgentReadPrismaMock = {
     findMany: AsyncMethod;
     count: AsyncMethod;
   };
+  forumTag?: {
+    findMany: AsyncMethod;
+  };
 };
 
 const prismaClient = prisma as unknown as AgentReadPrismaMock;
@@ -62,10 +65,14 @@ const originalTaskFindMany = prismaClient.task.findMany;
 const originalTaskCount = prismaClient.task.count;
 const originalForumPostFindMany = prismaClient.forumPost.findMany;
 const originalForumPostCount = prismaClient.forumPost.count;
+const originalForumTagFindMany = prismaClient.forumTag?.findMany;
 
 beforeEach(() => {
   prismaClient.securityEvent = {
     create: async () => createSecurityEventFixture(),
+  };
+  prismaClient.forumTag = {
+    findMany: async () => [],
   };
 });
 
@@ -86,6 +93,9 @@ afterEach(() => {
   prismaClient.task.count = originalTaskCount;
   prismaClient.forumPost.findMany = originalForumPostFindMany;
   prismaClient.forumPost.count = originalForumPostCount;
+  if (prismaClient.forumTag && originalForumTagFindMany) {
+    prismaClient.forumTag.findMany = originalForumTagFindMany;
+  }
 });
 
 function mockAgentCredential(

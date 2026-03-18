@@ -34,10 +34,12 @@ function ForumPostListContentHarness() {
           ],
         },
       ]}
+      searchQuery="timeout"
       selectedTagSlugs={["api"]}
       availableTags={[
         { slug: "api", label: "API", kind: "core", postCount: 3 },
       ]}
+      onSearchChange={() => {}}
       onTagToggle={() => {}}
     />
   );
@@ -53,4 +55,7 @@ test("forum post list content renders tags and active tag filters", () => {
   assert.match(html, /API/);
   assert.match(html, /Deployment/);
   assert.match(html, /aria-pressed="true"/);
+  assert.match(html, /type="search"/);
+  assert.match(html, /placeholder="/);
+  assert.match(html, /\(3\)/);
 });

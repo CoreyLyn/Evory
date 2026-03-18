@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useDeferredValue, useState, useEffect } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -68,21 +68,35 @@ function getTagBadgeVariant(kind: "core" | "freeform") {
 
 export function ForumPostListContent({
   posts,
+  searchQuery,
   selectedTagSlugs,
   availableTags,
+  onSearchChange,
   onTagToggle,
   t,
   formatTimeAgo,
 }: {
   posts: Post[];
+  searchQuery: string;
   selectedTagSlugs: string[];
   availableTags: ForumTagFilter[];
+  onSearchChange: (value: string) => void;
   onTagToggle: (slug: string) => void;
   t: ReturnType<typeof useT>;
   formatTimeAgo: ReturnType<typeof useFormatTimeAgo>;
 }) {
   return (
     <div className="space-y-4">
+      <div className="relative">
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder={t("forum.searchPlaceholder")}
+          className="min-w-0 w-full rounded-xl border border-card-border bg-card px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-accent/40"
+        />
+      </div>
+
       {availableTags.length > 0 && (
         <div className="space-y-2">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
@@ -104,7 +118,7 @@ export function ForumPostListContent({
                       : "border-card-border bg-card text-muted hover:text-foreground"
                   }`}
                 >
-                  {tag.label}
+                  {tag.label} <span className="text-[11px] opacity-70">({tag.postCount})</span>
                 </button>
               );
             })}
@@ -173,8 +187,10 @@ export default function ForumPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedTagSlugs, setSelectedTagSlugs] = useState<string[]>([]);
   const [page, setPage] = useState(1);
+  const deferredSearchQuery = useDeferredValue(searchQuery.trim());
 
   useEffect(() => {
     async function fetchPosts() {
@@ -186,6 +202,7 @@ export default function ForumPage() {
           pageSize: "20",
         });
         if (category) params.set("category", category);
+        if (deferredSearchQuery) params.set("q", deferredSearchQuery);
         if (selectedTagSlugs.length > 0) {
           params.set("tags", selectedTagSlugs.join(","));
         }
@@ -204,7 +221,7 @@ export default function ForumPage() {
       }
     }
     fetchPosts();
-  }, [page, category, selectedTagSlugs]);
+  }, [page, category, selectedTagSlugs, deferredSearchQuery]);
 
   function toggleTagSelection(slug: string) {
     setSelectedTagSlugs((current) =>
@@ -212,6 +229,11 @@ export default function ForumPage() {
         ? current.filter((item) => item !== slug)
         : [...current, slug]
     );
+    setPage(1);
+  }
+
+  function handleSearchChange(value: string) {
+    setSearchQuery(value);
     setPage(1);
   }
 
@@ -255,8 +277,10 @@ export default function ForumPage() {
         ) : (
           <ForumPostListContent
             posts={posts}
+            searchQuery={searchQuery}
             selectedTagSlugs={selectedTagSlugs}
             availableTags={availableTags}
+            onSearchChange={handleSearchChange}
             onTagToggle={toggleTagSelection}
             t={t}
             formatTimeAgo={formatTimeAgo}

@@ -28,6 +28,9 @@ type PrismaForumFilterMock = {
   forumLike: {
     findUnique: (args: Record<string, unknown>) => Promise<unknown>;
   };
+  forumTag?: {
+    findMany: (args: Record<string, unknown>) => Promise<unknown[]>;
+  };
   agentCredential?: {
     findUnique: (args: Record<string, unknown>) => Promise<unknown>;
     update: (args: Record<string, unknown>) => Promise<unknown>;
@@ -49,6 +52,7 @@ const originalMethods = {
   forumPostCount: prismaClient.forumPost.count,
   forumPostUpdate: prismaClient.forumPost.update,
   forumLikeFindUnique: prismaClient.forumLike.findUnique,
+  forumTag: prismaClient.forumTag,
   agentCredentialFindUnique: prismaClient.agentCredential?.findUnique,
   agentUpdate: prismaClient.agent?.update,
   securityEventCreate: prismaClient.securityEvent?.create,
@@ -60,6 +64,9 @@ beforeEach(() => {
   prismaClient.securityEvent = {
     create: async () => ({}),
   };
+  prismaClient.forumTag = {
+    findMany: async () => [],
+  };
 });
 
 afterEach(async () => {
@@ -69,6 +76,9 @@ afterEach(async () => {
   prismaClient.forumPost.count = originalMethods.forumPostCount;
   prismaClient.forumPost.update = originalMethods.forumPostUpdate;
   prismaClient.forumLike.findUnique = originalMethods.forumLikeFindUnique;
+  if (prismaClient.forumTag && originalMethods.forumTag) {
+    prismaClient.forumTag.findMany = originalMethods.forumTag.findMany;
+  }
   if (prismaClient.agentCredential && originalMethods.agentCredentialFindUnique) {
     prismaClient.agentCredential.findUnique =
       originalMethods.agentCredentialFindUnique;
@@ -169,6 +179,22 @@ test("GET /api/forum/posts parses tag filters and keyword search into the where 
 test("GET /api/forum/posts returns tag filters metadata", async () => {
   prismaClient.forumPost.findMany = async () => [createForumPostFixture()];
   prismaClient.forumPost.count = async () => 1;
+  prismaClient.forumTag = {
+    findMany: async () => [
+      {
+        slug: "api",
+        label: "API",
+        kind: "CORE",
+        posts: [{ id: "post-1" }, { id: "post-2" }],
+      },
+      {
+        slug: "testing",
+        label: "Testing",
+        kind: "CORE",
+        posts: [],
+      },
+    ],
+  };
 
   const response = await getForumPosts(
     createRouteRequest("http://localhost/api/forum/posts")
@@ -178,6 +204,10 @@ test("GET /api/forum/posts returns tag filters metadata", async () => {
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
   assert.ok(Array.isArray(json.filters?.tags));
+  assert.deepEqual(json.filters.tags, [
+    { slug: "api", label: "API", kind: "core", postCount: 2 },
+    { slug: "testing", label: "Testing", kind: "core", postCount: 0 },
+  ]);
 });
 
 test("GET /api/forum/posts/[id] returns 404 for hidden post", async () => {

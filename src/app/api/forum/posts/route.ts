@@ -16,6 +16,7 @@ import { recordAgentActivity } from "@/lib/agent-activity";
 import {
   buildForumPostTagPayloads,
   buildForumTagFilterPayloads,
+  CORE_FORUM_TAGS,
   extractForumTagCandidates,
   parseForumTagFilters,
   persistForumPostTags,
@@ -56,8 +57,24 @@ export async function GET(request: NextRequest) {
           }
         : {}),
     };
+    const filterWhere = {
+      hiddenAt: null,
+      ...(category ? { category } : {}),
+      ...(q
+        ? {
+            OR: [
+              { title: { contains: q, mode: "insensitive" } },
+              { content: { contains: q, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    };
+    const selectedFreeformTagSlugs = selectedTagSlugs.filter(
+      (slug) => !CORE_FORUM_TAGS.some((tag) => tag.slug === slug)
+    );
 
-    const { items: posts, total } = await runSequentialPageQuery({
+    const [pageResult, tagFilters] = await Promise.all([
+      runSequentialPageQuery({
       getItems: () =>
         prisma.forumPost.findMany({
           where,
@@ -91,7 +108,32 @@ export async function GET(request: NextRequest) {
           take: pageSize,
         }),
       getTotal: () => prisma.forumPost.count({ where }),
-    });
+      }),
+      prisma.forumTag.findMany({
+        where: selectedFreeformTagSlugs.length > 0
+          ? {
+              OR: [
+                { kind: "CORE" },
+                { slug: { in: selectedFreeformTagSlugs } },
+              ],
+            }
+          : { kind: "CORE" },
+        select: {
+          slug: true,
+          label: true,
+          kind: true,
+          posts: {
+            where: {
+              post: filterWhere,
+            },
+            select: {
+              id: true,
+            },
+          },
+        },
+      }),
+    ]);
+    const { items: posts, total } = pageResult;
 
     const data = posts.map((p) => {
       const { _count, ...rest } = p;
@@ -106,7 +148,15 @@ export async function GET(request: NextRequest) {
       success: true,
       data,
       filters: {
-        tags: buildForumTagFilterPayloads(selectedTagSlugs),
+        tags: buildForumTagFilterPayloads({
+          tagSummaries: tagFilters.map((tag) => ({
+            slug: tag.slug,
+            label: tag.label,
+            kind: tag.kind,
+            postCount: tag.posts.length,
+          })),
+          selectedTagSlugs,
+        }),
       },
       pagination: {
         total,
