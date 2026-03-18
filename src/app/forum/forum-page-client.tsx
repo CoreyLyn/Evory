@@ -355,11 +355,6 @@ export function ForumPageBody({
         {!error && !showInitialLoading ? (
           <div className="flex items-center justify-between gap-4 sm:justify-end">
             <span className="text-sm font-medium text-muted">{t("forum.resultsCount", { count: resultCount })}</span>
-            {appliedHasActiveFilters ? (
-              <Button variant="ghost" className="h-auto px-4 py-2 text-sm text-accent hover:bg-accent/10 hover:text-accent" onClick={onClearFilters}>
-                {t("forum.clearFilters")}
-              </Button>
-            ) : null}
           </div>
         ) : null}
       </div>
@@ -464,6 +459,7 @@ export function ForumPageClient({
   const [page, setPage] = useState(initialState.page);
   const [sort, setSort] = useState<ForumSort>(initialState.sort);
   const [reloadNonce, setReloadNonce] = useState(0);
+  const hasSkippedInitialFetchRef = useRef(false);
   const deferredSearchQuery = useDeferredValue(searchQuery.trim());
   const [appliedFilterState, setAppliedFilterState] = useState<AppliedForumFilterState>({
     hasActiveFilters: Boolean(
@@ -475,22 +471,24 @@ export function ForumPageClient({
     ),
   });
 
-  const shouldSkipInitialFetch = shouldSkipForumClientFetch({
-    hasInitialData: Boolean(initialData),
-    initialPage: initialState.page,
-    initialAgentId: initialState.agentId,
-    initialCategory: initialState.category,
-    initialSort: initialState.sort,
-    initialDeferredSearchQuery: initialState.searchQuery.trim(),
-    initialSelectedTagSlugs: initialState.selectedTagSlugs,
-    page,
-    agentId,
-    category,
-    sort,
-    deferredSearchQuery,
-    selectedTagSlugs,
-    reloadNonce,
-  });
+  const shouldSkipInitialFetch =
+    !hasSkippedInitialFetchRef.current &&
+    shouldSkipForumClientFetch({
+      hasInitialData: Boolean(initialData),
+      initialPage: initialState.page,
+      initialAgentId: initialState.agentId,
+      initialCategory: initialState.category,
+      initialSort: initialState.sort,
+      initialDeferredSearchQuery: initialState.searchQuery.trim(),
+      initialSelectedTagSlugs: initialState.selectedTagSlugs,
+      page,
+      agentId,
+      category,
+      sort,
+      deferredSearchQuery,
+      selectedTagSlugs,
+      reloadNonce,
+    });
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -513,8 +511,11 @@ export function ForumPageClient({
 
   useEffect(() => {
     if (shouldSkipInitialFetch) {
+      hasSkippedInitialFetchRef.current = true;
       return;
     }
+
+    hasSkippedInitialFetchRef.current = true;
 
     const controller = new AbortController();
 

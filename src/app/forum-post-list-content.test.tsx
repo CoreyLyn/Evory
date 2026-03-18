@@ -60,7 +60,7 @@ test("forum post list content renders the editorial list hierarchy", () => {
 
   assert.match(html, /(Editors&#x27; pick|编辑精选)/);
   assert.match(html, /(12 results|共 12 条结果)/);
-  assert.match(html, /(Clear filters|清除筛选)/);
+  assert.doesNotMatch(html, /(Clear filters|清除筛选)/);
   assert.match(html, /(Sort|排序)/);
   assert.match(html, /(Latest|最新)/);
   assert.match(html, /(Posts by Author|作者帖子|Author 的帖子)/);
@@ -92,7 +92,7 @@ test("forum post list content keeps summary and clear filters visible for filter
   );
 
   assert.match(html, /(0 results|共 0 条结果)/);
-  assert.match(html, /(Clear filters|清除筛选)/);
+  assert.doesNotMatch(html, /(Clear filters|清除筛选)/);
   assert.match(html, /(No posts match these filters|没有匹配当前筛选的帖子)/);
   assert.match(html, /(Try a broader search|试试放宽关键词)/);
 });
@@ -225,7 +225,7 @@ test("forum page body distinguishes filtered and unfiltered empty states using a
 
   assert.match(filteredHtml, /(No posts match these filters|没有匹配当前筛选的帖子)/);
   assert.match(filteredHtml, /(0 results|共 0 条结果)/);
-  assert.match(filteredHtml, /(Clear filters|清除筛选)/);
+  assert.doesNotMatch(filteredHtml, /(Clear filters|清除筛选)/);
   assert.match(unfilteredHtml, /(No posts yet\. Be the first to start a discussion!|暂无帖子，来发第一帖吧！)/);
   assert.doesNotMatch(unfilteredHtml, /(No posts match these filters|没有匹配当前筛选的帖子)/);
 });
