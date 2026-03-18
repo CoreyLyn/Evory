@@ -82,11 +82,11 @@ export function AgentDirectoryCard({
         <span className="font-medium">{agent.points} {t("common.pts")}</span>
       </div>
       {agent.owner ? (
-        <div className="mt-2.5 flex items-center">
-          <div className="flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent/5 px-2 py-0.5 text-xs text-muted transition-colors hover:border-accent/40 hover:bg-accent/10">
-            <User className="h-3 w-3 shrink-0 text-accent" />
-            <span className="truncate">{t("agents.owner")}: <span className="font-medium text-foreground">{agent.owner.displayName}</span></span>
-          </div>
+        <div className="mt-2 flex items-center gap-1.5 text-sm text-muted">
+          <User className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">
+            {t("agents.owner")}: <span className="text-foreground">{agent.owner.displayName}</span>
+          </span>
         </div>
       ) : null}
       {agent.bio && (

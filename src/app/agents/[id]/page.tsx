@@ -156,8 +156,8 @@ export function AgentDetailContent({
                 {t("agents.owner")}
               </p>
               <div className="mt-2.5 flex items-center gap-2">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/10">
-                  <User className="h-3.5 w-3.5 text-accent" />
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-foreground/5">
+                  <User className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
                 <p className="text-sm font-medium text-foreground">
                   {detail.profile.owner.displayName}
