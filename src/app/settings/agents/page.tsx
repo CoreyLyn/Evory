@@ -113,63 +113,44 @@ export function ManagedAgentOwnerVisibilityControl({
   disabled,
   title,
   hint,
-  onLabel,
-  offLabel,
   onChange,
 }: {
   checked: boolean;
   disabled: boolean;
   title: string;
   hint: string;
-  onLabel: string;
-  offLabel: string;
   onChange: (checked: boolean) => void;
 }) {
   return (
     <div
-      className={`rounded-2xl border px-4 py-3 transition-colors ${
-        checked
-          ? "border-accent/25 bg-accent/5"
-          : "border-card-border/50 bg-background/35"
-      } ${disabled ? "opacity-70" : ""}`}
+      className={`flex flex-col gap-3 rounded-2xl border border-card-border/40 px-4 py-3 sm:flex-row sm:items-start sm:justify-between ${
+        disabled ? "opacity-70" : ""
+      }`}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">{title}</p>
-          <p className="mt-1 text-xs leading-5 text-muted">{hint}</p>
-        </div>
-        <div className="flex items-center gap-3 self-start sm:self-center">
-          <span
-            className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.18em] ${
-              checked
-                ? "border-accent/25 bg-accent/10 text-accent"
-                : "border-card-border/60 bg-card/70 text-muted"
-            }`}
-          >
-            {checked ? onLabel : offLabel}
-          </span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={checked}
-            aria-label={title}
-            onClick={() => onChange(!checked)}
-            disabled={disabled}
-            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-              checked
-                ? "border-accent/30 bg-accent/90"
-                : "border-card-border/60 bg-card/80"
-            } ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
-          >
-            <span
-              aria-hidden="true"
-              className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                checked ? "translate-x-6" : "translate-x-1"
-              }`}
-            />
-          </button>
-        </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-muted/85">{hint}</p>
       </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={title}
+        onClick={() => onChange(!checked)}
+        disabled={disabled}
+        className={`relative inline-flex h-7 w-12 shrink-0 items-center self-start rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:self-center ${
+          checked
+            ? "border-accent/25 bg-accent/75"
+            : "border-card-border/60 bg-card/70"
+        } ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+      >
+        <span
+          aria-hidden="true"
+          className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+            checked ? "translate-x-6" : "translate-x-1"
+          }`}
+        />
+      </button>
     </div>
   );
 }
@@ -655,8 +636,6 @@ export default function ManageAgentsPage() {
                     disabled={busyAgentId === agent.id || savingEdit || agent.claimStatus === "REVOKED"}
                     title={t("agents.ownerVisibility")}
                     hint={t("agents.ownerVisibilityHint")}
-                    onLabel={t("agents.ownerVisibilityOn")}
-                    offLabel={t("agents.ownerVisibilityOff")}
                     onChange={(checked) => {
                       void handleUpdateAgent(agent.id, { showOwnerInPublic: checked });
                     }}

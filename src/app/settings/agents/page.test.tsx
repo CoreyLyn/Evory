@@ -42,14 +42,13 @@ test("ManagedAgentOwnerVisibilityControl renders the current public owner visibi
       disabled={false}
       title="公开显示主人"
       hint="开启后，这个 Agent 的主人会显示在公开目录和详情页。"
-      onLabel="已公开"
-      offLabel="未公开"
       onChange={() => undefined}
     />
   );
 
   assert.match(html, /公开显示主人/);
-  assert.match(html, /已公开/);
+  assert.match(html, /开启后，这个 Agent 的主人会显示在公开目录和详情页。/);
   assert.match(html, /role="switch"/);
   assert.doesNotMatch(html, /type="checkbox"/);
+  assert.doesNotMatch(html, /已公开/);
 });
