@@ -3,18 +3,10 @@ import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { awardPoints } from "@/lib/points";
 import { PointActionType } from "@/generated/prisma/client";
-import { publishEvent } from "@/lib/live-events";
-import { recordAgentActivity } from "@/lib/agent-activity";
-import { STATUS_TIMEOUT_MS } from "@/lib/agent-status-timeout";
-
-const VALID_STATUSES = [
-  "ONLINE",
-  "OFFLINE",
-  "WORKING",
-  "POSTING",
-  "READING",
-  "IDLE",
-] as const;
+import {
+  setAgentStatus,
+  VALID_AGENT_STATUSES,
+} from "@/lib/agent-status";
 
 export async function PUT(request: NextRequest) {
   const agent = await authenticateAgent(request);
@@ -24,70 +16,39 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { status: statusInput } = body;
 
-    if (!statusInput || !VALID_STATUSES.includes(statusInput)) {
+    if (!statusInput || !VALID_AGENT_STATUSES.includes(statusInput)) {
       return Response.json(
         {
           success: false,
-          error: `status must be one of: ${VALID_STATUSES.join(", ")}`,
+          error: `status must be one of: ${VALID_AGENT_STATUSES.join(", ")}`,
         },
         { status: 400 }
       );
     }
 
-    const status = statusInput as (typeof VALID_STATUSES)[number];
+    const status = statusInput as (typeof VALID_AGENT_STATUSES)[number];
 
     await awardPoints(agent.id, PointActionType.DAILY_LOGIN);
 
-    const updated = await prisma.agent.update({
-      where: { id: agent.id },
-      data: {
+    const updated =
+      (await setAgentStatus({
+        agent,
         status,
-        statusExpiresAt: status === "OFFLINE"
-          ? null
-          : new Date(Date.now() + STATUS_TIMEOUT_MS),
-      },
-      select: {
-        id: true,
-        name: true,
-        type: true,
-        status: true,
-        points: true,
-        avatarConfig: true,
-        bio: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    await recordAgentActivity({
-      agentId: agent.id,
-      type: "STATUS_CHANGED",
-      summary: "activity.status.changed",
-      metadata: { previousStatus: agent.status, newStatus: status },
-    });
-
-    publishEvent({
-      type: "agent.status.updated",
-      payload: {
-        previousStatus: agent.status,
-        agent: {
-          id: updated.id,
-          name: updated.name,
-          type: updated.type,
-          status: updated.status,
-          points: updated.points,
-          avatarConfig:
-            updated.avatarConfig &&
-            typeof updated.avatarConfig === "object" &&
-            !Array.isArray(updated.avatarConfig)
-              ? (updated.avatarConfig as Record<string, unknown>)
-              : undefined,
-          bio: updated.bio,
-          createdAt: updated.createdAt.toISOString(),
-          updatedAt: updated.updatedAt.toISOString(),
+      })) ??
+      (await prisma.agent.findUnique({
+        where: { id: agent.id },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          status: true,
+          points: true,
+          avatarConfig: true,
+          bio: true,
+          createdAt: true,
+          updatedAt: true,
         },
-      },
-    });
+      }));
 
     return Response.json({ success: true, data: updated });
   } catch (err) {

@@ -42,6 +42,9 @@ type AgentReadPrismaMock = {
     findUnique: AsyncMethod;
     update: AsyncMethod;
   };
+  agentActivity?: {
+    create: AsyncMethod;
+  };
   securityEvent?: {
     create: AsyncMethod;
   };
@@ -70,6 +73,7 @@ const originalAgentFindMany = prismaClient.agent.findMany;
 const originalAgentUpdate = prismaClient.agent.update;
 const originalCredentialFindUnique = prismaClient.agentCredential?.findUnique;
 const originalCredentialUpdate = prismaClient.agentCredential?.update;
+const originalAgentActivityCreate = prismaClient.agentActivity?.create;
 const originalSecurityEventCreate = prismaClient.securityEvent?.create;
 const originalTaskFindMany = prismaClient.task.findMany;
 const originalTaskCount = prismaClient.task.count;
@@ -80,6 +84,9 @@ const originalAgentInventoryFindMany = prismaClient.agentInventory.findMany;
 const originalForumTagFindMany = prismaClient.forumTag?.findMany;
 
 beforeEach(() => {
+  prismaClient.agentActivity = {
+    create: async () => ({ id: "activity-1" }),
+  };
   prismaClient.securityEvent = {
     create: async () => createSecurityEventFixture(),
   };
@@ -97,6 +104,9 @@ afterEach(() => {
   }
   if (prismaClient.agentCredential && originalCredentialUpdate) {
     prismaClient.agentCredential.update = originalCredentialUpdate;
+  }
+  if (prismaClient.agentActivity && originalAgentActivityCreate) {
+    prismaClient.agentActivity.create = originalAgentActivityCreate;
   }
   if (prismaClient.securityEvent && originalSecurityEventCreate) {
     prismaClient.securityEvent.create = originalSecurityEventCreate;
@@ -377,6 +387,60 @@ test("claimed agent can read the official knowledge tree", async (t) => {
   assert.equal(json.data.path, "");
   assert.equal(json.data.directories[0].path, "guides");
   assert.equal(json.meta.totalDocuments, 2);
+});
+
+test("claimed agent knowledge reads promote an offline agent to READING", async (t) => {
+  const sandbox = await createKnowledgeApiSandbox(t);
+  useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
+  await writeKnowledgeMarkdown(
+    sandbox.knowledgeRoot,
+    "README.md",
+    "# Knowledge Home\n\nRoot content.\n"
+  );
+
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+    status: "OFFLINE",
+  });
+
+  const updateCalls: Array<Record<string, unknown>> = [];
+  prismaClient.agent.update = async ({
+    where,
+    data,
+  }: {
+    where: { id: string };
+    data: Record<string, unknown>;
+  }) => {
+    updateCalls.push(data);
+
+    return createAgentFixture({
+      id: where.id,
+      apiKey: "agent-key",
+      ownerUserId: "user-1",
+      claimStatus: "ACTIVE",
+      status:
+        typeof data.status === "string" ? data.status : "OFFLINE",
+    });
+  };
+
+  const response = await getAgentKnowledgeTree(
+    createRouteRequest("http://localhost/api/agent/knowledge/tree", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.ok(
+    updateCalls.some(
+      (data) =>
+        data.status === "READING" && data.statusExpiresAt instanceof Date
+    )
+  );
 });
 
 test("claimed agent can read a scoped official knowledge tree path", async (t) => {

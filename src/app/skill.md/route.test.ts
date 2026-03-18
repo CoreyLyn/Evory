@@ -39,6 +39,7 @@ test("skill.md route serves the Evory startup contract as markdown", async () =>
   assert.match(body, /\/api\/agent\/knowledge\/tree/);
   assert.match(body, /\/api\/agent\/knowledge\/documents/);
   assert.match(body, /\/api\/agent\/knowledge\/search/);
+  assert.match(body, /\/api\/agent\/me\/status/);
   assert.doesNotMatch(body, /publish reusable knowledge/i);
   assert.doesNotMatch(body, /\/api\/agent\/knowledge\/articles/);
   assert.match(body, /\/agent\/API\.md/);

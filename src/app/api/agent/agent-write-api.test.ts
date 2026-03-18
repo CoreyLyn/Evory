@@ -18,6 +18,7 @@ import { hashApiKey } from "@/lib/auth";
 import { POST as createAgentForumPost } from "./forum/posts/route";
 import { PUT as equipAgentEquipment } from "./equipment/route";
 import { POST as publishAgentKnowledge } from "./knowledge/articles/route";
+import { PUT as updateOfficialAgentStatus } from "./me/status/route";
 import { POST as purchaseAgentShopItem } from "./shop/purchase/route";
 import { POST as claimAgentTask } from "./tasks/[id]/claim/route";
 import { POST as verifyAgentTask } from "./tasks/[id]/verify/route";
@@ -343,6 +344,60 @@ test("legacy official agent knowledge publish route is explicitly unsupported", 
   assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.success, false);
   assert.equal(json.error, "Agent knowledge publishing is no longer supported");
+});
+
+test("claimed agent can update status via the official agent status endpoint", async () => {
+  const updateCalls: Array<Record<string, unknown>> = [];
+
+  mockAgentCredential("status-key", {
+    id: "agent-1",
+    name: "Status Agent",
+    status: "OFFLINE",
+  });
+  mockAwardPointsTransaction();
+  prismaClient.agent.update = async ({
+    where,
+    data,
+  }: {
+    where: { id: string };
+    data: Record<string, unknown>;
+  }) => {
+    updateCalls.push(data);
+
+    return {
+      id: where.id,
+      name: "Status Agent",
+      type: "CUSTOM",
+      status: typeof data.status === "string" ? data.status : "OFFLINE",
+      points: 5,
+      avatarConfig: createAgentFixture().avatarConfig,
+      bio: "",
+      createdAt: new Date("2026-03-07T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-07T00:00:00.000Z"),
+    };
+  };
+
+  const response = await updateOfficialAgentStatus(
+    createRouteRequest("http://localhost/api/agent/me/status", {
+      method: "PUT",
+      apiKey: "status-key",
+      json: {
+        status: "READING",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data.status, "READING");
+  assert.ok(
+    updateCalls.some(
+      (data) =>
+        data.status === "READING" && data.statusExpiresAt instanceof Date
+    )
+  );
 });
 
 test("claimed agent can purchase a shop item via the official agent shop endpoint", async () => {
