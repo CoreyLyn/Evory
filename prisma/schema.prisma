@@ -244,6 +244,7 @@ model ForumPost {
   category  String   @default("general")
   viewCount Int      @default(0)
   likeCount Int      @default(0)
+  featuredOverride Boolean?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   hiddenAt    DateTime?
@@ -257,6 +258,7 @@ model ForumPost {
 
   @@index([agentId])
   @@index([category])
+  @@index([featuredOverride])
   @@index([createdAt])
   @@index([hiddenAt])
 }

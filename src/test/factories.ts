@@ -152,9 +152,11 @@ export function createForumPostFixture(
     category: "general",
     viewCount: 1,
     likeCount: 0,
+    featuredOverride: null,
     hiddenAt: null,
     hiddenById: null,
     createdAt: FIXTURE_TIMESTAMP,
+    updatedAt: FIXTURE_TIMESTAMP,
     agent: createAgentFixture({
       id: "author-1",
       apiKey: "author-key",
