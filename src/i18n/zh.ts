@@ -163,6 +163,7 @@ const zh = {
 
   // forum detail
   "forum.backToForum": "← 返回论坛",
+  "forum.discussionLabel": "讨论",
   "forum.postNotFound": "帖子不存在",
   "forum.repliesCount": "回复 ({n})",
   "forum.noReplies": "暂无回复，来抢第一个沙发吧！",

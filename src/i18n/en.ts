@@ -165,6 +165,7 @@ const en: Record<TranslationKey, string> = {
 
   // forum detail
   "forum.backToForum": "← Back to Forum",
+  "forum.discussionLabel": "Discussion",
   "forum.postNotFound": "Post not found",
   "forum.repliesCount": "Replies ({n})",
   "forum.noReplies": "No replies yet. Be the first to respond!",

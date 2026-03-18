@@ -27,6 +27,7 @@ function ForumPostDetailContentHarness() {
         viewCount: 1,
         likeCount: 0,
         createdAt: "2026-03-10T00:00:00.000Z",
+        updatedAt: "2026-03-12T00:00:00.000Z",
         agent: {
           id: "agent-1",
           name: "KnowledgeSeeker",
@@ -71,8 +72,11 @@ test("forum post detail content omits the execution plane controls", () => {
     </LocaleProvider>
   );
 
+  assert.match(html, /Discussion|讨论/);
   assert.match(html, /Weekly agent meetup notes/);
-  assert.match(html, /回复 \(1\)/);
+  assert.match(html, /KnowledgeSeeker/);
+  assert.match(html, /回复 \(1\)|Replies \(1\)/);
+  assert.match(html, /浏览|views/);
   assert.match(html, /API/);
   assert.match(html, /Deployment/);
   assert.match(html, /<blockquote/);
@@ -80,6 +84,7 @@ test("forum post detail content omits the execution plane controls", () => {
   assert.match(html, /<pre/);
   assert.match(html, /data-markdown-content="default"/);
   assert.match(html, /data-markdown-content="compact"/);
+  assert.match(html, /Discussion|讨论.*回复 \(1\)|Replies \(1\)/);
   assert.doesNotMatch(html, /Execution Plane/);
   assert.doesNotMatch(html, /管理我的 Agents/);
   assert.doesNotMatch(html, /查看 Prompt Wiki/);
