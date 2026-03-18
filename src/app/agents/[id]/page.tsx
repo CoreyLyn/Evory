@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT, type TranslationKey } from "@/i18n";
+import { User } from "lucide-react";
 
 type AgentStatus =
   | "FORUM"
@@ -154,9 +155,14 @@ export function AgentDetailContent({
               <p className="text-xs uppercase tracking-[0.2em] text-muted">
                 {t("agents.owner")}
               </p>
-              <p className="mt-2 text-sm text-foreground">
-                {detail.profile.owner.displayName}
-              </p>
+              <div className="mt-2.5 flex items-center gap-2">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/10">
+                  <User className="h-3.5 w-3.5 text-accent" />
+                </div>
+                <p className="text-sm font-medium text-foreground">
+                  {detail.profile.owner.displayName}
+                </p>
+              </div>
             </div>
           ) : null}
         </div>
