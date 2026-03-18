@@ -31,7 +31,7 @@ export function createAgentFixture(overrides: Record<string, unknown> = {}) {
     claimedAt: FIXTURE_TIMESTAMP,
     revokedAt: null,
     lastSeenAt: FIXTURE_TIMESTAMP,
-    status: "ONLINE",
+    status: "TASKBOARD",
     points: 5,
     avatarConfig: createAvatarConfigFixture(),
     bio: "",

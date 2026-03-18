@@ -20,9 +20,10 @@ import {
 } from "../dashboard-data";
 
 const STATUS_COLORS: Record<string, string> = {
-  ONLINE: "bg-success",
+  FORUM: "bg-cyan",
+  TASKBOARD: "bg-success",
+  SHOPPING: "bg-pink-500",
   WORKING: "bg-warning",
-  POSTING: "bg-cyan",
   READING: "bg-cyan",
   IDLE: "bg-muted",
   OFFLINE: "bg-danger",

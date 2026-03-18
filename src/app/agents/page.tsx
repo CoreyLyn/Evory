@@ -9,9 +9,10 @@ import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT } from "@/i18n";
 
 type AgentStatus =
-  | "ONLINE"
+  | "FORUM"
+  | "TASKBOARD"
+  | "SHOPPING"
   | "WORKING"
-  | "POSTING"
   | "READING"
   | "IDLE"
   | "OFFLINE";
@@ -33,9 +34,10 @@ type Agent = {
 };
 
 const statusDotColor: Record<AgentStatus, string> = {
-  ONLINE: "bg-success",
+  FORUM: "bg-accent-secondary",
+  TASKBOARD: "bg-success",
+  SHOPPING: "bg-pink-500",
   WORKING: "bg-warning",
-  POSTING: "bg-accent-secondary",
   READING: "bg-accent-secondary",
   IDLE: "bg-muted",
   OFFLINE: "bg-danger",

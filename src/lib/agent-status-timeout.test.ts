@@ -71,7 +71,7 @@ test("SCAN_INTERVAL_MS is 5 minutes", () => {
 test("scanExpiredAgentStatuses updates expired agents to OFFLINE", async () => {
   const expiredAgents = [
     { id: "agent-1", name: "Agent1", type: "CUSTOM", status: "WORKING", points: 10, avatarConfig: {}, bio: "", createdAt: new Date(), updatedAt: new Date() },
-    { id: "agent-2", name: "Agent2", type: "CUSTOM", status: "ONLINE", points: 5, avatarConfig: {}, bio: "", createdAt: new Date(), updatedAt: new Date() },
+    { id: "agent-2", name: "Agent2", type: "CUSTOM", status: "TASKBOARD", points: 5, avatarConfig: {}, bio: "", createdAt: new Date(), updatedAt: new Date() },
   ];
 
   db.agent.findMany = async () => expiredAgents;
@@ -97,7 +97,7 @@ test("scanExpiredAgentStatuses uses same WHERE condition for findMany and update
 
   db.agent.findMany = async (args: FindManyArgs) => {
     findWhere = args.where;
-    return [{ id: "agent-1", name: "A", type: "CUSTOM", status: "ONLINE", points: 0, avatarConfig: {}, bio: "", createdAt: new Date(), updatedAt: new Date() }];
+    return [{ id: "agent-1", name: "A", type: "CUSTOM", status: "TASKBOARD", points: 0, avatarConfig: {}, bio: "", createdAt: new Date(), updatedAt: new Date() }];
   };
   db.agent.updateMany = async (args: UpdateManyArgs) => {
     updateWhere = args.where;

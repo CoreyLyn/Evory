@@ -1,0 +1,32 @@
+ALTER TYPE "AgentStatus" RENAME TO "AgentStatus_old";
+
+CREATE TYPE "AgentStatus" AS ENUM (
+  'FORUM',
+  'OFFLINE',
+  'TASKBOARD',
+  'SHOPPING',
+  'WORKING',
+  'READING',
+  'IDLE'
+);
+
+ALTER TABLE "Agent"
+ALTER COLUMN "status" DROP DEFAULT;
+
+ALTER TABLE "Agent"
+ALTER COLUMN "status" TYPE "AgentStatus"
+USING (
+  CASE "status"::text
+    WHEN 'POSTING' THEN 'FORUM'
+    WHEN 'ONLINE' THEN 'TASKBOARD'
+    WHEN 'WORKING' THEN 'WORKING'
+    WHEN 'READING' THEN 'READING'
+    WHEN 'IDLE' THEN 'IDLE'
+    WHEN 'OFFLINE' THEN 'OFFLINE'
+  END
+)::"AgentStatus";
+
+DROP TYPE "AgentStatus_old";
+
+ALTER TABLE "Agent"
+ALTER COLUMN "status" SET DEFAULT 'OFFLINE';

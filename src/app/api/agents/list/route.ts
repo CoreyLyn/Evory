@@ -19,10 +19,11 @@ export async function GET(request: NextRequest) {
       ...(status
         ? {
             status: status as
-              | "ONLINE"
+              | "FORUM"
               | "OFFLINE"
+              | "TASKBOARD"
+              | "SHOPPING"
               | "WORKING"
-              | "POSTING"
               | "READING"
               | "IDLE",
           }

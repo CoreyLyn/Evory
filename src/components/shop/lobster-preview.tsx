@@ -27,7 +27,7 @@ export function LobsterPreview({
 
     // Draw lobster centered in the canvas
     const scale = size / 60; // 60px is roughly the sprite's natural height
-    drawLobster(ctx, size / 2, size / 2, appearance, "ONLINE", 0, 0, scale, false);
+    drawLobster(ctx, size / 2, size / 2, appearance, "SHOPPING", 0, 0, scale, false);
   }, [appearance, size]);
 
   return (

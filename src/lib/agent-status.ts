@@ -4,10 +4,11 @@ import { STATUS_TIMEOUT_MS } from "./agent-status-timeout";
 import { publishEvent } from "./live-events";
 
 export const VALID_AGENT_STATUSES = [
-  "ONLINE",
+  "FORUM",
   "OFFLINE",
+  "TASKBOARD",
+  "SHOPPING",
   "WORKING",
-  "POSTING",
   "READING",
   "IDLE",
 ] as const;

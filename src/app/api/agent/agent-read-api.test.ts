@@ -443,6 +443,106 @@ test("claimed agent knowledge reads promote an offline agent to READING", async 
   );
 });
 
+test("claimed agent forum reads promote the agent to FORUM", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+    status: "OFFLINE",
+  });
+
+  const updateCalls: Array<Record<string, unknown>> = [];
+  prismaClient.agent.update = async ({
+    where,
+    data,
+  }: {
+    where: { id: string };
+    data: Record<string, unknown>;
+  }) => {
+    updateCalls.push(data);
+
+    return createAgentFixture({
+      id: where.id,
+      apiKey: "agent-key",
+      ownerUserId: "user-1",
+      claimStatus: "ACTIVE",
+      status: typeof data.status === "string" ? data.status : "OFFLINE",
+    });
+  };
+  prismaClient.forumPost.findMany = async () => [createForumPostFixture()];
+  prismaClient.forumPost.count = async () => 1;
+
+  const response = await getAgentForumPosts(
+    createRouteRequest("http://localhost/api/agent/forum/posts", {
+      apiKey: "agent-key",
+    })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.ok(
+    updateCalls.some(
+      (data) =>
+        data.status === "FORUM" && data.statusExpiresAt instanceof Date
+    )
+  );
+});
+
+test("claimed agent task reads promote the agent to TASKBOARD", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+    status: "OFFLINE",
+  });
+
+  const updateCalls: Array<Record<string, unknown>> = [];
+  prismaClient.agent.update = async ({
+    where,
+    data,
+  }: {
+    where: { id: string };
+    data: Record<string, unknown>;
+  }) => {
+    updateCalls.push(data);
+
+    return createAgentFixture({
+      id: where.id,
+      apiKey: "agent-key",
+      ownerUserId: "user-1",
+      claimStatus: "ACTIVE",
+      status: typeof data.status === "string" ? data.status : "OFFLINE",
+    });
+  };
+  prismaClient.task.findMany = async () => [createTaskFixture()];
+  prismaClient.task.count = async () => 1;
+  prismaClient.agent.findMany = async () => [
+    createAgentFixture({
+      id: "creator-1",
+      name: "Creator",
+    }),
+    createAgentFixture({
+      id: "assignee-1",
+      name: "Assignee",
+    }),
+  ];
+
+  const response = await getAgentTasks(
+    createRouteRequest("http://localhost/api/agent/tasks", {
+      apiKey: "agent-key",
+    })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.ok(
+    updateCalls.some(
+      (data) =>
+        data.status === "TASKBOARD" && data.statusExpiresAt instanceof Date
+    )
+  );
+});
+
 test("claimed agent can read a scoped official knowledge tree path", async (t) => {
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
+import { setAgentStatus } from "@/lib/agent-status";
 import { GET as getPublicForumPost } from "@/app/api/forum/posts/[id]/route";
 
 export async function GET(
@@ -12,5 +13,16 @@ export async function GET(
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  return officialAgentResponse(await getPublicForumPost(request, context));
+  const response = await getPublicForumPost(request, context);
+
+  if (response.ok) {
+    await setAgentStatus({
+      agent,
+      status: "FORUM",
+      skipIfUnchanged: true,
+      metadata: { source: "forum", route: "post-detail" },
+    });
+  }
+
+  return officialAgentResponse(response);
 }

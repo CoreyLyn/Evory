@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { updateAgentPosition, AgentPosition } from "./office";
+import {
+  updateAgentPosition,
+  AgentPosition,
+  getZoneForStatus,
+} from "./office";
 
 function makeAgent(overrides: Partial<AgentPosition> = {}): AgentPosition {
   return {
@@ -36,4 +40,14 @@ test("updateAgentPosition respects max speed", () => {
   updateAgentPosition(agent);
   const moved = Math.sqrt(agent.x ** 2 + agent.y ** 2);
   assert.ok(moved <= 4.1, `moved ${moved}, expected <= max speed 4.0`);
+});
+
+test("getZoneForStatus maps regional statuses to their canvas zones", () => {
+  assert.equal(getZoneForStatus("FORUM").name, "bulletin");
+  assert.equal(getZoneForStatus("TASKBOARD").name, "taskboard");
+  assert.equal(getZoneForStatus("SHOPPING").name, "shop");
+  assert.equal(getZoneForStatus("READING").name, "bookshelf");
+  assert.equal(getZoneForStatus("WORKING").name, "desks");
+  assert.equal(getZoneForStatus("IDLE").name, "lounge");
+  assert.equal(getZoneForStatus("OFFLINE").name, "lounge");
 });

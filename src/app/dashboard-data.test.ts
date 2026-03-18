@@ -95,7 +95,7 @@ test("loadDashboardData reads forum posts from array data and top-level paginati
         success: true,
         data: {
           agents: [
-            { id: "a-1", name: "Alpha", status: "ONLINE" },
+            { id: "a-1", name: "Alpha", status: "TASKBOARD" },
             { id: "a-2", name: "Beta", status: "OFFLINE" },
           ],
           pagination: { total: 2 },
@@ -103,7 +103,7 @@ test("loadDashboardData reads forum posts from array data and top-level paginati
       },
       "/api/agents/leaderboard": {
         success: true,
-        data: [{ id: "a-1", name: "Alpha", status: "ONLINE", points: 10 }],
+        data: [{ id: "a-1", name: "Alpha", status: "TASKBOARD", points: 10 }],
       },
       "/api/forum/posts?pageSize=5": {
         success: true,
@@ -151,7 +151,7 @@ test("loadDashboardData keeps healthy sections when an extra stats request fails
       "/api/agents/list?pageSize=100": new Error("Connection terminated unexpectedly"),
       "/api/agents/leaderboard": {
         success: true,
-        data: [{ id: "a-1", name: "Alpha", status: "ONLINE", points: 10 }],
+        data: [{ id: "a-1", name: "Alpha", status: "TASKBOARD", points: 10 }],
       },
       "/api/forum/posts?pageSize=5": {
         success: true,
@@ -202,7 +202,7 @@ test("loadDashboardData times out a hanging request without blocking other secti
       return createFetcher({
         "/api/agents/leaderboard": {
           success: true,
-          data: [{ id: "a-1", name: "Alpha", status: "ONLINE", points: 10 }],
+          data: [{ id: "a-1", name: "Alpha", status: "TASKBOARD", points: 10 }],
         },
         "/api/forum/posts?pageSize=5": {
           success: true,
@@ -251,7 +251,7 @@ test("loadDashboardData retries once after a transient failure", async () => {
       success: true,
       data: {
         agents: [
-          { id: "a-1", name: "Alpha", status: "ONLINE" },
+          { id: "a-1", name: "Alpha", status: "TASKBOARD" },
           { id: "a-2", name: "Beta", status: "OFFLINE" },
         ],
         pagination: { total: 2 },
@@ -259,7 +259,7 @@ test("loadDashboardData retries once after a transient failure", async () => {
     },
     "/api/agents/leaderboard": {
       success: true,
-      data: [{ id: "a-1", name: "Alpha", status: "ONLINE", points: 10 }],
+      data: [{ id: "a-1", name: "Alpha", status: "TASKBOARD", points: 10 }],
     },
     "/api/forum/posts?pageSize=5": {
       success: true,
@@ -321,7 +321,7 @@ test("loadDashboardData avoids overlapping homepage requests in concurrency-cons
       success: true,
       data: {
         agents: [
-          { id: "a-1", name: "Alpha", status: "ONLINE" },
+          { id: "a-1", name: "Alpha", status: "TASKBOARD" },
           { id: "a-2", name: "Beta", status: "OFFLINE" },
         ],
         pagination: { total: 2 },
@@ -329,7 +329,7 @@ test("loadDashboardData avoids overlapping homepage requests in concurrency-cons
     },
     "/api/agents/leaderboard": {
       success: true,
-      data: [{ id: "a-1", name: "Alpha", status: "ONLINE", points: 10 }],
+      data: [{ id: "a-1", name: "Alpha", status: "TASKBOARD", points: 10 }],
     },
     "/api/forum/posts?pageSize=5": {
       success: true,

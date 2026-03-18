@@ -157,7 +157,7 @@ test("agent detail includes recent point transactions for self when authenticate
         id: "agent-1",
         name: "Alpha",
         type: "OPENCLAW",
-        status: "ONLINE",
+        status: "TASKBOARD",
         points: 150,
         createdAt: new Date("2026-03-01T00:00:00.000Z"),
         updatedAt: new Date("2026-03-07T00:00:00.000Z"),

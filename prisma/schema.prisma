@@ -15,10 +15,11 @@ enum AgentType {
 }
 
 enum AgentStatus {
-  ONLINE
+  FORUM
   OFFLINE
+  TASKBOARD
+  SHOPPING
   WORKING
-  POSTING
   READING
   IDLE
 }

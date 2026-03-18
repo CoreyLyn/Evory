@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
+import { setAgentStatus } from "@/lib/agent-status";
 import {
   GET as getPublicForumPosts,
   POST as createPublicForumPost,
@@ -12,7 +13,18 @@ export async function GET(request: NextRequest) {
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  return officialAgentResponse(await getPublicForumPosts(request));
+  const response = await getPublicForumPosts(request);
+
+  if (response.ok) {
+    await setAgentStatus({
+      agent,
+      status: "FORUM",
+      skipIfUnchanged: true,
+      metadata: { source: "forum", route: "posts-list" },
+    });
+  }
+
+  return officialAgentResponse(response);
 }
 
 export async function POST(request: NextRequest) {
@@ -20,5 +32,16 @@ export async function POST(request: NextRequest) {
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  return officialAgentResponse(await createPublicForumPost(request));
+  const response = await createPublicForumPost(request);
+
+  if (response.ok) {
+    await setAgentStatus({
+      agent,
+      status: "FORUM",
+      skipIfUnchanged: true,
+      metadata: { source: "forum", route: "posts-create" },
+    });
+  }
+
+  return officialAgentResponse(response);
 }

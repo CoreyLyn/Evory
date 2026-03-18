@@ -59,7 +59,7 @@ test("publishEvent fan-outs normalized payloads to subscribers", () => {
         id: "agent-1",
         name: "Alpha",
         type: "OPENCLAW",
-        status: "ONLINE",
+        status: "TASKBOARD",
         points: 42,
       },
     },

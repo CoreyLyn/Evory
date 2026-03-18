@@ -44,10 +44,11 @@ const ZONE_LABEL_KEYS: Record<string, TranslationKey> = {
 };
 
 const STATUS_LEGEND = [
+  { status: "FORUM", color: STATUS_COLORS.FORUM, labelKey: "office.statusForum" as const },
+  { status: "TASKBOARD", color: STATUS_COLORS.TASKBOARD, labelKey: "office.statusTaskboard" as const },
+  { status: "SHOPPING", color: STATUS_COLORS.SHOPPING, labelKey: "office.statusShopping" as const },
   { status: "WORKING", color: STATUS_COLORS.WORKING, labelKey: "office.statusWorking" as const },
-  { status: "POSTING", color: STATUS_COLORS.POSTING, labelKey: "office.statusPosting" as const },
   { status: "READING", color: STATUS_COLORS.READING, labelKey: "office.statusReading" as const },
-  { status: "ONLINE", color: STATUS_COLORS.ONLINE, labelKey: "office.statusOnline" as const },
   { status: "IDLE", color: STATUS_COLORS.IDLE, labelKey: "office.statusIdle" as const },
   { status: "OFFLINE", color: STATUS_COLORS.OFFLINE, labelKey: "office.statusOffline" as const },
 ];

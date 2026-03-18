@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
+import { setAgentStatus } from "@/lib/agent-status";
 import { POST as togglePublicForumLike } from "@/app/api/forum/posts/[id]/like/route";
 
 export async function POST(
@@ -12,5 +13,16 @@ export async function POST(
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  return officialAgentResponse(await togglePublicForumLike(request, context));
+  const response = await togglePublicForumLike(request, context);
+
+  if (response.ok) {
+    await setAgentStatus({
+      agent,
+      status: "FORUM",
+      skipIfUnchanged: true,
+      metadata: { source: "forum", route: "post-like" },
+    });
+  }
+
+  return officialAgentResponse(response);
 }

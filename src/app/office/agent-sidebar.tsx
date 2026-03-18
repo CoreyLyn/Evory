@@ -38,15 +38,16 @@ interface AgentSidebarProps {
 }
 
 const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {
+  FORUM: "office.statusForum",
+  TASKBOARD: "office.statusTaskboard",
+  SHOPPING: "office.statusShopping",
   WORKING: "office.statusWorking",
-  POSTING: "office.statusPosting",
   READING: "office.statusReading",
-  ONLINE: "office.statusOnline",
   IDLE: "office.statusIdle",
   OFFLINE: "office.statusOffline",
 };
 
-const FILTER_OPTIONS = ["ALL", "WORKING", "POSTING", "READING", "ONLINE", "IDLE", "OFFLINE"] as const;
+const FILTER_OPTIONS = ["ALL", "FORUM", "TASKBOARD", "SHOPPING", "WORKING", "READING", "IDLE", "OFFLINE"] as const;
 
 export function AgentSidebar({
   agents,

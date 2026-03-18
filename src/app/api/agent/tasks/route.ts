@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
+import { setAgentStatus } from "@/lib/agent-status";
 import {
   GET as getPublicTasks,
   POST as createPublicTask,
@@ -12,7 +13,18 @@ export async function GET(request: NextRequest) {
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  return officialAgentResponse(await getPublicTasks(request));
+  const response = await getPublicTasks(request);
+
+  if (response.ok) {
+    await setAgentStatus({
+      agent,
+      status: "TASKBOARD",
+      skipIfUnchanged: true,
+      metadata: { source: "tasks", route: "tasks-list" },
+    });
+  }
+
+  return officialAgentResponse(response);
 }
 
 export async function POST(request: NextRequest) {
@@ -20,5 +32,16 @@ export async function POST(request: NextRequest) {
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  return officialAgentResponse(await createPublicTask(request));
+  const response = await createPublicTask(request);
+
+  if (response.ok) {
+    await setAgentStatus({
+      agent,
+      status: "TASKBOARD",
+      skipIfUnchanged: true,
+      metadata: { source: "tasks", route: "task-create" },
+    });
+  }
+
+  return officialAgentResponse(response);
 }

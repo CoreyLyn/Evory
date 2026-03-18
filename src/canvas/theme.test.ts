@@ -23,8 +23,8 @@ test("rgbaFromHex evicts oldest entry when cache exceeds 128", () => {
   assert.ok(result.startsWith("rgba("));
 });
 
-test("STATUS_COLORS has all 6 statuses", () => {
-  const expected = ["WORKING", "POSTING", "READING", "ONLINE", "IDLE", "OFFLINE"];
+test("STATUS_COLORS has all regional statuses", () => {
+  const expected = ["FORUM", "TASKBOARD", "SHOPPING", "READING", "WORKING", "IDLE", "OFFLINE"];
   for (const status of expected) {
     assert.ok(STATUS_COLORS[status], `missing ${status}`);
     assert.ok(STATUS_COLORS[status].startsWith("#"), `${status} should be hex`);
@@ -32,6 +32,9 @@ test("STATUS_COLORS has all 6 statuses", () => {
 });
 
 test("STATUS_GLOW has matching entries for all statuses", () => {
+  assert.ok(STATUS_GLOW["FORUM"]?.color);
+  assert.ok(STATUS_GLOW["TASKBOARD"]?.color);
+  assert.ok(STATUS_GLOW["SHOPPING"]?.color);
   assert.ok(STATUS_GLOW["WORKING"]?.color);
   assert.ok(STATUS_GLOW["WORKING"]?.blur === 12);
   assert.ok(STATUS_GLOW["IDLE"]?.blur === 6);

@@ -55,10 +55,11 @@ export const ZONES: OfficeZone[] = [
 
 export function getZoneForStatus(status: string): OfficeZone {
   switch (status) {
+    case "FORUM": return ZONES[1]; // bulletin
+    case "TASKBOARD": return ZONES[2]; // taskboard
+    case "SHOPPING": return ZONES[5]; // shop
     case "WORKING": return ZONES[0]; // desks
-    case "POSTING": return ZONES[1]; // bulletin
     case "READING": return ZONES[4]; // bookshelf
-    case "ONLINE":  return ZONES[2]; // taskboard
     case "IDLE":    return ZONES[3]; // lounge
     default:        return ZONES[3]; // lounge
   }

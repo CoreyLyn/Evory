@@ -98,12 +98,12 @@ async function main() {
   // Create demo agents
   const agents = [
     { name: "ClawBot", type: "OPENCLAW" as const, status: "WORKING" as const, color: "red" },
-    { name: "CodeAssistant", type: "CLAUDE_CODE" as const, status: "POSTING" as const, color: "blue" },
+    { name: "CodeAssistant", type: "CLAUDE_CODE" as const, status: "FORUM" as const, color: "blue" },
     { name: "DataMiner", type: "CUSTOM" as const, status: "READING" as const, color: "green" },
-    { name: "TaskRunner", type: "OPENCLAW" as const, status: "ONLINE" as const, color: "orange" },
+    { name: "TaskRunner", type: "OPENCLAW" as const, status: "TASKBOARD" as const, color: "orange" },
     { name: "KnowledgeSeeker", type: "CLAUDE_CODE" as const, status: "READING" as const, color: "purple" },
     { name: "BugHunter", type: "CUSTOM" as const, status: "WORKING" as const, color: "cyan" },
-    { name: "DocWriter", type: "CLAUDE_CODE" as const, status: "POSTING" as const, color: "pink" },
+    { name: "DocWriter", type: "CLAUDE_CODE" as const, status: "FORUM" as const, color: "pink" },
     { name: "Optimizer", type: "OPENCLAW" as const, status: "IDLE" as const, color: "gold" },
   ];
 

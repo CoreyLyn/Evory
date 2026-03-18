@@ -400,6 +400,152 @@ test("claimed agent can update status via the official agent status endpoint", a
   );
 });
 
+test("claimed agent task creation promotes the agent to TASKBOARD", async () => {
+  const updateCalls: Array<Record<string, unknown>> = [];
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+    points: 100,
+    status: "OFFLINE",
+  });
+  prismaClient.task.create = async () => ({
+    id: "task-1",
+  });
+  prismaClient.task.findUniqueOrThrow = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: null,
+      status: "OPEN",
+      bountyPoints: 0,
+      creator: createAgentFixture({
+        id: "creator-1",
+        apiKey: "creator-key",
+        name: "Creator",
+      }),
+      assignee: null,
+    });
+  mockAwardPointsTransaction();
+  prismaClient.agent.update = async ({
+    where,
+    data,
+  }: {
+    where: { id: string };
+    data: Record<string, unknown>;
+  }) => {
+    updateCalls.push(data);
+
+    return {
+      id: where.id,
+      name: "Creator",
+      type: "CUSTOM",
+      status: typeof data.status === "string" ? data.status : "OFFLINE",
+      points: 100,
+      avatarConfig: createAgentFixture().avatarConfig,
+      bio: "",
+      createdAt: new Date("2026-03-07T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-07T00:00:00.000Z"),
+    };
+  };
+
+  const response = await createAgentTask(
+    createRouteRequest("http://localhost/api/agent/tasks", {
+      method: "POST",
+      apiKey: "creator-key",
+      json: {
+        title: "Official agent task",
+        description: "Created from /api/agent/tasks",
+        bountyPoints: 0,
+      },
+    })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.ok(
+    updateCalls.some(
+      (data) =>
+        data.status === "TASKBOARD" && data.statusExpiresAt instanceof Date
+    )
+  );
+});
+
+test("claimed agent shop purchase promotes the agent to SHOPPING", async () => {
+  const updateCalls: Array<Record<string, unknown>> = [];
+
+  mockAgentCredential("buyer-key", {
+    id: "buyer-1",
+    name: "Buyer",
+    points: 150,
+    status: "OFFLINE",
+  });
+  prismaClient.agent.update = async ({
+    where,
+    data,
+  }: {
+    where: { id: string };
+    data: Record<string, unknown>;
+  }) => {
+    updateCalls.push(data);
+
+    return {
+      id: where.id,
+      name: "Buyer",
+      type: "CUSTOM",
+      status: typeof data.status === "string" ? data.status : "OFFLINE",
+      points: 150,
+      avatarConfig: createAgentFixture().avatarConfig,
+      bio: "",
+      createdAt: new Date("2026-03-07T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-07T00:00:00.000Z"),
+    };
+  };
+  prismaClient.shopItem.findUnique = async () => createShopItemFixture();
+  prismaClient.agentInventory.findUnique = async () => null;
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      agent: {
+        updateMany: async () => ({ count: 1 }),
+      },
+      agentInventory: {
+        create: async () => ({
+          id: "inventory-1",
+          agentId: "buyer-1",
+          itemId: "crown",
+          item: createShopItemFixture(),
+        }),
+      },
+      pointTransaction: {
+        create: async () => ({ id: "txn-1" }),
+      },
+    });
+  };
+
+  const response = await purchaseAgentShopItem(
+    createRouteRequest("http://localhost/api/agent/shop/purchase", {
+      method: "POST",
+      apiKey: "buyer-key",
+      json: {
+        itemId: "crown",
+      },
+    })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.ok(
+    updateCalls.some(
+      (data) =>
+        data.status === "SHOPPING" && data.statusExpiresAt instanceof Date
+    )
+  );
+});
+
 test("claimed agent can purchase a shop item via the official agent shop endpoint", async () => {
   mockAgentCredential("buyer-key", {
     id: "buyer-1",

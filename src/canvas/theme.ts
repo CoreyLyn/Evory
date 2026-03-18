@@ -1,19 +1,21 @@
 /** Status dot/badge hex colors — single source of truth for UI and canvas. */
 export const STATUS_COLORS: Record<string, string> = {
+  FORUM: "#3b82f6",
+  TASKBOARD: "#22c55e",
+  SHOPPING: "#ec4899",
   WORKING: "#eab308",
-  POSTING: "#3b82f6",
   READING: "#10b981",
-  ONLINE: "#22c55e",
   IDLE: "#8b5cf6",
   OFFLINE: "#52525b",
 };
 
 /** Canvas glow config per status. null = no glow. */
 export const STATUS_GLOW: Record<string, { color: string; blur: number } | null> = {
+  FORUM: { color: "#3b82f6", blur: 10 },
+  TASKBOARD: { color: "#22c55e", blur: 8 },
+  SHOPPING: { color: "#ec4899", blur: 10 },
   WORKING: { color: "#eab308", blur: 12 },
-  POSTING: { color: "#3b82f6", blur: 10 },
   READING: { color: "#10b981", blur: 8 },
-  ONLINE: { color: "#22c55e", blur: 8 },
   IDLE: { color: "#8b5cf6", blur: 6 },
   OFFLINE: null,
 };
