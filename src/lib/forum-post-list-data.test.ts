@@ -11,7 +11,7 @@ import {
 
 type ForumPostFindManyArgs = {
   where?: Record<string, unknown>;
-  orderBy?: Record<string, unknown>;
+  orderBy?: Record<string, unknown> | Record<string, unknown>[];
   skip?: number;
   take?: number;
   select?: Record<string, unknown>;
@@ -154,4 +154,154 @@ test("getForumPostListData loads tags and agents separately when combined nested
     },
   ]);
   assert.equal(result.data[0]?.replyCount, 6);
+});
+
+test("getForumPostListData uses latest sort by default", async () => {
+  let capturedOrderBy: ForumPostFindManyArgs["orderBy"];
+  let forumPostFindManyCall = 0;
+
+  prismaClient.forumPost.findMany = async (args: ForumPostFindManyArgs) => {
+    forumPostFindManyCall += 1;
+    if (forumPostFindManyCall === 1) {
+      capturedOrderBy = args.orderBy;
+    }
+    return [];
+  };
+
+  await getForumPostListData({ page: 1, pageSize: 20, sort: "latest" });
+
+  assert.deepEqual(capturedOrderBy, [{ createdAt: "desc" }]);
+});
+
+test("getForumPostListData supports active sort by updatedAt", async () => {
+  let capturedOrderBy: ForumPostFindManyArgs["orderBy"];
+  let forumPostFindManyCall = 0;
+
+  prismaClient.forumPost.findMany = async (args: ForumPostFindManyArgs) => {
+    forumPostFindManyCall += 1;
+    if (forumPostFindManyCall === 1) {
+      capturedOrderBy = args.orderBy;
+    }
+    return [];
+  };
+
+  await getForumPostListData({ page: 1, pageSize: 20, sort: "active" });
+
+  assert.deepEqual(capturedOrderBy, [
+    { updatedAt: "desc" },
+    { createdAt: "desc" },
+  ]);
+});
+
+test("getForumPostListData supports top sort by likes and freshness", async () => {
+  let capturedOrderBy: ForumPostFindManyArgs["orderBy"];
+  let forumPostFindManyCall = 0;
+
+  prismaClient.forumPost.findMany = async (args: ForumPostFindManyArgs) => {
+    forumPostFindManyCall += 1;
+    if (forumPostFindManyCall === 1) {
+      capturedOrderBy = args.orderBy;
+    }
+    return [];
+  };
+
+  await getForumPostListData({ page: 1, pageSize: 20, sort: "top" });
+
+  assert.deepEqual(capturedOrderBy, [
+    { likeCount: "desc" },
+    { updatedAt: "desc" },
+    { createdAt: "desc" },
+  ]);
+});
+
+test("getForumPostListData computes featured state from a broader candidate pool than the current page", async () => {
+  let forumPostFindManyCall = 0;
+
+  prismaClient.forumPost.findMany = async (args: ForumPostFindManyArgs) => {
+    forumPostFindManyCall += 1;
+
+    if (forumPostFindManyCall === 1) {
+      return [
+        {
+          id: "post-page",
+          agentId: "author-1",
+          title: "Paged post",
+          content: "short",
+          category: "general",
+          viewCount: 5,
+          likeCount: 1,
+          createdAt: new Date("2026-03-18T00:00:00.000Z"),
+          updatedAt: new Date("2026-03-18T00:00:00.000Z"),
+          featuredOverride: null,
+          _count: { replies: 1 },
+        },
+      ];
+    }
+
+    assert.equal(args.take, 100);
+
+    return [
+      {
+        id: "post-page",
+        agentId: "author-1",
+        title: "Paged post",
+        content: "short",
+        category: "general",
+        viewCount: 5,
+        likeCount: 1,
+        createdAt: new Date("2026-03-18T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-18T00:00:00.000Z"),
+        featuredOverride: null,
+        _count: { replies: 1 },
+      },
+      {
+        id: "post-featured",
+        agentId: "author-2",
+        title: "Featured candidate",
+        content: "B".repeat(900),
+        category: "technical",
+        viewCount: 50,
+        likeCount: 10,
+        createdAt: new Date("2026-03-18T01:00:00.000Z"),
+        updatedAt: new Date("2026-03-18T01:00:00.000Z"),
+        featuredOverride: true,
+        _count: { replies: 4 },
+      },
+    ];
+  };
+  prismaClient.forumPost.count = async () => 1;
+  prismaClient.agent.findMany = async ({ where }: AgentFindManyArgs) => {
+    const ids = ((where?.id as { in?: string[] } | undefined)?.in ?? []);
+
+    return ids.map((id) => {
+      const { name, type } = createAgentFixture({ id });
+      return { id, name, type };
+    });
+  };
+  prismaClient.forumPostTag.findMany = async ({ where }: ForumPostTagFindManyArgs) => {
+    const postIds = ((where?.postId as { in?: string[] } | undefined)?.in ?? []);
+
+    return postIds.map((postId, index) =>
+      createForumPostTagFixture({
+        postId,
+        source: "AUTO",
+        tag: {
+          id: `tag-${index + 1}`,
+          slug: "api",
+          label: "API",
+          kind: "CORE",
+        },
+      })
+    );
+  };
+
+  const result = await getForumPostListData({
+    page: 1,
+    pageSize: 20,
+    sort: "latest",
+  });
+
+  assert.equal(forumPostFindManyCall, 2);
+  assert.equal(result.data[0]?.id, "post-page");
+  assert.equal(result.data[0]?.featured, false);
 });

@@ -6,6 +6,7 @@ import {
   createAgentCredentialFixture,
   createAgentFixture,
   createForumPostFixture,
+  createForumPostTagFixture,
   createSecurityEventFixture,
   createShopItemFixture,
   createTaskFixture,
@@ -68,6 +69,9 @@ type AgentReadPrismaMock = {
   forumTag?: {
     findMany: AsyncMethod;
   };
+  forumPostTag?: {
+    findMany: AsyncMethod;
+  };
 };
 
 const prismaClient = prisma as unknown as AgentReadPrismaMock;
@@ -86,6 +90,7 @@ const originalForumPostCount = prismaClient.forumPost.count;
 const originalShopItemFindMany = prismaClient.shopItem.findMany;
 const originalAgentInventoryFindMany = prismaClient.agentInventory.findMany;
 const originalForumTagFindMany = prismaClient.forumTag?.findMany;
+const originalForumPostTagFindMany = prismaClient.forumPostTag?.findMany;
 
 beforeEach(() => {
   prismaClient.agentActivity = {
@@ -101,6 +106,26 @@ beforeEach(() => {
   prismaClient.forumTag = {
     findMany: async () => [],
   };
+  prismaClient.forumPostTag = {
+    findMany: async ({ where }: { where?: { postId?: { in?: string[] } } }) =>
+      (where?.postId?.in ?? []).map((postId, index) =>
+        createForumPostTagFixture({
+          postId,
+          source: "AUTO",
+          tag: {
+            id: `tag-${index + 1}`,
+            slug: "api",
+            label: "API",
+            kind: "CORE",
+          },
+        })
+      ),
+  };
+  prismaClient.agent.findMany = async ({ where }: { where?: { id?: { in?: string[] } } }) =>
+    (where?.id?.in ?? []).map((id) => {
+      const { name, type } = createAgentFixture({ id });
+      return { id, name, type };
+    });
 });
 
 afterEach(() => {
@@ -128,6 +153,9 @@ afterEach(() => {
   prismaClient.agentInventory.findMany = originalAgentInventoryFindMany;
   if (prismaClient.forumTag && originalForumTagFindMany) {
     prismaClient.forumTag.findMany = originalForumTagFindMany;
+  }
+  if (prismaClient.forumPostTag && originalForumPostTagFindMany) {
+    prismaClient.forumPostTag.findMany = originalForumPostTagFindMany;
   }
 });
 

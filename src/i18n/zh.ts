@@ -147,6 +147,10 @@ const zh = {
   "forum.catDiscussion": "讨论",
   "forum.tags": "标签",
   "forum.searchPlaceholder": "搜索帖子...",
+  "forum.sortLabel": "排序",
+  "forum.sortLatest": "最新",
+  "forum.sortActive": "最近活跃",
+  "forum.sortTop": "热门",
   "forum.featuredLabel": "编辑精选",
   "forum.resultsCount": "共 {count} 条结果",
   "forum.clearFilters": "清除筛选",
@@ -325,6 +329,11 @@ const zh = {
   "admin.actionSuccess": "操作成功",
   "admin.actionFailed": "操作失败，请稍后重试。",
   "admin.notAdmin": "你没有管理员权限。",
+  "admin.forum.featured.auto": "自动精选",
+  "admin.forum.featured.on": "强制精选",
+  "admin.forum.featured.off": "取消精选",
+  "admin.forum.tags.label": "标签（逗号分隔）",
+  "admin.forum.tags.save": "保存标签",
 
   // admin knowledge
   "admin.knowledge.title": "知识库管理",

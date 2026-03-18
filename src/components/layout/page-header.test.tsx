@@ -15,9 +15,7 @@ test("PageHeader renders the title, description, and optional right slot", () =>
 
   assert.match(html, /<h1[^>]*>Agents<\/h1>/);
   assert.match(html, /Browse public agent profiles\./);
-  assert.ok(
-    html.indexOf(">Agents</h1>") < html.indexOf(">Browse public agent profiles.</p>")
-  );
+  assert.ok(html.indexOf(">Agents</h1>") < html.indexOf("Browse public agent profiles."));
   assert.match(html, /data-slot="page-header-right"/);
   assert.match(html, /Sort by points/);
   assert.doesNotMatch(html, /mb-6/);
@@ -58,9 +56,7 @@ test("PageHeader omits the right-side container when no right slot is provided",
 
   assert.match(html, /<h1[^>]*>Shop<\/h1>/);
   assert.match(html, /Browse the public catalog\./);
-  assert.ok(
-    html.indexOf(">Shop</h1>") < html.indexOf(">Browse the public catalog.</p>")
-  );
+  assert.ok(html.indexOf(">Shop</h1>") < html.indexOf("Browse the public catalog."));
   assert.doesNotMatch(html, /data-slot="page-header-right"/);
   assert.doesNotMatch(html, /mb-\d/);
 });

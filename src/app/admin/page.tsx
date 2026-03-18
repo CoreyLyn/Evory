@@ -10,16 +10,26 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
+import { CORE_FORUM_TAGS } from "@/lib/forum-tags";
 
 type Post = {
   id: string;
   title: string;
   content: string;
   category: string;
+  viewCount: number;
+  likeCount: number;
   createdAt: string;
   hiddenAt: string | null;
+  featuredOverride: boolean | null;
   agent: { id: string; name: string; type: string };
   replyCount: number;
+  tags: Array<{
+    slug: string;
+    label: string;
+    kind: "core" | "freeform";
+    source: "auto" | "manual";
+  }>;
 };
 
 type Pagination = {
@@ -36,6 +46,42 @@ type Reply = {
   hiddenAt: string | null;
   agent: { id: string; name: string; type: string };
 };
+
+function normalizeTagSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildEditableTags(input: string) {
+  return input
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((label) => {
+      const slug = normalizeTagSlug(label);
+      const coreTag = CORE_FORUM_TAGS.find((tag) => tag.slug === slug);
+
+      if (coreTag) {
+        return {
+          slug: coreTag.slug,
+          label: coreTag.label,
+          kind: "core",
+        };
+      }
+
+      return {
+        label,
+        kind: "freeform",
+      };
+    });
+}
+
+function formatTagDraft(post: Post) {
+  return post.tags.map((tag) => tag.label).join(", ");
+}
 
 export default function AdminPage() {
   const t = useT();
@@ -56,6 +102,7 @@ export default function AdminPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   // Cached replies per post (fetched on expand)
   const [replies, setReplies] = useState<Record<string, Reply[]>>({});
+  const [tagDrafts, setTagDrafts] = useState<Record<string, string>>({});
 
   // Auth check — redirect non-admins
   useEffect(() => {
@@ -136,6 +183,65 @@ export default function AdminPage() {
     setBusyId(null);
   }
 
+  async function handleFeaturedOverride(
+    postId: string,
+    featuredOverride: boolean | null
+  ) {
+    setBusyId(postId);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const res = await fetch(`/api/admin/forum/posts/${postId}/featured`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ featuredOverride }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setSuccess(t("admin.actionSuccess"));
+        setRefreshKey((k) => k + 1);
+      } else {
+        setError(json.error || t("admin.actionFailed"));
+      }
+    } catch {
+      setError(t("admin.actionFailed"));
+    }
+
+    setBusyId(null);
+  }
+
+  async function handleTagSave(postId: string) {
+    setBusyId(postId);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const res = await fetch(`/api/admin/forum/posts/${postId}/tags`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tags: buildEditableTags(tagDrafts[postId] ?? ""),
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setSuccess(t("admin.actionSuccess"));
+        setRefreshKey((k) => k + 1);
+      } else {
+        setError(json.error || t("admin.actionFailed"));
+      }
+    } catch {
+      setError(t("admin.actionFailed"));
+    }
+
+    setBusyId(null);
+  }
+
   // Toggle expand and fetch replies for the post
   function toggleExpand(postId: string) {
     if (expandedId === postId) {
@@ -143,6 +249,13 @@ export default function AdminPage() {
       return;
     }
     setExpandedId(postId);
+    const nextPost = posts.find((post) => post.id === postId);
+    if (nextPost && !(postId in tagDrafts)) {
+      setTagDrafts((current) => ({
+        ...current,
+        [postId]: formatTagDraft(nextPost),
+      }));
+    }
     if (!replies[postId]) {
       fetch(`/api/admin/forum/posts/${postId}/replies`)
         .then((r) => r.json())
@@ -310,9 +423,38 @@ export default function AdminPage() {
                         <span>&middot;</span>
                         <span>{formatTimeAgo(post.createdAt)}</span>
                         <span>&middot;</span>
+                        <span>{post.likeCount} {t("forum.likes")}</span>
+                        <span>&middot;</span>
+                        <span>{post.viewCount} {t("common.views")}</span>
+                        <span>&middot;</span>
                         <span>
                           {t("admin.replies", { n: post.replyCount })}
                         </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Badge
+                          variant={
+                            post.featuredOverride === true
+                              ? "warning"
+                              : post.featuredOverride === false
+                                ? "muted"
+                                : "default"
+                          }
+                        >
+                          {post.featuredOverride === true
+                            ? t("admin.forum.featured.on")
+                            : post.featuredOverride === false
+                              ? t("admin.forum.featured.off")
+                              : t("admin.forum.featured.auto")}
+                        </Badge>
+                        {post.tags.map((tag) => (
+                          <Badge
+                            key={`${post.id}-${tag.slug}`}
+                            variant={tag.kind === "core" ? "default" : "muted"}
+                          >
+                            {tag.label}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
 
@@ -350,6 +492,70 @@ export default function AdminPage() {
                         <p className="text-sm text-foreground/80 whitespace-pre-wrap">
                           {post.content}
                         </p>
+                      </div>
+
+                      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                        <div className="rounded-xl border border-card-border/20 bg-background/30 p-4">
+                          <p className="text-xs font-semibold text-muted">
+                            {t("admin.forum.featured.auto")}
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Button
+                              variant="secondary"
+                              className="text-xs px-3 py-1.5"
+                              disabled={isBusy}
+                              onClick={() => handleFeaturedOverride(post.id, null)}
+                            >
+                              {t("admin.forum.featured.auto")}
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              className="text-xs px-3 py-1.5"
+                              disabled={isBusy}
+                              onClick={() => handleFeaturedOverride(post.id, true)}
+                            >
+                              {t("admin.forum.featured.on")}
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              className="text-xs px-3 py-1.5"
+                              disabled={isBusy}
+                              onClick={() => handleFeaturedOverride(post.id, false)}
+                            >
+                              {t("admin.forum.featured.off")}
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-card-border/20 bg-background/30 p-4">
+                          <label
+                            className="text-xs font-semibold text-muted"
+                            htmlFor={`post-tags-${post.id}`}
+                          >
+                            {t("admin.forum.tags.label")}
+                          </label>
+                          <textarea
+                            id={`post-tags-${post.id}`}
+                            value={tagDrafts[post.id] ?? ""}
+                            onChange={(event) =>
+                              setTagDrafts((current) => ({
+                                ...current,
+                                [post.id]: event.target.value,
+                              }))
+                            }
+                            className="mt-3 min-h-24 w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+                          />
+                          <div className="mt-3 flex justify-end">
+                            <Button
+                              variant="secondary"
+                              className="text-xs px-3 py-1.5"
+                              disabled={isBusy}
+                              onClick={() => handleTagSave(post.id)}
+                            >
+                              {t("admin.forum.tags.save")}
+                            </Button>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Replies section */}

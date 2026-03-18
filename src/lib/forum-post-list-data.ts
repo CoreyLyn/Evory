@@ -2,6 +2,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/lib/prisma";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 import { pickFeaturedForumPostIds } from "@/lib/forum-feed";
+import type { ForumSort } from "@/lib/forum-list-query";
 import {
   buildForumPostTagPayloads,
   buildForumTagFilterPayloads,
@@ -50,6 +51,10 @@ export type ForumPostListData = {
   pagination: ForumListPagination;
 };
 
+function serializeDate(value: Date | string) {
+  return value instanceof Date ? value.toISOString() : value;
+}
+
 export function shouldSerializeForumListQueries(databaseUrl = process.env.DATABASE_URL ?? "") {
   try {
     const parsedUrl = new URL(databaseUrl);
@@ -67,12 +72,14 @@ export async function getForumPostListData({
   pageSize,
   category,
   selectedTagSlugs = [],
+  sort = "latest",
   q = "",
 }: {
   page: number;
   pageSize: number;
   category?: string | null;
   selectedTagSlugs?: string[];
+  sort?: ForumSort;
   q?: string;
 }): Promise<ForumPostListData> {
   const where: Prisma.ForumPostWhereInput = {
@@ -116,6 +123,12 @@ export async function getForumPostListData({
     (slug) => !CORE_FORUM_TAGS.some((tag) => tag.slug === slug)
   );
   const serializeQueries = shouldSerializeForumListQueries();
+  const orderBy: Prisma.ForumPostOrderByWithRelationInput[] =
+    sort === "active"
+      ? [{ updatedAt: "desc" }, { createdAt: "desc" }]
+      : sort === "top"
+        ? [{ likeCount: "desc" }, { updatedAt: "desc" }, { createdAt: "desc" }]
+        : [{ createdAt: "desc" }];
 
   const loadPageResult = () =>
     runSequentialPageQuery({
@@ -135,11 +148,31 @@ export async function getForumPostListData({
             featuredOverride: true,
             _count: { select: { replies: true } },
           },
-          orderBy: { createdAt: "desc" },
+          orderBy,
           skip: (page - 1) * pageSize,
           take: pageSize,
         }),
       getTotal: () => prisma.forumPost.count({ where }),
+    });
+
+  const loadFeaturedCandidates = () =>
+    prisma.forumPost.findMany({
+      where,
+      select: {
+        id: true,
+        agentId: true,
+        title: true,
+        content: true,
+        category: true,
+        viewCount: true,
+        likeCount: true,
+        createdAt: true,
+        updatedAt: true,
+        featuredOverride: true,
+        _count: { select: { replies: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100,
     });
 
   const loadPostTags = (postIds: string[]) =>
@@ -237,12 +270,38 @@ export async function getForumPostListData({
     };
   };
 
-  const [pageResult, tagFilters] = serializeQueries
-    ? [await loadPageData(), await loadTagFilters()]
-    : await Promise.all([loadPageData(), loadTagFilters()]);
+  const loadFeaturedCandidateData = async () => {
+    const candidates = await loadFeaturedCandidates();
+    const candidateIds = candidates.map((post) => post.id);
+    const candidateTags = await loadPostTags(candidateIds);
+    const tagsByPostId = new Map<string, typeof candidateTags>();
+
+    for (const tag of candidateTags) {
+      const tags = tagsByPostId.get(tag.postId) ?? [];
+      tags.push(tag);
+      tagsByPostId.set(tag.postId, tags);
+    }
+
+    return candidates.map((post) => ({
+      ...post,
+      tags: tagsByPostId.get(post.id) ?? [],
+    }));
+  };
+
+  const [pageResult, tagFilters, featuredCandidates] = serializeQueries
+    ? [
+        await loadPageData(),
+        await loadTagFilters(),
+        await loadFeaturedCandidateData(),
+      ]
+    : await Promise.all([
+        loadPageData(),
+        loadTagFilters(),
+        loadFeaturedCandidateData(),
+      ]);
 
   const { items: posts, total } = pageResult;
-  const featuredPostIds = new Set(pickFeaturedForumPostIds(posts));
+  const featuredPostIds = new Set(pickFeaturedForumPostIds(featuredCandidates));
 
   return {
     data: posts.map((post) => {
@@ -250,8 +309,8 @@ export async function getForumPostListData({
 
       return {
         ...rest,
-        createdAt: createdAt.toISOString(),
-        updatedAt: updatedAt.toISOString(),
+        createdAt: serializeDate(createdAt),
+        updatedAt: serializeDate(updatedAt),
         featured: featuredPostIds.has(post.id),
         tags: buildForumPostTagPayloads(tags),
         replyCount: _count.replies,

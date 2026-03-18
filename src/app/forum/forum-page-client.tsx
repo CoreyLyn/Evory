@@ -17,9 +17,22 @@ import {
 } from "@/lib/forum-post-list-data";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
+import {
+  type ForumListQuery,
+  type ForumSort,
+  serializeForumListQuery,
+} from "@/lib/forum-list-query";
 
 type AppliedForumFilterState = {
   hasActiveFilters: boolean;
+};
+
+type ForumPageClientState = {
+  page: number;
+  category: string;
+  searchQuery: string;
+  selectedTagSlugs: string[];
+  sort: ForumSort;
 };
 
 const CATEGORY_KEYS: { value: string; labelKey: TranslationKey }[] = [
@@ -231,10 +244,12 @@ type ForumPageBodyProps = {
   page: number;
   searchQuery: string;
   category: string;
+  sort: ForumSort;
   selectedTagSlugs: string[];
   appliedHasActiveFilters: boolean;
   onSearchChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
+  onSortChange: (value: ForumSort) => void;
   onTagToggle: (slug: string) => void;
   onClearFilters: () => void;
   onRetryLoad: () => void;
@@ -253,10 +268,12 @@ export function ForumPageBody({
   page,
   searchQuery,
   category,
+  sort,
   selectedTagSlugs,
   appliedHasActiveFilters,
   onSearchChange,
   onCategoryChange,
+  onSortChange,
   onTagToggle,
   onClearFilters,
   onRetryLoad,
@@ -288,23 +305,38 @@ export function ForumPageBody({
       />
 
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-2">
-          {CATEGORY_KEYS.map(({ value, labelKey }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => onCategoryChange(value)}
-              className={`relative rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300 ${category === value
-                ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
-                : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
-                }`}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex flex-wrap gap-2">
+            {CATEGORY_KEYS.map(({ value, labelKey }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onCategoryChange(value)}
+                className={`relative rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300 ${category === value
+                  ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
+                  : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
+                  }`}
+              >
+                {t(labelKey)}
+              </button>
+            ))}
+          </div>
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <span className="sr-only">{t("forum.sortLabel")}</span>
+            <select
+              aria-label={t("forum.sortLabel")}
+              value={sort}
+              onChange={(event) => onSortChange(event.target.value as ForumSort)}
+              className="rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
             >
-              {t(labelKey)}
-            </button>
-          ))}
+              <option value="latest">{t("forum.sortLatest")}</option>
+              <option value="active">{t("forum.sortActive")}</option>
+              <option value="top">{t("forum.sortTop")}</option>
+            </select>
+          </label>
         </div>
 
-        {(!error && !showInitialLoading) ? (
+        {!error && !showInitialLoading ? (
           <div className="flex items-center justify-between gap-4 sm:justify-end">
             <span className="text-sm font-medium text-muted">{t("forum.resultsCount", { count: resultCount })}</span>
             {appliedHasActiveFilters ? (
@@ -384,11 +416,14 @@ export function ForumPageBody({
 
 export function ForumPageClient({
   initialData,
+  initialQuery,
 }: {
   initialData?: ForumPostListData | null;
+  initialQuery?: ForumListQuery;
 }) {
   const t = useT();
   const formatTimeAgo = useFormatTimeAgo();
+  const initialState = getInitialForumPageClientState(initialQuery);
   const [posts, setPosts] = useState<ForumListPost[]>(initialData?.data ?? []);
   const [availableTags, setAvailableTags] = useState<ForumListTagFilter[]>(
     initialData?.filters.tags ?? []
@@ -398,24 +433,51 @@ export function ForumPageClient({
   );
   const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
-  const [category, setCategory] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTagSlugs, setSelectedTagSlugs] = useState<string[]>([]);
-  const [page, setPage] = useState(1);
+  const [category, setCategory] = useState(initialState.category);
+  const [searchQuery, setSearchQuery] = useState(initialState.searchQuery);
+  const [selectedTagSlugs, setSelectedTagSlugs] = useState<string[]>(
+    initialState.selectedTagSlugs
+  );
+  const [page, setPage] = useState(initialState.page);
+  const [sort, setSort] = useState<ForumSort>(initialState.sort);
   const [reloadNonce, setReloadNonce] = useState(0);
   const deferredSearchQuery = useDeferredValue(searchQuery.trim());
   const [appliedFilterState, setAppliedFilterState] = useState<AppliedForumFilterState>({
-    hasActiveFilters: false,
+    hasActiveFilters: Boolean(
+      initialState.category ||
+        initialState.searchQuery ||
+        initialState.selectedTagSlugs.length > 0 ||
+        initialState.sort !== "latest"
+    ),
   });
 
   const shouldSkipInitialFetch = shouldSkipForumClientFetch({
     hasInitialData: Boolean(initialData),
     page,
     category,
+    sort,
     deferredSearchQuery,
     selectedTagSlugs,
     reloadNonce,
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const nextUrl = getForumPageUrl({
+      page,
+      category,
+      sort,
+      q: searchQuery,
+      selectedTagSlugs,
+    });
+
+    if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
+      window.history.replaceState(null, "", nextUrl);
+    }
+  }, [page, category, sort, searchQuery, selectedTagSlugs]);
 
   useEffect(() => {
     if (shouldSkipInitialFetch) {
@@ -428,7 +490,12 @@ export function ForumPageClient({
       setLoading(true);
       setError(null);
       const requestFilterState: AppliedForumFilterState = {
-        hasActiveFilters: Boolean(category || deferredSearchQuery || selectedTagSlugs.length > 0),
+        hasActiveFilters: Boolean(
+          category ||
+            deferredSearchQuery ||
+            selectedTagSlugs.length > 0 ||
+            sort !== "latest"
+        ),
       };
       try {
         const params = new URLSearchParams({
@@ -436,6 +503,7 @@ export function ForumPageClient({
           pageSize: "20",
         });
         if (category) params.set("category", category);
+        if (sort !== "latest") params.set("sort", sort);
         if (deferredSearchQuery) params.set("q", deferredSearchQuery);
         if (selectedTagSlugs.length > 0) {
           params.set("tags", selectedTagSlugs.join(","));
@@ -469,7 +537,7 @@ export function ForumPageClient({
     return () => {
       controller.abort();
     };
-  }, [page, category, selectedTagSlugs, deferredSearchQuery, reloadNonce, shouldSkipInitialFetch]);
+  }, [page, category, sort, selectedTagSlugs, deferredSearchQuery, reloadNonce, shouldSkipInitialFetch]);
 
   function toggleTagSelection(slug: string) {
     setSelectedTagSlugs((current) =>
@@ -487,6 +555,7 @@ export function ForumPageClient({
 
   function clearFilters() {
     setCategory("");
+    setSort("latest");
     setSearchQuery("");
     setSelectedTagSlugs([]);
     setPage(1);
@@ -506,11 +575,16 @@ export function ForumPageClient({
       page={page}
       searchQuery={searchQuery}
       category={category}
+      sort={sort}
       selectedTagSlugs={selectedTagSlugs}
       appliedHasActiveFilters={appliedFilterState.hasActiveFilters}
       onSearchChange={handleSearchChange}
       onCategoryChange={(value) => {
         setCategory(value);
+        setPage(1);
+      }}
+      onSortChange={(value) => {
+        setSort(value);
         setPage(1);
       }}
       onTagToggle={toggleTagSelection}
@@ -528,6 +602,7 @@ export function shouldSkipForumClientFetch({
   hasInitialData,
   page,
   category,
+  sort,
   deferredSearchQuery,
   selectedTagSlugs,
   reloadNonce,
@@ -535,6 +610,7 @@ export function shouldSkipForumClientFetch({
   hasInitialData: boolean;
   page: number;
   category: string;
+  sort: ForumSort;
   deferredSearchQuery: string;
   selectedTagSlugs: string[];
   reloadNonce: number;
@@ -543,8 +619,40 @@ export function shouldSkipForumClientFetch({
     hasInitialData &&
       page === 1 &&
       category === "" &&
+      sort === "latest" &&
       deferredSearchQuery === "" &&
       selectedTagSlugs.length === 0 &&
       reloadNonce === 0
   );
+}
+
+export function getInitialForumPageClientState(
+  initialQuery?: ForumListQuery
+): ForumPageClientState {
+  return {
+    page: initialQuery?.page ?? 1,
+    category: initialQuery?.category ?? "",
+    searchQuery: initialQuery?.q ?? "",
+    selectedTagSlugs: initialQuery?.selectedTagSlugs ?? [],
+    sort: initialQuery?.sort ?? "latest",
+  };
+}
+
+export function getForumPageUrl(input: {
+  page: number;
+  category: string;
+  sort: ForumSort;
+  q: string;
+  selectedTagSlugs: string[];
+}) {
+  const queryString = serializeForumListQuery({
+    page: input.page,
+    pageSize: 20,
+    category: input.category === "" ? null : (input.category as ForumListQuery["category"]),
+    sort: input.sort,
+    q: input.q.trim(),
+    selectedTagSlugs: input.selectedTagSlugs,
+  }).toString();
+
+  return queryString ? `/forum?${queryString}` : "/forum";
 }

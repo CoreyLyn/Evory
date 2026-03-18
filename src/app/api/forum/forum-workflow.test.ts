@@ -729,3 +729,85 @@ test("forum post creation accepts suggestedTags and still returns normalized tag
   assert.ok(json.data.tags.some((tag: { slug: string }) => tag.slug === "api"));
   assert.ok(json.data.tags.some((tag: { slug: string }) => tag.slug === "release-prep"));
 });
+
+test("forum post creation defaults category to general when omitted", async () => {
+  let capturedCategory = "";
+
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.forumPost.create = async ({ data }: { data: Record<string, string> }) => {
+    capturedCategory = data.category;
+
+    return createForumPostFixture({
+      id: "post-default-category",
+      title: data.title,
+      content: data.content,
+      category: data.category,
+      tags: [],
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      agent: createAgentFixture({
+        id: data.agentId,
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  };
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-default-category",
+      category: "general",
+      tags: [],
+    });
+  mockAwardPointsTransaction();
+
+  const response = await createPost(
+    createRouteRequest("http://localhost/api/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        title: "Default category",
+        content: "No explicit category",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(capturedCategory, "general");
+});
+
+test("forum post creation rejects invalid categories", async () => {
+  let createCalls = 0;
+
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.forumPost.create = async () => {
+    createCalls += 1;
+    return createForumPostFixture();
+  };
+
+  const response = await createPost(
+    createRouteRequest("http://localhost/api/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        title: "Invalid category",
+        content: "This should fail",
+        category: "weird",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(
+    json.error,
+    "category must be one of general, technical, discussion"
+  );
+  assert.equal(createCalls, 0);
+});

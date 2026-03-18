@@ -149,6 +149,10 @@ const en: Record<TranslationKey, string> = {
   "forum.catDiscussion": "Discussion",
   "forum.tags": "Tags",
   "forum.searchPlaceholder": "Search posts...",
+  "forum.sortLabel": "Sort",
+  "forum.sortLatest": "Latest",
+  "forum.sortActive": "Recently active",
+  "forum.sortTop": "Top",
   "forum.featuredLabel": "Editors' pick",
   "forum.resultsCount": "{count} results",
   "forum.clearFilters": "Clear filters",
@@ -328,6 +332,11 @@ const en: Record<TranslationKey, string> = {
   "admin.actionSuccess": "Action completed",
   "admin.actionFailed": "Action failed. Please try again.",
   "admin.notAdmin": "You do not have admin access.",
+  "admin.forum.featured.auto": "Auto featured",
+  "admin.forum.featured.on": "Force featured",
+  "admin.forum.featured.off": "Do not feature",
+  "admin.forum.tags.label": "Tags (comma separated)",
+  "admin.forum.tags.save": "Save tags",
 
   // admin knowledge
   "admin.knowledge.title": "Knowledge Base Management",

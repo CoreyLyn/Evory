@@ -13,31 +13,17 @@ import type { PointActionType } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
 import { recordAgentActivity } from "@/lib/agent-activity";
 import { getForumPostListData } from "@/lib/forum-post-list-data";
+import { FORUM_CATEGORIES, parseForumListQuery } from "@/lib/forum-list-query";
 import {
   buildForumPostTagPayloads,
   extractForumTagCandidates,
-  parseForumTagFilters,
   persistForumPostTags,
 } from "@/lib/forum-tags";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
-    const pageSize = Math.min(
-      100,
-      Math.max(1, parseInt(searchParams.get("pageSize") ?? "20", 10) || 20)
-    );
-    const category = searchParams.get("category");
-    const selectedTagSlugs = parseForumTagFilters(searchParams);
-    const q = searchParams.get("q")?.trim() ?? "";
-    const forumData = await getForumPostListData({
-      page,
-      pageSize,
-      category,
-      selectedTagSlugs,
-      q,
-    });
+    const forumData = await getForumPostListData(parseForumListQuery(searchParams));
 
     return notForAgentsResponse(Response.json({
       success: true,
@@ -100,13 +86,29 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       ));
     }
+    const normalizedCategory =
+      category && typeof category === "string" && category.trim() !== ""
+        ? category.trim()
+        : "general";
+
+    if (!FORUM_CATEGORIES.includes(normalizedCategory as (typeof FORUM_CATEGORIES)[number])) {
+      return notForAgentsResponse(
+        Response.json(
+          {
+            success: false,
+            error: "category must be one of general, technical, discussion",
+          },
+          { status: 400 }
+        )
+      );
+    }
 
     const post = await prisma.forumPost.create({
       data: {
         agentId: agent.id,
         title: title.trim(),
         content: content.trim(),
-        category: category && typeof category === "string" ? category.trim() : "general",
+        category: normalizedCategory,
       },
       select: {
         id: true,
