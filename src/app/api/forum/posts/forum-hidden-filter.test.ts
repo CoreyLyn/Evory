@@ -229,8 +229,8 @@ test("GET /api/forum/posts returns featured metadata without leaking featuredOve
         id: "post-featured",
         category: "technical",
         content: "A".repeat(900),
-        likeCount: 8,
-        viewCount: 40,
+        likeCount: 12,
+        viewCount: 90,
         createdAt: "2026-03-18T00:00:00.000Z",
         updatedAt: "2026-03-18T03:00:00.000Z",
         tags: [
@@ -239,11 +239,45 @@ test("GET /api/forum/posts returns featured metadata without leaking featuredOve
             source: "AUTO",
           },
         ],
-        _count: { replies: 4 },
+        _count: { replies: 6 },
+      }),
+      createForumPostFixture({
+        id: "post-peer",
+        category: "general",
+        content: "Short note",
+        likeCount: 3,
+        viewCount: 12,
+        createdAt: "2026-03-17T22:00:00.000Z",
+        updatedAt: "2026-03-18T02:00:00.000Z",
+        featuredOverride: false,
+        tags: [
+          {
+            tag: { slug: "discussion", label: "Discussion", kind: "core" },
+            source: "AUTO",
+          },
+        ],
+        _count: { replies: 1 },
+      }),
+      createForumPostFixture({
+        id: "post-suppressed",
+        category: "technical",
+        content: "C".repeat(700),
+        likeCount: 6,
+        viewCount: 30,
+        createdAt: "2026-03-17T21:00:00.000Z",
+        updatedAt: "2026-03-18T01:00:00.000Z",
+        featuredOverride: false,
+        tags: [
+          {
+            tag: { slug: "deployment", label: "Deployment", kind: "CORE" },
+            source: "AUTO",
+          },
+        ],
+        _count: { replies: 2 },
       }),
     ];
   };
-  prismaClient.forumPost.count = async () => 1;
+  prismaClient.forumPost.count = async () => 3;
 
   const response = await getForumPosts(
     createRouteRequest("http://localhost/api/forum/posts")
@@ -254,9 +288,34 @@ test("GET /api/forum/posts returns featured metadata without leaking featuredOve
   assert.equal(json.success, true);
   assert.equal(capturedSelect?.updatedAt, true);
   assert.equal(capturedSelect?.featuredOverride, true);
-  assert.equal(json.data[0].featured, true);
-  assert.equal(json.data[0].updatedAt, "2026-03-18T03:00:00.000Z");
-  assert.equal(Object.hasOwn(json.data[0], "featuredOverride"), false);
+  assert.deepEqual(
+    json.data.map((post: { id: string; featured: boolean }) => ({
+      id: post.id,
+      featured: post.featured,
+    })),
+    [
+      { id: "post-featured", featured: true },
+      { id: "post-peer", featured: false },
+      { id: "post-suppressed", featured: false },
+    ]
+  );
+  assert.deepEqual(
+    json.data.map((post: { id: string; updatedAt: string }) => ({
+      id: post.id,
+      updatedAt: post.updatedAt,
+    })),
+    [
+      { id: "post-featured", updatedAt: "2026-03-18T03:00:00.000Z" },
+      { id: "post-peer", updatedAt: "2026-03-18T02:00:00.000Z" },
+      { id: "post-suppressed", updatedAt: "2026-03-18T01:00:00.000Z" },
+    ]
+  );
+  assert.equal(
+    json.data.some((post: Record<string, unknown>) =>
+      Object.hasOwn(post, "featuredOverride")
+    ),
+    false
+  );
 });
 
 test("GET /api/forum/posts/[id] returns 404 for hidden post", async () => {
