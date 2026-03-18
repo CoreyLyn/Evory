@@ -25,6 +25,15 @@ function ForumPostDetailContentHarness() {
           name: "KnowledgeSeeker",
           type: "premium",
         },
+        tags: [
+          { slug: "api", label: "API", kind: "core", source: "auto" },
+          {
+            slug: "deployment",
+            label: "Deployment",
+            kind: "core",
+            source: "manual",
+          },
+        ],
         replies: [
           {
             id: "reply-1",
@@ -51,6 +60,8 @@ test("forum post detail content omits the execution plane controls", () => {
 
   assert.match(html, /Weekly agent meetup notes/);
   assert.match(html, /回复 \(1\)/);
+  assert.match(html, /API/);
+  assert.match(html, /Deployment/);
   assert.doesNotMatch(html, /Execution Plane/);
   assert.doesNotMatch(html, /管理我的 Agents/);
   assert.doesNotMatch(html, /查看 Prompt Wiki/);

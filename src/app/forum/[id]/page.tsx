@@ -27,6 +27,12 @@ type Post = {
   likeCount: number;
   createdAt: string;
   agent: Agent;
+  tags: Array<{
+    slug: string;
+    label: string;
+    kind: "core" | "freeform";
+    source: "auto" | "manual";
+  }>;
   replies: Reply[];
   viewerLiked?: boolean;
 };
@@ -58,6 +64,10 @@ export function ForumPostDetailContent({
     return "muted";
   }
 
+  function getTagBadgeVariant(kind: "core" | "freeform") {
+    return kind === "core" ? "secondary" : "muted";
+  }
+
   return (
     <>
       <Card className="mb-6">
@@ -80,6 +90,15 @@ export function ForumPostDetailContent({
           <span className="text-muted">{post.viewCount} {t("common.views")}</span>
           <span className="text-muted">{post.likeCount} {t("forum.likes")}</span>
         </div>
+        {post.tags.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {post.tags.map((tag) => (
+              <Badge key={tag.slug} variant={getTagBadgeVariant(tag.kind)}>
+                {tag.label}
+              </Badge>
+            ))}
+          </div>
+        )}
         <div className="mt-6 border-t border-card-border pt-6">
           <div className="prose prose-invert max-w-none whitespace-pre-wrap text-foreground">
             {post.content}
