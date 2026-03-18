@@ -26,6 +26,7 @@ function ForumPostListContentHarness() {
           replyCount: 2,
           agent: { id: "agent-1", name: "Author", type: "CUSTOM" },
           tags: [
+            { slug: "infra", label: "Infra", kind: "freeform", source: "manual" },
             { slug: "api", label: "API", kind: "core", source: "auto" },
             {
               slug: "deployment",
@@ -33,7 +34,6 @@ function ForumPostListContentHarness() {
               kind: "core",
               source: "auto",
             },
-            { slug: "infra", label: "Infra", kind: "freeform", source: "manual" },
           ],
         },
       ]}
@@ -45,6 +45,28 @@ function ForumPostListContentHarness() {
       ]}
       onTagToggle={() => {}}
       onClearFilters={() => {}}
+    />
+  );
+}
+
+function ForumPostListContentEmptyHarness() {
+  const t = useT();
+
+  return (
+    <ForumPostListContent
+      t={t}
+      formatTimeAgo={() => "1天前"}
+      posts={[]}
+      resultCount={0}
+      hasActiveFilters
+      selectedTagSlugs={["api"]}
+      availableTags={[
+        { slug: "api", label: "API", kind: "core", postCount: 0 },
+      ]}
+      onTagToggle={() => {}}
+      onClearFilters={() => {}}
+      emptyStateTitle="No posts match these filters"
+      emptyStateDescription="Try a broader search."
     />
   );
 }
@@ -64,7 +86,21 @@ test("forum post list content renders the editorial list hierarchy", () => {
   assert.match(html, />\+1</);
   assert.match(html, /aria-pressed="true"/);
   assert.match(html, /\(3\)/);
+  assert.doesNotMatch(html, />Infra<\/span>/);
   assert.doesNotMatch(html, /<h1[^>]*>Heading<\/h1>/);
   assert.match(html, />Heading Need to deploy a fix\.<\/p>/);
   assert.doesNotMatch(html, /# Heading/);
+});
+
+test("forum post list content keeps summary and clear filters visible for filtered-empty states", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ForumPostListContentEmptyHarness />
+    </LocaleProvider>
+  );
+
+  assert.match(html, /(0 results|共 0 条结果)/);
+  assert.match(html, /(Clear filters|清除筛选)/);
+  assert.match(html, /No posts match these filters/);
+  assert.match(html, /Try a broader search\./);
 });

@@ -70,14 +70,16 @@ function getTagBadgeVariant(kind: "core" | "freeform") {
 }
 
 function getVisiblePostTags(post: Post, maxVisibleTags = 2) {
-  const prioritizedTags = [...post.tags].sort((left, right) => {
-    if (left.kind === right.kind) return 0;
-    return left.kind === "core" ? -1 : 1;
-  });
+  const coreTags = post.tags.filter((tag) => tag.kind === "core");
+  const freeformTags = post.tags.filter((tag) => tag.kind === "freeform");
+  const visibleCoreTags = coreTags.slice(0, maxVisibleTags);
+  const remainingSlots = Math.max(0, maxVisibleTags - visibleCoreTags.length);
+  const visibleFreeformTags = freeformTags.slice(0, remainingSlots);
+  const visibleTags = [...visibleCoreTags, ...visibleFreeformTags];
 
   return {
-    visibleTags: prioritizedTags.slice(0, maxVisibleTags),
-    hiddenCount: Math.max(0, prioritizedTags.length - maxVisibleTags),
+    visibleTags,
+    hiddenCount: Math.max(0, post.tags.length - visibleTags.length),
   };
 }
 
@@ -89,6 +91,8 @@ export function ForumPostListContent({
   availableTags,
   onTagToggle,
   onClearFilters,
+  emptyStateTitle,
+  emptyStateDescription,
   t,
   formatTimeAgo,
 }: {
@@ -99,6 +103,8 @@ export function ForumPostListContent({
   availableTags: ForumTagFilter[];
   onTagToggle: (slug: string) => void;
   onClearFilters: () => void;
+  emptyStateTitle?: string;
+  emptyStateDescription?: string;
   t: ReturnType<typeof useT>;
   formatTimeAgo: ReturnType<typeof useFormatTimeAgo>;
 }) {
@@ -203,6 +209,10 @@ export function ForumPostListContent({
           );
         })}
       </div>
+
+      {posts.length === 0 && emptyStateTitle ? (
+        <EmptyState title={emptyStateTitle} description={emptyStateDescription} />
+      ) : null}
     </div>
   );
 }
@@ -364,15 +374,8 @@ export default function ForumPage() {
 
       {loading ? (
         <ForumLoadingSkeleton />
-      ) : error ? null : posts.length === 0 ? (
-        hasActiveFilters ? (
-          <EmptyState
-            title={t("forum.emptyFilteredTitle")}
-            description={t("forum.emptyFilteredDescription")}
-          />
-        ) : (
-          <EmptyState title={t("forum.empty")} description={t("forum.description")} />
-        )
+      ) : error ? null : posts.length === 0 && !hasActiveFilters ? (
+        <EmptyState title={t("forum.empty")} description={t("forum.description")} />
       ) : (
         <div className="space-y-6">
           <ForumPostListContent
@@ -383,6 +386,8 @@ export default function ForumPage() {
             availableTags={availableTags}
             onTagToggle={toggleTagSelection}
             onClearFilters={clearFilters}
+            emptyStateTitle={hasActiveFilters ? t("forum.emptyFilteredTitle") : undefined}
+            emptyStateDescription={hasActiveFilters ? t("forum.emptyFilteredDescription") : undefined}
             t={t}
             formatTimeAgo={formatTimeAgo}
           />
