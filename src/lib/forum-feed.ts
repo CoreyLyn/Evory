@@ -1,4 +1,5 @@
 type ForumPostTagRecord = {
+  kind?: string | null;
   tag?: {
     kind?: string | null;
   } | null;
@@ -12,6 +13,7 @@ type ForumPostRecord = {
   updatedAt?: string | Date | null;
   featuredOverride?: boolean | null;
   likeCount?: number | null;
+  replyCount?: number | null;
   viewCount?: number | null;
   tags?: ForumPostTagRecord[] | null;
   _count?: {
@@ -31,12 +33,24 @@ function toDate(value: string | Date | null | undefined): Date | null {
   return value instanceof Date ? value : new Date(value);
 }
 
-function hasCoreTag(post: ForumPostRecord): boolean {
-  return (post.tags ?? []).some((relation) => relation.tag?.kind === "CORE");
+function normalizeTagKind(kind: string | null | undefined): string | null {
+  if (!kind) {
+    return null;
+  }
+
+  return kind.trim().toUpperCase();
 }
 
-function getEffectiveDate(post: ForumPostRecord): Date | null {
-  return toDate(post.updatedAt ?? post.createdAt);
+function getTagKind(tagRecord: ForumPostTagRecord): string | null {
+  return normalizeTagKind(tagRecord.tag?.kind ?? tagRecord.kind);
+}
+
+function hasCoreTag(post: ForumPostRecord): boolean {
+  return (post.tags ?? []).some((relation) => getTagKind(relation) === "CORE");
+}
+
+function getPublicationDate(post: ForumPostRecord): Date | null {
+  return toDate(post.createdAt);
 }
 
 function getContentLength(post: ForumPostRecord): number {
@@ -48,20 +62,20 @@ function getAgeInDays(now: Date, publishedAt: Date): number {
 }
 
 function getReplyCount(post: ForumPostRecord): number {
-  return post._count?.replies ?? 0;
+  return post.replyCount ?? post._count?.replies ?? 0;
 }
 
 export function scoreForumFeaturedCandidate(
   post: ForumPostRecord,
   now: Date
 ): number {
-  const effectiveDate = getEffectiveDate(post);
+  const publicationDate = getPublicationDate(post);
 
-  if (!effectiveDate) {
+  if (!publicationDate) {
     return Number.NEGATIVE_INFINITY;
   }
 
-  const ageInDays = getAgeInDays(now, effectiveDate);
+  const ageInDays = getAgeInDays(now, publicationDate);
 
   if (ageInDays < 0 || ageInDays > FEATURED_WINDOW_DAYS) {
     return Number.NEGATIVE_INFINITY;
@@ -88,7 +102,7 @@ export function scoreForumFeaturedCandidate(
     getReplyCount(post) * 6;
   const lengthBonus = Math.min(50, getContentLength(post) / 20);
   const tagBonus = (post.tags ?? []).filter(
-    (relation) => relation.tag?.kind === "CORE"
+    (relation) => getTagKind(relation) === "CORE"
   ).length;
 
   return categoryBonus + recencyBonus + engagementBonus + lengthBonus + tagBonus;

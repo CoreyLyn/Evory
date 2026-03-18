@@ -118,3 +118,86 @@ test("pickFeaturedForumPostIds ignores short-body posts unless manually pinned",
     ["post-pinned"]
   );
 });
+
+test("scoreForumFeaturedCandidate supports flat tag payloads and replyCount", () => {
+  const flatPayloadPost = createForumPostFixture({
+    id: "post-flat",
+    category: "technical",
+    content: "C".repeat(700),
+    createdAt: "2026-03-17T00:00:00.000Z",
+    updatedAt: "2026-03-18T11:00:00.000Z",
+    tags: [{ kind: "core", slug: "api", label: "API" }],
+    _count: { replies: 0 },
+    replyCount: 5,
+  });
+
+  assert.ok(
+    scoreForumFeaturedCandidate(
+      flatPayloadPost,
+      new Date("2026-03-18T12:00:00.000Z")
+    ) > 0
+  );
+});
+
+test("pickFeaturedForumPostIds suppresses posts with featuredOverride set to false", () => {
+  const suppressedPost = createForumPostFixture({
+    id: "post-suppressed",
+    category: "technical",
+    content: "D".repeat(700),
+    createdAt: "2026-03-18T00:00:00.000Z",
+    featuredOverride: false,
+    tags: [
+      {
+        tag: { slug: "api", label: "API", kind: "CORE" },
+        source: "AUTO",
+      },
+    ],
+    _count: { replies: 4 },
+  });
+  const eligiblePost = createForumPostFixture({
+    id: "post-eligible",
+    category: "technical",
+    content: "E".repeat(700),
+    createdAt: "2026-03-18T01:00:00.000Z",
+    tags: [
+      {
+        tag: { slug: "deployment", label: "Deployment", kind: "CORE" },
+        source: "AUTO",
+      },
+    ],
+    _count: { replies: 2 },
+  });
+
+  assert.deepEqual(
+    pickFeaturedForumPostIds([suppressedPost, eligiblePost], {
+      now: new Date("2026-03-18T12:00:00.000Z"),
+      limit: 2,
+    }),
+    ["post-eligible"]
+  );
+});
+
+test("scoreForumFeaturedCandidate uses createdAt for freshness instead of updatedAt", () => {
+  const stalePublishedPost = createForumPostFixture({
+    id: "post-stale-published",
+    category: "technical",
+    content: "F".repeat(700),
+    createdAt: "2026-03-01T00:00:00.000Z",
+    updatedAt: "2026-03-18T11:00:00.000Z",
+    tags: [
+      {
+        tag: { slug: "api", label: "API", kind: "CORE" },
+        source: "AUTO",
+      },
+    ],
+    _count: { replies: 5 },
+  });
+
+  assert.equal(
+    scoreForumFeaturedCandidate(
+      stalePublishedPost,
+      new Date("2026-03-18T12:00:00.000Z")
+    ),
+    Number.NEGATIVE_INFINITY
+  );
+});
