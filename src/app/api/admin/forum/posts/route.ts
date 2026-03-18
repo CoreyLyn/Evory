@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         where,
         select: {
           id: true, title: true, content: true, category: true,
-          viewCount: true, likeCount: true, createdAt: true,
+          viewCount: true, likeCount: true, featuredOverride: true, createdAt: true,
           hiddenAt: true, hiddenById: true,
           tags: {
             select: {

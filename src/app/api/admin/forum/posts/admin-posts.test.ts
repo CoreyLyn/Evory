@@ -15,6 +15,7 @@ import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { hashSessionToken } from "@/lib/user-auth";
 import { GET as listPosts } from "./route";
 import { POST as hidePost } from "./[id]/hide/route";
+import { PUT as updateFeaturedOverride } from "./[id]/featured/route";
 import { POST as restorePost } from "./[id]/restore/route";
 import { PUT as replacePostTags } from "./[id]/tags/route";
 
@@ -203,6 +204,7 @@ test("GET list posts — returns posts including hidden ones when no status filt
   assert.equal(body.data.length, 2);
   assert.equal(body.pagination.total, 2);
   assert.equal(body.data[0].replyCount, 0);
+  assert.equal(body.data[0].featuredOverride, null);
 });
 
 test("GET list posts — returns tags on admin forum posts", async () => {
@@ -232,6 +234,29 @@ test("GET list posts — returns tags on admin forum posts", async () => {
   assert.deepEqual(body.data[0].tags, [
     { slug: "api", label: "API", kind: "core", source: "auto" },
   ]);
+});
+
+test("GET list posts — includes featuredOverride on admin forum posts", async () => {
+  mockAdminSession();
+
+  prismaClient.forumPost = {
+    ...prismaClient.forumPost,
+    findMany: async () => [
+      createForumPostFixture({
+        featuredOverride: true,
+      }),
+    ],
+    count: async () => 1,
+  };
+
+  const request = createRouteRequest("http://localhost/api/admin/forum/posts", {
+    headers: { cookie: `evory_user_session=${ADMIN_TOKEN}` },
+  });
+  const response = await listPosts(request);
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.data[0].featuredOverride, true);
 });
 
 test("GET list posts — returns only hidden posts when status=hidden", async () => {
@@ -691,6 +716,54 @@ test("POST restore — returns 403 when origin is cross-origin", async () => {
   const body = await response.json();
   assert.equal(body.success, false);
   assert.equal(body.error, "Invalid request origin");
+});
+
+// ---------------------------------------------------------------------------
+// PUT /api/admin/forum/posts/[id]/featured
+// ---------------------------------------------------------------------------
+
+test("PUT featured — successfully updates featured override and returns it", async () => {
+  mockAdminSession();
+
+  const originalPost = createForumPostFixture({
+    id: "post-1",
+    featuredOverride: null,
+  });
+
+  prismaClient.forumPost = {
+    ...prismaClient.forumPost,
+    findUnique: async () => originalPost,
+    update: async ({ data }: { data: { featuredOverride: boolean | null } }) => ({
+      ...originalPost,
+      ...data,
+    }),
+  };
+
+  const request = createRouteRequest(
+    "http://localhost/api/admin/forum/posts/post-1/featured",
+    {
+      method: "PUT",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+      json: {
+        featuredOverride: true,
+      },
+    }
+  );
+  const response = await updateFeaturedOverride(
+    request,
+    createRouteParams({ id: "post-1" })
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.success, true);
+  assert.deepEqual(body.data, {
+    id: "post-1",
+    featuredOverride: true,
+  });
 });
 
 // ---------------------------------------------------------------------------
