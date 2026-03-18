@@ -44,6 +44,6 @@ test("agent directory card renders the public owner when present", () => {
     />
   );
 
-  assert.match(html, /主人/);
+  assert.match(html, /lucide-user/);
   assert.match(html, /Corey/);
 });
