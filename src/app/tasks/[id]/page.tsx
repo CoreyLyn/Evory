@@ -9,14 +9,14 @@ import { Button } from "@/components/ui/button";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT } from "@/i18n";
 
-type TaskStatus =
+export type TaskStatus =
   | "OPEN"
   | "CLAIMED"
   | "COMPLETED"
   | "VERIFIED"
   | "CANCELLED";
 
-type Task = {
+export type Task = {
   id: string;
   title: string;
   description: string;
@@ -43,75 +43,26 @@ function getStepIndex(status: TaskStatus): number {
   return i >= 0 ? i : 0;
 }
 
-export default function TaskDetailPage() {
-  const t = useT();
-  const formatTimeAgo = useFormatTimeAgo();
-  const params = useParams();
-  const id = params.id as string;
-  const [task, setTask] = useState<Task | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+type TaskDetailContentProps = {
+  task: Task;
+  t: ReturnType<typeof useT>;
+  formatTimeAgo: (value: string) => string;
+};
 
-  useEffect(() => {
-    if (!id) return;
+export function TaskDetailContent({
+  task,
+  t,
+  formatTimeAgo,
+}: TaskDetailContentProps) {
+  const currentStep = getStepIndex(task.status);
 
-    async function loadTask() {
-      setLoading(true);
-      setLoadError(null);
-
-      try {
-        const response = await fetch(`/api/tasks/${id}`);
-        const json = await response.json();
-
-        if (!json.success) {
-          throw new Error(json.error ?? "Failed to load");
-        }
-
-        setTask(json.data);
-      } catch (e) {
-        setLoadError(e instanceof Error ? e.message : "Something went wrong");
-        setTask(null);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    void loadTask();
-  }, [id]);
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 w-48 animate-pulse rounded bg-card-border/50" />
-        <Card className="animate-pulse">
-          <div className="space-y-3">
-            <div className="h-4 w-full rounded bg-card-border/30" />
-            <div className="h-4 w-4/5 rounded bg-card-border/30" />
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  if (loadError || !task) {
-    return (
-      <div className="space-y-6">
+  return (
+    <div className="mx-auto max-w-3xl">
+      <div className="mb-6">
         <Link href="/tasks">
           <Button variant="secondary">{t("tasks.back")}</Button>
         </Link>
-        <Card className="py-12 text-center text-danger">
-          {loadError ?? t("tasks.notFound")}
-        </Card>
       </div>
-    );
-  }
-
-  const currentStep = getStepIndex(task.status);
-  return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <Link href="/tasks">
-        <Button variant="secondary">{t("tasks.back")}</Button>
-      </Link>
 
       <Card>
         <div className="flex items-start justify-between gap-4">
@@ -124,7 +75,6 @@ export default function TaskDetailPage() {
           <span className="text-lg font-semibold">{task.bountyPoints} {t("common.pts")}</span>
         </div>
 
-        {/* Status flow */}
         {task.status !== "CANCELLED" && (
           <div className="mt-6">
             <p className="mb-2 text-sm text-muted">{t("tasks.statusFlow")}</p>
@@ -187,27 +137,74 @@ export default function TaskDetailPage() {
           )}
         </div>
       </Card>
-
-      <Card className="border-card-border/60 bg-card/70">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan/80">
-              {t("control.title")}
-            </p>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              {t("control.taskDetailReadOnly")}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/settings/agents">
-              <Button variant="secondary">{t("control.manageAgents")}</Button>
-            </Link>
-            <Link href="/wiki/prompts">
-              <Button variant="ghost">{t("control.promptWiki")}</Button>
-            </Link>
-          </div>
-        </div>
-      </Card>
     </div>
   );
+}
+
+export default function TaskDetailPage() {
+  const t = useT();
+  const formatTimeAgo = useFormatTimeAgo();
+  const params = useParams();
+  const id = params.id as string;
+  const [task, setTask] = useState<Task | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+
+    async function loadTask() {
+      setLoading(true);
+      setLoadError(null);
+
+      try {
+        const response = await fetch(`/api/tasks/${id}`);
+        const json = await response.json();
+
+        if (!json.success) {
+          throw new Error(json.error ?? "Failed to load");
+        }
+
+        setTask(json.data);
+      } catch (e) {
+        setLoadError(e instanceof Error ? e.message : "Something went wrong");
+        setTask(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadTask();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-8 w-48 animate-pulse rounded bg-card-border/50" />
+        <Card className="animate-pulse">
+          <div className="space-y-3">
+            <div className="h-4 w-full rounded bg-card-border/30" />
+            <div className="h-4 w-4/5 rounded bg-card-border/30" />
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (loadError || !task) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <Link href="/tasks">
+            <Button variant="secondary">{t("tasks.back")}</Button>
+          </Link>
+        </div>
+        <Card className="py-12 text-center text-danger">
+          {loadError ?? t("tasks.notFound")}
+        </Card>
+      </div>
+    );
+  }
+
+  return <TaskDetailContent task={task} t={t} formatTimeAgo={formatTimeAgo} />;
 }
