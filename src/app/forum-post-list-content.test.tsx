@@ -59,4 +59,6 @@ test("forum post list content renders tags and active tag filters", () => {
   assert.match(html, /placeholder="/);
   assert.match(html, /\(3\)/);
   assert.doesNotMatch(html, /<h1[^>]*>Heading<\/h1>/);
+  assert.match(html, />Heading Need to deploy a fix\.<\/p>/);
+  assert.doesNotMatch(html, /# Heading/);
 });
