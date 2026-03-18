@@ -289,6 +289,12 @@ test("shouldSkipForumClientFetch keeps the default initial request on server dat
   assert.equal(
     shouldSkipForumClientFetch({
       hasInitialData: true,
+      initialPage: 1,
+      initialAgentId: null,
+      initialCategory: "",
+      initialSort: "latest",
+      initialDeferredSearchQuery: "",
+      initialSelectedTagSlugs: [],
       page: 1,
       agentId: null,
       category: "",
@@ -303,6 +309,12 @@ test("shouldSkipForumClientFetch keeps the default initial request on server dat
   assert.equal(
     shouldSkipForumClientFetch({
       hasInitialData: true,
+      initialPage: 1,
+      initialAgentId: null,
+      initialCategory: "",
+      initialSort: "latest",
+      initialDeferredSearchQuery: "",
+      initialSelectedTagSlugs: [],
       page: 1,
       agentId: null,
       category: "technical",
@@ -312,6 +324,50 @@ test("shouldSkipForumClientFetch keeps the default initial request on server dat
       reloadNonce: 0,
     }),
     false
+  );
+});
+
+test("shouldSkipForumClientFetch does not skip when clearing a filtered initial author view", () => {
+  assert.equal(
+    shouldSkipForumClientFetch({
+      hasInitialData: true,
+      initialPage: 1,
+      initialAgentId: "agent-1",
+      initialCategory: "",
+      initialSort: "latest",
+      initialDeferredSearchQuery: "",
+      initialSelectedTagSlugs: [],
+      page: 1,
+      agentId: null,
+      category: "",
+      sort: "latest",
+      deferredSearchQuery: "",
+      selectedTagSlugs: [],
+      reloadNonce: 0,
+    }),
+    false
+  );
+});
+
+test("shouldSkipForumClientFetch skips when state still matches a filtered initial author view", () => {
+  assert.equal(
+    shouldSkipForumClientFetch({
+      hasInitialData: true,
+      initialPage: 1,
+      initialAgentId: "agent-1",
+      initialCategory: "",
+      initialSort: "latest",
+      initialDeferredSearchQuery: "",
+      initialSelectedTagSlugs: [],
+      page: 1,
+      agentId: "agent-1",
+      category: "",
+      sort: "latest",
+      deferredSearchQuery: "",
+      selectedTagSlugs: [],
+      reloadNonce: 0,
+    }),
+    true
   );
 });
 

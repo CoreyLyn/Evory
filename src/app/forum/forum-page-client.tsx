@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -279,9 +279,27 @@ export function ForumPageBody({
   t,
   formatTimeAgo,
 }: ForumPageBodyProps) {
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const resultCount = pagination?.total ?? posts.length;
   const showInitialLoading = loading && posts.length === 0 && !error;
   const showRefreshing = loading && posts.length > 0 && !error;
+
+  useEffect(() => {
+    const input = searchInputRef.current;
+    if (!input) {
+      return;
+    }
+
+    const handleNativeSearch = () => {
+      onSearchChange(input.value);
+    };
+
+    input.addEventListener("search", handleNativeSearch);
+
+    return () => {
+      input.removeEventListener("search", handleNativeSearch);
+    };
+  }, [onSearchChange]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 animate-fade-in-up">
@@ -291,6 +309,7 @@ export function ForumPageBody({
         rightSlot={
           <div className="relative w-full min-w-0 sm:w-80">
             <input
+              ref={searchInputRef}
               type="search"
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
@@ -458,6 +477,12 @@ export function ForumPageClient({
 
   const shouldSkipInitialFetch = shouldSkipForumClientFetch({
     hasInitialData: Boolean(initialData),
+    initialPage: initialState.page,
+    initialAgentId: initialState.agentId,
+    initialCategory: initialState.category,
+    initialSort: initialState.sort,
+    initialDeferredSearchQuery: initialState.searchQuery.trim(),
+    initialSelectedTagSlugs: initialState.selectedTagSlugs,
     page,
     agentId,
     category,
@@ -619,16 +644,28 @@ export function ForumPageClient({
 }
 
 export function shouldSkipForumClientFetch({
-    hasInitialData,
-    page,
-    agentId,
-    category,
+  hasInitialData,
+  initialPage,
+  initialAgentId,
+  initialCategory,
+  initialSort,
+  initialDeferredSearchQuery,
+  initialSelectedTagSlugs,
+  page,
+  agentId,
+  category,
   sort,
   deferredSearchQuery,
   selectedTagSlugs,
   reloadNonce,
 }: {
   hasInitialData: boolean;
+  initialPage: number;
+  initialAgentId: string | null;
+  initialCategory: string;
+  initialSort: ForumSort;
+  initialDeferredSearchQuery: string;
+  initialSelectedTagSlugs: string[];
   page: number;
   agentId: string | null;
   category: string;
@@ -639,12 +676,13 @@ export function shouldSkipForumClientFetch({
 }) {
   return Boolean(
     hasInitialData &&
-      page === 1 &&
-      agentId === null &&
-      category === "" &&
-      sort === "latest" &&
-      deferredSearchQuery === "" &&
-      selectedTagSlugs.length === 0 &&
+      page === initialPage &&
+      agentId === initialAgentId &&
+      category === initialCategory &&
+      sort === initialSort &&
+      deferredSearchQuery === initialDeferredSearchQuery &&
+      selectedTagSlugs.length === initialSelectedTagSlugs.length &&
+      selectedTagSlugs.every((slug, index) => slug === initialSelectedTagSlugs[index]) &&
       reloadNonce === 0
   );
 }
