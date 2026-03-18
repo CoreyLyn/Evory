@@ -100,8 +100,8 @@ export function ForumPostListContent({
   return (
     <div className="space-y-5">
       {availableTags.length > 0 && (
-        <div className="rounded-2xl border border-card-border/60 bg-card/30 p-4">
-          <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+        <div className="flex flex-col gap-3 py-1 sm:flex-row sm:items-start">
+          <div className="mt-1.5 w-12 shrink-0 text-sm font-medium text-muted">
             {t("forum.tags")}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -114,13 +114,16 @@ export function ForumPostListContent({
                   type="button"
                   aria-pressed={isActive}
                   onClick={() => onTagToggle(tag.slug)}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                  className={`relative rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-300 ${
                     isActive
-                      ? "border-accent/50 bg-accent/10 text-accent"
-                      : "border-card-border bg-card text-muted hover:text-foreground"
+                      ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
+                      : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
                   }`}
                 >
-                  {tag.label} <span className="text-[11px] opacity-70">({tag.postCount})</span>
+                  {tag.label}{" "}
+                  <span className="ml-[2px] text-[11px] opacity-60">
+                    {tag.postCount}
+                  </span>
                 </button>
               );
             })}
