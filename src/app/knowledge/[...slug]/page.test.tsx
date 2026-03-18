@@ -20,7 +20,7 @@ test("knowledge path page renders directory landing markdown plus child listings
   await writeKnowledgeMarkdown(
     sandbox.knowledgeRoot,
     "guides/install/README.md",
-    "# Install Directory\n\nDirectory landing.\n"
+    "# Install\n\nDirectory landing.\n"
   );
   await writeKnowledgeMarkdown(
     sandbox.knowledgeRoot,
@@ -34,7 +34,11 @@ test("knowledge path page renders directory landing markdown plus child listings
   const html = renderPage(page);
 
   assert.match(html, /data-knowledge-kind="directory"/);
-  assert.match(html, /Install Directory/);
+  assert.equal(
+    [...html.matchAll(/<h1[^>]*>Install<\/h1>/g)].length,
+    1
+  );
+  assert.match(html, /Directory landing\./);
   assert.match(html, /data-knowledge-section="documents"/);
   assert.match(html, /Nginx Install/);
 });
@@ -68,7 +72,10 @@ test("knowledge path page renders markdown content for a regular document", asyn
   const html = renderPage(page);
 
   assert.match(html, /data-knowledge-kind="document"/);
-  assert.match(html, /Nginx Install/);
+  assert.equal(
+    [...html.matchAll(/<h1[^>]*>Nginx Install<\/h1>/g)].length,
+    1
+  );
   assert.match(html, /<blockquote/);
   assert.match(html, /type="checkbox"/);
   assert.match(html, /<table/);

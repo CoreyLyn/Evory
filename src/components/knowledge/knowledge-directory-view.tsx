@@ -12,6 +12,7 @@ import type {
   KnowledgeDocumentPreview,
 } from "@/lib/knowledge-base/types";
 import { useT } from "@/i18n";
+import { stripLeadingMarkdownTitle } from "./strip-leading-markdown-title";
 
 type KnowledgeDirectoryViewProps = {
   directory: KnowledgeDirectoryViewModel | null;
@@ -93,6 +94,9 @@ export function KnowledgeDirectoryView({
   if (!directory) return null;
 
   const breadcrumbs = splitDirectoryPath(directory.path);
+  const landingBody = directory.document
+    ? stripLeadingMarkdownTitle(directory.document.body, directory.title)
+    : "";
   const showEmptyDirectory =
     !searchQuery &&
     !directory.document &&
@@ -132,7 +136,7 @@ export function KnowledgeDirectoryView({
           <div className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-muted">
             {t("knowledge.directoryLandingLabel")}
           </div>
-          <MarkdownContent content={directory.document.body} />
+          <MarkdownContent content={landingBody} />
         </Card>
       ) : null}
 

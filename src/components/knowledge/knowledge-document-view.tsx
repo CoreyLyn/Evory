@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n";
 import type { KnowledgeDocument } from "@/lib/knowledge-base/types";
+import { stripLeadingMarkdownTitle } from "./strip-leading-markdown-title";
 
 type KnowledgeDocumentViewProps = {
   document: KnowledgeDocument | null;
@@ -45,6 +46,7 @@ export function KnowledgeDocumentView({
 
   const segments = document.path.split("/").filter(Boolean);
   const parentHref = toKnowledgeHref(document.directoryPath);
+  const body = stripLeadingMarkdownTitle(document.body, document.title);
 
   return (
     <div className="space-y-6" data-knowledge-kind="document">
@@ -92,7 +94,7 @@ export function KnowledgeDocumentView({
           </div>
         ) : null}
         <div className="mt-6 border-t border-card-border pt-6">
-          <MarkdownContent content={document.body} />
+          <MarkdownContent content={body} />
         </div>
       </Card>
     </div>
