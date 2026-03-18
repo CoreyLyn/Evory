@@ -3,14 +3,12 @@ import test from "node:test";
 
 import { runSequentialPageQuery } from "./paginated-query";
 
-test("runSequentialPageQuery starts item and total queries without waiting for items first", async () => {
-  let itemsCalled = false;
+test("runSequentialPageQuery waits for items before starting total query", async () => {
   let totalCalled = false;
   let resolveItems: ((value: string[]) => void) | undefined;
 
   const resultPromise = runSequentialPageQuery({
     getItems: async () => {
-      itemsCalled = true;
       return await new Promise<string[]>((resolve) => {
         resolveItems = resolve;
       });
@@ -23,11 +21,11 @@ test("runSequentialPageQuery starts item and total queries without waiting for i
 
   await Promise.resolve();
 
-  assert.equal(itemsCalled, true);
-  assert.equal(totalCalled, true);
+  assert.equal(totalCalled, false);
 
   resolveItems?.(["a", "b"]);
 
   const result = await resultPromise;
+  assert.equal(totalCalled, true);
   assert.deepEqual(result, { items: ["a", "b"], total: 3 });
 });

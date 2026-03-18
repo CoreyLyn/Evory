@@ -115,6 +115,7 @@ export async function getForumPostListData({
   const selectedFreeformTagSlugs = selectedTagSlugs.filter(
     (slug) => !CORE_FORUM_TAGS.some((tag) => tag.slug === slug)
   );
+  const serializeQueries = shouldSerializeForumListQueries();
 
   const loadPageResult = () =>
     runSequentialPageQuery({
@@ -123,6 +124,7 @@ export async function getForumPostListData({
           where,
           select: {
             id: true,
+            agentId: true,
             title: true,
             content: true,
             category: true,
@@ -131,21 +133,6 @@ export async function getForumPostListData({
             createdAt: true,
             updatedAt: true,
             featuredOverride: true,
-            tags: {
-              select: {
-                source: true,
-                tag: {
-                  select: {
-                    slug: true,
-                    label: true,
-                    kind: true,
-                  },
-                },
-              },
-            },
-            agent: {
-              select: { id: true, name: true, type: true, avatarConfig: true },
-            },
             _count: { select: { replies: true } },
           },
           orderBy: { createdAt: "desc" },
@@ -154,6 +141,40 @@ export async function getForumPostListData({
         }),
       getTotal: () => prisma.forumPost.count({ where }),
     });
+
+  const loadPostTags = (postIds: string[]) =>
+    postIds.length === 0
+      ? Promise.resolve([])
+      : prisma.forumPostTag.findMany({
+          where: {
+            postId: { in: postIds },
+          },
+          select: {
+            postId: true,
+            source: true,
+            tag: {
+              select: {
+                slug: true,
+                label: true,
+                kind: true,
+              },
+            },
+          },
+        });
+
+  const loadAgents = (agentIds: string[]) =>
+    agentIds.length === 0
+      ? Promise.resolve([])
+      : prisma.agent.findMany({
+          where: {
+            id: { in: agentIds },
+          },
+          select: {
+            id: true,
+            name: true,
+            type: true,
+          },
+        });
 
   const loadTagFilters = () =>
     prisma.forumTag.findMany({
@@ -181,9 +202,44 @@ export async function getForumPostListData({
       },
     });
 
-  const [pageResult, tagFilters] = shouldSerializeForumListQueries()
-    ? [await loadPageResult(), await loadTagFilters()]
-    : await Promise.all([loadPageResult(), loadTagFilters()]);
+  const loadPageData = async () => {
+    const pageResult = await loadPageResult();
+    const postIds = pageResult.items.map((post) => post.id);
+    const agentIds = [...new Set(pageResult.items.map((post) => post.agentId))];
+    const [postTags, agents] = serializeQueries
+      ? [await loadPostTags(postIds), await loadAgents(agentIds)]
+      : await Promise.all([loadPostTags(postIds), loadAgents(agentIds)]);
+    const tagsByPostId = new Map<string, typeof postTags>();
+
+    for (const tag of postTags) {
+      const tags = tagsByPostId.get(tag.postId) ?? [];
+      tags.push(tag);
+      tagsByPostId.set(tag.postId, tags);
+    }
+
+    const agentsById = new Map(agents.map((agent) => [agent.id, agent]));
+
+    return {
+      total: pageResult.total,
+      items: pageResult.items.map((post) => {
+        const agent = agentsById.get(post.agentId);
+
+        if (!agent) {
+          throw new Error(`Missing agent ${post.agentId} for forum post ${post.id}`);
+        }
+
+        return {
+          ...post,
+          tags: tagsByPostId.get(post.id) ?? [],
+          agent,
+        };
+      }),
+    };
+  };
+
+  const [pageResult, tagFilters] = serializeQueries
+    ? [await loadPageData(), await loadTagFilters()]
+    : await Promise.all([loadPageData(), loadTagFilters()]);
 
   const { items: posts, total } = pageResult;
   const featuredPostIds = new Set(pickFeaturedForumPostIds(posts));

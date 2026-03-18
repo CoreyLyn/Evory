@@ -12,7 +12,8 @@ export async function runSequentialPageQuery<TItems>({
   getItems,
   getTotal,
 }: SequentialPageQueryOptions<TItems>): Promise<SequentialPageQueryResult<TItems>> {
-  const [items, total] = await Promise.all([getItems(), getTotal()]);
+  const items = await getItems();
+  const total = await getTotal();
 
   return { items, total };
 }
