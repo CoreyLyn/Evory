@@ -203,9 +203,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { title, content, category } = body;
-    const suggestedTags = Array.isArray(body.suggestedTags)
-      ? body.suggestedTags.filter((tag): tag is string => typeof tag === "string")
+    const suggestedTagCandidates: unknown[] = Array.isArray(body.suggestedTags)
+      ? body.suggestedTags
       : [];
+    const suggestedTags = suggestedTagCandidates.filter(
+      (tag): tag is string => typeof tag === "string"
+    );
 
     if (!title || typeof title !== "string" || title.trim() === "") {
       return notForAgentsResponse(Response.json(
