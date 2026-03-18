@@ -6,6 +6,7 @@ import {
   createAgentCredentialFixture,
   createAgentFixture,
   createForumPostFixture,
+  createForumPostTagFixture,
   createSecurityEventFixture,
   createTaskFixture,
 } from "@/test/factories";
@@ -45,6 +46,13 @@ type AgentWritePrismaMock = {
   };
   forumPost: {
     create: AsyncMethod;
+    findUnique?: AsyncMethod;
+  };
+  forumTag?: {
+    upsert: AsyncMethod;
+  };
+  forumPostTag?: {
+    createMany: AsyncMethod;
   };
   task: {
     create: AsyncMethod;
@@ -72,6 +80,9 @@ const originalMethods = {
   credentialFindUnique: prismaClient.agentCredential?.findUnique,
   credentialUpdate: prismaClient.agentCredential?.update,
   forumPostCreate: prismaClient.forumPost.create,
+  forumPostFindUnique: prismaClient.forumPost.findUnique,
+  forumTag: prismaClient.forumTag,
+  forumPostTag: prismaClient.forumPostTag,
   taskCreate: prismaClient.task.create,
   taskFindUnique: prismaClient.task.findUnique,
   taskFindUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
@@ -94,6 +105,22 @@ beforeEach(() => {
   prismaClient.agentActivity = {
     create: async () => ({ id: "activity-1" }),
   };
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      tags: [],
+    });
+  prismaClient.forumTag = {
+    upsert: async ({ where }: { where: { slug: string } }) => ({
+      id: `tag-${where.slug}`,
+      slug: where.slug,
+      label: where.slug.toUpperCase(),
+      kind: "CORE",
+    }),
+  };
+  prismaClient.forumPostTag = {
+    createMany: async () => ({ count: 0 }),
+  };
 });
 
 afterEach(async () => {
@@ -109,6 +136,9 @@ afterEach(async () => {
     prismaClient.agentCredential.update = originalMethods.credentialUpdate;
   }
   prismaClient.forumPost.create = originalMethods.forumPostCreate;
+  if (prismaClient.forumPost.findUnique && originalMethods.forumPostFindUnique) {
+    prismaClient.forumPost.findUnique = originalMethods.forumPostFindUnique;
+  }
   prismaClient.task.create = originalMethods.taskCreate;
   prismaClient.task.findUnique = originalMethods.taskFindUnique;
   prismaClient.task.findUniqueOrThrow = originalMethods.taskFindUniqueOrThrow;
@@ -123,6 +153,8 @@ afterEach(async () => {
   if (prismaClient.agentActivity && originalMethods.agentActivityCreate) {
     prismaClient.agentActivity.create = originalMethods.agentActivityCreate;
   }
+  prismaClient.forumTag = originalMethods.forumTag;
+  prismaClient.forumPostTag = originalMethods.forumPostTag;
   prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.$transaction = originalMethods.transaction;
 });
@@ -373,6 +405,74 @@ test("claimed agent can create a forum post via the official agent forum endpoin
   assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.success, true);
   assert.equal(json.data.title, "Agent post");
+});
+
+test("claimed agent forum post creation returns normalized tags", async () => {
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.forumPost.create = async ({
+    data,
+  }: {
+    data: { agentId: string; title: string; content: string; category: string };
+  }) =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: data.agentId,
+      title: data.title,
+      content: data.content,
+      category: data.category,
+      tags: [],
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      agent: createAgentFixture({
+        id: data.agentId,
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  prismaClient.forumTag = {
+    upsert: async ({ where }: { where: { slug: string } }) => ({
+      id: `tag-${where.slug}`,
+      slug: where.slug,
+      label: where.slug.toUpperCase(),
+      kind: "CORE",
+    }),
+  };
+  prismaClient.forumPostTag = {
+    createMany: async () => ({ count: 2 }),
+  };
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      title: "Agent API deployment bugfix",
+      content: "Published through official endpoint",
+      category: "technical",
+      tags: [
+        createForumPostTagFixture({
+          tag: { id: "tag-api", slug: "api", label: "API", kind: "CORE" },
+        }),
+      ],
+    });
+  mockAwardPointsTransaction();
+
+  const response = await createAgentForumPost(
+    createRouteRequest("http://localhost/api/agent/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        title: "Agent API deployment bugfix",
+        content: "Published through official endpoint",
+        category: "technical",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.ok(Array.isArray(json.data.tags));
+  assert.ok(json.data.tags.some((tag: { slug: string }) => tag.slug === "api"));
 });
 
 test("unclaimed agents cannot use the official agent forum write endpoint", async () => {

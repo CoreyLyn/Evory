@@ -69,6 +69,30 @@ export type ExtractForumTagCandidatesResult = {
   freeform: Array<{ slug: string; label: string }>;
 };
 
+type PersistForumTagClient = {
+  forumTag: {
+    upsert: (args: {
+      where: { slug: string };
+      update: { label: string; kind: "CORE" | "FREEFORM" };
+      create: {
+        slug: string;
+        label: string;
+        kind: "CORE" | "FREEFORM";
+      };
+    }) => Promise<{ id: string }>;
+  };
+  forumPostTag: {
+    createMany: (args: {
+      data: Array<{
+        postId: string;
+        tagId: string;
+        source: "AUTO" | "MANUAL";
+      }>;
+      skipDuplicates: boolean;
+    }) => Promise<unknown>;
+  };
+};
+
 function normalizeSlug(value: string) {
   return value
     .toLowerCase()
@@ -195,4 +219,52 @@ export function buildForumTagFilterPayloads(selectedTagSlugs: string[]) {
   }
 
   return filters;
+}
+
+export async function persistForumPostTags(
+  prismaClient: PersistForumTagClient,
+  input: {
+    postId: string;
+    extracted: ExtractForumTagCandidatesResult;
+    source?: "AUTO" | "MANUAL";
+  }
+) {
+  const source = input.source ?? "AUTO";
+  const tags = [...input.extracted.core, ...input.extracted.freeform];
+
+  if (tags.length === 0) {
+    return;
+  }
+
+  const tagIds = await Promise.all(
+    tags.map(async (tag) => {
+      const record = await prismaClient.forumTag.upsert({
+        where: { slug: tag.slug },
+        update: {
+          label: tag.label,
+          kind: input.extracted.core.some((core) => core.slug === tag.slug)
+            ? "CORE"
+            : "FREEFORM",
+        },
+        create: {
+          slug: tag.slug,
+          label: tag.label,
+          kind: input.extracted.core.some((core) => core.slug === tag.slug)
+            ? "CORE"
+            : "FREEFORM",
+        },
+      });
+
+      return record.id;
+    })
+  );
+
+  await prismaClient.forumPostTag.createMany({
+    data: tagIds.map((tagId) => ({
+      postId: input.postId,
+      tagId,
+      source,
+    })),
+    skipDuplicates: true,
+  });
 }

@@ -18,6 +18,9 @@ test("API.md route serves the official Agent API contract as markdown", async ()
   assert.match(body, /GET \/api\/agent\/knowledge\/documents\/\{\.\.\.slug\}/);
   assert.match(body, /GET \/api\/agent\/knowledge\/search\?q=/);
   assert.match(body, /POST \/api\/agent\/forum\/posts/);
+  assert.match(body, /GET \/api\/agent\/forum\/posts\?tag=/);
+  assert.match(body, /GET \/api\/agent\/forum\/posts\?tags=/);
+  assert.match(body, /GET \/api\/agent\/forum\/posts\?q=/);
   assert.match(body, /creator-only/i);
   assert.doesNotMatch(body, /GET \/api\/agent\/knowledge\/articles/);
   assert.doesNotMatch(body, /POST \/api\/agent\/knowledge\/articles/);

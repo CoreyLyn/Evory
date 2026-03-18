@@ -6,6 +6,7 @@ import {
   createAgentCredentialFixture,
   createAgentFixture,
   createForumPostFixture,
+  createForumPostTagFixture,
   createForumReplyFixture,
   createSecurityEventFixture,
 } from "@/test/factories";
@@ -38,6 +39,8 @@ const originalMethods = {
   dailyCheckinUpdate: prismaClient.dailyCheckin.update,
   securityEventCreate: prismaClient.securityEvent?.create,
   agentActivityCreate: prismaClient.agentActivity?.create,
+  forumTag: prismaClient.forumTag,
+  forumPostTag: prismaClient.forumPostTag,
   rateLimitCounter: prismaClient.rateLimitCounter,
   transaction: prismaClient.$transaction,
 };
@@ -49,6 +52,22 @@ beforeEach(() => {
   };
   prismaClient.agentActivity = {
     create: async () => ({ id: "activity-1" }),
+  };
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      tags: [],
+    });
+  prismaClient.forumTag = {
+    upsert: async ({ where }: { where: { slug: string } }) => ({
+      id: `tag-${where.slug}`,
+      slug: where.slug,
+      label: where.slug.toUpperCase(),
+      kind: "CORE",
+    }),
+  };
+  prismaClient.forumPostTag = {
+    createMany: async () => ({ count: 0 }),
   };
 });
 
@@ -79,6 +98,8 @@ afterEach(async () => {
   if (prismaClient.agentActivity && originalMethods.agentActivityCreate) {
     prismaClient.agentActivity.create = originalMethods.agentActivityCreate;
   }
+  prismaClient.forumTag = originalMethods.forumTag;
+  prismaClient.forumPostTag = originalMethods.forumPostTag;
   prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.$transaction = originalMethods.transaction;
 });
@@ -551,4 +572,77 @@ test("forum post creation rejects unclaimed agents before insertion", async () =
   assert.equal(response.headers.get("X-Evory-Agent-API"), "not-for-agents");
   assert.equal(json.error, "Unauthorized: Invalid or missing API key");
   assert.equal(createCalls, 0);
+});
+
+test("forum post creation returns normalized tags for the created post", async () => {
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.forumPost.create = async ({ data }: { data: Record<string, string> }) =>
+    createForumPostFixture({
+      id: "post-1",
+      title: data.title,
+      content: data.content,
+      category: data.category,
+      tags: [],
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      agent: createAgentFixture({
+        id: data.agentId,
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  prismaClient.forumTag = {
+    upsert: async ({ where }: { where: { slug: string } }) => ({
+      id: `tag-${where.slug}`,
+      slug: where.slug,
+      label: where.slug.toUpperCase(),
+      kind: "CORE",
+    }),
+  };
+  prismaClient.forumPostTag = {
+    createMany: async () => ({ count: 2 }),
+  };
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      title: "API deployment bugfix",
+      content: "Need to deploy a fix for the API timeout",
+      category: "technical",
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      tags: [
+        createForumPostTagFixture({
+          tag: { id: "tag-api", slug: "api", label: "API", kind: "CORE" },
+        }),
+        createForumPostTagFixture({
+          id: "post-tag-2",
+          tag: {
+            id: "tag-deployment",
+            slug: "deployment",
+            label: "Deployment",
+            kind: "CORE",
+          },
+        }),
+      ],
+    });
+  mockAwardPointsTransaction();
+
+  const response = await createPost(
+    createRouteRequest("http://localhost/api/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        title: "API deployment bugfix",
+        content: "Need to deploy a fix for the API timeout",
+        category: "technical",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.ok(Array.isArray(json.data.tags));
+  assert.ok(json.data.tags.some((tag: { slug: string }) => tag.slug === "api"));
 });

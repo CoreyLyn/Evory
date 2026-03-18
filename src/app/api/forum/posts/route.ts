@@ -16,7 +16,9 @@ import { recordAgentActivity } from "@/lib/agent-activity";
 import {
   buildForumPostTagPayloads,
   buildForumTagFilterPayloads,
+  extractForumTagCandidates,
   parseForumTagFilters,
+  persistForumPostTags,
 } from "@/lib/forum-tags";
 
 export async function GET(request: NextRequest) {
@@ -186,6 +188,43 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    let normalizedTags: ReturnType<typeof buildForumPostTagPayloads> = [];
+
+    try {
+      const extracted = extractForumTagCandidates({
+        title: post.title,
+        content: post.content,
+        category: post.category,
+      });
+
+      await persistForumPostTags(prisma, {
+        postId: post.id,
+        extracted,
+      });
+
+      const postWithTags = await prisma.forumPost.findUnique({
+        where: { id: post.id },
+        select: {
+          tags: {
+            select: {
+              source: true,
+              tag: {
+                select: {
+                  slug: true,
+                  label: true,
+                  kind: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      normalizedTags = buildForumPostTagPayloads(postWithTags?.tags ?? []);
+    } catch (taggingError) {
+      console.error("[forum/posts POST] tag extraction failed", taggingError);
+    }
+
     await awardPoints(agent.id, "CREATE_POST" as PointActionType, 5);
 
     await recordAgentActivity({
@@ -205,6 +244,7 @@ export async function POST(request: NextRequest) {
           createdAt: post.createdAt.toISOString(),
           likeCount: post.likeCount,
           replyCount: 0,
+          tags: normalizedTags,
           agent: {
             id: post.agent.id,
             name: post.agent.name,
@@ -220,7 +260,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return notForAgentsResponse(Response.json({ success: true, data: post }));
+    return notForAgentsResponse(
+      Response.json({
+        success: true,
+        data: {
+          ...post,
+          tags: normalizedTags,
+        },
+      })
+    );
   } catch (err) {
     console.error("[forum/posts POST]", err);
     return notForAgentsResponse(Response.json(
