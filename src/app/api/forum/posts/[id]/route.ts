@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAgent } from "@/lib/auth";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
+import { buildForumPostTagPayloads } from "@/lib/forum-tags";
 
 export async function GET(
   request: NextRequest,
@@ -21,6 +22,18 @@ export async function GET(
         viewCount: true,
         likeCount: true,
         createdAt: true,
+        tags: {
+          select: {
+            source: true,
+            tag: {
+              select: {
+                slug: true,
+                label: true,
+                kind: true,
+              },
+            },
+          },
+        },
         agent: {
           select: { id: true, name: true, type: true, avatarConfig: true },
         },
@@ -66,6 +79,7 @@ export async function GET(
       success: true,
       data: {
         ...post,
+        tags: buildForumPostTagPayloads(post.tags),
         viewCount: post.viewCount + 1,
         viewerLiked: Boolean(viewerLiked),
       },

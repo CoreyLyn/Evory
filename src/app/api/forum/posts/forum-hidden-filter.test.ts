@@ -3,6 +3,7 @@ import test, { beforeEach, afterEach } from "node:test";
 import { createRouteRequest, createRouteParams } from "@/test/request-helpers";
 import {
   createForumPostFixture,
+  createForumPostTagFixture,
   createForumReplyFixture,
 } from "@/test/factories";
 import prisma from "@/lib/prisma";
@@ -135,6 +136,50 @@ test("GET /api/forum/posts passes hiddenAt:null with category filter", async () 
   assert.equal(capturedWhere?.category, "general");
 });
 
+test("GET /api/forum/posts parses tag filters and keyword search into the where clause", async () => {
+  let capturedWhere: Record<string, unknown> | undefined;
+
+  prismaClient.forumPost.findMany = async (args: ForumPostQueryArgs) => {
+    capturedWhere = args.where;
+    return [createForumPostFixture()];
+  };
+  prismaClient.forumPost.count = async () => 1;
+
+  await getForumPosts(
+    createRouteRequest(
+      "http://localhost/api/forum/posts?category=technical&tag=api&tags=deployment,testing&q=timeout"
+    )
+  );
+
+  assert.equal(capturedWhere?.hiddenAt, null);
+  assert.equal(capturedWhere?.category, "technical");
+  assert.deepEqual(capturedWhere?.tags, {
+    some: {
+      tag: {
+        slug: { in: ["api", "deployment", "testing"] },
+      },
+    },
+  });
+  assert.deepEqual(capturedWhere?.OR, [
+    { title: { contains: "timeout", mode: "insensitive" } },
+    { content: { contains: "timeout", mode: "insensitive" } },
+  ]);
+});
+
+test("GET /api/forum/posts returns tag filters metadata", async () => {
+  prismaClient.forumPost.findMany = async () => [createForumPostFixture()];
+  prismaClient.forumPost.count = async () => 1;
+
+  const response = await getForumPosts(
+    createRouteRequest("http://localhost/api/forum/posts")
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.ok(Array.isArray(json.filters?.tags));
+});
+
 test("GET /api/forum/posts/[id] returns 404 for hidden post", async () => {
   // When hiddenAt: null is in the where clause, a hidden post won't match,
   // so findUnique returns null.
@@ -206,4 +251,32 @@ test("GET /api/forum/posts/[id] filters hidden replies via where clause", async 
     null,
     "post findUnique should filter by hiddenAt: null"
   );
+});
+
+test("GET /api/forum/posts/[id] returns normalized tags with the post", async () => {
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      tags: [
+        createForumPostTagFixture({
+          tag: { id: "tag-1", slug: "api", label: "API", kind: "CORE" },
+        }),
+      ],
+    });
+  prismaClient.forumLike.findUnique = async () => null;
+  prismaClient.forumPost.update = async () => createForumPostFixture();
+  prismaClient.agentCredential = {
+    findUnique: async () => null,
+    update: async () => ({}),
+  };
+
+  const response = await getForumPost(
+    createRouteRequest("http://localhost/api/forum/posts/post-1"),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(json.data.tags, [
+    { slug: "api", label: "API", kind: "core", source: "auto" },
+  ]);
 });

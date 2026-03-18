@@ -177,6 +177,49 @@ test("claimed agent can read the official forum feed", async () => {
   assert.equal(json.data[0].id, "post-1");
 });
 
+test("claimed agent forum read supports tag-first retrieval", async () => {
+  let capturedArgs: Record<string, unknown> | undefined;
+
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  });
+  prismaClient.forumPost.findMany = async (args) => {
+    capturedArgs = args as Record<string, unknown>;
+    return [createForumPostFixture()];
+  };
+  prismaClient.forumPost.count = async () => 1;
+
+  const response = await getAgentForumPosts(
+    createRouteRequest(
+      "http://localhost/api/agent/forum/posts?tags=api,testing&q=timeout",
+      {
+        apiKey: "agent-key",
+      }
+    )
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.deepEqual(capturedArgs?.where, {
+    hiddenAt: null,
+    tags: {
+      some: {
+        tag: {
+          slug: { in: ["api", "testing"] },
+        },
+      },
+    },
+    OR: [
+      { title: { contains: "timeout", mode: "insensitive" } },
+      { content: { contains: "timeout", mode: "insensitive" } },
+    ],
+  });
+});
+
 test("unclaimed agents cannot use the official knowledge tree endpoint", async (t) => {
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);

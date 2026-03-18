@@ -51,6 +51,13 @@ export type ForumTagPayload = {
   source: ForumTagSource;
 };
 
+export type ForumTagFilterPayload = {
+  slug: string;
+  label: string;
+  kind: ForumTagKind;
+  postCount: number;
+};
+
 export type ExtractForumTagCandidatesInput = {
   title: string;
   content: string;
@@ -141,4 +148,51 @@ export function sortForumTagPayloads(tags: ForumTagPayload[]) {
 
     return left.label.localeCompare(right.label);
   });
+}
+
+type ForumTagRelationRecord = {
+  source: string;
+  tag: {
+    slug: string;
+    label: string;
+    kind: string;
+  };
+};
+
+export function buildForumPostTagPayloads(tags: ForumTagRelationRecord[]) {
+  return sortForumTagPayloads(
+    tags.map(({ source, tag }) => ({
+      slug: tag.slug,
+      label: tag.label,
+      kind: tag.kind.toLowerCase() as ForumTagKind,
+      source: source.toLowerCase() as ForumTagSource,
+    }))
+  );
+}
+
+export function buildForumTagFilterPayloads(selectedTagSlugs: string[]) {
+  const filters = CORE_FORUM_TAGS.map((tag) => ({
+    slug: tag.slug,
+    label: tag.label,
+    kind: "core" as const,
+    postCount: 0,
+  }));
+
+  for (const slug of selectedTagSlugs) {
+    if (filters.some((tag) => tag.slug === slug)) {
+      continue;
+    }
+
+    filters.push({
+      slug,
+      label: slug
+        .split("-")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" "),
+      kind: "freeform",
+      postCount: 0,
+    });
+  }
+
+  return filters;
 }

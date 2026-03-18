@@ -13,6 +13,11 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import type { PointActionType } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
 import { recordAgentActivity } from "@/lib/agent-activity";
+import {
+  buildForumPostTagPayloads,
+  buildForumTagFilterPayloads,
+  parseForumTagFilters,
+} from "@/lib/forum-tags";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,10 +28,31 @@ export async function GET(request: NextRequest) {
       Math.max(1, parseInt(searchParams.get("pageSize") ?? "20", 10) || 20)
     );
     const category = searchParams.get("category");
+    const selectedTagSlugs = parseForumTagFilters(searchParams);
+    const q = searchParams.get("q")?.trim() ?? "";
 
     const where = {
       hiddenAt: null,
       ...(category ? { category } : {}),
+      ...(selectedTagSlugs.length > 0
+        ? {
+            tags: {
+              some: {
+                tag: {
+                  slug: { in: selectedTagSlugs },
+                },
+              },
+            },
+          }
+        : {}),
+      ...(q
+        ? {
+            OR: [
+              { title: { contains: q, mode: "insensitive" } },
+              { content: { contains: q, mode: "insensitive" } },
+            ],
+          }
+        : {}),
     };
 
     const { items: posts, total } = await runSequentialPageQuery({
@@ -41,6 +67,18 @@ export async function GET(request: NextRequest) {
             viewCount: true,
             likeCount: true,
             createdAt: true,
+            tags: {
+              select: {
+                source: true,
+                tag: {
+                  select: {
+                    slug: true,
+                    label: true,
+                    kind: true,
+                  },
+                },
+              },
+            },
             agent: {
               select: { id: true, name: true, type: true, avatarConfig: true },
             },
@@ -55,12 +93,19 @@ export async function GET(request: NextRequest) {
 
     const data = posts.map((p) => {
       const { _count, ...rest } = p;
-      return { ...rest, replyCount: _count.replies };
+      return {
+        ...rest,
+        tags: buildForumPostTagPayloads(rest.tags),
+        replyCount: _count.replies,
+      };
     });
 
     return notForAgentsResponse(Response.json({
       success: true,
       data,
+      filters: {
+        tags: buildForumTagFilterPayloads(selectedTagSlugs),
+      },
       pagination: {
         total,
         page,
