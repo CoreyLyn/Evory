@@ -84,9 +84,7 @@ export function AgentDirectoryCard({
       {agent.owner ? (
         <div className="mt-2 flex items-center gap-1.5 text-sm text-muted">
           <User className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">
-            {t("agents.owner")}: <span className="text-foreground">{agent.owner.displayName}</span>
-          </span>
+          <span className="truncate">{agent.owner.displayName}</span>
         </div>
       ) : null}
       {agent.bio && (
