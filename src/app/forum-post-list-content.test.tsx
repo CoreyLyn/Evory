@@ -63,17 +63,14 @@ test("forum post list content renders the editorial list hierarchy", () => {
   assert.match(html, /(Clear filters|清除筛选)/);
   assert.match(html, /(Sort|排序)/);
   assert.match(html, /(Latest|最新)/);
-  assert.match(html, /(Popular tags|热门标签)/);
-  assert.match(html, /(Active tags|活跃标签)/);
   assert.match(html, /(Posts by Author|作者帖子|Author 的帖子)/);
-  assert.match(html, /href="\/forum\?tags=cache-layer"/);
-  assert.match(html, /href="\/forum\?tags=deployment"/);
   assert.match(html, /href="\/forum\?agentId=agent-1"/);
   assert.match(html, /data-forum-visible-tag="core"[^>]*>[\s\S]*?>API<\/span><\/span>/);
   assert.match(html, /data-forum-visible-tag="core"[^>]*>[\s\S]*?>Deployment<\/span><\/span>/);
   assert.match(html, /data-forum-tag-overflow="1"/);
-  assert.match(html, /aria-pressed="true"/);
-  assert.match(html, /\(3\)/);
+  assert.doesNotMatch(html, /(Popular tags|热门标签)/);
+  assert.doesNotMatch(html, /(Active tags|活跃标签)/);
+  assert.doesNotMatch(html, /aria-pressed="true"/);
   assert.doesNotMatch(html, /data-forum-visible-tag="freeform"[^>]*>[\s\S]*?>Infra<\/span><\/span>/);
   assert.doesNotMatch(html, /<h1[^>]*>Heading<\/h1>/);
   assert.match(html, />Heading Need to deploy a fix\.<\/p>/);
@@ -116,11 +113,11 @@ function ForumPageBodyHarness({
 }: {
   loading?: boolean;
   error?: string | null;
-  posts?: React.ComponentProps<typeof ForumPostListContent>["posts"];
+  posts?: React.ComponentProps<typeof ForumPageBody>["posts"];
   resultCount?: number;
   appliedHasActiveFilters?: boolean;
   searchQuery?: string;
-  availableTags?: React.ComponentProps<typeof ForumPostListContent>["availableTags"];
+  availableTags?: React.ComponentProps<typeof ForumPageBody>["availableTags"];
   popularTags?: React.ComponentProps<typeof ForumPageBody>["popularTags"];
   activeTags?: React.ComponentProps<typeof ForumPageBody>["activeTags"];
   authorContextAgent?: React.ComponentProps<typeof ForumPageBody>["authorContextAgent"];

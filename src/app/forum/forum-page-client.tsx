@@ -75,15 +75,8 @@ function getVisiblePostTags(post: ForumListPost, maxVisibleTags = 2) {
 
 export function ForumPostListContent({
   posts,
-  resultCount,
-  hasActiveFilters,
-  selectedTagSlugs,
-  availableTags,
-  popularTags,
-  activeTags,
   authorContextAgent,
   agentId,
-  onTagToggle,
   onClearFilters,
   emptyStateTitle,
   emptyStateDescription,
@@ -91,15 +84,8 @@ export function ForumPostListContent({
   formatTimeAgo,
 }: {
   posts: ForumListPost[];
-  resultCount: number;
-  hasActiveFilters: boolean;
-  selectedTagSlugs: string[];
-  availableTags: ForumListTagFilter[];
-  popularTags: ForumListTagFilter[];
-  activeTags: ForumListTagFilter[];
   authorContextAgent: ForumListPost["agent"] | null;
   agentId: string | null;
-  onTagToggle: (slug: string) => void;
   onClearFilters: () => void;
   emptyStateTitle?: string;
   emptyStateDescription?: string;
@@ -108,33 +94,6 @@ export function ForumPostListContent({
 }) {
   return (
     <div className="space-y-5">
-      {availableTags.length > 0 && (
-        <div className="flex flex-wrap gap-2 py-1">
-            {availableTags.map((tag) => {
-              const isActive = selectedTagSlugs.includes(tag.slug);
-
-              return (
-                <button
-                  key={tag.slug}
-                  type="button"
-                  aria-pressed={isActive}
-                  onClick={() => onTagToggle(tag.slug)}
-                  className={`relative rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-300 ${
-                    isActive
-                      ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
-                      : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
-                  }`}
-                >
-                  {tag.label}{" "}
-                  <span className="ml-[2px] text-[11px] opacity-60">
-                    {tag.postCount}
-                  </span>
-                </button>
-              );
-            })}
-        </div>
-      )}
-
       {authorContextAgent ? (
         <div className="rounded-2xl border border-card-border/60 bg-card/30 p-4">
           <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
@@ -160,61 +119,6 @@ export function ForumPostListContent({
               </Button>
             ) : null}
           </div>
-        </div>
-      ) : null}
-
-      {popularTags.length > 0 || activeTags.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {popularTags.length > 0 ? (
-            <div className="rounded-2xl border border-card-border/60 bg-card/30 p-4">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                {t("forum.popularTags")}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {popularTags.map((tag) => (
-                  <Link
-                    key={`popular-${tag.slug}`}
-                    href={getForumPageUrl({
-                      page: 1,
-                      agentId: null,
-                      category: "",
-                      sort: "latest",
-                      q: "",
-                      selectedTagSlugs: [tag.slug],
-                    })}
-                    className="rounded-full border border-card-border bg-card px-3 py-1 text-xs font-medium text-muted transition-colors hover:text-foreground"
-                  >
-                    {tag.label} <span className="text-[11px] opacity-70">({tag.postCount})</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          {activeTags.length > 0 ? (
-            <div className="rounded-2xl border border-card-border/60 bg-card/30 p-4">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                {t("forum.activeTags")}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {activeTags.map((tag) => (
-                  <Link
-                    key={`active-${tag.slug}`}
-                    href={getForumPageUrl({
-                      page: 1,
-                      agentId: null,
-                      category: "",
-                      sort: "latest",
-                      q: "",
-                      selectedTagSlugs: [tag.slug],
-                    })}
-                    className="rounded-full border border-card-border bg-card px-3 py-1 text-xs font-medium text-muted transition-colors hover:text-foreground"
-                  >
-                    {tag.label} <span className="text-[11px] opacity-70">({tag.postCount})</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
       ) : null}
 
@@ -355,9 +259,6 @@ type ForumPageBodyProps = {
 
 export function ForumPageBody({
   posts,
-  availableTags,
-  popularTags,
-  activeTags,
   authorContextAgent,
   pagination,
   loading,
@@ -367,12 +268,10 @@ export function ForumPageBody({
   searchQuery,
   category,
   sort,
-  selectedTagSlugs,
   appliedHasActiveFilters,
   onSearchChange,
   onCategoryChange,
   onSortChange,
-  onTagToggle,
   onClearFilters,
   onRetryLoad,
   onPreviousPage,
@@ -474,15 +373,8 @@ export function ForumPageBody({
           ) : null}
           <ForumPostListContent
             posts={posts}
-            resultCount={resultCount}
-            hasActiveFilters={appliedHasActiveFilters}
-            selectedTagSlugs={selectedTagSlugs}
-            availableTags={availableTags}
-            popularTags={popularTags}
-            activeTags={activeTags}
             authorContextAgent={authorContextAgent}
             agentId={agentId}
-            onTagToggle={onTagToggle}
             onClearFilters={onClearFilters}
             emptyStateTitle={appliedHasActiveFilters ? t("forum.emptyFilteredTitle") : undefined}
             emptyStateDescription={appliedHasActiveFilters ? t("forum.emptyFilteredDescription") : undefined}
