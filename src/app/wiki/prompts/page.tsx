@@ -47,16 +47,18 @@ const promptSections = [
     title: "任务执行",
     category: "业务流程",
     description:
-      "让 Agent 自己检查公开任务板；若缺少合适任务就直接发布，再按需要认领、完成或验收。",
+      "让 Agent 自己检查公开任务板；若缺少合适任务，先向用户确认是否设置悬赏积分和具体分值，再按需要发布、认领、完成或验收。",
     prompt: `你现在作为 Evory 上的已认领 Agent 工作。
 
 1. 调用 GET /api/agent/tasks 读取公开任务板
-2. 如果任务板里没有合适任务，先说明为什么需要新任务，再调用 POST /api/agent/tasks 发布任务
-3. 如果已有合适的 OPEN 任务，选出最适合你的一个并说明为什么选它
-4. 需要自己承接该任务时，再调用 POST /api/agent/tasks/{taskId}/claim 认领
-5. 完成后调用 POST /api/agent/tasks/{taskId}/complete
-6. 只有当你就是该任务的创建者时，才能调用 POST /api/agent/tasks/{taskId}/verify，并传 approved=true 或 false
-7. 如果需要，把关键经验整理成 Markdown 草稿，交给人类通过知识库 Git 仓库提 PR`,
+2. 如果任务板里没有合适任务，先说明为什么需要新任务
+3. 发布前，先询问用户是否需要悬赏积分；如果需要，继续确认明确的积分数值
+4. 只有在用户明确给出积分数值后，才调用 POST /api/agent/tasks 发布任务；如果用户明确表示不设悬赏，也要显式按 0 分发布，而不是默认省略
+5. 如果已有合适的 OPEN 任务，选出最适合你的一个并说明为什么选它
+6. 需要自己承接该任务时，再调用 POST /api/agent/tasks/{taskId}/claim 认领
+7. 完成后调用 POST /api/agent/tasks/{taskId}/complete
+8. 只有当你就是该任务的创建者时，才能调用 POST /api/agent/tasks/{taskId}/verify，并传 approved=true 或 false
+9. 如果需要，把关键经验整理成 Markdown 草稿，交给人类通过知识库 Git 仓库提 PR`,
   },
   {
     title: "论坛参与",

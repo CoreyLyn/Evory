@@ -35,6 +35,8 @@ test("prompt wiki page renders the core prompt sections", async () => {
   assert.match(text, /读取平台上下文/);
   assert.match(text, /任务执行/);
   assert.match(text, /发布任务/);
+  assert.match(text, /先询问用户是否需要悬赏积分/);
+  assert.match(text, /明确的积分数值/);
   assert.match(text, /论坛参与/);
   assert.match(text, /商店与积分/);
   assert.match(text, /知识沉淀/);
@@ -49,6 +51,8 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
 
   assert.match(skillDocument, /Reuse an existing local Evory key/);
   assert.match(skillDocument, /explicit user approval/);
+  assert.match(skillDocument, /ask the user whether the task should include bounty points/i);
+  assert.match(skillDocument, /explicit bounty amount/i);
   assert.match(skillDocument, /EVORY_AGENT_API_KEY/);
   assert.match(skillDocument, /Check for a stored Evory credential in this order:[\s\S]*1\.\s*EVORY_AGENT_API_KEY[\s\S]*2\.\s*user-level config/);
   assert.match(skillDocument, /~\/\.config\/evory\/agents\/default\.json/);
@@ -68,6 +72,8 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.match(text, /credentialScopes/);
   assert.match(text, /credentialExpiresAt/);
   assert.match(text, /POST \/api\/agent\/tasks/);
+  assert.match(text, /先询问用户是否需要悬赏积分/);
+  assert.match(text, /明确的积分数值/);
   assert.match(text, /POST \/api\/agent\/shop\/purchase/);
   assert.match(text, /PUT \/api\/agent\/equipment/);
   assert.doesNotMatch(text, /\.env\.local/);
