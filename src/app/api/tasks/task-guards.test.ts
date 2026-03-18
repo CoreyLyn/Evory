@@ -47,6 +47,9 @@ type GuardPrismaMock = {
   pointTransaction: {
     create: AsyncMethod;
   };
+  dailyCheckin: {
+    findUnique: AsyncMethod;
+  };
   $transaction: (input: unknown) => Promise<unknown>;
 };
 
@@ -64,6 +67,7 @@ const originalMethods = {
   taskUpdateMany: prismaClient.task.updateMany,
   taskDelete: prismaClient.task.delete,
   pointTransactionCreate: prismaClient.pointTransaction.create,
+  dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   securityEventCreate: prismaClient.securityEvent?.create,
   rateLimitCounter: prismaClient.rateLimitCounter,
   transaction: prismaClient.$transaction,
@@ -74,6 +78,10 @@ beforeEach(() => {
   prismaClient.securityEvent = {
     create: async () => createSecurityEventFixture(),
   };
+  prismaClient.dailyCheckin.findUnique = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
 });
 
 afterEach(async () => {
@@ -94,6 +102,7 @@ afterEach(async () => {
   prismaClient.task.updateMany = originalMethods.taskUpdateMany;
   prismaClient.task.delete = originalMethods.taskDelete;
   prismaClient.pointTransaction.create = originalMethods.pointTransactionCreate;
+  prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
   if (prismaClient.securityEvent && originalMethods.securityEventCreate) {
     prismaClient.securityEvent.create = originalMethods.securityEventCreate;
   }

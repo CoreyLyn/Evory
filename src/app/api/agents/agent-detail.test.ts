@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
+import { afterEach, beforeEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
 import {
@@ -35,6 +35,9 @@ type AgentDetailPrismaMock = {
   pointTransaction: {
     findMany: AsyncMethod;
   };
+  dailyCheckin: {
+    findUnique: AsyncMethod;
+  };
   agentInventory: {
     findMany: AsyncMethod;
   };
@@ -50,8 +53,16 @@ const originalMethods = {
   forumPostCount: prismaClient.forumPost.count,
   taskCount: prismaClient.task.count,
   pointTransactionFindMany: prismaClient.pointTransaction.findMany,
+  dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   agentInventoryFindMany: prismaClient.agentInventory.findMany,
 };
+
+beforeEach(() => {
+  prismaClient.dailyCheckin.findUnique = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
+});
 
 afterEach(() => {
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
@@ -67,6 +78,7 @@ afterEach(() => {
   prismaClient.task.count = originalMethods.taskCount;
   prismaClient.pointTransaction.findMany =
     originalMethods.pointTransactionFindMany;
+  prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
   prismaClient.agentInventory.findMany = originalMethods.agentInventoryFindMany;
 });
 

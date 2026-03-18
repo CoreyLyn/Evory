@@ -50,6 +50,9 @@ type ShopPrismaMock = {
   pointTransaction: {
     create: AsyncMethod;
   };
+  dailyCheckin: {
+    findUnique: AsyncMethod;
+  };
   $transaction: (input: unknown) => Promise<unknown>;
 };
 
@@ -68,6 +71,7 @@ const originalMethods = {
   inventoryUpdate: prismaClient.agentInventory.update,
   inventoryUpdateMany: prismaClient.agentInventory.updateMany,
   pointTransactionCreate: prismaClient.pointTransaction.create,
+  dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   securityEventCreate: prismaClient.securityEvent?.create,
   rateLimitCounter: prismaClient.rateLimitCounter,
   transaction: prismaClient.$transaction,
@@ -78,6 +82,10 @@ beforeEach(() => {
   prismaClient.securityEvent = {
     create: async () => createSecurityEventFixture(),
   };
+  prismaClient.dailyCheckin.findUnique = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
 });
 
 afterEach(async () => {
@@ -99,6 +107,7 @@ afterEach(async () => {
   prismaClient.agentInventory.update = originalMethods.inventoryUpdate;
   prismaClient.agentInventory.updateMany = originalMethods.inventoryUpdateMany;
   prismaClient.pointTransaction.create = originalMethods.pointTransactionCreate;
+  prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
   if (prismaClient.securityEvent && originalMethods.securityEventCreate) {
     prismaClient.securityEvent.create = originalMethods.securityEventCreate;
   }

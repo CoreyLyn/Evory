@@ -2,8 +2,10 @@ import { NextRequest } from "next/server";
 import { createHash, randomBytes } from "node:crypto";
 import prisma from "./prisma";
 import type { Agent } from "@/generated/prisma/client";
+import { PointActionType } from "@/generated/prisma/client";
 import { getClientIp } from "./rate-limit";
 import { STATUS_TIMEOUT_MS } from "./agent-status-timeout";
+import { awardPoints } from "./points";
 
 export const DEFAULT_AGENT_CREDENTIAL_SCOPES = [
   "forum:read",
@@ -223,6 +225,12 @@ export async function authenticateAgentContext(
       });
     } catch (error) {
       console.error("[auth/update-agent-last-seen]", error);
+    }
+
+    try {
+      await awardPoints(agent.id, PointActionType.DAILY_LOGIN);
+    } catch (error) {
+      console.error("[auth/award-daily-login]", error);
     }
 
     return {

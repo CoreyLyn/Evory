@@ -18,24 +18,81 @@ type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
 type AuthPrismaMock = {
   agent: {
     findUnique: AsyncMethod;
+    update: AsyncMethod;
   };
   agentCredential?: {
     findUnique: AsyncMethod;
     update: AsyncMethod;
   };
+  pointTransaction: {
+    create: AsyncMethod;
+  };
+  dailyCheckin: {
+    findUnique: AsyncMethod;
+    upsert: AsyncMethod;
+    update: AsyncMethod;
+  };
+  agentActivity?: {
+    create: AsyncMethod;
+  };
   securityEvent?: {
     create: AsyncMethod;
   };
+  $transaction: (input: unknown) => Promise<unknown>;
 };
 
 const prismaClient = prisma as unknown as AuthPrismaMock;
 const originalAgentFindUnique = prismaClient.agent.findUnique;
+const originalAgentUpdate = prismaClient.agent.update;
 const originalCredentialFindUnique = prismaClient.agentCredential?.findUnique;
 const originalCredentialUpdate = prismaClient.agentCredential?.update;
+const originalPointTransactionCreate = prismaClient.pointTransaction.create;
+const originalDailyCheckinFindUnique = prismaClient.dailyCheckin.findUnique;
+const originalDailyCheckinUpsert = prismaClient.dailyCheckin.upsert;
+const originalDailyCheckinUpdate = prismaClient.dailyCheckin.update;
+const originalAgentActivityCreate = prismaClient.agentActivity?.create;
 const originalSecurityEventCreate = prismaClient.securityEvent?.create;
+const originalTransaction = prismaClient.$transaction;
 const originalConsoleError = console.error;
 
 beforeEach(() => {
+  prismaClient.pointTransaction.create = async ({ data }) => data;
+  prismaClient.dailyCheckin.findUnique = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
+  prismaClient.dailyCheckin.upsert = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
+  prismaClient.dailyCheckin.update = async ({ data }) => ({
+    id: "checkin-1",
+    actions: data.actions,
+  });
+  prismaClient.agentActivity = {
+    create: async () => ({ id: "activity-1" }),
+  };
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input !== "function") {
+      return input;
+    }
+
+    return input({
+      pointTransaction: {
+        create: prismaClient.pointTransaction.create,
+      },
+      agent: {
+        update: prismaClient.agent.update,
+      },
+      dailyCheckin: {
+        upsert: prismaClient.dailyCheckin.upsert,
+        update: prismaClient.dailyCheckin.update,
+      },
+      agentActivity: {
+        create: prismaClient.agentActivity?.create,
+      },
+    });
+  };
   prismaClient.securityEvent = {
     create: async () => ({ id: "security-event-1" }),
   };
@@ -43,6 +100,15 @@ beforeEach(() => {
 
 afterEach(() => {
   prismaClient.agent.findUnique = originalAgentFindUnique;
+  prismaClient.agent.update = originalAgentUpdate;
+  prismaClient.pointTransaction.create = originalPointTransactionCreate;
+  prismaClient.dailyCheckin.findUnique = originalDailyCheckinFindUnique;
+  prismaClient.dailyCheckin.upsert = originalDailyCheckinUpsert;
+  prismaClient.dailyCheckin.update = originalDailyCheckinUpdate;
+  if (prismaClient.agentActivity && originalAgentActivityCreate) {
+    prismaClient.agentActivity.create = originalAgentActivityCreate;
+  }
+  prismaClient.$transaction = originalTransaction;
   console.error = originalConsoleError;
 
   if (prismaClient.agentCredential && originalCredentialFindUnique) {
@@ -129,6 +195,88 @@ test("authenticateAgent returns an active claimed agent from credential lookup",
   assert.equal(agent?.id, "agent-1");
   assert.equal(updatedCredentialId, "credential-1");
   assert.equal(updatedAgentId, "agent-1");
+});
+
+test("authenticateAgent awards daily login on the first authenticated request of the day", async () => {
+  let createdPointTransaction: Record<string, unknown> | null = null;
+  let recordedActions: Record<string, unknown> | null = null;
+
+  prismaClient.agentCredential = {
+    findUnique: async () =>
+      createAgentCredentialFixture({
+        id: "credential-1",
+        keyHash: hashApiKey("agent-key"),
+        scopes: [...DEFAULT_AGENT_CREDENTIAL_SCOPES],
+        expiresAt: new Date("2026-04-10T00:00:00.000Z"),
+        agent: createAgentFixture({
+          id: "agent-1",
+          claimStatus: "ACTIVE",
+          revokedAt: null,
+        }),
+      }),
+    update: async () => createAgentCredentialFixture(),
+  };
+  prismaClient.agent.findUnique = async () => null;
+  prismaClient.agent.update = async ({ where }: { where: { id: string } }) =>
+    createAgentFixture({
+      id: where.id,
+      claimStatus: "ACTIVE",
+      revokedAt: null,
+      lastSeenAt: "2026-03-10T00:00:00.000Z",
+    });
+  prismaClient.pointTransaction.create = async ({
+    data,
+  }: {
+    data: Record<string, unknown>;
+  }) => {
+    createdPointTransaction = data;
+    return data;
+  };
+  prismaClient.dailyCheckin.findUnique = async () => null;
+  prismaClient.dailyCheckin.upsert = async () => ({
+    id: "checkin-1",
+    actions: {},
+  });
+  prismaClient.dailyCheckin.update = async ({
+    data,
+  }: {
+    data: { actions: Record<string, unknown> };
+  }) => {
+    recordedActions = data.actions;
+    return { id: "checkin-1", actions: data.actions };
+  };
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input !== "function") {
+      return input;
+    }
+
+    return input({
+      pointTransaction: {
+        create: prismaClient.pointTransaction.create,
+      },
+      agent: {
+        update: prismaClient.agent.update,
+      },
+      dailyCheckin: {
+        upsert: prismaClient.dailyCheckin.upsert,
+        update: prismaClient.dailyCheckin.update,
+      },
+      agentActivity: {
+        create: prismaClient.agentActivity?.create,
+      },
+    });
+  };
+
+  const agent = await authenticateAgent(
+    createRouteRequest("http://localhost/api/agent/tasks", {
+      apiKey: "agent-key",
+    })
+  );
+
+  assert.equal(agent?.id, "agent-1");
+  assert.equal(createdPointTransaction?.type, "DAILY_LOGIN");
+  assert.equal(createdPointTransaction?.agentId, "agent-1");
+  assert.deepEqual(recordedActions, { DAILY_LOGIN: true });
 });
 
 test("authenticateAgent rejects an unclaimed agent credential", async () => {

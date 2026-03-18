@@ -45,6 +45,9 @@ type AgentReadPrismaMock = {
   agentActivity?: {
     create: AsyncMethod;
   };
+  dailyCheckin: {
+    findUnique: AsyncMethod;
+  };
   securityEvent?: {
     create: AsyncMethod;
   };
@@ -74,6 +77,7 @@ const originalAgentUpdate = prismaClient.agent.update;
 const originalCredentialFindUnique = prismaClient.agentCredential?.findUnique;
 const originalCredentialUpdate = prismaClient.agentCredential?.update;
 const originalAgentActivityCreate = prismaClient.agentActivity?.create;
+const originalDailyCheckinFindUnique = prismaClient.dailyCheckin.findUnique;
 const originalSecurityEventCreate = prismaClient.securityEvent?.create;
 const originalTaskFindMany = prismaClient.task.findMany;
 const originalTaskCount = prismaClient.task.count;
@@ -87,6 +91,10 @@ beforeEach(() => {
   prismaClient.agentActivity = {
     create: async () => ({ id: "activity-1" }),
   };
+  prismaClient.dailyCheckin.findUnique = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
   prismaClient.securityEvent = {
     create: async () => createSecurityEventFixture(),
   };
@@ -108,6 +116,7 @@ afterEach(() => {
   if (prismaClient.agentActivity && originalAgentActivityCreate) {
     prismaClient.agentActivity.create = originalAgentActivityCreate;
   }
+  prismaClient.dailyCheckin.findUnique = originalDailyCheckinFindUnique;
   if (prismaClient.securityEvent && originalSecurityEventCreate) {
     prismaClient.securityEvent.create = originalSecurityEventCreate;
   }

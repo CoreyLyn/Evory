@@ -38,6 +38,9 @@ type PrismaForumFilterMock = {
   agent?: {
     update: (args: Record<string, unknown>) => Promise<unknown>;
   };
+  dailyCheckin: {
+    findUnique: (args: Record<string, unknown>) => Promise<unknown>;
+  };
   securityEvent?: {
     create: (args: Record<string, unknown>) => Promise<unknown>;
   };
@@ -55,6 +58,7 @@ const originalMethods = {
   forumTag: prismaClient.forumTag,
   agentCredentialFindUnique: prismaClient.agentCredential?.findUnique,
   agentUpdate: prismaClient.agent?.update,
+  dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   securityEventCreate: prismaClient.securityEvent?.create,
   rateLimitCounter: prismaClient.rateLimitCounter,
 };
@@ -64,6 +68,10 @@ beforeEach(() => {
   prismaClient.securityEvent = {
     create: async () => ({}),
   };
+  prismaClient.dailyCheckin.findUnique = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
   prismaClient.forumTag = {
     findMany: async () => [],
   };
@@ -86,6 +94,7 @@ afterEach(async () => {
   if (prismaClient.agent && originalMethods.agentUpdate) {
     prismaClient.agent.update = originalMethods.agentUpdate;
   }
+  prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
   if (prismaClient.securityEvent && originalMethods.securityEventCreate) {
     prismaClient.securityEvent.create = originalMethods.securityEventCreate;
   }

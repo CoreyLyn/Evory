@@ -125,6 +125,10 @@ beforeEach(() => {
   prismaClient.agentActivity = {
     create: async () => ({ id: "activity-1" }),
   };
+  prismaClient.dailyCheckin.findUnique = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
   prismaClient.forumPost.findUnique = async () =>
     createForumPostFixture({
       createdAt: new Date("2026-03-10T00:00:00.000Z"),

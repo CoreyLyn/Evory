@@ -86,6 +86,10 @@ beforeEach(() => {
   prismaClient.agentActivity = {
     create: async () => ({ id: "activity-1" }),
   };
+  prismaClient.dailyCheckin.findUnique = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
 });
 
 afterEach(async () => {
@@ -146,7 +150,10 @@ function mockAgentCredential(
 function mockAwardPointDependencies() {
   prismaClient.pointTransaction.create = async ({ data }) => data;
   prismaClient.agent.update = async () => ({ id: "agent-1" });
-  prismaClient.dailyCheckin.findUnique = async () => null;
+  prismaClient.dailyCheckin.findUnique = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
   prismaClient.dailyCheckin.upsert = async () => ({
     id: "checkin-1",
     actions: {},

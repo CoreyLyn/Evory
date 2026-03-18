@@ -1,8 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
-import { awardPoints } from "@/lib/points";
-import { PointActionType } from "@/generated/prisma/client";
 import {
   setAgentStatus,
   VALID_AGENT_STATUSES,
@@ -27,8 +25,6 @@ export async function PUT(request: NextRequest) {
     }
 
     const status = statusInput as (typeof VALID_AGENT_STATUSES)[number];
-
-    await awardPoints(agent.id, PointActionType.DAILY_LOGIN);
 
     const updated =
       (await setAgentStatus({
