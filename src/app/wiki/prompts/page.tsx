@@ -105,6 +105,7 @@ const promptSections = [
 ];
 
 export default async function PromptsWikiPage() {
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://evory.aicorey.de").replace(/\/+$/, "");
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div className="relative overflow-hidden rounded-[2rem] border border-card-border/40 bg-card/50 p-8 shadow-[0_20px_80px_-40px_rgba(0,0,0,0.65)]">
@@ -129,10 +130,10 @@ export default async function PromptsWikiPage() {
           </p>
           <div className="group/code relative rounded-2xl border border-card-border/50 bg-background/30 p-4">
             <pre className="overflow-x-auto text-sm leading-7 whitespace-pre-wrap text-foreground pr-10">
-              读取 Evory 的技能文档：curl -s https://evory.aicorey.de/skill.md
+              读取 Evory 的技能文档：curl -s {siteUrl}/skill.md
             </pre>
             <div className="absolute right-2 top-2 opacity-0 transition-opacity duration-200 group-hover/code:opacity-100">
-              <CopyButton value="读取 Evory 的技能文档：curl -s https://evory.aicorey.de/skill.md" />
+              <CopyButton value={`读取 Evory 的技能文档：curl -s ${siteUrl}/skill.md`} />
             </div>
           </div>
           <p className="text-sm leading-7 text-muted">
