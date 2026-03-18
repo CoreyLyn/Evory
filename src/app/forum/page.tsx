@@ -46,6 +46,13 @@ type ForumTagFilter = {
   postCount: number;
 };
 
+type AppliedForumFilterState = {
+  category: string;
+  searchQuery: string;
+  selectedTagSlugs: string[];
+  hasActiveFilters: boolean;
+};
+
 const CATEGORY_KEYS: { value: string; labelKey: TranslationKey }[] = [
   { value: "", labelKey: "forum.catAll" },
   { value: "general", labelKey: "forum.catGeneral" },
@@ -184,12 +191,17 @@ export function ForumPostListContent({
                     </span>
                     <span>{formatTimeAgo(post.updatedAt ?? post.createdAt)}</span>
                     {visibleTags.map((tag) => (
-                      <Badge key={tag.slug} variant={getTagBadgeVariant(tag.kind)}>
-                        {tag.label}
-                      </Badge>
+                      <span key={tag.slug} data-forum-visible-tag={tag.kind}>
+                        <Badge variant={getTagBadgeVariant(tag.kind)}>
+                          {tag.label}
+                        </Badge>
+                      </span>
                     ))}
                     {hiddenCount > 0 ? (
-                      <span className="rounded-full border border-card-border px-2.5 py-1 text-[11px] font-semibold text-muted">
+                      <span
+                        className="rounded-full border border-card-border px-2.5 py-1 text-[11px] font-semibold text-muted"
+                        data-forum-tag-overflow={hiddenCount}
+                      >
                         +{hiddenCount}
                       </span>
                     ) : null}
@@ -217,33 +229,174 @@ export function ForumPostListContent({
   );
 }
 
-function ForumLoadingSkeleton() {
+export function ForumLoadingSkeleton() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-forum-loading-skeleton="true">
       {Array.from({ length: 3 }, (_, index) => (
-        <Card key={index}>
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <div className="h-6 w-24 rounded-full bg-foreground/5" />
-              <div className="h-6 w-20 rounded-full bg-foreground/5" />
+        <div key={index} data-forum-loading-card="true">
+          <Card>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <div className="h-6 w-24 rounded-full bg-foreground/5" />
+                <div className="h-6 w-20 rounded-full bg-foreground/5" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-6 w-3/5 rounded-full bg-foreground/5" />
+                <div className="h-4 w-full rounded-full bg-foreground/5" />
+                <div className="h-4 w-4/5 rounded-full bg-foreground/5" />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <div className="h-5 w-20 rounded-full bg-foreground/5" />
+                <div className="h-5 w-16 rounded-full bg-foreground/5" />
+                <div className="h-5 w-14 rounded-full bg-foreground/5" />
+              </div>
+              <div className="flex gap-4">
+                <div className="h-4 w-16 rounded-full bg-foreground/5" />
+                <div className="h-4 w-14 rounded-full bg-foreground/5" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <div className="h-6 w-3/5 rounded-full bg-foreground/5" />
-              <div className="h-4 w-full rounded-full bg-foreground/5" />
-              <div className="h-4 w-4/5 rounded-full bg-foreground/5" />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <div className="h-5 w-20 rounded-full bg-foreground/5" />
-              <div className="h-5 w-16 rounded-full bg-foreground/5" />
-              <div className="h-5 w-14 rounded-full bg-foreground/5" />
-            </div>
-            <div className="flex gap-4">
-              <div className="h-4 w-16 rounded-full bg-foreground/5" />
-              <div className="h-4 w-14 rounded-full bg-foreground/5" />
-            </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       ))}
+    </div>
+  );
+}
+
+type ForumPageBodyProps = {
+  posts: Post[];
+  availableTags: ForumTagFilter[];
+  pagination: Pagination | null;
+  loading: boolean;
+  error: string | null;
+  page: number;
+  searchQuery: string;
+  category: string;
+  selectedTagSlugs: string[];
+  appliedHasActiveFilters: boolean;
+  onSearchChange: (value: string) => void;
+  onCategoryChange: (value: string) => void;
+  onTagToggle: (slug: string) => void;
+  onClearFilters: () => void;
+  onRetryLoad: () => void;
+  onPreviousPage: () => void;
+  onNextPage: () => void;
+  t: ReturnType<typeof useT>;
+  formatTimeAgo: ReturnType<typeof useFormatTimeAgo>;
+};
+
+export function ForumPageBody({
+  posts,
+  availableTags,
+  pagination,
+  loading,
+  error,
+  page,
+  searchQuery,
+  category,
+  selectedTagSlugs,
+  appliedHasActiveFilters,
+  onSearchChange,
+  onCategoryChange,
+  onTagToggle,
+  onClearFilters,
+  onRetryLoad,
+  onPreviousPage,
+  onNextPage,
+  t,
+  formatTimeAgo,
+}: ForumPageBodyProps) {
+  const resultCount = pagination?.total ?? posts.length;
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-6 animate-fade-in-up">
+      <PageHeader
+        title={t("forum.title")}
+        description={t("forum.description")}
+        rightSlot={
+          <div className="relative w-full min-w-0 sm:w-80">
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder={t("forum.searchPlaceholder")}
+              className="min-w-0 w-full rounded-xl border border-card-border bg-card px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-accent/40"
+            />
+          </div>
+        }
+      />
+
+      <div className="rounded-2xl border border-card-border/60 bg-card/30 p-4">
+        <p className="mb-4 text-sm text-muted">{t("control.forumReadOnly")}</p>
+        <div className="flex flex-wrap gap-2">
+          {CATEGORY_KEYS.map(({ value, labelKey }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onCategoryChange(value)}
+              className={`relative rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300 ${category === value
+                ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
+                : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
+                }`}
+            >
+              {t(labelKey)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {error ? (
+        <div className="rounded-2xl border border-danger/40 bg-danger/10 p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-danger">{error}</p>
+            <Button variant="secondary" onClick={onRetryLoad}>
+              {t("forum.retryLoad")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {loading ? (
+        <ForumLoadingSkeleton />
+      ) : error ? null : posts.length === 0 && !appliedHasActiveFilters ? (
+        <EmptyState title={t("forum.empty")} description={t("forum.description")} />
+      ) : (
+        <div className="space-y-6">
+          <ForumPostListContent
+            posts={posts}
+            resultCount={resultCount}
+            hasActiveFilters={appliedHasActiveFilters}
+            selectedTagSlugs={selectedTagSlugs}
+            availableTags={availableTags}
+            onTagToggle={onTagToggle}
+            onClearFilters={onClearFilters}
+            emptyStateTitle={appliedHasActiveFilters ? t("forum.emptyFilteredTitle") : undefined}
+            emptyStateDescription={appliedHasActiveFilters ? t("forum.emptyFilteredDescription") : undefined}
+            t={t}
+            formatTimeAgo={formatTimeAgo}
+          />
+          {pagination && pagination.totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-center gap-4">
+              <Button
+                variant="secondary"
+                disabled={page <= 1}
+                onClick={onPreviousPage}
+              >
+                {t("common.prevPage")}
+              </Button>
+              <span className="text-muted">
+                {t("common.pageOf", { page: pagination.page, total: pagination.totalPages })}
+              </span>
+              <Button
+                variant="secondary"
+                disabled={page >= pagination.totalPages}
+                onClick={onNextPage}
+              >
+                {t("common.nextPage")}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -262,12 +415,23 @@ export default function ForumPage() {
   const [page, setPage] = useState(1);
   const [reloadNonce, setReloadNonce] = useState(0);
   const deferredSearchQuery = useDeferredValue(searchQuery.trim());
-  const hasActiveFilters = Boolean(category || searchQuery.trim() || selectedTagSlugs.length > 0);
+  const [appliedFilterState, setAppliedFilterState] = useState<AppliedForumFilterState>({
+    category: "",
+    searchQuery: "",
+    selectedTagSlugs: [],
+    hasActiveFilters: false,
+  });
 
   useEffect(() => {
     async function fetchPosts() {
       setLoading(true);
       setError(null);
+      const requestFilterState: AppliedForumFilterState = {
+        category,
+        searchQuery: deferredSearchQuery,
+        selectedTagSlugs,
+        hasActiveFilters: Boolean(category || deferredSearchQuery || selectedTagSlugs.length > 0),
+      };
       try {
         const params = new URLSearchParams({
           page: String(page),
@@ -284,11 +448,13 @@ export default function ForumPage() {
         setPosts(json.data ?? []);
         setAvailableTags(json.filters?.tags ?? []);
         setPagination(json.pagination ?? null);
+        setAppliedFilterState(requestFilterState);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load posts");
         setPosts([]);
         setAvailableTags([]);
         setPagination(null);
+        setAppliedFilterState(requestFilterState);
       } finally {
         setLoading(false);
       }
@@ -322,98 +488,29 @@ export default function ForumPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 animate-fade-in-up">
-      <PageHeader
-        title={t("forum.title")}
-        description={t("forum.description")}
-        rightSlot={
-          <div className="relative w-full min-w-0 sm:w-80">
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => handleSearchChange(event.target.value)}
-              placeholder={t("forum.searchPlaceholder")}
-              className="min-w-0 w-full rounded-xl border border-card-border bg-card px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-accent/40"
-            />
-          </div>
-        }
-      />
-
-      <div className="rounded-2xl border border-card-border/60 bg-card/30 p-4">
-        <p className="mb-4 text-sm text-muted">{t("control.forumReadOnly")}</p>
-        <div className="flex flex-wrap gap-2">
-          {CATEGORY_KEYS.map(({ value, labelKey }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => {
-                setCategory(value);
-                setPage(1);
-              }}
-              className={`relative rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300 ${category === value
-                ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
-                : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
-                }`}
-            >
-              {t(labelKey)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {error ? (
-        <div className="rounded-2xl border border-danger/40 bg-danger/10 p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-danger">{error}</p>
-            <Button variant="secondary" onClick={retryLoad}>
-              {t("forum.retryLoad")}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
-      {loading ? (
-        <ForumLoadingSkeleton />
-      ) : error ? null : posts.length === 0 && !hasActiveFilters ? (
-        <EmptyState title={t("forum.empty")} description={t("forum.description")} />
-      ) : (
-        <div className="space-y-6">
-          <ForumPostListContent
-            posts={posts}
-            resultCount={pagination?.total ?? posts.length}
-            hasActiveFilters={hasActiveFilters}
-            selectedTagSlugs={selectedTagSlugs}
-            availableTags={availableTags}
-            onTagToggle={toggleTagSelection}
-            onClearFilters={clearFilters}
-            emptyStateTitle={hasActiveFilters ? t("forum.emptyFilteredTitle") : undefined}
-            emptyStateDescription={hasActiveFilters ? t("forum.emptyFilteredDescription") : undefined}
-            t={t}
-            formatTimeAgo={formatTimeAgo}
-          />
-          {pagination && pagination.totalPages > 1 && (
-            <div className="mt-8 flex items-center justify-center gap-4">
-              <Button
-                variant="secondary"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                {t("common.prevPage")}
-              </Button>
-              <span className="text-muted">
-                {t("common.pageOf", { page: pagination.page, total: pagination.totalPages })}
-              </span>
-              <Button
-                variant="secondary"
-                disabled={page >= pagination.totalPages}
-                onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-              >
-                {t("common.nextPage")}
-              </Button>
-            </div>
-          )}
-          </div>
-        )}
-    </div>
+    <ForumPageBody
+      posts={posts}
+      availableTags={availableTags}
+      pagination={pagination}
+      loading={loading}
+      error={error}
+      page={page}
+      searchQuery={searchQuery}
+      category={category}
+      selectedTagSlugs={selectedTagSlugs}
+      appliedHasActiveFilters={appliedFilterState.hasActiveFilters}
+      onSearchChange={handleSearchChange}
+      onCategoryChange={(value) => {
+        setCategory(value);
+        setPage(1);
+      }}
+      onTagToggle={toggleTagSelection}
+      onClearFilters={clearFilters}
+      onRetryLoad={retryLoad}
+      onPreviousPage={() => setPage((p) => Math.max(1, p - 1))}
+      onNextPage={() => setPage((p) => Math.min(pagination?.totalPages ?? p, p + 1))}
+      t={t}
+      formatTimeAgo={formatTimeAgo}
+    />
   );
 }
