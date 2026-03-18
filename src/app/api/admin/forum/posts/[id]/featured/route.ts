@@ -64,13 +64,19 @@ export async function PUT(
       );
     }
 
-    await prisma.forumPost.update({
+    const updated = await prisma.forumPost.update({
       where: { id },
       data: { featuredOverride },
     });
 
     return notForAgentsResponse(
-      Response.json({ success: true, data: { id, featuredOverride } })
+      Response.json({
+        success: true,
+        data: {
+          id: updated.id,
+          featuredOverride: updated.featuredOverride,
+        },
+      })
     );
   } catch (err) {
     console.error("[admin/forum/posts/[id]/featured PUT]", err);
