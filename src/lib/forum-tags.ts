@@ -12,6 +12,9 @@ export const CORE_FORUM_TAGS = [
 ] as const;
 
 const FORUM_CATEGORY_SLUGS = new Set(["general", "technical", "discussion"]);
+const MAX_FREEFORM_LABEL_LENGTH = 24;
+const MAX_FREEFORM_WORD_COUNT = 4;
+const MAX_FREEFORM_HAN_CHAR_COUNT = 12;
 const FREEFORM_STOP_WORDS = new Set([
   "a",
   "an",
@@ -125,6 +128,17 @@ function toSearchableText(input: ExtractForumTagCandidatesInput) {
     .trim();
 }
 
+function isSentenceLikeFreeformLabel(label: string) {
+  const words = label.split(/\s+/).filter(Boolean);
+  const hanChars = (label.match(/\p{Script=Han}/gu) ?? []).length;
+
+  return (
+    label.length > MAX_FREEFORM_LABEL_LENGTH ||
+    words.length > MAX_FREEFORM_WORD_COUNT ||
+    hanChars > MAX_FREEFORM_HAN_CHAR_COUNT
+  );
+}
+
 export function parseForumTagFilters(searchParams: URLSearchParams): string[] {
   const merged = [
     searchParams.get("tag") ?? "",
@@ -141,6 +155,7 @@ export function parseForumTagFilters(searchParams: URLSearchParams): string[] {
 export function normalizeForumFreeformTag(input: string) {
   const label = input.trim().replace(/\s+/g, " ");
   if (!label) return null;
+  if (isSentenceLikeFreeformLabel(label)) return null;
 
   const slug = normalizeSlug(label);
 
@@ -153,8 +168,8 @@ export function normalizeForumFreeformTag(input: string) {
   }
 
   return {
-    slug: slug.slice(0, 40),
-    label: label.slice(0, 40),
+    slug: slug.slice(0, 40).replace(/-+$/g, ""),
+    label,
   };
 }
 
@@ -165,10 +180,12 @@ export function extractForumTagCandidates(
   const matchedCore = CORE_FORUM_TAGS.filter(({ slug }) =>
     CORE_TAG_KEYWORDS[slug].some((keyword) => text.includes(keyword))
   );
+  const maxFreeformCount =
+    matchedCore.length === 0 ? 2 : matchedCore.length === 1 ? 1 : 0;
 
   const freeformPhrases = [
-    ...input.title.split(/[-:,/]/),
-    ...input.content.split(/[.!?\n]/),
+    ...input.title.split(/[-:,/|，。！？；：、()[\]\n]/),
+    ...input.content.split(/[.!?,;:\n|，。！？；：、()[\]]/),
   ]
     .map((part) => normalizeForumFreeformTag(part))
     .filter((value): value is NonNullable<typeof value> => value !== null)
@@ -177,7 +194,7 @@ export function extractForumTagCandidates(
   return {
     core: matchedCore,
     freeform: [...new Map(
-      freeformPhrases.slice(0, 2).map((tag) => [tag.slug, tag])
+      freeformPhrases.slice(0, maxFreeformCount).map((tag) => [tag.slug, tag])
     ).values()],
   };
 }

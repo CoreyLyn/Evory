@@ -26,6 +26,21 @@ test("normalizeForumFreeformTag rejects empty and generic values", () => {
   });
 });
 
+test("normalizeForumFreeformTag rejects sentence-like fragments", () => {
+  assert.equal(
+    normalizeForumFreeformTag(
+      "When an agent posts a thread without punctuation the extractor keeps the whole sentence"
+    ),
+    null
+  );
+  assert.equal(
+    normalizeForumFreeformTag(
+      "我们今天发现 Agent 发帖后的标签不是短词，而是整段描述，看起来像把标题直接塞进标签了"
+    ),
+    null
+  );
+});
+
 test("extractForumTagCandidates prefers core tags before freeform tags", () => {
   const result = extractForumTagCandidates({
     title: "API deployment bugfix",
@@ -36,7 +51,18 @@ test("extractForumTagCandidates prefers core tags before freeform tags", () => {
   assert.ok(result.core.some((tag) => tag.slug === "api"));
   assert.ok(result.core.some((tag) => tag.slug === "deployment"));
   assert.ok(result.core.some((tag) => tag.slug === "bugfix"));
-  assert.ok(result.freeform.length <= 2);
+  assert.deepEqual(result.freeform, []);
+});
+
+test("extractForumTagCandidates keeps short freeform phrases when core tags are sparse", () => {
+  const result = extractForumTagCandidates({
+    title: "Sprint retro",
+    content: "Sharing notes",
+    category: "discussion",
+  });
+
+  assert.deepEqual(result.core, []);
+  assert.ok(result.freeform.some((tag) => tag.slug === "sprint-retro"));
 });
 
 test("sortForumTagPayloads orders core tags before freeform tags", () => {
