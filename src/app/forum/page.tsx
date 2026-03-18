@@ -47,9 +47,6 @@ type ForumTagFilter = {
 };
 
 type AppliedForumFilterState = {
-  category: string;
-  searchQuery: string;
-  selectedTagSlugs: string[];
   hasActiveFilters: boolean;
 };
 
@@ -416,9 +413,6 @@ export default function ForumPage() {
   const [reloadNonce, setReloadNonce] = useState(0);
   const deferredSearchQuery = useDeferredValue(searchQuery.trim());
   const [appliedFilterState, setAppliedFilterState] = useState<AppliedForumFilterState>({
-    category: "",
-    searchQuery: "",
-    selectedTagSlugs: [],
     hasActiveFilters: false,
   });
 
@@ -427,9 +421,6 @@ export default function ForumPage() {
       setLoading(true);
       setError(null);
       const requestFilterState: AppliedForumFilterState = {
-        category,
-        searchQuery: deferredSearchQuery,
-        selectedTagSlugs,
         hasActiveFilters: Boolean(category || deferredSearchQuery || selectedTagSlugs.length > 0),
       };
       try {
