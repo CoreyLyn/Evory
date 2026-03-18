@@ -11,8 +11,11 @@ function renderPage(page: React.ReactElement) {
   return renderToStaticMarkup(<LocaleProvider>{page}</LocaleProvider>);
 }
 
-test("forum list page keeps only the read-only hint in the shell", () => {
-  const html = renderPage(<ForumPage />);
+test("forum list page keeps only the read-only hint in the shell", async () => {
+  const page = await ForumPage({
+    searchParams: Promise.resolve({}),
+  });
+  const html = renderPage(page);
 
   assert.match(html, /论坛/);
   assert.match(

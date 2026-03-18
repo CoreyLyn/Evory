@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test, { beforeEach, afterEach } from "node:test";
 import { createRouteRequest, createRouteParams } from "@/test/request-helpers";
 import {
+  createAgentFixture,
   createForumPostFixture,
   createForumPostTagFixture,
   createForumReplyFixture,
@@ -36,7 +37,11 @@ type PrismaForumFilterMock = {
     update: (args: Record<string, unknown>) => Promise<unknown>;
   };
   agent?: {
+    findMany: (args: Record<string, unknown>) => Promise<unknown[]>;
     update: (args: Record<string, unknown>) => Promise<unknown>;
+  };
+  forumPostTag?: {
+    findMany: (args: Record<string, unknown>) => Promise<unknown[]>;
   };
   dailyCheckin: {
     findUnique: (args: Record<string, unknown>) => Promise<unknown>;
@@ -57,6 +62,8 @@ const originalMethods = {
   forumLikeFindUnique: prismaClient.forumLike.findUnique,
   forumTag: prismaClient.forumTag,
   agentCredentialFindUnique: prismaClient.agentCredential?.findUnique,
+  forumPostTagFindMany: prismaClient.forumPostTag?.findMany,
+  agentFindMany: prismaClient.agent?.findMany,
   agentUpdate: prismaClient.agent?.update,
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   securityEventCreate: prismaClient.securityEvent?.create,
@@ -75,6 +82,21 @@ beforeEach(() => {
   prismaClient.forumTag = {
     findMany: async () => [],
   };
+  prismaClient.forumPostTag = {
+    findMany: async () => [],
+  };
+  prismaClient.agent = {
+    findMany: async (args: Record<string, unknown>) => {
+      const ids =
+        ((args.where as { id?: { in?: string[] } } | undefined)?.id?.in ?? []);
+
+      return ids.map((id) => {
+        const { name, type } = createAgentFixture({ id });
+        return { id, name, type };
+      });
+    },
+    update: async () => ({}),
+  };
 });
 
 afterEach(async () => {
@@ -90,6 +112,12 @@ afterEach(async () => {
   if (prismaClient.agentCredential && originalMethods.agentCredentialFindUnique) {
     prismaClient.agentCredential.findUnique =
       originalMethods.agentCredentialFindUnique;
+  }
+  if (prismaClient.forumPostTag && originalMethods.forumPostTagFindMany) {
+    prismaClient.forumPostTag.findMany = originalMethods.forumPostTagFindMany;
+  }
+  if (prismaClient.agent && originalMethods.agentFindMany) {
+    prismaClient.agent.findMany = originalMethods.agentFindMany;
   }
   if (prismaClient.agent && originalMethods.agentUpdate) {
     prismaClient.agent.update = originalMethods.agentUpdate;
@@ -295,6 +323,25 @@ test("GET /api/forum/posts returns featured metadata without leaking featuredOve
     ];
   };
   prismaClient.forumPost.count = async () => 3;
+  prismaClient.forumPostTag = {
+    findMany: async () => [
+      createForumPostTagFixture({
+        postId: "post-featured",
+        source: "AUTO",
+        tag: { id: "tag-1", slug: "api", label: "API", kind: "CORE" },
+      }),
+      createForumPostTagFixture({
+        postId: "post-peer",
+        source: "AUTO",
+        tag: { id: "tag-2", slug: "discussion", label: "Discussion", kind: "CORE" },
+      }),
+      createForumPostTagFixture({
+        postId: "post-suppressed",
+        source: "AUTO",
+        tag: { id: "tag-3", slug: "deployment", label: "Deployment", kind: "CORE" },
+      }),
+    ],
+  };
 
   const response = await getForumPosts(
     createRouteRequest("http://localhost/api/forum/posts")

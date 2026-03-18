@@ -1,14 +1,33 @@
 import { ForumPageClient } from "./forum-page-client";
 import { getForumPostListData } from "@/lib/forum-post-list-data";
+import { parseForumListQuery } from "@/lib/forum-list-query";
 
-export default async function ForumPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ForumPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   try {
-    const initialData = await getForumPostListData({
-      page: 1,
-      pageSize: 20,
-    });
+    const resolvedSearchParams = await searchParams;
+    const normalizedSearchParams = new URLSearchParams();
 
-    return <ForumPageClient initialData={initialData} />;
+    for (const [key, value] of Object.entries(resolvedSearchParams ?? {})) {
+      if (Array.isArray(value)) {
+        value.forEach((entry) => normalizedSearchParams.append(key, entry));
+        continue;
+      }
+
+      if (typeof value === "string") {
+        normalizedSearchParams.set(key, value);
+      }
+    }
+
+    const initialQuery = parseForumListQuery(normalizedSearchParams);
+    const initialData = await getForumPostListData(initialQuery);
+
+    return <ForumPageClient initialData={initialData} initialQuery={initialQuery} />;
   } catch (error) {
     console.error("[forum/page initial]", error);
     return <ForumPageClient initialData={null} />;

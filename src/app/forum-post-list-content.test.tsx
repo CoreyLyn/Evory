@@ -5,87 +5,55 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   ForumPageBody,
   ForumPageClient,
-  ForumPostListContent,
+  getForumPageUrl,
+  getInitialForumPageClientState,
   shouldSkipForumClientFetch,
 } from "./forum/forum-page-client";
 import { LocaleProvider, useT } from "@/i18n";
 
-function ForumPostListContentHarness() {
-  const t = useT();
-
-  return (
-    <ForumPostListContent
-      t={t}
-      formatTimeAgo={() => "1天前"}
-      posts={[
-        {
-          id: "post-1",
-          title: "API deployment bugfix",
-          content: "# Heading\n\nNeed to deploy a fix.",
-          category: "technical",
-          featured: true,
-          viewCount: 5,
-          likeCount: 1,
-          createdAt: "2026-03-18T00:00:00.000Z",
-          updatedAt: "2026-03-18T06:00:00.000Z",
-          replyCount: 2,
-          agent: { id: "agent-1", name: "Author", type: "CUSTOM" },
-          tags: [
-            { slug: "infra", label: "Infra", kind: "freeform", source: "manual" },
-            { slug: "api", label: "API", kind: "core", source: "auto" },
-            {
-              slug: "deployment",
-              label: "Deployment",
-              kind: "core",
-              source: "auto",
-            },
-          ],
-        },
-      ]}
-      resultCount={12}
-      hasActiveFilters
-      selectedTagSlugs={["api"]}
-      availableTags={[
-        { slug: "api", label: "API", kind: "core", postCount: 3 },
-      ]}
-      onTagToggle={() => {}}
-      onClearFilters={() => {}}
-    />
-  );
-}
-
-function ForumPostListContentEmptyHarness() {
-  const t = useT();
-
-  return (
-    <ForumPostListContent
-      t={t}
-      formatTimeAgo={() => "1天前"}
-      posts={[]}
-      resultCount={0}
-      hasActiveFilters
-      selectedTagSlugs={["api"]}
-      availableTags={[
-        { slug: "api", label: "API", kind: "core", postCount: 0 },
-      ]}
-      onTagToggle={() => {}}
-      onClearFilters={() => {}}
-      emptyStateTitle="No posts match these filters"
-      emptyStateDescription="Try a broader search."
-    />
-  );
-}
-
 test("forum post list content renders the editorial list hierarchy", () => {
   const html = renderToStaticMarkup(
     <LocaleProvider>
-      <ForumPostListContentHarness />
+      <ForumPageBodyHarness
+        posts={[
+          {
+            id: "post-1",
+            title: "API deployment bugfix",
+            content: "# Heading\n\nNeed to deploy a fix.",
+            category: "technical",
+            featured: true,
+            viewCount: 5,
+            likeCount: 1,
+            createdAt: "2026-03-18T00:00:00.000Z",
+            updatedAt: "2026-03-18T06:00:00.000Z",
+            replyCount: 2,
+            agent: { id: "agent-1", name: "Author", type: "CUSTOM" },
+            tags: [
+              { slug: "infra", label: "Infra", kind: "freeform", source: "manual" },
+              { slug: "api", label: "API", kind: "core", source: "auto" },
+              {
+                slug: "deployment",
+                label: "Deployment",
+                kind: "core",
+                source: "auto",
+              },
+            ],
+          },
+        ]}
+        resultCount={12}
+        appliedHasActiveFilters
+        searchQuery="timeout"
+        availableTags={[{ slug: "api", label: "API", kind: "core", postCount: 3 }]}
+        selectedTagSlugs={["api"]}
+      />
     </LocaleProvider>
   );
 
   assert.match(html, /(Editors&#x27; pick|编辑精选)/);
   assert.match(html, /(12 results|共 12 条结果)/);
   assert.match(html, /(Clear filters|清除筛选)/);
+  assert.match(html, /(Sort|排序)/);
+  assert.match(html, /(Latest|最新)/);
   assert.match(html, /data-forum-visible-tag="core"[^>]*>[\s\S]*?>API<\/span><\/span>/);
   assert.match(html, /data-forum-visible-tag="core"[^>]*>[\s\S]*?>Deployment<\/span><\/span>/);
   assert.match(html, /data-forum-tag-overflow="1"/);
@@ -100,14 +68,19 @@ test("forum post list content renders the editorial list hierarchy", () => {
 test("forum post list content keeps summary and clear filters visible for filtered-empty states", () => {
   const html = renderToStaticMarkup(
     <LocaleProvider>
-      <ForumPostListContentEmptyHarness />
+      <ForumPageBodyHarness
+        appliedHasActiveFilters
+        searchQuery="api"
+        selectedTagSlugs={["api"]}
+        availableTags={[{ slug: "api", label: "API", kind: "core", postCount: 0 }]}
+      />
     </LocaleProvider>
   );
 
   assert.match(html, /(0 results|共 0 条结果)/);
   assert.match(html, /(Clear filters|清除筛选)/);
-  assert.match(html, /No posts match these filters/);
-  assert.match(html, /Try a broader search\./);
+  assert.match(html, /(No posts match these filters|没有匹配当前筛选的帖子)/);
+  assert.match(html, /(Try a broader search|试试放宽关键词)/);
 });
 
 function ForumPageBodyHarness({
@@ -117,6 +90,8 @@ function ForumPageBodyHarness({
   resultCount = 0,
   appliedHasActiveFilters = false,
   searchQuery = "",
+  availableTags = [],
+  selectedTagSlugs = [],
 }: {
   loading?: boolean;
   error?: string | null;
@@ -124,6 +99,8 @@ function ForumPageBodyHarness({
   resultCount?: number;
   appliedHasActiveFilters?: boolean;
   searchQuery?: string;
+  availableTags?: React.ComponentProps<typeof ForumPostListContent>["availableTags"];
+  selectedTagSlugs?: string[];
 }) {
   const t = useT();
 
@@ -132,17 +109,19 @@ function ForumPageBodyHarness({
       t={t}
       formatTimeAgo={() => "1天前"}
       posts={posts}
-      availableTags={[]}
+      availableTags={availableTags}
       pagination={resultCount > 0 ? { total: resultCount, page: 1, pageSize: 20, totalPages: 1 } : null}
       loading={loading}
       error={error}
       page={1}
       searchQuery={searchQuery}
       category=""
-      selectedTagSlugs={[]}
+      sort="latest"
+      selectedTagSlugs={selectedTagSlugs}
       appliedHasActiveFilters={appliedHasActiveFilters}
       onSearchChange={() => {}}
       onCategoryChange={() => {}}
+      onSortChange={() => {}}
       onTagToggle={() => {}}
       onClearFilters={() => {}}
       onRetryLoad={() => {}}
@@ -256,6 +235,14 @@ test("forum page client renders initial server data without waiting for a client
             totalPages: 1,
           },
         }}
+        initialQuery={{
+          page: 1,
+          pageSize: 20,
+          category: null,
+          sort: "latest",
+          q: "",
+          selectedTagSlugs: [],
+        }}
       />
     </LocaleProvider>
   );
@@ -270,6 +257,7 @@ test("shouldSkipForumClientFetch keeps the default initial request on server dat
       hasInitialData: true,
       page: 1,
       category: "",
+      sort: "latest",
       deferredSearchQuery: "",
       selectedTagSlugs: [],
       reloadNonce: 0,
@@ -282,10 +270,44 @@ test("shouldSkipForumClientFetch keeps the default initial request on server dat
       hasInitialData: true,
       page: 1,
       category: "technical",
+      sort: "latest",
       deferredSearchQuery: "",
       selectedTagSlugs: [],
       reloadNonce: 0,
     }),
     false
+  );
+});
+
+test("getInitialForumPageClientState derives client state from the normalized query", () => {
+  assert.deepEqual(
+    getInitialForumPageClientState({
+      page: 3,
+      pageSize: 20,
+      category: "technical",
+      sort: "top",
+      q: "timeout",
+      selectedTagSlugs: ["api", "testing"],
+    }),
+    {
+      page: 3,
+      category: "technical",
+      searchQuery: "timeout",
+      selectedTagSlugs: ["api", "testing"],
+      sort: "top",
+    }
+  );
+});
+
+test("getForumPageUrl serializes sort and filters into a shareable URL", () => {
+  assert.equal(
+    getForumPageUrl({
+      page: 1,
+      category: "technical",
+      sort: "top",
+      q: " timeout ",
+      selectedTagSlugs: ["api", "testing"],
+    }),
+    "/forum?category=technical&sort=top&q=timeout&tags=api%2Ctesting"
   );
 });
