@@ -729,14 +729,23 @@ test("PUT featured — successfully updates featured override and returns it", a
     id: "post-1",
     featuredOverride: null,
   });
+  let capturedUpdateArgs:
+    | { where: { id: string }; data: { featuredOverride: boolean | null } }
+    | null = null;
 
   prismaClient.forumPost = {
     ...prismaClient.forumPost,
     findUnique: async () => originalPost,
-    update: async ({ data }: { data: { featuredOverride: boolean | null } }) => ({
-      ...originalPost,
-      ...data,
-    }),
+    update: async (args: {
+      where: { id: string };
+      data: { featuredOverride: boolean | null };
+    }) => {
+      capturedUpdateArgs = args;
+      return {
+        ...originalPost,
+        ...args.data,
+      };
+    },
   };
 
   const request = createRouteRequest(
@@ -763,6 +772,10 @@ test("PUT featured — successfully updates featured override and returns it", a
   assert.deepEqual(body.data, {
     id: "post-1",
     featuredOverride: true,
+  });
+  assert.deepEqual(capturedUpdateArgs, {
+    where: { id: "post-1" },
+    data: { featuredOverride: true },
   });
 });
 
