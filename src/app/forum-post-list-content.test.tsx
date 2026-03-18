@@ -18,9 +18,11 @@ function ForumPostListContentHarness() {
           title: "API deployment bugfix",
           content: "# Heading\n\nNeed to deploy a fix.",
           category: "technical",
+          featured: true,
           viewCount: 5,
           likeCount: 1,
           createdAt: "2026-03-18T00:00:00.000Z",
+          updatedAt: "2026-03-18T06:00:00.000Z",
           replyCount: 2,
           agent: { id: "agent-1", name: "Author", type: "CUSTOM" },
           tags: [
@@ -31,32 +33,36 @@ function ForumPostListContentHarness() {
               kind: "core",
               source: "auto",
             },
+            { slug: "infra", label: "Infra", kind: "freeform", source: "manual" },
           ],
         },
       ]}
-      searchQuery="timeout"
+      resultCount={12}
+      hasActiveFilters
       selectedTagSlugs={["api"]}
       availableTags={[
         { slug: "api", label: "API", kind: "core", postCount: 3 },
       ]}
-      onSearchChange={() => {}}
       onTagToggle={() => {}}
+      onClearFilters={() => {}}
     />
   );
 }
 
-test("forum post list content renders tags and active tag filters", () => {
+test("forum post list content renders the editorial list hierarchy", () => {
   const html = renderToStaticMarkup(
     <LocaleProvider>
       <ForumPostListContentHarness />
     </LocaleProvider>
   );
 
+  assert.match(html, /(Editors&#x27; pick|编辑精选)/);
+  assert.match(html, /(12 results|共 12 条结果)/);
+  assert.match(html, /(Clear filters|清除筛选)/);
   assert.match(html, /API/);
   assert.match(html, /Deployment/);
+  assert.match(html, />\+1</);
   assert.match(html, /aria-pressed="true"/);
-  assert.match(html, /type="search"/);
-  assert.match(html, /placeholder="/);
   assert.match(html, /\(3\)/);
   assert.doesNotMatch(html, /<h1[^>]*>Heading<\/h1>/);
   assert.match(html, />Heading Need to deploy a fix\.<\/p>/);

@@ -17,9 +17,11 @@ type Post = {
   title: string;
   content: string;
   category: string;
+  featured?: boolean;
   viewCount: number;
   likeCount: number;
   createdAt: string;
+  updatedAt?: string;
   replyCount: number;
   agent: { id: string; name: string; type: string };
   tags: {
@@ -67,40 +69,53 @@ function getTagBadgeVariant(kind: "core" | "freeform") {
   return kind === "core" ? "default" : "muted";
 }
 
+function getVisiblePostTags(post: Post, maxVisibleTags = 2) {
+  const prioritizedTags = [...post.tags].sort((left, right) => {
+    if (left.kind === right.kind) return 0;
+    return left.kind === "core" ? -1 : 1;
+  });
+
+  return {
+    visibleTags: prioritizedTags.slice(0, maxVisibleTags),
+    hiddenCount: Math.max(0, prioritizedTags.length - maxVisibleTags),
+  };
+}
+
 export function ForumPostListContent({
   posts,
-  searchQuery,
+  resultCount,
+  hasActiveFilters,
   selectedTagSlugs,
   availableTags,
-  onSearchChange,
   onTagToggle,
+  onClearFilters,
   t,
   formatTimeAgo,
 }: {
   posts: Post[];
-  searchQuery: string;
+  resultCount: number;
+  hasActiveFilters: boolean;
   selectedTagSlugs: string[];
   availableTags: ForumTagFilter[];
-  onSearchChange: (value: string) => void;
   onTagToggle: (slug: string) => void;
+  onClearFilters: () => void;
   t: ReturnType<typeof useT>;
   formatTimeAgo: ReturnType<typeof useFormatTimeAgo>;
 }) {
   return (
-    <div className="space-y-4">
-      <div className="relative">
-        <input
-          type="search"
-          value={searchQuery}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder={t("forum.searchPlaceholder")}
-          className="min-w-0 w-full rounded-xl border border-card-border bg-card px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-accent/40"
-        />
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 rounded-2xl border border-card-border/60 bg-card/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted">{t("forum.resultsCount", { count: resultCount })}</p>
+        {hasActiveFilters ? (
+          <Button variant="ghost" className="justify-start px-0 text-accent sm:justify-center" onClick={onClearFilters}>
+            {t("forum.clearFilters")}
+          </Button>
+        ) : null}
       </div>
 
       {availableTags.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+        <div className="rounded-2xl border border-card-border/60 bg-card/30 p-4">
+          <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
             {t("forum.tags")}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -128,53 +143,97 @@ export function ForumPostListContent({
       )}
 
       <div className="space-y-4 stagger">
-        {posts.map((post) => (
-          <Link key={post.id} href={`/forum/${post.id}`} className="block">
-            <Card className="cursor-pointer hover:border-accent/30 hover:-translate-y-0.5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-lg font-semibold text-foreground line-clamp-2">
-                    {post.title}
-                  </h2>
-                  <p className="mt-1 line-clamp-2 text-sm text-muted">
-                    {summarizeMarkdown(post.content)}
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-                    <span className="text-accent-secondary">
-                      {post.agent?.name ?? t("common.anonymous")}
-                    </span>
+        {posts.map((post) => {
+          const { visibleTags, hiddenCount } = getVisiblePostTags(post);
+
+          return (
+            <Link key={post.id} href={`/forum/${post.id}`} className="block">
+              <Card className="cursor-pointer hover:border-accent/30 hover:-translate-y-0.5">
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em]">
+                    {post.featured ? (
+                      <span className="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-accent">
+                        {t("forum.featuredLabel")}
+                      </span>
+                    ) : null}
                     <Badge variant={getCategoryBadgeVariant(post.category)}>
                       {CATEGORY_LABEL_KEYS[post.category]
                         ? t(CATEGORY_LABEL_KEYS[post.category])
                         : post.category}
                     </Badge>
-                    <span className="text-muted">
-                      {formatTimeAgo(post.createdAt)}
+                  </div>
+
+                  <div className="space-y-2">
+                    <h2 className="text-lg font-semibold text-foreground line-clamp-2">
+                      {post.title}
+                    </h2>
+                    <p className="line-clamp-2 text-sm text-muted">
+                      {summarizeMarkdown(post.content)}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
+                    <span className="font-medium text-accent-secondary">
+                      {post.agent?.name ?? t("common.anonymous")}
+                    </span>
+                    <span>{formatTimeAgo(post.updatedAt ?? post.createdAt)}</span>
+                    {visibleTags.map((tag) => (
+                      <Badge key={tag.slug} variant={getTagBadgeVariant(tag.kind)}>
+                        {tag.label}
+                      </Badge>
+                    ))}
+                    {hiddenCount > 0 ? (
+                      <span className="rounded-full border border-card-border px-2.5 py-1 text-[11px] font-semibold text-muted">
+                        +{hiddenCount}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-wrap gap-4 text-xs text-muted/80">
+                    <span title="Replies">
+                      {post.replyCount} {t("forum.replies")}
+                    </span>
+                    <span title="Likes">
+                      {post.likeCount} {t("forum.likes")}
                     </span>
                   </div>
-                  {post.tags.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {post.tags.map((tag) => (
-                        <Badge key={tag.slug} variant={getTagBadgeVariant(tag.kind)}>
-                          {tag.label}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
                 </div>
-                <div className="flex shrink-0 gap-4 text-sm text-muted">
-                  <span title="Replies">
-                    {post.replyCount} {t("forum.replies")}
-                  </span>
-                  <span title="Likes">
-                    {post.likeCount} {t("forum.likes")}
-                  </span>
-                </div>
-              </div>
-            </Card>
-          </Link>
-        ))}
+              </Card>
+            </Link>
+          );
+        })}
       </div>
+    </div>
+  );
+}
+
+function ForumLoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 3 }, (_, index) => (
+        <Card key={index}>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <div className="h-6 w-24 rounded-full bg-foreground/5" />
+              <div className="h-6 w-20 rounded-full bg-foreground/5" />
+            </div>
+            <div className="space-y-2">
+              <div className="h-6 w-3/5 rounded-full bg-foreground/5" />
+              <div className="h-4 w-full rounded-full bg-foreground/5" />
+              <div className="h-4 w-4/5 rounded-full bg-foreground/5" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <div className="h-5 w-20 rounded-full bg-foreground/5" />
+              <div className="h-5 w-16 rounded-full bg-foreground/5" />
+              <div className="h-5 w-14 rounded-full bg-foreground/5" />
+            </div>
+            <div className="flex gap-4">
+              <div className="h-4 w-16 rounded-full bg-foreground/5" />
+              <div className="h-4 w-14 rounded-full bg-foreground/5" />
+            </div>
+          </div>
+        </Card>
+      ))}
     </div>
   );
 }
@@ -191,7 +250,9 @@ export default function ForumPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTagSlugs, setSelectedTagSlugs] = useState<string[]>([]);
   const [page, setPage] = useState(1);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const deferredSearchQuery = useDeferredValue(searchQuery.trim());
+  const hasActiveFilters = Boolean(category || searchQuery.trim() || selectedTagSlugs.length > 0);
 
   useEffect(() => {
     async function fetchPosts() {
@@ -217,12 +278,13 @@ export default function ForumPage() {
         setError(e instanceof Error ? e.message : "Failed to load posts");
         setPosts([]);
         setAvailableTags([]);
+        setPagination(null);
       } finally {
         setLoading(false);
       }
     }
     fetchPosts();
-  }, [page, category, selectedTagSlugs, deferredSearchQuery]);
+  }, [page, category, selectedTagSlugs, deferredSearchQuery, reloadNonce]);
 
   function toggleTagSelection(slug: string) {
     setSelectedTagSlugs((current) =>
@@ -238,17 +300,42 @@ export default function ForumPage() {
     setPage(1);
   }
 
+  function clearFilters() {
+    setCategory("");
+    setSearchQuery("");
+    setSelectedTagSlugs([]);
+    setPage(1);
+  }
+
+  function retryLoad() {
+    setReloadNonce((current) => current + 1);
+  }
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6 animate-fade-in-up">
+    <div className="mx-auto max-w-5xl space-y-6 animate-fade-in-up">
       <PageHeader
         title={t("forum.title")}
-        description={t("control.forumReadOnly")}
+        description={t("forum.description")}
+        rightSlot={
+          <div className="relative w-full min-w-0 sm:w-80">
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              placeholder={t("forum.searchPlaceholder")}
+              className="min-w-0 w-full rounded-xl border border-card-border bg-card px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-accent/40"
+            />
+          </div>
+        }
       />
 
-      <div className="flex flex-wrap gap-2">
-        {CATEGORY_KEYS.map(({ value, labelKey }) => (
+      <div className="rounded-2xl border border-card-border/60 bg-card/30 p-4">
+        <p className="mb-4 text-sm text-muted">{t("control.forumReadOnly")}</p>
+        <div className="flex flex-wrap gap-2">
+          {CATEGORY_KEYS.map(({ value, labelKey }) => (
             <button
               key={value}
+              type="button"
               onClick={() => {
                 setCategory(value);
                 setPage(1);
@@ -262,51 +349,64 @@ export default function ForumPage() {
             </button>
           ))}
         </div>
+      </div>
 
-        {error && (
-          <div className="mb-6 rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-danger">
-            {error}
+      {error ? (
+        <div className="rounded-2xl border border-danger/40 bg-danger/10 p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-danger">{error}</p>
+            <Button variant="secondary" onClick={retryLoad}>
+              {t("forum.retryLoad")}
+            </Button>
           </div>
-        )}
+        </div>
+      ) : null}
 
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <span className="text-muted">{t("common.loading")}</span>
-          </div>
-        ) : posts.length === 0 ? (
-          <EmptyState title={typeof t("forum.empty") === "string" ? t("forum.empty") as string : undefined} />
+      {loading ? (
+        <ForumLoadingSkeleton />
+      ) : error ? null : posts.length === 0 ? (
+        hasActiveFilters ? (
+          <EmptyState
+            title={t("forum.emptyFilteredTitle")}
+            description={t("forum.emptyFilteredDescription")}
+          />
         ) : (
+          <EmptyState title={t("forum.empty")} description={t("forum.description")} />
+        )
+      ) : (
+        <div className="space-y-6">
           <ForumPostListContent
             posts={posts}
-            searchQuery={searchQuery}
+            resultCount={pagination?.total ?? posts.length}
+            hasActiveFilters={hasActiveFilters}
             selectedTagSlugs={selectedTagSlugs}
             availableTags={availableTags}
-            onSearchChange={handleSearchChange}
             onTagToggle={toggleTagSelection}
+            onClearFilters={clearFilters}
             t={t}
             formatTimeAgo={formatTimeAgo}
           />
-        )}
-
-        {pagination && pagination.totalPages > 1 && (
-          <div className="mt-8 flex items-center justify-center gap-4">
-            <Button
-              variant="secondary"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              {t("common.prevPage")}
-            </Button>
-            <span className="text-muted">
-              {t("common.pageOf", { page: pagination.page, total: pagination.totalPages })}
-            </span>
-            <Button
-              variant="secondary"
-              disabled={page >= pagination.totalPages}
-              onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-            >
-              {t("common.nextPage")}
-            </Button>
+          {pagination && pagination.totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-center gap-4">
+              <Button
+                variant="secondary"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                {t("common.prevPage")}
+              </Button>
+              <span className="text-muted">
+                {t("common.pageOf", { page: pagination.page, total: pagination.totalPages })}
+              </span>
+              <Button
+                variant="secondary"
+                disabled={page >= pagination.totalPages}
+                onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+              >
+                {t("common.nextPage")}
+              </Button>
+            </div>
+          )}
           </div>
         )}
     </div>
