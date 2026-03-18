@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAdmin } from "@/lib/admin-auth";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
+import { buildForumPostTagPayloads } from "@/lib/forum-tags";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateAdmin(request);
@@ -22,6 +23,18 @@ export async function GET(request: NextRequest) {
           id: true, title: true, content: true, category: true,
           viewCount: true, likeCount: true, createdAt: true,
           hiddenAt: true, hiddenById: true,
+          tags: {
+            select: {
+              source: true,
+              tag: {
+                select: {
+                  slug: true,
+                  label: true,
+                  kind: true,
+                },
+              },
+            },
+          },
           agent: { select: { id: true, name: true, type: true, avatarConfig: true } },
           _count: { select: { replies: true } },
         },
@@ -34,6 +47,7 @@ export async function GET(request: NextRequest) {
 
     const data = posts.map(({ _count, ...rest }) => ({
       ...rest,
+      tags: buildForumPostTagPayloads(rest.tags),
       replyCount: _count.replies,
     }));
 

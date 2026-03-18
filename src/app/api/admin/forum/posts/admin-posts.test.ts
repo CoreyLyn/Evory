@@ -4,6 +4,7 @@ import { afterEach, beforeEach, test } from "node:test";
 import prisma from "@/lib/prisma";
 import {
   createForumPostFixture,
+  createForumPostTagFixture,
   createSecurityEventFixture,
   createUserFixture,
   createUserSessionFixture,
@@ -15,6 +16,7 @@ import { hashSessionToken } from "@/lib/user-auth";
 import { GET as listPosts } from "./route";
 import { POST as hidePost } from "./[id]/hide/route";
 import { POST as restorePost } from "./[id]/restore/route";
+import { PUT as replacePostTags } from "./[id]/tags/route";
 
 type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
   ...args: TArgs
@@ -38,12 +40,20 @@ type AdminPostPrismaMock = {
     update: AsyncMethod;
     count: AsyncMethod;
   };
+  forumTag?: {
+    upsert: AsyncMethod;
+  };
+  forumPostTag?: {
+    deleteMany: AsyncMethod;
+    createMany: AsyncMethod;
+  };
   securityEvent: {
     create: AsyncMethod<[{
       data: SecurityEventData;
     }], unknown>;
   };
   rateLimitCounter: unknown;
+  $transaction: (input: unknown) => Promise<unknown>;
 };
 
 const prismaClient = prisma as unknown as AdminPostPrismaMock;
@@ -51,8 +61,11 @@ const prismaClient = prisma as unknown as AdminPostPrismaMock;
 const originalMethods = {
   userSession: prismaClient.userSession,
   forumPost: prismaClient.forumPost,
+  forumTag: prismaClient.forumTag,
+  forumPostTag: prismaClient.forumPostTag,
   securityEvent: prismaClient.securityEvent,
   rateLimitCounter: prismaClient.rateLimitCounter,
+  transaction: prismaClient.$transaction,
 };
 
 const ADMIN_TOKEN = "admin-session-token";
@@ -96,14 +109,41 @@ beforeEach(() => {
   prismaClient.securityEvent = {
     create: async () => createSecurityEventFixture(),
   };
+  prismaClient.forumTag = {
+    upsert: async ({ where }: { where: { slug: string } }) => ({
+      id: `tag-${where.slug}`,
+      slug: where.slug,
+      label: where.slug.toUpperCase(),
+      kind: "CORE",
+    }),
+  };
+  prismaClient.forumPostTag = {
+    deleteMany: async () => ({ count: 0 }),
+    createMany: async () => ({ count: 0 }),
+  };
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input === "function") {
+      return input({
+        forumPost: prismaClient.forumPost,
+        forumTag: prismaClient.forumTag,
+        forumPostTag: prismaClient.forumPostTag,
+        securityEvent: prismaClient.securityEvent,
+      });
+    }
+
+    return input;
+  };
 });
 
 afterEach(async () => {
   await resetRateLimitStore();
   prismaClient.userSession = originalMethods.userSession;
   prismaClient.forumPost = originalMethods.forumPost;
+  prismaClient.forumTag = originalMethods.forumTag;
+  prismaClient.forumPostTag = originalMethods.forumPostTag;
   prismaClient.securityEvent = originalMethods.securityEvent;
   prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
+  prismaClient.$transaction = originalMethods.transaction;
 });
 
 // ---------------------------------------------------------------------------
@@ -163,6 +203,35 @@ test("GET list posts — returns posts including hidden ones when no status filt
   assert.equal(body.data.length, 2);
   assert.equal(body.pagination.total, 2);
   assert.equal(body.data[0].replyCount, 0);
+});
+
+test("GET list posts — returns tags on admin forum posts", async () => {
+  mockAdminSession();
+
+  prismaClient.forumPost = {
+    ...prismaClient.forumPost,
+    findMany: async () => [
+      createForumPostFixture({
+        tags: [
+          createForumPostTagFixture({
+            tag: { id: "tag-1", slug: "api", label: "API", kind: "CORE" },
+          }),
+        ],
+      }),
+    ],
+    count: async () => 1,
+  };
+
+  const request = createRouteRequest("http://localhost/api/admin/forum/posts", {
+    headers: { cookie: `evory_user_session=${ADMIN_TOKEN}` },
+  });
+  const response = await listPosts(request);
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.data[0].tags, [
+    { slug: "api", label: "API", kind: "core", source: "auto" },
+  ]);
 });
 
 test("GET list posts — returns only hidden posts when status=hidden", async () => {
@@ -622,4 +691,65 @@ test("POST restore — returns 403 when origin is cross-origin", async () => {
   const body = await response.json();
   assert.equal(body.success, false);
   assert.equal(body.error, "Invalid request origin");
+});
+
+// ---------------------------------------------------------------------------
+// PUT /api/admin/forum/posts/[id]/tags
+// ---------------------------------------------------------------------------
+
+test("PUT tags replaces a post's final tag set with manual tags", async () => {
+  mockAdminSession();
+
+  const deleteCalls: Array<Record<string, unknown>> = [];
+  const createManyCalls: Array<Record<string, unknown>> = [];
+
+  prismaClient.forumPost = {
+    ...prismaClient.forumPost,
+    findUnique: async () =>
+      createForumPostFixture({
+        id: "post-1",
+        tags: [
+          createForumPostTagFixture({
+            tag: { id: "tag-api", slug: "api", label: "API", kind: "CORE" },
+          }),
+        ],
+      }),
+  };
+  prismaClient.forumPostTag = {
+    deleteMany: async (args: Record<string, unknown>) => {
+      deleteCalls.push(args);
+      return { count: 1 };
+    },
+    createMany: async (args: Record<string, unknown>) => {
+      createManyCalls.push(args);
+      return { count: 2 };
+    },
+  };
+
+  const response = await replacePostTags(
+    createRouteRequest("http://localhost/api/admin/forum/posts/post-1/tags", {
+      method: "PUT",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+      json: {
+        tags: [
+          { slug: "api", label: "API", kind: "core" },
+          { slug: "ci-cd", label: "CI / CD", kind: "freeform" },
+        ],
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.success, true);
+  assert.equal(deleteCalls.length, 1);
+  assert.equal(createManyCalls.length, 1);
+  assert.deepEqual(body.data.tags, [
+    { slug: "api", label: "API", kind: "core", source: "manual" },
+    { slug: "ci-cd", label: "CI / CD", kind: "freeform", source: "manual" },
+  ]);
 });

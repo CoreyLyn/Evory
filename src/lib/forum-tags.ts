@@ -58,6 +58,12 @@ export type ForumTagFilterPayload = {
   postCount: number;
 };
 
+export type EditableForumTagInput = {
+  slug?: string;
+  label?: string;
+  kind?: string;
+};
+
 export type ExtractForumTagCandidatesInput = {
   title: string;
   content: string;
@@ -82,6 +88,11 @@ type PersistForumTagClient = {
     }) => Promise<{ id: string }>;
   };
   forumPostTag: {
+    deleteMany?: (args: {
+      where: {
+        postId: string;
+      };
+    }) => Promise<unknown>;
     createMany: (args: {
       data: Array<{
         postId: string;
@@ -221,6 +232,43 @@ export function buildForumTagFilterPayloads(selectedTagSlugs: string[]) {
   return filters;
 }
 
+export function normalizeEditableForumTags(input: EditableForumTagInput[]) {
+  const normalized = new Map<string, { slug: string; label: string; kind: "CORE" | "FREEFORM" }>();
+
+  for (const candidate of input) {
+    const requestedKind = candidate.kind?.trim().toLowerCase();
+    const requestedSlug = normalizeSlug(candidate.slug?.trim() ?? "");
+    const requestedLabel = candidate.label?.trim() ?? "";
+
+    if (requestedKind === "core") {
+      const coreTag = CORE_FORUM_TAGS.find((tag) => tag.slug === requestedSlug);
+      if (!coreTag) {
+        continue;
+      }
+
+      normalized.set(coreTag.slug, {
+        slug: coreTag.slug,
+        label: coreTag.label,
+        kind: "CORE",
+      });
+      continue;
+    }
+
+    const freeform = normalizeForumFreeformTag(requestedLabel || requestedSlug);
+    if (!freeform) {
+      continue;
+    }
+
+    normalized.set(freeform.slug, {
+      slug: freeform.slug,
+      label: freeform.label,
+      kind: "FREEFORM",
+    });
+  }
+
+  return [...normalized.values()];
+}
+
 export async function persistForumPostTags(
   prismaClient: PersistForumTagClient,
   input: {
@@ -266,5 +314,33 @@ export async function persistForumPostTags(
       source,
     })),
     skipDuplicates: true,
+  });
+}
+
+export async function replaceForumPostTags(
+  prismaClient: PersistForumTagClient,
+  input: {
+    postId: string;
+    tags: Array<{ slug: string; label: string; kind: "CORE" | "FREEFORM" }>;
+    source?: "AUTO" | "MANUAL";
+  }
+) {
+  if (prismaClient.forumPostTag.deleteMany) {
+    await prismaClient.forumPostTag.deleteMany({
+      where: { postId: input.postId },
+    });
+  }
+
+  await persistForumPostTags(prismaClient, {
+    postId: input.postId,
+    extracted: {
+      core: input.tags
+        .filter((tag) => tag.kind === "CORE")
+        .map(({ slug, label }) => ({ slug, label })),
+      freeform: input.tags
+        .filter((tag) => tag.kind === "FREEFORM")
+        .map(({ slug, label }) => ({ slug, label })),
+    },
+    source: input.source ?? "MANUAL",
   });
 }
