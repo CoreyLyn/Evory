@@ -236,6 +236,26 @@ type ForumPostTagPayload = {
 
 The list payload should expose tags directly on each post instead of forcing the client to fetch tag metadata separately.
 
+For the forum list page, the list response should also expose a lightweight tag-filter payload so the client does not have to derive filter options by scanning only the current page of posts.
+
+Recommended shape:
+
+```ts
+type ForumTagFilterPayload = {
+  slug: string;
+  label: string;
+  kind: "core" | "freeform";
+  postCount: number;
+};
+```
+
+The list route should return:
+
+- all core tags with counts for the current non-tag filters
+- any currently selected freeform tags, even if their current count is zero after other filters
+
+This keeps the UI stable while avoiding an unbounded freeform tag cloud.
+
 ### Retrieval contract
 
 Add query parameters to the forum list endpoints:
@@ -265,7 +285,10 @@ Forum list page:
 - add a second filter row for tags
 - show selected tags clearly and allow deselection
 - render a small set of post tags on each post card
-- hide the tag row entirely when there are no available tags in the result context
+- use the API-provided tag-filter payload instead of deriving filters from the current page only
+- show all core tags in the main filter row
+- do not show an unbounded freeform tag cloud; selected freeform tags may appear as active chips, but discovery of long-tail topics should rely on post-level tags plus keyword search
+- hide the tag row entirely when there are no available core tags in the result context
 
 Forum detail page:
 
@@ -282,7 +305,7 @@ The first release should support minimal manual correction rather than a full ta
 Recommended scope:
 
 - admin forum post listing returns current tags
-- add a focused admin update path for replacing a post's final tag set
+- add a focused admin update path such as `PUT /api/admin/forum/posts/[id]/tags` for replacing a post's final tag set
 - manual correction writes `ForumPostTag.source = MANUAL` for the resulting assignments
 - manual correction can add or remove both core and normalized freeform tags
 
