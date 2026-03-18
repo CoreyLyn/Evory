@@ -26,6 +26,7 @@ const originalMethods = {
   credentialFindUnique: prismaClient.agentCredential?.findUnique,
   credentialUpdate: prismaClient.agentCredential?.update,
   forumPostFindUnique: prismaClient.forumPost.findUnique,
+  forumPostFindMany: prismaClient.forumPost.findMany,
   forumPostUpdate: prismaClient.forumPost.update,
   forumReplyCreate: prismaClient.forumReply.create,
   forumLikeFindUnique: prismaClient.forumLike.findUnique,
@@ -41,6 +42,7 @@ const originalMethods = {
   agentActivityCreate: prismaClient.agentActivity?.create,
   forumTag: prismaClient.forumTag,
   forumPostTag: prismaClient.forumPostTag,
+  forumPostView: prismaClient.forumPostView,
   rateLimitCounter: prismaClient.rateLimitCounter,
   transaction: prismaClient.$transaction,
 };
@@ -62,6 +64,7 @@ beforeEach(() => {
       createdAt: new Date("2026-03-10T00:00:00.000Z"),
       tags: [],
     });
+  prismaClient.forumPost.findMany = async () => [];
   prismaClient.forumTag = {
     upsert: async ({ where }: { where: { slug: string } }) => ({
       id: `tag-${where.slug}`,
@@ -72,6 +75,9 @@ beforeEach(() => {
   };
   prismaClient.forumPostTag = {
     createMany: async () => ({ count: 0 }),
+  };
+  prismaClient.forumPostView = {
+    create: async () => ({ id: "view-1" }),
   };
 });
 
@@ -85,6 +91,7 @@ afterEach(async () => {
     prismaClient.agentCredential.update = originalMethods.credentialUpdate;
   }
   prismaClient.forumPost.findUnique = originalMethods.forumPostFindUnique;
+  prismaClient.forumPost.findMany = originalMethods.forumPostFindMany;
   prismaClient.forumPost.update = originalMethods.forumPostUpdate;
   prismaClient.forumReply.create = originalMethods.forumReplyCreate;
   prismaClient.forumLike.findUnique = originalMethods.forumLikeFindUnique;
@@ -104,6 +111,7 @@ afterEach(async () => {
   }
   prismaClient.forumTag = originalMethods.forumTag;
   prismaClient.forumPostTag = originalMethods.forumPostTag;
+  prismaClient.forumPostView = originalMethods.forumPostView;
   prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.$transaction = originalMethods.transaction;
 });
@@ -212,6 +220,183 @@ test("forum detail returns viewerLiked when request is authenticated", async () 
   assert.equal(json.success, true);
   assert.equal(json.data.viewerLiked, true);
   assert.equal(json.data.likeCount, 1);
+});
+
+test("forum detail deduplicates anonymous views within the same browser window", async () => {
+  let updateCalls = 0;
+  let createCalls = 0;
+
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      viewCount: 7,
+      tags: [],
+    });
+  prismaClient.forumLike.findUnique = async () => null;
+  prismaClient.forumPost.update = async () => {
+    updateCalls += 1;
+    return createForumPostFixture({ id: "post-1", viewCount: 8 });
+  };
+  prismaClient.agentCredential = {
+    findUnique: async () => null,
+    update: async () => ({}),
+  };
+  prismaClient.forumPostView = {
+    create: async () => {
+      createCalls += 1;
+
+      if (createCalls > 1) {
+        const error = new Error("duplicate");
+        (error as Error & { code?: string }).code = "P2002";
+        throw error;
+      }
+
+      return { id: "view-1" };
+    },
+  };
+
+  const firstResponse = await getForumPost(
+    createRouteRequest("http://localhost/api/forum/posts/post-1", {
+      headers: {
+        cookie: "forum_viewer=first-browser",
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const firstJson = await firstResponse.json();
+
+  const secondResponse = await getForumPost(
+    createRouteRequest("http://localhost/api/forum/posts/post-1", {
+      headers: {
+        cookie: "forum_viewer=repeat-browser",
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const secondJson = await secondResponse.json();
+
+  assert.equal(firstResponse.status, 200);
+  assert.equal(secondResponse.status, 200);
+  assert.equal(firstJson.data.viewCount, 8);
+  assert.equal(secondJson.data.viewCount, 7);
+  assert.equal(updateCalls, 1);
+  assert.equal(createCalls, 2);
+});
+
+test("forum detail skips view tracking for prefetch requests", async () => {
+  let updateCalls = 0;
+  let createCalls = 0;
+
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      viewCount: 7,
+      tags: [],
+    });
+  prismaClient.forumLike.findUnique = async () => null;
+  prismaClient.forumPost.update = async () => {
+    updateCalls += 1;
+    return createForumPostFixture({ id: "post-1", viewCount: 8 });
+  };
+  prismaClient.agentCredential = {
+    findUnique: async () => null,
+    update: async () => ({}),
+  };
+  prismaClient.forumPostView = {
+    create: async () => {
+      createCalls += 1;
+      return { id: "view-1" };
+    },
+  };
+
+  const response = await getForumPost(
+    createRouteRequest("http://localhost/api/forum/posts/post-1", {
+      headers: {
+        purpose: "prefetch",
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.data.viewCount, 7);
+  assert.equal(updateCalls, 0);
+  assert.equal(createCalls, 0);
+});
+
+test("forum detail includes related posts and more from the same author", async () => {
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      category: "technical",
+      viewCount: 7,
+      tags: [
+        createForumPostTagFixture({
+          tag: { id: "tag-1", slug: "api", label: "API", kind: "CORE" },
+        }),
+      ],
+      agent: createAgentFixture({
+        id: "author-1",
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  prismaClient.forumPost.findMany = async () => [
+    createForumPostFixture({
+      id: "related-1",
+      agentId: "agent-2",
+      category: "technical",
+      createdAt: "2026-03-18T01:00:00.000Z",
+      tags: [
+        createForumPostTagFixture({
+          tag: { id: "tag-1", slug: "api", label: "API", kind: "CORE" },
+        }),
+      ],
+      _count: { replies: 2 },
+      agent: createAgentFixture({
+        id: "agent-2",
+        apiKey: "agent-key-2",
+        name: "Related",
+      }),
+    }),
+    createForumPostFixture({
+      id: "author-2",
+      agentId: "author-1",
+      category: "discussion",
+      createdAt: "2026-03-17T01:00:00.000Z",
+      tags: [],
+      _count: { replies: 1 },
+      agent: createAgentFixture({
+        id: "author-1",
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    }),
+  ];
+  prismaClient.forumLike.findUnique = async () => null;
+  prismaClient.forumPost.update = async () => createForumPostFixture();
+  prismaClient.agentCredential = {
+    findUnique: async () => null,
+    update: async () => ({}),
+  };
+
+  const response = await getForumPost(
+    createRouteRequest("http://localhost/api/forum/posts/post-1"),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.deepEqual(
+    json.data.relatedPosts.map((post: { id: string }) => post.id),
+    ["related-1"]
+  );
+  assert.deepEqual(
+    json.data.moreFromAuthor.map((post: { id: string }) => post.id),
+    ["author-2"]
+  );
 });
 
 test("forum replies endpoint returns the created reply payload", async () => {

@@ -44,6 +44,15 @@ test("forum post list content renders the editorial list hierarchy", () => {
         appliedHasActiveFilters
         searchQuery="timeout"
         availableTags={[{ slug: "api", label: "API", kind: "core", postCount: 3 }]}
+        popularTags={[
+          { slug: "api", label: "API", kind: "core", postCount: 3 },
+          { slug: "cache-layer", label: "Cache Layer", kind: "freeform", postCount: 2 },
+        ]}
+        activeTags={[
+          { slug: "deployment", label: "Deployment", kind: "core", postCount: 2 },
+        ]}
+        authorContextAgent={{ id: "agent-1", name: "Author", type: "CUSTOM" }}
+        agentId="agent-1"
         selectedTagSlugs={["api"]}
       />
     </LocaleProvider>
@@ -54,6 +63,12 @@ test("forum post list content renders the editorial list hierarchy", () => {
   assert.match(html, /(Clear filters|清除筛选)/);
   assert.match(html, /(Sort|排序)/);
   assert.match(html, /(Latest|最新)/);
+  assert.match(html, /(Popular tags|热门标签)/);
+  assert.match(html, /(Active tags|活跃标签)/);
+  assert.match(html, /(Posts by Author|作者帖子|Author 的帖子)/);
+  assert.match(html, /href="\/forum\?tags=cache-layer"/);
+  assert.match(html, /href="\/forum\?tags=deployment"/);
+  assert.match(html, /href="\/forum\?agentId=agent-1"/);
   assert.match(html, /data-forum-visible-tag="core"[^>]*>[\s\S]*?>API<\/span><\/span>/);
   assert.match(html, /data-forum-visible-tag="core"[^>]*>[\s\S]*?>Deployment<\/span><\/span>/);
   assert.match(html, /data-forum-tag-overflow="1"/);
@@ -73,6 +88,8 @@ test("forum post list content keeps summary and clear filters visible for filter
         searchQuery="api"
         selectedTagSlugs={["api"]}
         availableTags={[{ slug: "api", label: "API", kind: "core", postCount: 0 }]}
+        popularTags={[]}
+        activeTags={[]}
       />
     </LocaleProvider>
   );
@@ -91,6 +108,10 @@ function ForumPageBodyHarness({
   appliedHasActiveFilters = false,
   searchQuery = "",
   availableTags = [],
+  popularTags = [],
+  activeTags = [],
+  authorContextAgent = null,
+  agentId = null,
   selectedTagSlugs = [],
 }: {
   loading?: boolean;
@@ -100,6 +121,10 @@ function ForumPageBodyHarness({
   appliedHasActiveFilters?: boolean;
   searchQuery?: string;
   availableTags?: React.ComponentProps<typeof ForumPostListContent>["availableTags"];
+  popularTags?: React.ComponentProps<typeof ForumPageBody>["popularTags"];
+  activeTags?: React.ComponentProps<typeof ForumPageBody>["activeTags"];
+  authorContextAgent?: React.ComponentProps<typeof ForumPageBody>["authorContextAgent"];
+  agentId?: string | null;
   selectedTagSlugs?: string[];
 }) {
   const t = useT();
@@ -110,10 +135,14 @@ function ForumPageBodyHarness({
       formatTimeAgo={() => "1天前"}
       posts={posts}
       availableTags={availableTags}
+      popularTags={popularTags}
+      activeTags={activeTags}
+      authorContextAgent={authorContextAgent}
       pagination={resultCount > 0 ? { total: resultCount, page: 1, pageSize: 20, totalPages: 1 } : null}
       loading={loading}
       error={error}
       page={1}
+      agentId={agentId}
       searchQuery={searchQuery}
       category=""
       sort="latest"
@@ -227,6 +256,13 @@ test("forum page client renders initial server data without waiting for a client
           ],
           filters: {
             tags: [{ slug: "api", label: "API", kind: "core", postCount: 1 }],
+            discover: {
+              popularTags: [{ slug: "api", label: "API", kind: "core", postCount: 1 }],
+              activeTags: [{ slug: "api", label: "API", kind: "core", postCount: 1 }],
+            },
+          },
+          context: {
+            agent: null,
           },
           pagination: {
             total: 1,
@@ -238,6 +274,7 @@ test("forum page client renders initial server data without waiting for a client
         initialQuery={{
           page: 1,
           pageSize: 20,
+          agentId: null,
           category: null,
           sort: "latest",
           q: "",
@@ -256,6 +293,7 @@ test("shouldSkipForumClientFetch keeps the default initial request on server dat
     shouldSkipForumClientFetch({
       hasInitialData: true,
       page: 1,
+      agentId: null,
       category: "",
       sort: "latest",
       deferredSearchQuery: "",
@@ -269,6 +307,7 @@ test("shouldSkipForumClientFetch keeps the default initial request on server dat
     shouldSkipForumClientFetch({
       hasInitialData: true,
       page: 1,
+      agentId: null,
       category: "technical",
       sort: "latest",
       deferredSearchQuery: "",
@@ -284,6 +323,7 @@ test("getInitialForumPageClientState derives client state from the normalized qu
     getInitialForumPageClientState({
       page: 3,
       pageSize: 20,
+      agentId: "agent-1",
       category: "technical",
       sort: "top",
       q: "timeout",
@@ -291,6 +331,7 @@ test("getInitialForumPageClientState derives client state from the normalized qu
     }),
     {
       page: 3,
+      agentId: "agent-1",
       category: "technical",
       searchQuery: "timeout",
       selectedTagSlugs: ["api", "testing"],
@@ -303,11 +344,12 @@ test("getForumPageUrl serializes sort and filters into a shareable URL", () => {
   assert.equal(
     getForumPageUrl({
       page: 1,
+      agentId: "agent-1",
       category: "technical",
       sort: "top",
       q: " timeout ",
       selectedTagSlugs: ["api", "testing"],
     }),
-    "/forum?category=technical&sort=top&q=timeout&tags=api%2Ctesting"
+    "/forum?agentId=agent-1&category=technical&sort=top&q=timeout&tags=api%2Ctesting"
   );
 });

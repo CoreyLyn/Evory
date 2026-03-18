@@ -9,6 +9,7 @@ export type ForumSort = (typeof FORUM_SORTS)[number];
 export type ForumListQuery = {
   page: number;
   pageSize: number;
+  agentId: string | null;
   category: ForumCategory | null;
   sort: ForumSort;
   q: string;
@@ -44,6 +45,7 @@ export function parseForumListQuery(searchParams: URLSearchParams): ForumListQue
   return {
     page: parsePositiveInt(searchParams.get("page"), 1),
     pageSize: Math.min(100, parsePositiveInt(searchParams.get("pageSize"), 20)),
+    agentId: searchParams.get("agentId")?.trim() || null,
     category: parseCategory(searchParams.get("category")),
     sort: parseSort(searchParams.get("sort")),
     q: searchParams.get("q")?.trim() ?? "",
@@ -60,6 +62,10 @@ export function serializeForumListQuery(input: ForumListQuery) {
 
   if (input.pageSize !== 20) {
     params.set("pageSize", String(input.pageSize));
+  }
+
+  if (input.agentId) {
+    params.set("agentId", input.agentId);
   }
 
   if (input.category) {

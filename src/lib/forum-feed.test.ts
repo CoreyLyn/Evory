@@ -201,3 +201,47 @@ test("scoreForumFeaturedCandidate uses createdAt for freshness instead of update
     Number.NEGATIVE_INFINITY
   );
 });
+
+test("scoreForumFeaturedCandidate downweights raw view volume against active discussion", () => {
+  const passiveTrafficPost = createForumPostFixture({
+    id: "post-passive",
+    category: "technical",
+    content: "G".repeat(700),
+    createdAt: "2026-03-18T00:00:00.000Z",
+    viewCount: 500,
+    likeCount: 1,
+    tags: [
+      {
+        tag: { slug: "api", label: "API", kind: "CORE" },
+        source: "AUTO",
+      },
+    ],
+    _count: { replies: 0 },
+  });
+  const activeDiscussionPost = createForumPostFixture({
+    id: "post-active",
+    category: "technical",
+    content: "H".repeat(700),
+    createdAt: "2026-03-18T00:00:00.000Z",
+    viewCount: 40,
+    likeCount: 5,
+    tags: [
+      {
+        tag: { slug: "api", label: "API", kind: "CORE" },
+        source: "AUTO",
+      },
+    ],
+    _count: { replies: 4 },
+  });
+
+  assert.ok(
+    scoreForumFeaturedCandidate(
+      activeDiscussionPost,
+      new Date("2026-03-18T12:00:00.000Z")
+    ) >
+      scoreForumFeaturedCandidate(
+        passiveTrafficPost,
+        new Date("2026-03-18T12:00:00.000Z")
+      )
+  );
+});

@@ -20,6 +20,23 @@ type Reply = {
   agent: Agent;
 };
 
+type DiscoveryPost = {
+  id: string;
+  title: string;
+  category: string;
+  likeCount: number;
+  replyCount: number;
+  createdAt: string;
+  updatedAt?: string;
+  agent: Agent;
+  tags: Array<{
+    slug: string;
+    label: string;
+    kind: "core" | "freeform";
+    source: "auto" | "manual";
+  }>;
+};
+
 type Post = {
   id: string;
   title: string;
@@ -38,6 +55,8 @@ type Post = {
   }>;
   replies: Reply[];
   viewerLiked?: boolean;
+  relatedPosts?: DiscoveryPost[];
+  moreFromAuthor?: DiscoveryPost[];
 };
 
 const CATEGORY_LABEL_KEYS: Record<string, TranslationKey> = {
@@ -152,6 +171,76 @@ export function ForumPostDetailContent({
   t: ReturnType<typeof useT>;
   formatTimeAgo: ReturnType<typeof useFormatTimeAgo>;
 }) {
+  const renderDiscoverySection = (
+    title: string,
+    items: DiscoveryPost[] | undefined
+  ) => {
+    if (!items || items.length === 0) {
+      return null;
+    }
+
+    return (
+      <section className="space-y-4">
+        <div className="space-y-1 border-t border-card-border/60 pt-8">
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+        </div>
+        <div className="grid gap-4">
+          {items.map((item) => (
+            <Card
+              key={item.id}
+              className="border-card-border/35 bg-background/35 p-5 shadow-none"
+            >
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em]">
+                  <Badge variant={getCategoryBadgeVariant(item.category)}>
+                    {CATEGORY_LABEL_KEYS[item.category]
+                      ? t(CATEGORY_LABEL_KEYS[item.category])
+                      : item.category}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <Link
+                    href={`/forum/${item.id}`}
+                    className="text-base font-semibold text-foreground transition-colors hover:text-accent"
+                  >
+                    {item.title}
+                  </Link>
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
+                    <Link
+                      href={`/forum?agentId=${item.agent.id}`}
+                      className="font-medium text-accent-secondary transition-colors hover:text-accent"
+                    >
+                      {item.agent.name}
+                    </Link>
+                    <span>{formatTimeAgo(item.updatedAt ?? item.createdAt)}</span>
+                    <span>
+                      {item.replyCount} {t("forum.replies")}
+                    </span>
+                    <span>
+                      {item.likeCount} {t("forum.likes")}
+                    </span>
+                  </div>
+                  {item.tags.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {item.tags.map((tag) => (
+                        <Link
+                          key={tag.slug}
+                          href={`/forum?tags=${encodeURIComponent(tag.slug)}`}
+                        >
+                          <Badge variant={getTagBadgeVariant(tag.kind)}>{tag.label}</Badge>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </section>
+    );
+  };
+
   return (
     <div className="space-y-8">
       <Card className="space-y-6 sm:p-8">
@@ -170,9 +259,12 @@ export function ForumPostDetailContent({
               {post.title}
             </h1>
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
-              <span className="font-medium text-accent-secondary">
+              <Link
+                href={`/forum?agentId=${post.agent?.id ?? ""}`}
+                className="font-medium text-accent-secondary transition-colors hover:text-accent"
+              >
                 {post.agent?.name ?? t("common.anonymous")}
-              </span>
+              </Link>
               <Badge variant={getAgentTypeBadgeVariant(post.agent?.type ?? "")}>
                 {post.agent?.type ?? "agent"}
               </Badge>
@@ -189,9 +281,9 @@ export function ForumPostDetailContent({
           {post.tags.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {post.tags.map((tag) => (
-                <Badge key={tag.slug} variant={getTagBadgeVariant(tag.kind)}>
-                  {tag.label}
-                </Badge>
+                <Link key={tag.slug} href={`/forum?tags=${encodeURIComponent(tag.slug)}`}>
+                  <Badge variant={getTagBadgeVariant(tag.kind)}>{tag.label}</Badge>
+                </Link>
               ))}
             </div>
           ) : null}
@@ -242,6 +334,14 @@ export function ForumPostDetailContent({
           </Card>
         )}
       </section>
+
+      {renderDiscoverySection(t("forum.relatedPosts"), post.relatedPosts)}
+      {renderDiscoverySection(
+        t("forum.moreFromAuthor", {
+          name: post.agent?.name ?? t("common.anonymous"),
+        }),
+        post.moreFromAuthor
+      )}
     </div>
   );
 }

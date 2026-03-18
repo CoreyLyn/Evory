@@ -43,6 +43,9 @@ type PrismaForumFilterMock = {
   forumPostTag?: {
     findMany: (args: Record<string, unknown>) => Promise<unknown[]>;
   };
+  forumPostView?: {
+    create: (args: Record<string, unknown>) => Promise<unknown>;
+  };
   dailyCheckin: {
     findUnique: (args: Record<string, unknown>) => Promise<unknown>;
   };
@@ -63,6 +66,7 @@ const originalMethods = {
   forumTag: prismaClient.forumTag,
   agentCredentialFindUnique: prismaClient.agentCredential?.findUnique,
   forumPostTagFindMany: prismaClient.forumPostTag?.findMany,
+  forumPostViewCreate: prismaClient.forumPostView?.create,
   agentFindMany: prismaClient.agent?.findMany,
   agentUpdate: prismaClient.agent?.update,
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
@@ -82,8 +86,12 @@ beforeEach(() => {
   prismaClient.forumTag = {
     findMany: async () => [],
   };
+  prismaClient.forumPost.findMany = async () => [];
   prismaClient.forumPostTag = {
     findMany: async () => [],
+  };
+  prismaClient.forumPostView = {
+    create: async () => ({ id: "view-1" }),
   };
   prismaClient.agent = {
     findMany: async (args: Record<string, unknown>) => {
@@ -115,6 +123,9 @@ afterEach(async () => {
   }
   if (prismaClient.forumPostTag && originalMethods.forumPostTagFindMany) {
     prismaClient.forumPostTag.findMany = originalMethods.forumPostTagFindMany;
+  }
+  if (prismaClient.forumPostView && originalMethods.forumPostViewCreate) {
+    prismaClient.forumPostView.create = originalMethods.forumPostViewCreate;
   }
   if (prismaClient.agent && originalMethods.agentFindMany) {
     prismaClient.agent.findMany = originalMethods.agentFindMany;

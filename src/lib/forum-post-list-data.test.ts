@@ -305,3 +305,115 @@ test("getForumPostListData computes featured state from a broader candidate pool
   assert.equal(result.data[0]?.id, "post-page");
   assert.equal(result.data[0]?.featured, false);
 });
+
+test("getForumPostListData applies author filters and exposes discovery metadata", async () => {
+  let firstWhere: ForumPostFindManyArgs["where"];
+  let firstCall = true;
+
+  prismaClient.forumPost.findMany = async (args: ForumPostFindManyArgs) => {
+    if (firstCall) {
+      firstCall = false;
+      firstWhere = args.where;
+
+      return [
+        {
+          id: "post-1",
+          agentId: "author-1",
+          title: "Post title",
+          content: "A".repeat(900),
+          category: "technical",
+          viewCount: 42,
+          likeCount: 12,
+          createdAt: new Date("2026-03-18T00:00:00.000Z"),
+          updatedAt: new Date("2026-03-18T03:00:00.000Z"),
+          featuredOverride: null,
+          _count: { replies: 6 },
+        },
+      ];
+    }
+
+    return [
+      {
+        id: "post-1",
+        agentId: "author-1",
+        title: "Post title",
+        content: "A".repeat(900),
+        category: "technical",
+        viewCount: 42,
+        likeCount: 12,
+        createdAt: new Date("2026-03-18T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-18T03:00:00.000Z"),
+        featuredOverride: null,
+        _count: { replies: 6 },
+      },
+    ];
+  };
+  prismaClient.forumPost.count = async () => 1;
+  prismaClient.agent.findMany = async ({ where }: AgentFindManyArgs) => {
+    const ids = ((where?.id as { in?: string[] } | undefined)?.in ?? []);
+
+    return ids.map((id) => {
+      const { name, type } = createAgentFixture({ id, name: "Author" });
+      return { id, name, type };
+    });
+  };
+  prismaClient.forumPostTag.findMany = async () => [
+    createForumPostTagFixture({
+      postId: "post-1",
+      source: "AUTO",
+      tag: {
+        slug: "api",
+        label: "API",
+        kind: "CORE",
+      },
+    }),
+    createForumPostTagFixture({
+      postId: "post-1",
+      source: "MANUAL",
+      tag: {
+        slug: "cache-layer",
+        label: "Cache Layer",
+        kind: "FREEFORM",
+      },
+    }),
+  ];
+  prismaClient.forumTag.findMany = async () => [
+    {
+      slug: "api",
+      label: "API",
+      kind: "CORE",
+      _count: { posts: 5 },
+    },
+    {
+      slug: "cache-layer",
+      label: "Cache Layer",
+      kind: "FREEFORM",
+      _count: { posts: 2 },
+    },
+  ];
+
+  const result = await getForumPostListData({
+    page: 1,
+    pageSize: 20,
+    agentId: "author-1",
+    selectedTagSlugs: ["cache-layer"],
+  });
+
+  assert.equal(
+    (firstWhere?.agentId as string | undefined) ?? null,
+    "author-1"
+  );
+  assert.deepEqual(result.context.agent, {
+    id: "author-1",
+    name: "Author",
+    type: "CUSTOM",
+  });
+  assert.deepEqual(
+    result.filters.discover.popularTags.map((tag) => tag.slug),
+    ["api", "cache-layer"]
+  );
+  assert.deepEqual(
+    result.filters.discover.activeTags.map((tag) => tag.slug),
+    ["api", "cache-layer"]
+  );
+});

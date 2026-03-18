@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/lib/prisma";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
+import { pickDiscoverableForumTags } from "@/lib/forum-discovery";
 import { pickFeaturedForumPostIds } from "@/lib/forum-feed";
 import type { ForumSort } from "@/lib/forum-list-query";
 import {
@@ -47,6 +48,13 @@ export type ForumPostListData = {
   data: ForumListPost[];
   filters: {
     tags: ForumListTagFilter[];
+    discover: {
+      popularTags: ForumListTagFilter[];
+      activeTags: ForumListTagFilter[];
+    };
+  };
+  context: {
+    agent: ForumListPost["agent"] | null;
   };
   pagination: ForumListPagination;
 };
@@ -70,6 +78,7 @@ export function shouldSerializeForumListQueries(databaseUrl = process.env.DATABA
 export async function getForumPostListData({
   page,
   pageSize,
+  agentId,
   category,
   selectedTagSlugs = [],
   sort = "latest",
@@ -77,6 +86,7 @@ export async function getForumPostListData({
 }: {
   page: number;
   pageSize: number;
+  agentId?: string | null;
   category?: string | null;
   selectedTagSlugs?: string[];
   sort?: ForumSort;
@@ -84,6 +94,7 @@ export async function getForumPostListData({
 }): Promise<ForumPostListData> {
   const where: Prisma.ForumPostWhereInput = {
     hiddenAt: null,
+    ...(agentId ? { agentId } : {}),
     ...(category ? { category } : {}),
     ...(selectedTagSlugs.length > 0
       ? {
@@ -108,6 +119,7 @@ export async function getForumPostListData({
 
   const filterWhere: Prisma.ForumPostWhereInput = {
     hiddenAt: null,
+    ...(agentId ? { agentId } : {}),
     ...(category ? { category } : {}),
     ...(q
       ? {
@@ -235,13 +247,26 @@ export async function getForumPostListData({
       },
     });
 
+  const loadContextAgent = () =>
+    agentId
+      ? prisma.agent.findMany({
+          where: { id: { in: [agentId] } },
+          select: {
+            id: true,
+            name: true,
+            type: true,
+          },
+        })
+      : Promise.resolve([]);
+
   const loadPageData = async () => {
     const pageResult = await loadPageResult();
     const postIds = pageResult.items.map((post) => post.id);
     const agentIds = [...new Set(pageResult.items.map((post) => post.agentId))];
+    const requestedAgentIds = agentId ? [...new Set([...agentIds, agentId])] : agentIds;
     const [postTags, agents] = serializeQueries
-      ? [await loadPostTags(postIds), await loadAgents(agentIds)]
-      : await Promise.all([loadPostTags(postIds), loadAgents(agentIds)]);
+      ? [await loadPostTags(postIds), await loadAgents(requestedAgentIds)]
+      : await Promise.all([loadPostTags(postIds), loadAgents(requestedAgentIds)]);
     const tagsByPostId = new Map<string, typeof postTags>();
 
     for (const tag of postTags) {
@@ -288,20 +313,40 @@ export async function getForumPostListData({
     }));
   };
 
-  const [pageResult, tagFilters, featuredCandidates] = serializeQueries
+  const [pageResult, tagFilters, featuredCandidates, contextAgents] = serializeQueries
     ? [
         await loadPageData(),
         await loadTagFilters(),
         await loadFeaturedCandidateData(),
+        await loadContextAgent(),
       ]
     : await Promise.all([
         loadPageData(),
         loadTagFilters(),
         loadFeaturedCandidateData(),
+        loadContextAgent(),
       ]);
 
   const { items: posts, total } = pageResult;
   const featuredPostIds = new Set(pickFeaturedForumPostIds(featuredCandidates));
+
+  const discoverableTags = pickDiscoverableForumTags(
+    tagFilters.map((tag) => ({
+      slug: tag.slug,
+      label: tag.label,
+      kind: tag.kind.toLowerCase() as "core" | "freeform",
+      postCount: tag._count.posts,
+    }))
+  );
+  const discoverTagPayloads = buildForumTagFilterPayloads({
+    tagSummaries: discoverableTags.map((tag) => ({
+      slug: tag.slug,
+      label: tag.label,
+      kind: tag.kind.toUpperCase(),
+      postCount: tag.postCount,
+    })),
+    selectedTagSlugs: [],
+  });
 
   return {
     data: posts.map((post) => {
@@ -326,6 +371,13 @@ export async function getForumPostListData({
         })),
         selectedTagSlugs,
       }),
+      discover: {
+        popularTags: discoverTagPayloads,
+        activeTags: discoverTagPayloads,
+      },
+    },
+    context: {
+      agent: contextAgents[0] ?? null,
     },
     pagination: {
       total,
