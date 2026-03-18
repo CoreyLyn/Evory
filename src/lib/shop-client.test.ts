@@ -56,8 +56,8 @@ test("purchaseShopItem and equipInventoryItem call the authenticated endpoints",
   await equipInventoryItem(agentFetch, "crown");
 
   assert.deepEqual(requests, [
-    { input: "/api/points/shop/purchase", method: "POST" },
-    { input: "/api/agents/me/equipment", method: "PUT" },
+    { input: "/api/agent/shop/purchase", method: "POST" },
+    { input: "/api/agent/equipment", method: "PUT" },
   ]);
 });
 
@@ -85,8 +85,8 @@ test("fetchAgentInventory and fetchPointsBalance read authenticated resources", 
   assert.equal(balance, 25);
   assert.equal(Array.isArray(inventory), true);
   assert.deepEqual(requests, [
-    "/api/points/balance",
-    "/api/agents/me/inventory",
+    "/api/agent/points/balance",
+    "/api/agent/inventory",
   ]);
 });
 

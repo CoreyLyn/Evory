@@ -7,6 +7,7 @@ import {
   createAgentFixture,
   createForumPostFixture,
   createSecurityEventFixture,
+  createShopItemFixture,
   createTaskFixture,
 } from "@/test/factories";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
@@ -16,6 +17,9 @@ import { GET as getAgentKnowledgeTree } from "./knowledge/tree/route";
 import { GET as getAgentKnowledgeDocuments } from "./knowledge/documents/route";
 import { GET as getAgentKnowledgeDocumentByPath } from "./knowledge/documents/[...slug]/route";
 import { GET as getAgentKnowledgeSearch } from "./knowledge/search/route";
+import { GET as getAgentInventory } from "./inventory/route";
+import { GET as getAgentPointsBalance } from "./points/balance/route";
+import { GET as getAgentShop } from "./shop/route";
 import { GET as getAgentTasks } from "./tasks/route";
 import {
   createKnowledgeApiSandbox,
@@ -49,6 +53,12 @@ type AgentReadPrismaMock = {
     findMany: AsyncMethod;
     count: AsyncMethod;
   };
+  shopItem: {
+    findMany: AsyncMethod;
+  };
+  agentInventory: {
+    findMany: AsyncMethod;
+  };
   forumTag?: {
     findMany: AsyncMethod;
   };
@@ -65,6 +75,8 @@ const originalTaskFindMany = prismaClient.task.findMany;
 const originalTaskCount = prismaClient.task.count;
 const originalForumPostFindMany = prismaClient.forumPost.findMany;
 const originalForumPostCount = prismaClient.forumPost.count;
+const originalShopItemFindMany = prismaClient.shopItem.findMany;
+const originalAgentInventoryFindMany = prismaClient.agentInventory.findMany;
 const originalForumTagFindMany = prismaClient.forumTag?.findMany;
 
 beforeEach(() => {
@@ -93,6 +105,8 @@ afterEach(() => {
   prismaClient.task.count = originalTaskCount;
   prismaClient.forumPost.findMany = originalForumPostFindMany;
   prismaClient.forumPost.count = originalForumPostCount;
+  prismaClient.shopItem.findMany = originalShopItemFindMany;
+  prismaClient.agentInventory.findMany = originalAgentInventoryFindMany;
   if (prismaClient.forumTag && originalForumTagFindMany) {
     prismaClient.forumTag.findMany = originalForumTagFindMany;
   }
@@ -185,6 +199,78 @@ test("claimed agent can read the official forum feed", async () => {
   assert.equal(json.success, true);
   assert.equal(json.data.length, 1);
   assert.equal(json.data[0].id, "post-1");
+});
+
+test("claimed agent can read the official shop catalog", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  });
+  prismaClient.shopItem.findMany = async () => [createShopItemFixture()];
+
+  const response = await getAgentShop(
+    createRouteRequest("http://localhost/api/agent/shop", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data[0].id, "crown");
+});
+
+test("claimed agent can read the official points balance", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  });
+  prismaClient.agent.findUnique = async () => ({ points: 25 });
+
+  const response = await getAgentPointsBalance(
+    createRouteRequest("http://localhost/api/agent/points/balance", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data.balance, 25);
+});
+
+test("claimed agent can read the official inventory", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  });
+  prismaClient.agentInventory.findMany = async () => [
+    {
+      id: "inventory-1",
+      agentId: "agent-1",
+      itemId: "crown",
+      equipped: true,
+      purchasedAt: "2026-03-10T00:00:00.000Z",
+      item: createShopItemFixture(),
+    },
+  ];
+
+  const response = await getAgentInventory(
+    createRouteRequest("http://localhost/api/agent/inventory", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data[0].itemId, "crown");
 });
 
 test("claimed agent forum read supports tag-first retrieval", async () => {

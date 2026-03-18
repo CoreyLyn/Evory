@@ -8,6 +8,7 @@ import {
   createForumPostFixture,
   createForumPostTagFixture,
   createSecurityEventFixture,
+  createShopItemFixture,
   createTaskFixture,
 } from "@/test/factories";
 import { resetRateLimitStore } from "@/lib/rate-limit";
@@ -15,7 +16,9 @@ import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { hashApiKey } from "@/lib/auth";
 import { POST as createAgentForumPost } from "./forum/posts/route";
+import { PUT as equipAgentEquipment } from "./equipment/route";
 import { POST as publishAgentKnowledge } from "./knowledge/articles/route";
+import { POST as purchaseAgentShopItem } from "./shop/purchase/route";
 import { POST as claimAgentTask } from "./tasks/[id]/claim/route";
 import { POST as verifyAgentTask } from "./tasks/[id]/verify/route";
 import { POST as createAgentTask } from "./tasks/route";
@@ -60,6 +63,16 @@ type AgentWritePrismaMock = {
     findUniqueOrThrow: AsyncMethod;
     updateMany: AsyncMethod;
   };
+  shopItem: {
+    findUnique: AsyncMethod;
+  };
+  agentInventory: {
+    findUnique: AsyncMethod;
+    findMany: AsyncMethod;
+    create: AsyncMethod;
+    updateMany: AsyncMethod;
+    update: AsyncMethod;
+  };
   pointTransaction: {
     create: AsyncMethod;
   };
@@ -87,6 +100,12 @@ const originalMethods = {
   taskFindUnique: prismaClient.task.findUnique,
   taskFindUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
   taskUpdateMany: prismaClient.task.updateMany,
+  shopItemFindUnique: prismaClient.shopItem.findUnique,
+  agentInventoryFindUnique: prismaClient.agentInventory.findUnique,
+  agentInventoryFindMany: prismaClient.agentInventory.findMany,
+  agentInventoryCreate: prismaClient.agentInventory.create,
+  agentInventoryUpdateMany: prismaClient.agentInventory.updateMany,
+  agentInventoryUpdate: prismaClient.agentInventory.update,
   pointTransactionCreate: prismaClient.pointTransaction.create,
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   dailyCheckinUpsert: prismaClient.dailyCheckin.upsert,
@@ -143,6 +162,12 @@ afterEach(async () => {
   prismaClient.task.findUnique = originalMethods.taskFindUnique;
   prismaClient.task.findUniqueOrThrow = originalMethods.taskFindUniqueOrThrow;
   prismaClient.task.updateMany = originalMethods.taskUpdateMany;
+  prismaClient.shopItem.findUnique = originalMethods.shopItemFindUnique;
+  prismaClient.agentInventory.findUnique = originalMethods.agentInventoryFindUnique;
+  prismaClient.agentInventory.findMany = originalMethods.agentInventoryFindMany;
+  prismaClient.agentInventory.create = originalMethods.agentInventoryCreate;
+  prismaClient.agentInventory.updateMany = originalMethods.agentInventoryUpdateMany;
+  prismaClient.agentInventory.update = originalMethods.agentInventoryUpdate;
   prismaClient.pointTransaction.create = originalMethods.pointTransactionCreate;
   prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
   prismaClient.dailyCheckin.upsert = originalMethods.dailyCheckinUpsert;
@@ -318,6 +343,126 @@ test("legacy official agent knowledge publish route is explicitly unsupported", 
   assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.success, false);
   assert.equal(json.error, "Agent knowledge publishing is no longer supported");
+});
+
+test("claimed agent can purchase a shop item via the official agent shop endpoint", async () => {
+  mockAgentCredential("buyer-key", {
+    id: "buyer-1",
+    name: "Buyer",
+    points: 150,
+  });
+  prismaClient.shopItem.findUnique = async () => createShopItemFixture();
+  prismaClient.agentInventory.findUnique = async () => null;
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      agent: {
+        updateMany: async () => ({ count: 1 }),
+      },
+      agentInventory: {
+        create: async () => ({
+          id: "inventory-1",
+          agentId: "buyer-1",
+          itemId: "crown",
+          item: createShopItemFixture(),
+        }),
+      },
+      pointTransaction: {
+        create: async () => ({ id: "txn-1" }),
+      },
+    });
+  };
+
+  const response = await purchaseAgentShopItem(
+    createRouteRequest("http://localhost/api/agent/shop/purchase", {
+      method: "POST",
+      apiKey: "buyer-key",
+      json: {
+        itemId: "crown",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data.itemId, "crown");
+});
+
+test("claimed agent can equip inventory via the official agent equipment endpoint", async () => {
+  mockAgentCredential("buyer-key", {
+    id: "buyer-1",
+    name: "Buyer",
+    avatarConfig: {
+      color: "red",
+      hat: null,
+      accessory: null,
+    },
+  });
+  prismaClient.agentInventory.findUnique = async () => ({
+    id: "inventory-1",
+    agentId: "buyer-1",
+    itemId: "crown",
+    equipped: false,
+    item: createShopItemFixture(),
+  });
+  prismaClient.agentInventory.findMany = async () => [
+    {
+      id: "inventory-1",
+      agentId: "buyer-1",
+      itemId: "crown",
+      equipped: false,
+      item: createShopItemFixture(),
+    },
+  ];
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      agentInventory: {
+        updateMany: async () => ({ count: 1 }),
+        update: async () => ({
+          id: "inventory-1",
+          agentId: "buyer-1",
+          itemId: "crown",
+          equipped: true,
+          item: createShopItemFixture(),
+        }),
+      },
+      agent: {
+        update: async () => ({
+          avatarConfig: {
+            color: "red",
+            hat: "crown",
+            accessory: null,
+          },
+        }),
+      },
+    });
+  };
+
+  const response = await equipAgentEquipment(
+    createRouteRequest("http://localhost/api/agent/equipment", {
+      method: "PUT",
+      apiKey: "buyer-key",
+      json: {
+        itemId: "crown",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data.inventory.itemId, "crown");
+  assert.equal(json.data.avatarConfig.hat, "crown");
 });
 
 function mockAwardPointsTransaction() {

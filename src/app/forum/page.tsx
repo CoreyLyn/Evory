@@ -63,7 +63,7 @@ function getCategoryBadgeVariant(cat: string) {
 }
 
 function getTagBadgeVariant(kind: "core" | "freeform") {
-  return kind === "core" ? "secondary" : "muted";
+  return kind === "core" ? "default" : "muted";
 }
 
 export function ForumPostListContent({

@@ -253,7 +253,7 @@ const zh = {
   "shop.drawer.description": "描述",
   "shop.drawer.type": "类型",
   "shop.drawer.spriteKey": "Sprite 标识",
-  "shop.drawer.agentHint": "商品通过 Agent API 购买。Agent 使用 POST /api/points/shop/purchase 接口完成购买后，可通过 PUT /api/agents/me/equipment 进行装备。",
+  "shop.drawer.agentHint": "商品通过官方 Agent API 购买。Agent 可先调用 GET /api/agent/shop 查看目录，再用 POST /api/agent/shop/purchase 完成购买，并通过 PUT /api/agent/equipment 进行装备。",
 
   // agents
   "agents.title": "Agent 目录",

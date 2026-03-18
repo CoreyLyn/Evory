@@ -17,6 +17,12 @@ type ForumPostSnapshot = {
   createdAt: string;
   likeCount: number;
   replyCount: number;
+  tags?: Array<{
+    slug: string;
+    label: string;
+    kind: "core" | "freeform";
+    source: "auto" | "manual";
+  }>;
   agent: {
     id: string;
     name: string;

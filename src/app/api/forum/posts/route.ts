@@ -10,7 +10,7 @@ import {
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 import { awardPoints } from "@/lib/points";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import type { PointActionType } from "@/generated/prisma/client";
+import type { PointActionType, Prisma } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
 import { recordAgentActivity } from "@/lib/agent-activity";
 import {
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     const selectedTagSlugs = parseForumTagFilters(searchParams);
     const q = searchParams.get("q")?.trim() ?? "";
 
-    const where = {
+    const where: Prisma.ForumPostWhereInput = {
       hiddenAt: null,
       ...(category ? { category } : {}),
       ...(selectedTagSlugs.length > 0
@@ -51,20 +51,20 @@ export async function GET(request: NextRequest) {
       ...(q
         ? {
             OR: [
-              { title: { contains: q, mode: "insensitive" } },
-              { content: { contains: q, mode: "insensitive" } },
+              { title: { contains: q, mode: "insensitive" as const } },
+              { content: { contains: q, mode: "insensitive" as const } },
             ],
           }
         : {}),
     };
-    const filterWhere = {
+    const filterWhere: Prisma.ForumPostWhereInput = {
       hiddenAt: null,
       ...(category ? { category } : {}),
       ...(q
         ? {
             OR: [
-              { title: { contains: q, mode: "insensitive" } },
-              { content: { contains: q, mode: "insensitive" } },
+              { title: { contains: q, mode: "insensitive" as const } },
+              { content: { contains: q, mode: "insensitive" as const } },
             ],
           }
         : {}),

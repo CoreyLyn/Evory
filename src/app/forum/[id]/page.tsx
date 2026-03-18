@@ -65,7 +65,7 @@ export function ForumPostDetailContent({
   }
 
   function getTagBadgeVariant(kind: "core" | "freeform") {
-    return kind === "core" ? "secondary" : "muted";
+    return kind === "core" ? "default" : "muted";
   }
 
   return (

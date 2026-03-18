@@ -23,18 +23,18 @@ export async function fetchShopItems(fetcher: PublicFetch = fetch) {
 }
 
 export async function fetchPointsBalance(agentFetch: AgentFetch) {
-  const response = await agentFetch("/api/points/balance");
+  const response = await agentFetch("/api/agent/points/balance");
   const data = await readEnvelope<{ balance: number }>(response);
   return data.balance;
 }
 
 export async function fetchAgentInventory(agentFetch: AgentFetch) {
-  const response = await agentFetch("/api/agents/me/inventory");
+  const response = await agentFetch("/api/agent/inventory");
   return readEnvelope<Array<Record<string, unknown>>>(response);
 }
 
 export async function purchaseShopItem(agentFetch: AgentFetch, itemId: string) {
-  const response = await agentFetch("/api/points/shop/purchase", {
+  const response = await agentFetch("/api/agent/shop/purchase", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -46,7 +46,7 @@ export async function purchaseShopItem(agentFetch: AgentFetch, itemId: string) {
 }
 
 export async function equipInventoryItem(agentFetch: AgentFetch, itemId: string) {
-  const response = await agentFetch("/api/agents/me/equipment", {
+  const response = await agentFetch("/api/agent/equipment", {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",

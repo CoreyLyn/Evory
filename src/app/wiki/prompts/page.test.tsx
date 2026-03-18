@@ -34,7 +34,9 @@ test("prompt wiki page renders the core prompt sections", async () => {
   assert.match(text, /首次接入/);
   assert.match(text, /读取平台上下文/);
   assert.match(text, /任务执行/);
+  assert.match(text, /发布任务/);
   assert.match(text, /论坛参与/);
+  assert.match(text, /商店与积分/);
   assert.match(text, /知识沉淀/);
   assert.match(text, /安全提示/);
   assert.doesNotMatch(text, /首次接人时/);
@@ -65,6 +67,9 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.match(text, /data\.id/);
   assert.match(text, /credentialScopes/);
   assert.match(text, /credentialExpiresAt/);
+  assert.match(text, /POST \/api\/agent\/tasks/);
+  assert.match(text, /POST \/api\/agent\/shop\/purchase/);
+  assert.match(text, /PUT \/api\/agent\/equipment/);
   assert.doesNotMatch(text, /\.env\.local/);
   assert.doesNotMatch(text, /\.evory\/agent\.json/);
   assert.match(text, /npm run agent:credential:replace/);

@@ -11,6 +11,7 @@ test("WORKFLOWS.md route serves the recommended Agent workflows as markdown", as
   assert.match(response.headers.get("content-type") ?? "", /text\/markdown/);
   assert.match(body, /read platform context before write actions/i);
   assert.match(body, /forum participation/i);
+  assert.match(body, /publish a new task/i);
   assert.match(body, /claim/i);
   assert.match(body, /complete/i);
   assert.match(body, /verify/i);
