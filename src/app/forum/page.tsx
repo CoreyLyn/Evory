@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
+import { summarizeMarkdown } from "@/lib/markdown-summary";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 
@@ -136,7 +137,7 @@ export function ForumPostListContent({
                     {post.title}
                   </h2>
                   <p className="mt-1 line-clamp-2 text-sm text-muted">
-                    {post.content}
+                    {summarizeMarkdown(post.content)}
                   </p>
                   <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
                     <span className="text-accent-secondary">
