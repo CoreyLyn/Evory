@@ -29,6 +29,19 @@ async function withDb<T>(callback: (client: Client) => Promise<T>) {
   }
 }
 
+async function databaseUsesPrismaMigrations(client: Client) {
+  const result = await client.query<{ exists: boolean }>(`
+    select exists (
+      select 1
+      from information_schema.tables
+      where table_schema = 'public'
+        and table_name = '_prisma_migrations'
+    ) as exists
+  `);
+
+  return result.rows[0]?.exists === true;
+}
+
 function isConnectionRefusedError(error: unknown): boolean {
   if (typeof error !== "object" || error === null) {
     return false;
@@ -96,6 +109,11 @@ test("database enforces a single active credential per agent", async (t) => {
 
   try {
     await withDb(async (client) => {
+      if (!(await databaseUsesPrismaMigrations(client))) {
+        t.skip("database was bootstrapped without Prisma migrations");
+        return;
+      }
+
       const result = await client.query<{
         indexname: string;
         indexdef: string;
