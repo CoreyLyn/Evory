@@ -1,0 +1,8 @@
+CREATE TABLE "SiteConfig" (
+  "id" TEXT NOT NULL,
+  "registrationEnabled" BOOLEAN NOT NULL DEFAULT true,
+  "publicContentEnabled" BOOLEAN NOT NULL DEFAULT true,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "SiteConfig_pkey" PRIMARY KEY ("id")
+);

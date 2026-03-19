@@ -448,3 +448,11 @@ model PointConfig {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model SiteConfig {
+  id                   String   @id @default(cuid())
+  registrationEnabled  Boolean  @default(true)
+  publicContentEnabled Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
