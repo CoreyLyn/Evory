@@ -47,6 +47,11 @@ type Reply = {
   agent: { id: string; name: string; type: string };
 };
 
+type SiteConfig = {
+  registrationEnabled: boolean;
+  publicContentEnabled: boolean;
+};
+
 function normalizeTagSlug(value: string) {
   return value
     .trim()
@@ -98,6 +103,8 @@ export default function AdminPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
+  const [siteConfigBusy, setSiteConfigBusy] = useState<keyof SiteConfig | null>(null);
   // Bump to trigger a re-fetch from event handlers
   const [refreshKey, setRefreshKey] = useState(0);
   // Cached replies per post (fetched on expand)
@@ -149,6 +156,37 @@ export default function AdminPage() {
     load();
     return () => { cancelled = true; };
   }, [authed, page, tab, refreshKey, t]);
+
+  useEffect(() => {
+    if (!authed) return;
+
+    let cancelled = false;
+
+    async function loadSiteConfig() {
+      try {
+        const response = await fetch("/api/admin/site-config");
+        const json = await response.json();
+        if (cancelled) return;
+
+        if (json.success) {
+          setSiteConfig(json.data);
+          return;
+        }
+
+        setError(json.error || t("admin.actionFailed"));
+      } catch {
+        if (!cancelled) {
+          setError(t("admin.actionFailed"));
+        }
+      }
+    }
+
+    void loadSiteConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authed, t]);
 
   // Auto-clear success banner after 3 seconds
   useEffect(() => {
@@ -242,6 +280,44 @@ export default function AdminPage() {
     setBusyId(null);
   }
 
+  async function handleSiteConfigToggle(key: keyof SiteConfig) {
+    if (!siteConfig) {
+      return;
+    }
+
+    const nextConfig = {
+      ...siteConfig,
+      [key]: !siteConfig[key],
+    };
+
+    setSiteConfigBusy(key);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch("/api/admin/site-config", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: window.location.origin,
+        },
+        body: JSON.stringify(nextConfig),
+      });
+      const json = await response.json();
+
+      if (json.success) {
+        setSiteConfig(json.data);
+        setSuccess(t("admin.actionSuccess"));
+      } else {
+        setError(json.error || t("admin.actionFailed"));
+      }
+    } catch {
+      setError(t("admin.actionFailed"));
+    }
+
+    setSiteConfigBusy(null);
+  }
+
   // Toggle expand and fetch replies for the post
   function toggleExpand(postId: string) {
     if (expandedId === postId) {
@@ -330,6 +406,74 @@ export default function AdminPage() {
           </Link>
         }
       />
+
+      <Card className="border-card-border/50 bg-card/70">
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">
+              {t("admin.siteControls.title")}
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              {t("admin.siteControls.subtitle")}
+            </p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            {([
+              "registrationEnabled",
+              "publicContentEnabled",
+            ] as const).map((key) => {
+              const checked = siteConfig?.[key] ?? false;
+              const isBusy = siteConfigBusy === key;
+              const labelKey =
+                key === "registrationEnabled"
+                  ? "admin.siteControls.registration"
+                  : "admin.siteControls.publicContent";
+
+              return (
+                <div
+                  key={key}
+                  className="rounded-2xl border border-card-border/40 bg-background/30 p-4"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-foreground">
+                        {t(labelKey)}
+                      </p>
+                      <Badge variant={checked ? "success" : "danger"}>
+                        {isBusy
+                          ? t("admin.siteControls.saving")
+                          : checked
+                            ? t("admin.siteControls.enabled")
+                            : t("admin.siteControls.disabled")}
+                      </Badge>
+                    </div>
+
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={checked}
+                      disabled={!siteConfig || isBusy}
+                      onClick={() => void handleSiteConfigToggle(key)}
+                      className={`relative inline-flex h-7 w-12 shrink-0 rounded-full border transition-colors ${
+                        checked
+                          ? "border-accent/40 bg-accent/20"
+                          : "border-card-border/60 bg-card/50"
+                      } disabled:cursor-not-allowed disabled:opacity-50`}
+                    >
+                      <span
+                        className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-transform ${
+                          checked ? "translate-x-6" : "translate-x-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </Card>
 
       {/* Tab switcher */}
       <div className="flex gap-2">
