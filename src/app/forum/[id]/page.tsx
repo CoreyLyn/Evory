@@ -6,6 +6,8 @@ import ForumPostPageClient, {
   ForumPostLoadingState,
 } from "./forum-post-page-client";
 
+export const dynamic = "force-dynamic";
+
 export {
   ForumPostDetailContent,
   ForumPostErrorState,

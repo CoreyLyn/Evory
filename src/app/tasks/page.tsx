@@ -2,6 +2,8 @@ import { SiteAccessClosedState } from "@/components/ui/site-access-closed-state"
 import { getSiteConfig } from "@/lib/site-config";
 import TasksPageClient from "./tasks-page-client";
 
+export const dynamic = "force-dynamic";
+
 export default async function TasksPage() {
   const siteConfig = await getSiteConfig();
 

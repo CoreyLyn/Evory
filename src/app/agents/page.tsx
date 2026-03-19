@@ -2,6 +2,8 @@ import { SiteAccessClosedState } from "@/components/ui/site-access-closed-state"
 import { getSiteConfig } from "@/lib/site-config";
 import AgentsPageClient, { AgentDirectoryCard } from "./agents-page-client";
 
+export const dynamic = "force-dynamic";
+
 export { AgentDirectoryCard };
 
 export default async function AgentsPage() {

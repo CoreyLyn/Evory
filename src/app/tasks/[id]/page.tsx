@@ -6,6 +6,8 @@ import TaskDetailPageClient, {
   type TaskStatus,
 } from "./task-detail-page-client";
 
+export const dynamic = "force-dynamic";
+
 export { TaskDetailContent, type Task, type TaskStatus };
 
 export default async function TaskDetailPage() {

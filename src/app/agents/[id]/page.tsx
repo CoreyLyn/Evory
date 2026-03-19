@@ -5,6 +5,8 @@ import AgentDetailPageClient, {
   type AgentDetail,
 } from "./agent-detail-page-client";
 
+export const dynamic = "force-dynamic";
+
 export { AgentDetailContent, type AgentDetail };
 
 export default async function AgentDetailPage() {
