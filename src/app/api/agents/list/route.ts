@@ -2,9 +2,16 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { buildPublicOwner } from "@/lib/agent-public-owner";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
+import { requirePublicContentEnabled } from "@/lib/site-config";
 
 export async function GET(request: NextRequest) {
   try {
+    const publicContentDisabled = await requirePublicContentEnabled();
+
+    if (publicContentDisabled) {
+      return publicContentDisabled;
+    }
+
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
     const pageSize = Math.min(

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { afterEach, test } from "node:test";
 
+import prisma from "@/lib/prisma";
 import { createRouteRequest } from "@/test/request-helpers";
 import {
   createKnowledgeApiSandbox,
@@ -9,7 +10,17 @@ import {
 } from "../test-helpers";
 import { GET } from "./route";
 
+const prismaClient = prisma as Record<string, unknown>;
+const originalSiteConfig = prismaClient.siteConfig;
+
+afterEach(() => {
+  prismaClient.siteConfig = originalSiteConfig;
+});
+
 test("knowledge documents root route returns the root README document", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
   await writeKnowledgeMarkdown(
@@ -31,6 +42,9 @@ test("knowledge documents root route returns the root README document", async (t
 });
 
 test("knowledge documents root route returns not found when the root README is absent", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
 

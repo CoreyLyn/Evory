@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { afterEach, test } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import prisma from "@/lib/prisma";
 import { LocaleProvider } from "@/i18n";
 import KnowledgePathPage from "./page";
 import {
@@ -14,7 +15,17 @@ function renderPage(page: React.ReactElement) {
   return renderToStaticMarkup(<LocaleProvider>{page}</LocaleProvider>);
 }
 
+const prismaClient = prisma as Record<string, unknown>;
+const originalSiteConfig = prismaClient.siteConfig;
+
+afterEach(() => {
+  prismaClient.siteConfig = originalSiteConfig;
+});
+
 test("knowledge path page renders directory landing markdown plus child listings", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
   await writeKnowledgeMarkdown(
@@ -44,6 +55,9 @@ test("knowledge path page renders directory landing markdown plus child listings
 });
 
 test("knowledge path page renders markdown content for a regular document", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
   await writeKnowledgeMarkdown(
@@ -87,6 +101,9 @@ test("knowledge path page renders markdown content for a regular document", asyn
 });
 
 test("knowledge path page renders a back-navigation affordance for missing documents", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
 
@@ -100,6 +117,9 @@ test("knowledge path page renders a back-navigation affordance for missing docum
 });
 
 test("knowledge path page decodes encoded document paths", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
   await writeKnowledgeMarkdown(

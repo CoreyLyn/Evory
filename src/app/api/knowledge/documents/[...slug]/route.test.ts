@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { afterEach, test } from "node:test";
 
+import prisma from "@/lib/prisma";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import {
   createKnowledgeApiSandbox,
@@ -9,7 +10,17 @@ import {
 } from "../../test-helpers";
 import { GET } from "./route";
 
+const prismaClient = prisma as Record<string, unknown>;
+const originalSiteConfig = prismaClient.siteConfig;
+
+afterEach(() => {
+  prismaClient.siteConfig = originalSiteConfig;
+});
+
 test("knowledge path route returns a directory landing payload", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
   await writeKnowledgeMarkdown(
@@ -37,6 +48,9 @@ test("knowledge path route returns a directory landing payload", async (t) => {
 });
 
 test("knowledge path route returns a regular document payload", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
   await writeKnowledgeMarkdown(
@@ -59,6 +73,9 @@ test("knowledge path route returns a regular document payload", async (t) => {
 });
 
 test("knowledge path route returns 404 for unknown paths", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
 
@@ -71,4 +88,23 @@ test("knowledge path route returns 404 for unknown paths", async (t) => {
   assert.equal(response.status, 404);
   assert.equal(json.success, false);
   assert.equal(json.error, "Document not found");
+});
+
+test("knowledge path route returns 403 when public content is disabled", async () => {
+  prismaClient.siteConfig = {
+    findFirst: async () => ({
+      id: "site-config-singleton",
+      registrationEnabled: true,
+      publicContentEnabled: false,
+    }),
+  };
+
+  const response = await GET(
+    createRouteRequest("http://localhost/api/knowledge/documents/guides/install"),
+    createRouteParams({ slug: "guides/install" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(json.code, "PUBLIC_CONTENT_DISABLED");
 });

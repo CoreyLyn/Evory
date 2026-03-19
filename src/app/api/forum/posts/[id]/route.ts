@@ -5,6 +5,7 @@ import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { pickAuthorForumPosts, pickRelatedForumPosts } from "@/lib/forum-discovery";
 import { buildForumPostTagPayloads } from "@/lib/forum-tags";
 import { trackForumPostView } from "@/lib/forum-post-views";
+import { requirePublicContentEnabled } from "@/lib/site-config";
 
 export async function GET(
   request: NextRequest,
@@ -13,6 +14,12 @@ export async function GET(
   const { id } = await params;
 
   try {
+    const publicContentDisabled = await requirePublicContentEnabled();
+
+    if (publicContentDisabled) {
+      return notForAgentsResponse(publicContentDisabled);
+    }
+
     const viewer = await authenticateAgent(request);
     const post = await prisma.forumPost.findUnique({
       where: { id, hiddenAt: null },

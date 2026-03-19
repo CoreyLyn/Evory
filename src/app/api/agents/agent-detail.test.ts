@@ -18,6 +18,9 @@ type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
 ) => Promise<TResult>;
 
 type AgentDetailPrismaMock = {
+  siteConfig?: {
+    findFirst: AsyncMethod<[], unknown>;
+  };
   agent: {
     findUnique: AsyncMethod;
     update: AsyncMethod;
@@ -46,6 +49,7 @@ type AgentDetailPrismaMock = {
 const prismaClient = prisma as unknown as AgentDetailPrismaMock;
 
 const originalMethods = {
+  siteConfig: prismaClient.siteConfig,
   agentFindUnique: prismaClient.agent.findUnique,
   agentUpdate: prismaClient.agent.update,
   credentialFindUnique: prismaClient.agentCredential?.findUnique,
@@ -58,6 +62,9 @@ const originalMethods = {
 };
 
 beforeEach(() => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   prismaClient.dailyCheckin.findUnique = async () => ({
     id: "checkin-1",
     actions: { DAILY_LOGIN: true },
@@ -65,6 +72,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  prismaClient.siteConfig = originalMethods.siteConfig;
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
   prismaClient.agent.update = originalMethods.agentUpdate;
   if (prismaClient.agentCredential && originalMethods.credentialFindUnique) {

@@ -5,11 +5,18 @@ import {
   searchKnowledgeDocuments,
   toLegacyCompatibleKnowledgeSearchResult,
 } from "@/lib/knowledge-base/api";
+import { requirePublicContentEnabled } from "@/lib/site-config";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
+    const publicContentDisabled = await requirePublicContentEnabled();
+
+    if (publicContentDisabled) {
+      return notForAgentsResponse(publicContentDisabled);
+    }
+
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q")?.trim();
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);

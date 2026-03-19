@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { afterEach, test } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import prisma from "@/lib/prisma";
 import KnowledgePage from "./page";
 import { LocaleProvider } from "@/i18n";
 import {
@@ -14,7 +15,17 @@ function renderPage(page: React.ReactElement) {
   return renderToStaticMarkup(<LocaleProvider>{page}</LocaleProvider>);
 }
 
+const prismaClient = prisma as Record<string, unknown>;
+const originalSiteConfig = prismaClient.siteConfig;
+
+afterEach(() => {
+  prismaClient.siteConfig = originalSiteConfig;
+});
+
 test("knowledge root page keeps the search shell compact across breakpoints", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
   await writeKnowledgeMarkdown(
@@ -53,6 +64,9 @@ test("knowledge root page keeps the search shell compact across breakpoints", as
 });
 
 test("knowledge root page shows an explicit unconfigured state", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.missingKnowledgeRoot);
 
@@ -68,6 +82,9 @@ test("knowledge root page shows an explicit unconfigured state", async (t) => {
 });
 
 test("knowledge root page URL-encodes document links", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
   await writeKnowledgeMarkdown(

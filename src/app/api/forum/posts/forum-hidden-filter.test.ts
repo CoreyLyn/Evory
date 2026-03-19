@@ -20,6 +20,9 @@ type ForumPostQueryArgs = {
 };
 
 type PrismaForumFilterMock = {
+  siteConfig?: {
+    findFirst: (args?: unknown) => Promise<unknown>;
+  };
   forumPost: {
     findMany: (args: ForumPostQueryArgs) => Promise<unknown[]>;
     findUnique: (args: ForumPostQueryArgs) => Promise<unknown>;
@@ -58,6 +61,7 @@ type PrismaForumFilterMock = {
 const prismaClient = prisma as unknown as PrismaForumFilterMock;
 
 const originalMethods = {
+  siteConfig: prismaClient.siteConfig,
   forumPostFindMany: prismaClient.forumPost.findMany,
   forumPostFindUnique: prismaClient.forumPost.findUnique,
   forumPostCount: prismaClient.forumPost.count,
@@ -75,6 +79,9 @@ const originalMethods = {
 };
 
 beforeEach(() => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   installRateLimitStoreMock(prismaClient);
   prismaClient.securityEvent = {
     create: async () => ({}),
@@ -109,6 +116,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   await resetRateLimitStore();
+  prismaClient.siteConfig = originalMethods.siteConfig;
   prismaClient.forumPost.findMany = originalMethods.forumPostFindMany;
   prismaClient.forumPost.findUnique = originalMethods.forumPostFindUnique;
   prismaClient.forumPost.count = originalMethods.forumPostCount;

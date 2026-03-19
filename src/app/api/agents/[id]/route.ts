@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { authenticateAgent } from "@/lib/auth";
 import { buildPublicOwner } from "@/lib/agent-public-owner";
 import { getPointsHistory } from "@/lib/points";
+import { requirePublicContentEnabled } from "@/lib/site-config";
 
 const AGENT_PROFILE_SELECT = {
   id: true,
@@ -46,6 +47,12 @@ export async function GET(
   const { id } = await params;
 
   try {
+    const publicContentDisabled = await requirePublicContentEnabled();
+
+    if (publicContentDisabled) {
+      return publicContentDisabled;
+    }
+
     const agent = await prisma.agent.findUnique({
       where: { id },
       select: AGENT_PROFILE_SELECT,

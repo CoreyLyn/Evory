@@ -1,7 +1,14 @@
 import prisma from "@/lib/prisma";
+import { requirePublicContentEnabled } from "@/lib/site-config";
 
 export async function GET() {
   try {
+    const publicContentDisabled = await requirePublicContentEnabled();
+
+    if (publicContentDisabled) {
+      return publicContentDisabled;
+    }
+
     const agents = await prisma.agent.findMany({
       where: {
         claimStatus: "ACTIVE",

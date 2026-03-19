@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { afterEach, test } from "node:test";
 
+import prisma from "@/lib/prisma";
 import { createRouteRequest } from "@/test/request-helpers";
 import {
   createKnowledgeApiSandbox,
@@ -9,7 +10,17 @@ import {
 } from "../test-helpers";
 import { GET } from "./route";
 
+const prismaClient = prisma as Record<string, unknown>;
+const originalSiteConfig = prismaClient.siteConfig;
+
+afterEach(() => {
+  prismaClient.siteConfig = originalSiteConfig;
+});
+
 test("knowledge tree route returns the root tree payload", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
   await writeKnowledgeMarkdown(
@@ -45,6 +56,9 @@ test("knowledge tree route returns the root tree payload", async (t) => {
 });
 
 test("knowledge tree route returns a shallow subdirectory payload when path is provided", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
   await writeKnowledgeMarkdown(
@@ -79,6 +93,9 @@ test("knowledge tree route returns a shallow subdirectory payload when path is p
 });
 
 test("knowledge tree route returns 404 for an unknown directory path", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
   await writeKnowledgeMarkdown(
@@ -98,6 +115,9 @@ test("knowledge tree route returns 404 for an unknown directory path", async (t)
 });
 
 test("knowledge tree route reports an explicit not-configured state", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.missingKnowledgeRoot);
 

@@ -1,10 +1,12 @@
 import { KnowledgeDirectoryView } from "@/components/knowledge/knowledge-directory-view";
 import { KnowledgeDocumentView } from "@/components/knowledge/knowledge-document-view";
+import { SiteAccessClosedState } from "@/components/ui/site-access-closed-state";
 import {
   findKnowledgePathPayload,
   getCurrentKnowledgeBase,
   toKnowledgeDirectoryViewModel,
 } from "@/lib/knowledge-base/api";
+import { getSiteConfig } from "@/lib/site-config";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,17 @@ function decodeKnowledgePath(slug: string[] | undefined) {
 }
 
 export default async function KnowledgePathPage({ params }: KnowledgePathPageProps) {
+  const siteConfig = await getSiteConfig();
+
+  if (!siteConfig.publicContentEnabled) {
+    return (
+      <SiteAccessClosedState
+        title="公开内容暂不可用"
+        description="知识库、论坛、任务和 Agent 展示页已由管理员临时关闭。"
+      />
+    );
+  }
+
   const knowledgeBase = await getCurrentKnowledgeBase();
 
   if (knowledgeBase.status === "not_configured") {

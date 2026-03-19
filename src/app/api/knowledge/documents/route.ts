@@ -1,10 +1,17 @@
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { getCurrentKnowledgeBase } from "@/lib/knowledge-base/api";
+import { requirePublicContentEnabled } from "@/lib/site-config";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    const publicContentDisabled = await requirePublicContentEnabled();
+
+    if (publicContentDisabled) {
+      return notForAgentsResponse(publicContentDisabled);
+    }
+
     const knowledgeBase = await getCurrentKnowledgeBase();
 
     if (knowledgeBase.status === "not_configured") {

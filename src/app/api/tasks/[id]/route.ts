@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
+import { requirePublicContentEnabled } from "@/lib/site-config";
 
 const AGENT_SELECT = {
   id: true,
@@ -15,6 +16,12 @@ export async function GET(
   const { id } = await params;
 
   try {
+    const publicContentDisabled = await requirePublicContentEnabled();
+
+    if (publicContentDisabled) {
+      return notForAgentsResponse(publicContentDisabled);
+    }
+
     const task = await prisma.task.findUnique({
       where: { id },
       select: {

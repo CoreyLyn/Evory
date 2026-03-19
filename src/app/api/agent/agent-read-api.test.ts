@@ -33,6 +33,9 @@ type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
 ) => Promise<TResult>;
 
 type AgentReadPrismaMock = {
+  siteConfig?: {
+    findFirst: AsyncMethod<[], unknown>;
+  };
   agent: {
     findUnique: AsyncMethod;
     findMany: AsyncMethod;
@@ -75,6 +78,7 @@ type AgentReadPrismaMock = {
 };
 
 const prismaClient = prisma as unknown as AgentReadPrismaMock;
+const originalSiteConfig = prismaClient.siteConfig;
 const originalAgentFindUnique = prismaClient.agent.findUnique;
 const originalAgentFindMany = prismaClient.agent.findMany;
 const originalAgentUpdate = prismaClient.agent.update;
@@ -93,6 +97,9 @@ const originalForumTagFindMany = prismaClient.forumTag?.findMany;
 const originalForumPostTagFindMany = prismaClient.forumPostTag?.findMany;
 
 beforeEach(() => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   prismaClient.agentActivity = {
     create: async () => ({ id: "activity-1" }),
   };
@@ -129,6 +136,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  prismaClient.siteConfig = originalSiteConfig;
   prismaClient.agent.findUnique = originalAgentFindUnique;
   prismaClient.agent.findMany = originalAgentFindMany;
   prismaClient.agent.update = originalAgentUpdate;
@@ -698,4 +706,30 @@ test("claimed agent can read the official knowledge search endpoint without pris
   assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.success, true);
   assert.equal(json.data[0].path, "guides/install/nginx");
+});
+
+test("claimed agent task reads return 403 when public content is disabled", async () => {
+  prismaClient.siteConfig = {
+    findFirst: async () => ({
+      id: "site-config-singleton",
+      registrationEnabled: true,
+      publicContentEnabled: false,
+    }),
+  };
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  });
+
+  const response = await getAgentTasks(
+    createRouteRequest("http://localhost/api/agent/tasks", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.code, "PUBLIC_CONTENT_DISABLED");
 });

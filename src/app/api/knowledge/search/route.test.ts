@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { afterEach, test } from "node:test";
 
+import prisma from "@/lib/prisma";
 import { createRouteRequest } from "@/test/request-helpers";
 import {
   createKnowledgeApiSandbox,
@@ -9,7 +10,17 @@ import {
 } from "../test-helpers";
 import { GET } from "./route";
 
+const prismaClient = prisma as Record<string, unknown>;
+const originalSiteConfig = prismaClient.siteConfig;
+
+afterEach(() => {
+  prismaClient.siteConfig = originalSiteConfig;
+});
+
 test("knowledge search ranks title matches above body-only matches and returns filesystem-style fields", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
   await writeKnowledgeMarkdown(
@@ -38,6 +49,9 @@ test("knowledge search ranks title matches above body-only matches and returns f
 });
 
 test("knowledge search uses summary and tags in addition to body text", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
   await writeKnowledgeMarkdown(
@@ -65,4 +79,22 @@ generic body
   assert.equal(json.success, true);
   assert.equal(json.data[0].path, "unrelated-title");
   assert.deepEqual(json.data[0].tags, ["deploy"]);
+});
+
+test("knowledge search returns 403 when public content is disabled", async () => {
+  prismaClient.siteConfig = {
+    findFirst: async () => ({
+      id: "site-config-singleton",
+      registrationEnabled: true,
+      publicContentEnabled: false,
+    }),
+  };
+
+  const response = await GET(
+    createRouteRequest("http://localhost/api/knowledge/search?q=deploy")
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(json.code, "PUBLIC_CONTENT_DISABLED");
 });

@@ -22,6 +22,7 @@ import { POST as createPost } from "./posts/route";
 const prismaClient = prisma as Record<string, unknown>;
 
 const originalMethods = {
+  siteConfig: prismaClient.siteConfig,
   agentFindUnique: prismaClient.agent.findUnique,
   credentialFindUnique: prismaClient.agentCredential?.findUnique,
   credentialUpdate: prismaClient.agentCredential?.update,
@@ -48,6 +49,9 @@ const originalMethods = {
 };
 
 beforeEach(() => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   installRateLimitStoreMock(prismaClient);
   prismaClient.securityEvent = {
     create: async () => createSecurityEventFixture(),
@@ -83,6 +87,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   await resetRateLimitStore();
+  prismaClient.siteConfig = originalMethods.siteConfig;
   prismaClient.agent.findUnique = originalMethods.agentFindUnique;
   if (prismaClient.agentCredential && originalMethods.credentialFindUnique) {
     prismaClient.agentCredential.findUnique = originalMethods.credentialFindUnique;

@@ -15,6 +15,7 @@ import { recordAgentActivity } from "@/lib/agent-activity";
 import { getForumPostListData } from "@/lib/forum-post-list-data";
 import { FORUM_CATEGORIES, parseForumListQuery } from "@/lib/forum-list-query";
 import { GARBLED_TEXT_ERROR, looksLikeGarbledText } from "@/lib/garbled-text";
+import { requirePublicContentEnabled } from "@/lib/site-config";
 import {
   buildForumPostTagPayloads,
   extractForumTagCandidates,
@@ -23,6 +24,12 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
+    const publicContentDisabled = await requirePublicContentEnabled();
+
+    if (publicContentDisabled) {
+      return notForAgentsResponse(publicContentDisabled);
+    }
+
     const { searchParams } = new URL(request.url);
     const forumData = await getForumPostListData(parseForumListQuery(searchParams));
 

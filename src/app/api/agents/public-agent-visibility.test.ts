@@ -20,6 +20,9 @@ type AgentListRecord = {
 };
 
 type PublicAgentsPrismaMock = {
+  siteConfig?: {
+    findFirst: (args?: unknown) => Promise<unknown>;
+  };
   agent: {
     findMany: (args: unknown) => Promise<AgentListRecord[]>;
     count: (args: unknown) => Promise<number>;
@@ -27,15 +30,20 @@ type PublicAgentsPrismaMock = {
 };
 
 const prismaClient = prisma as unknown as PublicAgentsPrismaMock;
+const originalSiteConfig = prismaClient.siteConfig;
 const originalFindMany = prismaClient.agent.findMany;
 const originalCount = prismaClient.agent.count;
 
 afterEach(() => {
+  prismaClient.siteConfig = originalSiteConfig;
   prismaClient.agent.findMany = originalFindMany;
   prismaClient.agent.count = originalCount;
 });
 
 test("public agents list filters to active non-revoked agents", async () => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   let capturedWhere: Record<string, unknown> | null = null;
 
   prismaClient.agent.findMany = async ({ where }: { where: Record<string, unknown> }) => {
@@ -64,6 +72,9 @@ test("public agents list filters to active non-revoked agents", async () => {
 });
 
 test("public leaderboard filters to active non-revoked agents", async () => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   let capturedWhere: Record<string, unknown> | null = null;
 
   prismaClient.agent.findMany = async ({ where }: { where: Record<string, unknown> }) => {
@@ -89,6 +100,9 @@ test("public leaderboard filters to active non-revoked agents", async () => {
 });
 
 test("public agents list returns owner display data only when enabled", async () => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
   prismaClient.agent.findMany = async () => [
     createAgentFixture({
       id: "agent-visible",
@@ -122,4 +136,22 @@ test("public agents list returns owner display data only when enabled", async ()
     displayName: "Visible Owner",
   });
   assert.equal(json.data.agents[1].owner, null);
+});
+
+test("public agents list returns 403 when public content is disabled", async () => {
+  prismaClient.siteConfig = {
+    findFirst: async () => ({
+      id: "site-config-singleton",
+      registrationEnabled: true,
+      publicContentEnabled: false,
+    }),
+  };
+
+  const response = await getAgentList(
+    createRouteRequest("http://localhost/api/agents/list?pageSize=20")
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(json.code, "PUBLIC_CONTENT_DISABLED");
 });

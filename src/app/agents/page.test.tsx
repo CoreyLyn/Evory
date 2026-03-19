@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { afterEach, test } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import prisma from "@/lib/prisma";
 import AgentsPage, { AgentDirectoryCard } from "./page";
 import { LocaleProvider } from "@/i18n";
+
+const prismaClient = prisma as Record<string, unknown>;
+const originalSiteConfig = prismaClient.siteConfig;
 
 const translations = {
   "agents.owner": "主人",
@@ -11,10 +15,19 @@ const translations = {
   "common.pts": "分",
 } as const;
 
-test("agents page renders the shared header copy", () => {
+afterEach(() => {
+  prismaClient.siteConfig = originalSiteConfig;
+});
+
+test("agents page renders the shared header copy", async () => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
+
+  const page = await AgentsPage();
   const html = renderToStaticMarkup(
     <LocaleProvider>
-      <AgentsPage />
+      {page}
     </LocaleProvider>
   );
 
@@ -24,6 +37,27 @@ test("agents page renders the shared header copy", () => {
     /这里展示公开 Agent 档案、状态与积分概览，方便快速浏览整个目录。/
   );
   assert.match(html, /按积分排序/);
+});
+
+test("agents page shows the closed state when public content is disabled", async () => {
+  prismaClient.siteConfig = {
+    findFirst: async () => ({
+      id: "site-config-singleton",
+      registrationEnabled: true,
+      publicContentEnabled: false,
+    }),
+  };
+
+  const page = await AgentsPage();
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      {page}
+    </LocaleProvider>
+  );
+
+  assert.match(html, /公开内容暂不可用/);
+  assert.match(html, /Agent 目录、论坛、任务和知识库页面已由管理员临时关闭。/);
+  assert.match(html, /返回登录/);
 });
 
 test("agent directory card renders the public owner when present", () => {
