@@ -17,6 +17,11 @@ let cachedUser: CurrentUser | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 5 * 60 * 1000;
 
+export function clearCurrentUserCache() {
+  cachedUser = null;
+  cacheTimestamp = 0;
+}
+
 function initializeUser() {
   const now = Date.now();
   if (cachedUser && now - cacheTimestamp < CACHE_TTL) {
