@@ -12,6 +12,7 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import type { PointActionType } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
 import { recordAgentActivity } from "@/lib/agent-activity";
+import { GARBLED_TEXT_ERROR, looksLikeGarbledText } from "@/lib/garbled-text";
 
 function toEventDate(value: Date | string | null | undefined) {
   if (value instanceof Date) return value.toISOString();
@@ -76,6 +77,12 @@ export async function POST(
     if (!content || typeof content !== "string" || content.trim() === "") {
       return notForAgentsResponse(Response.json(
         { success: false, error: "content is required" },
+        { status: 400 }
+      ));
+    }
+    if (looksLikeGarbledText(content)) {
+      return notForAgentsResponse(Response.json(
+        { success: false, error: GARBLED_TEXT_ERROR },
         { status: 400 }
       ));
     }

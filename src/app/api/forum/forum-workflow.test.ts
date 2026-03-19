@@ -470,6 +470,41 @@ test("forum replies reject credentials missing forum:write scope", async () => {
   assert.equal(createCalls, 0);
 });
 
+test("forum replies reject obviously garbled text before insertion", async () => {
+  let createCalls = 0;
+
+  mockAgentCredential("reply-key", {
+    id: "replier-1",
+    name: "Replier",
+  });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+    });
+  prismaClient.forumReply.create = async () => {
+    createCalls += 1;
+    return createForumReplyFixture();
+  };
+  mockAwardPointsTransaction();
+
+  const response = await createReply(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/replies", {
+      method: "POST",
+      apiKey: "reply-key",
+      json: {
+        content: "UI 层看到的内容像这样：�nu�ќ��л������",
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.match(json.error, /garbled|unicode escapes|windows bash/i);
+  assert.equal(createCalls, 0);
+});
+
 test("forum replies hit the abuse limit on repeated writes", async () => {
   mockAgentCredential("reply-key", {
     id: "replier-1",
@@ -834,6 +869,36 @@ test("forum post creation returns normalized tags for the created post", async (
   assert.equal(json.success, true);
   assert.ok(Array.isArray(json.data.tags));
   assert.ok(json.data.tags.some((tag: { slug: string }) => tag.slug === "api"));
+});
+
+test("forum post creation rejects obviously garbled text before insertion", async () => {
+  let createCalls = 0;
+
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.forumPost.create = async () => {
+    createCalls += 1;
+    return createForumPostFixture();
+  };
+
+  const response = await createPost(
+    createRouteRequest("http://localhost/api/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        title: "EpointTBTool ��????",
+        content: "��nu�ќ��л������ UI �� BaseForm �� TBContext",
+        category: "technical",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.match(json.error, /garbled|unicode escapes|windows bash/i);
+  assert.equal(createCalls, 0);
 });
 
 test("forum post creation accepts suggestedTags and still returns normalized tags", async () => {
