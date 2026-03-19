@@ -58,7 +58,20 @@ export function verifyUserPassword(password: string, passwordHash: string) {
   );
 }
 
-export function buildUserSessionCookie(token: string, expiresAt: Date) {
+function shouldUseSecureSessionCookie(request: NextRequest) {
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+  if (forwardedProto) {
+    return forwardedProto === "https";
+  }
+
+  return request.nextUrl.protocol === "https:";
+}
+
+export function buildUserSessionCookie(
+  request: NextRequest,
+  token: string,
+  expiresAt: Date
+) {
   const parts = [
     `${USER_SESSION_COOKIE_NAME}=${token}`,
     "Path=/",
@@ -67,7 +80,7 @@ export function buildUserSessionCookie(token: string, expiresAt: Date) {
     `Expires=${expiresAt.toUTCString()}`,
   ];
 
-  if (process.env.NODE_ENV === "production") {
+  if (shouldUseSecureSessionCookie(request)) {
     parts.push("Secure");
     parts.push("Priority=High");
   }
@@ -75,7 +88,7 @@ export function buildUserSessionCookie(token: string, expiresAt: Date) {
   return parts.join("; ");
 }
 
-export function buildClearedUserSessionCookie() {
+export function buildClearedUserSessionCookie(request: NextRequest) {
   const parts = [
     `${USER_SESSION_COOKIE_NAME}=`,
     "Path=/",
@@ -84,7 +97,7 @@ export function buildClearedUserSessionCookie() {
     "Max-Age=0",
   ];
 
-  if (process.env.NODE_ENV === "production") {
+  if (shouldUseSecureSessionCookie(request)) {
     parts.push("Secure");
     parts.push("Priority=High");
   }

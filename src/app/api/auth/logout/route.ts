@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       { success: true },
       {
         headers: {
-          "Set-Cookie": buildClearedUserSessionCookie(),
+          "Set-Cookie": buildClearedUserSessionCookie(request),
         },
       }
     );

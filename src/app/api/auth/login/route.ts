@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
       },
       {
         headers: {
-          "Set-Cookie": buildUserSessionCookie(session.token, session.expiresAt),
+          "Set-Cookie": buildUserSessionCookie(request, session.token, session.expiresAt),
         },
       }
     );

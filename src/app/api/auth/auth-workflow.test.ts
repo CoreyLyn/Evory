@@ -149,6 +149,41 @@ test("login returns a session cookie for a valid password", async () => {
   assert.equal(json.success, true);
   assert.equal(json.data.email, "owner@example.com");
   assert.match(response.headers.get("set-cookie") ?? "", /evory_user_session=/);
+  assert.doesNotMatch(response.headers.get("set-cookie") ?? "", /Secure/);
+});
+
+test("login hardens the session cookie when https is forwarded by a proxy", async () => {
+  prismaClient.user = {
+    findUnique: async () =>
+      createUserFixture({
+        id: "user-1",
+        email: "owner@example.com",
+        passwordHash: hashUserPassword("CorrectHorseBatteryStaple"),
+      }),
+    create: async () => createUserFixture(),
+  };
+  prismaClient.userSession = {
+    create: async () => createUserSessionFixture(),
+    findUnique: async () => null,
+    deleteMany: async () => ({ count: 0 }),
+  };
+
+  const response = await login(
+    createRouteRequest("http://localhost/api/auth/login", {
+      method: "POST",
+      headers: {
+        origin: "http://localhost",
+        "x-forwarded-proto": "https",
+      },
+      json: {
+        email: "owner@example.com",
+        password: "CorrectHorseBatteryStaple",
+      },
+    })
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("set-cookie") ?? "", /Secure/);
 });
 
 test("me returns the current user when the session cookie is valid", async () => {
@@ -213,6 +248,34 @@ test("logout clears the session cookie", async () => {
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
   assert.match(response.headers.get("set-cookie") ?? "", /Max-Age=0/);
+  assert.doesNotMatch(response.headers.get("set-cookie") ?? "", /Secure/);
+});
+
+test("logout hardens the cleared cookie when https is forwarded by a proxy", async () => {
+  const token = "active-session-token";
+
+  prismaClient.userSession = {
+    create: async () => createUserSessionFixture(),
+    findUnique: async () =>
+      createUserSessionFixture({
+        tokenHash: hashSessionToken(token),
+      }),
+    deleteMany: async () => ({ count: 1 }),
+  };
+
+  const response = await logout(
+    createRouteRequest("http://localhost/api/auth/logout", {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${token}`,
+        origin: "http://localhost",
+        "x-forwarded-proto": "https",
+      },
+    })
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("set-cookie") ?? "", /Secure/);
 });
 
 test("signup rate limits repeated attempts from the same ip", async () => {

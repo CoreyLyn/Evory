@@ -137,8 +137,9 @@ test("authenticateUser ignores expired sessions", async () => {
 
 test("buildUserSessionCookie and buildClearedUserSessionCookie format session cookies", () => {
   const expiresAt = new Date("2026-04-01T00:00:00.000Z");
-  const setCookie = buildUserSessionCookie("token-1", expiresAt);
-  const clearCookie = buildClearedUserSessionCookie();
+  const request = createRouteRequest("http://localhost/api/auth/me");
+  const setCookie = buildUserSessionCookie(request, "token-1", expiresAt);
+  const clearCookie = buildClearedUserSessionCookie(request);
 
   assert.match(setCookie, new RegExp(`^${USER_SESSION_COOKIE_NAME}=token-1;`));
   assert.match(setCookie, /HttpOnly/);
@@ -150,20 +151,42 @@ test("buildUserSessionCookie and buildClearedUserSessionCookie format session co
   assert.match(clearCookie, /Max-Age=0/);
 });
 
-test("session cookies are hardened in production", () => {
-  const originalNodeEnv = process.env.NODE_ENV;
-  process.env.NODE_ENV = "production";
+test("session cookies stay non-secure for direct http requests", () => {
+  const expiresAt = new Date("2026-04-01T00:00:00.000Z");
+  const request = createRouteRequest("http://localhost/api/auth/login");
+  const setCookie = buildUserSessionCookie(request, "token-1", expiresAt);
+  const clearCookie = buildClearedUserSessionCookie(request);
 
-  try {
-    const expiresAt = new Date("2026-04-01T00:00:00.000Z");
-    const setCookie = buildUserSessionCookie("token-1", expiresAt);
-    const clearCookie = buildClearedUserSessionCookie();
+  assert.doesNotMatch(setCookie, /Secure/);
+  assert.doesNotMatch(clearCookie, /Secure/);
+  assert.doesNotMatch(setCookie, /Priority=High/);
+  assert.doesNotMatch(clearCookie, /Priority=High/);
+});
 
-    assert.match(setCookie, /Secure/);
-    assert.match(setCookie, /Priority=High/);
-    assert.match(clearCookie, /Secure/);
-    assert.match(clearCookie, /Priority=High/);
-  } finally {
-    process.env.NODE_ENV = originalNodeEnv;
-  }
+test("session cookies are hardened for direct https requests", () => {
+  const expiresAt = new Date("2026-04-01T00:00:00.000Z");
+  const request = createRouteRequest("https://localhost/api/auth/login");
+  const setCookie = buildUserSessionCookie(request, "token-1", expiresAt);
+  const clearCookie = buildClearedUserSessionCookie(request);
+
+  assert.match(setCookie, /Secure/);
+  assert.match(setCookie, /Priority=High/);
+  assert.match(clearCookie, /Secure/);
+  assert.match(clearCookie, /Priority=High/);
+});
+
+test("session cookies are hardened when a proxy forwards https", () => {
+  const expiresAt = new Date("2026-04-01T00:00:00.000Z");
+  const request = createRouteRequest("http://localhost/api/auth/login", {
+    headers: {
+      "x-forwarded-proto": "https",
+    },
+  });
+  const setCookie = buildUserSessionCookie(request, "token-1", expiresAt);
+  const clearCookie = buildClearedUserSessionCookie(request);
+
+  assert.match(setCookie, /Secure/);
+  assert.match(setCookie, /Priority=High/);
+  assert.match(clearCookie, /Secure/);
+  assert.match(clearCookie, /Priority=High/);
 });
