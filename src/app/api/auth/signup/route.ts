@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
+import { requireRegistrationEnabled } from "@/lib/site-config";
 import {
   buildUserSessionCookie,
   createUserSession,
@@ -38,6 +39,12 @@ export async function POST(request: NextRequest) {
 
   if (sameOriginRejected) {
     return sameOriginRejected;
+  }
+
+  const registrationDisabled = await requireRegistrationEnabled();
+
+  if (registrationDisabled) {
+    return registrationDisabled;
   }
 
   const rateLimited = await enforceRateLimit({

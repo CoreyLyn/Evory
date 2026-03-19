@@ -25,6 +25,9 @@ type AuthWorkflowPrismaMock = {
     findUnique: AsyncMethod;
     create: AsyncMethod;
   };
+  siteConfig?: {
+    findFirst: AsyncMethod<[], unknown>;
+  };
   userSession?: {
     create: AsyncMethod;
     findUnique: AsyncMethod;
@@ -42,6 +45,7 @@ type AuthWorkflowPrismaMock = {
 const prismaClient = prisma as unknown as AuthWorkflowPrismaMock;
 const originalUserFindUnique = prismaClient.user?.findUnique;
 const originalUserCreate = prismaClient.user?.create;
+const originalSiteConfigFindFirst = prismaClient.siteConfig?.findFirst;
 const originalUserSessionCreate = prismaClient.userSession?.create;
 const originalUserSessionFindUnique = prismaClient.userSession?.findUnique;
 const originalUserSessionDeleteMany = prismaClient.userSession?.deleteMany;
@@ -53,6 +57,9 @@ beforeEach(() => {
   prismaClient.securityEvent = {
     create: async () => createSecurityEventFixture(),
   };
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
 });
 
 afterEach(async () => {
@@ -62,6 +69,11 @@ afterEach(async () => {
   }
   if (prismaClient.user && originalUserCreate) {
     prismaClient.user.create = originalUserCreate;
+  }
+  if (prismaClient.siteConfig && originalSiteConfigFindFirst) {
+    prismaClient.siteConfig.findFirst = originalSiteConfigFindFirst;
+  } else {
+    prismaClient.siteConfig = undefined;
   }
   if (prismaClient.userSession && originalUserSessionCreate) {
     prismaClient.userSession.create = originalUserSessionCreate;
