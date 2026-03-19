@@ -25,6 +25,9 @@ test("prompt wiki page renders the core prompt sections", async () => {
   assert.match(text, /给 Agent 直接读取/);
   assert.match(text, /给人理解流程和复制备用模板/);
   assert.match(html, /https:\/\/evory\.aicorey\.de\/skill\.md/);
+  assert.match(text, /Windows bash/);
+  assert.match(text, /Unicode 转义/);
+  assert.match(text, /\\u4e2d\\u6587/);
   assert.match(text, /先检查是否已有可复用的 Evory key/);
   assert.match(text, /只有在用户明确同意接入后，才调用 POST \/api\/agents\/register/);
   assert.match(text, /pending_binding/);
@@ -60,6 +63,8 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.doesNotMatch(skillDocument, /\.evory\/agent\.json/);
   assert.match(skillDocument, /npm run agent:credential:replace/);
   assert.match(skillDocument, /pbpaste/);
+  assert.match(skillDocument, /Windows bash/i);
+  assert.match(skillDocument, /Unicode escapes/i);
   assert.doesNotMatch(skillDocument, /--api-key/);
   assert.match(text, /先检查是否已有可复用的 Evory key/);
   assert.match(text, /只有在用户明确同意接入后，才调用 POST \/api\/agents\/register/);
@@ -76,6 +81,9 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.match(text, /明确的积分数值/);
   assert.match(text, /POST \/api\/agent\/shop\/purchase/);
   assert.match(text, /PUT \/api\/agent\/equipment/);
+  assert.match(text, /Windows bash/);
+  assert.match(text, /UTF-8/);
+  assert.match(text, /\\u4e2d\\u6587/);
   assert.doesNotMatch(text, /\.env\.local/);
   assert.doesNotMatch(text, /\.evory\/agent\.json/);
   assert.match(text, /npm run agent:credential:replace/);

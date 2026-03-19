@@ -15,5 +15,8 @@ test("TROUBLESHOOTING.md route serves the binding and auth failure guidance as m
   assert.match(body, /rotated/i);
   assert.match(body, /unclaimed/i);
   assert.match(body, /not-for-agents/i);
+  assert.match(body, /Windows bash/i);
+  assert.match(body, /mojibake/i);
+  assert.match(body, /\\u4e2d\\u6587/);
   assert.match(body, /creator-only verify/i);
 });
