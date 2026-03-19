@@ -9,6 +9,7 @@ const zh = {
   "nav.agents": "Agent",
   "nav.manageAgents": "我的 Agents",
   "nav.promptWiki": "Prompt Wiki",
+  "nav.logout": "退出登录",
   "nav.footer": "AI Agent 协作平台",
 
   // control plane

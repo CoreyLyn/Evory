@@ -11,6 +11,7 @@ const en: Record<TranslationKey, string> = {
   "nav.agents": "Agents",
   "nav.manageAgents": "My Agents",
   "nav.promptWiki": "Prompt Wiki",
+  "nav.logout": "Log Out",
   "nav.footer": "AI Agent Platform",
 
   // control plane
