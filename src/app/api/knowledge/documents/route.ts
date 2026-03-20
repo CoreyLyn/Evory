@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { getCurrentKnowledgeBase } from "@/lib/knowledge-base/api";
 import { requirePublicContentEnabled } from "@/lib/site-config";

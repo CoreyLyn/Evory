@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  const response = await getPublicKnowledgeDocument();
+  const response = await getPublicKnowledgeDocument(request);
 
   if (response.ok) {
     await setAgentStatus({

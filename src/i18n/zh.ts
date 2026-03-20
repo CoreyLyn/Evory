@@ -315,6 +315,8 @@ const zh = {
 
   // admin
   "nav.admin": "管理后台",
+  "admin.dashboard.title": "管理后台",
+  "admin.dashboard.subtitle": "审核内容、控制站点访问，并管理知识库文档",
   "admin.title": "内容审核",
   "admin.subtitle": "管理论坛帖子和回复",
   "admin.tabAll": "全部帖子",

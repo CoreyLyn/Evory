@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Shield, ChevronDown, ChevronRight, ArrowLeft } from "lucide-react";
 import { useT } from "@/i18n";
@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { CORE_FORUM_TAGS } from "@/lib/forum-tags";
+import { AdminKnowledgePanel } from "./admin-knowledge-panel";
+import { AdminPrimaryTabs, normalizeAdminPrimaryTab } from "./admin-tabs";
 
 type Post = {
   id: string;
@@ -88,16 +90,18 @@ function formatTagDraft(post: Post) {
   return post.tags.map((tag) => tag.label).join(", ");
 }
 
-export default function AdminPage() {
+function AdminPageContent() {
   const t = useT();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const formatTimeAgo = useFormatTimeAgo();
+  const activePrimaryTab = normalizeAdminPrimaryTab(searchParams.get("tab"));
 
   const [authed, setAuthed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<Post[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
-  const [tab, setTab] = useState<"all" | "hidden">("all");
+  const [forumTab, setForumTab] = useState<"all" | "hidden">("all");
   const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -127,7 +131,7 @@ export default function AdminPage() {
 
   // Fetch posts whenever tab, page, or refreshKey changes
   useEffect(() => {
-    if (!authed) return;
+    if (!authed || activePrimaryTab !== "forum") return;
 
     let cancelled = false;
     async function load() {
@@ -136,7 +140,7 @@ export default function AdminPage() {
       const params = new URLSearchParams({
         page: String(page),
         pageSize: "20",
-        ...(tab === "hidden" ? { status: "hidden" } : {}),
+        ...(forumTab === "hidden" ? { status: "hidden" } : {}),
       });
       try {
         const res = await fetch(`/api/admin/forum/posts?${params}`);
@@ -155,10 +159,10 @@ export default function AdminPage() {
     }
     load();
     return () => { cancelled = true; };
-  }, [authed, page, tab, refreshKey, t]);
+  }, [activePrimaryTab, authed, page, forumTab, refreshKey, t]);
 
   useEffect(() => {
-    if (!authed) return;
+    if (!authed || activePrimaryTab !== "site") return;
 
     let cancelled = false;
 
@@ -186,7 +190,7 @@ export default function AdminPage() {
     return () => {
       cancelled = true;
     };
-  }, [authed, t]);
+  }, [activePrimaryTab, authed, t]);
 
   // Auto-clear success banner after 3 seconds
   useEffect(() => {
@@ -318,6 +322,10 @@ export default function AdminPage() {
     setSiteConfigBusy(null);
   }
 
+  function handlePrimaryTabChange(nextTab: "forum" | "site" | "knowledge") {
+    router.replace(nextTab === "forum" ? "/admin" : `/admin?tab=${nextTab}`);
+  }
+
   // Toggle expand and fetch replies for the post
   function toggleExpand(postId: string) {
     if (expandedId === postId) {
@@ -394,8 +402,8 @@ export default function AdminPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 animate-fade-in-up">
       <PageHeader
-        title={t("admin.title")}
-        description={t("admin.subtitle")}
+        title={t("admin.dashboard.title")}
+        description={t("admin.dashboard.subtitle")}
         rightSlot={
           <Link
             href="/"
@@ -407,101 +415,15 @@ export default function AdminPage() {
         }
       />
 
-      <Card className="border-card-border/50 bg-card/70">
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">
-              {t("admin.siteControls.title")}
-            </h2>
-            <p className="mt-1 text-sm text-muted">
-              {t("admin.siteControls.subtitle")}
-            </p>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            {([
-              "registrationEnabled",
-              "publicContentEnabled",
-            ] as const).map((key) => {
-              const checked = siteConfig?.[key] ?? false;
-              const isBusy = siteConfigBusy === key;
-              const labelKey =
-                key === "registrationEnabled"
-                  ? "admin.siteControls.registration"
-                  : "admin.siteControls.publicContent";
-
-              return (
-                <div
-                  key={key}
-                  className="rounded-2xl border border-card-border/40 bg-background/30 p-4"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-foreground">
-                        {t(labelKey)}
-                      </p>
-                      <Badge variant={checked ? "success" : "danger"}>
-                        {isBusy
-                          ? t("admin.siteControls.saving")
-                          : checked
-                            ? t("admin.siteControls.enabled")
-                            : t("admin.siteControls.disabled")}
-                      </Badge>
-                    </div>
-
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={checked}
-                      disabled={!siteConfig || isBusy}
-                      onClick={() => void handleSiteConfigToggle(key)}
-                      className={`relative inline-flex h-7 w-12 shrink-0 rounded-full border transition-colors ${
-                        checked
-                          ? "border-accent/40 bg-accent/20"
-                          : "border-card-border/60 bg-card/50"
-                      } disabled:cursor-not-allowed disabled:opacity-50`}
-                    >
-                      <span
-                        className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-transform ${
-                          checked ? "translate-x-6" : "translate-x-1"
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </Card>
-
-      {/* Tab switcher */}
-      <div className="flex gap-2">
-        {(["all", "hidden"] as const).map((value) => (
-          <button
-            key={value}
-            onClick={() => {
-              setTab(value);
-              setPage(1);
-              setExpandedId(null);
-              setReplies({});
-            }}
-            className={`rounded-xl px-4 py-2 text-sm font-medium transition-all duration-300 ${
-              tab === value
-                ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
-                : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
-            }`}
-          >
-            {value === "all" ? t("admin.tabAll") : t("admin.tabHidden")}
-          </button>
-        ))}
-        <Link
-          href="/admin/knowledge"
-          className="rounded-xl px-4 py-2 text-sm font-medium transition-all duration-300 text-muted hover:text-foreground hover:bg-foreground/[0.04]"
-        >
-          {t("admin.knowledge.tab")}
-        </Link>
-      </div>
+      <AdminPrimaryTabs
+        activeTab={activePrimaryTab}
+        labels={{
+          forum: t("admin.title"),
+          site: t("admin.siteControls.title"),
+          knowledge: t("admin.knowledge.title"),
+        }}
+        onChange={handlePrimaryTabChange}
+      />
 
       {/* Error banner */}
       {error && (
@@ -517,289 +439,388 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Post list */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <span className="text-muted animate-pulse">{t("common.loading")}</span>
-        </div>
-      ) : posts.length === 0 ? (
-        <Card className="text-center py-12">
-          <Shield className="mx-auto h-10 w-10 text-muted/40 mb-3" />
-          <p className="text-muted">{t("admin.empty")}</p>
-        </Card>
-      ) : (
-        <Card className="p-0 overflow-hidden">
-          <div className="divide-y divide-card-border/30">
-            {posts.map((post) => {
-              const isExpanded = expandedId === post.id;
-              const isHidden = post.hiddenAt !== null;
-              const isBusy = busyId === post.id;
+      {activePrimaryTab === "forum" && (
+        <>
+          <div className="flex gap-2">
+            {(["all", "hidden"] as const).map((value) => (
+              <button
+                key={value}
+                onClick={() => {
+                  setForumTab(value);
+                  setPage(1);
+                  setExpandedId(null);
+                  setReplies({});
+                }}
+                className={`rounded-xl px-4 py-2 text-sm font-medium transition-all duration-300 ${
+                  forumTab === value
+                    ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
+                    : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
+                }`}
+              >
+                {value === "all" ? t("admin.tabAll") : t("admin.tabHidden")}
+              </button>
+            ))}
+          </div>
 
-              return (
-                <div key={post.id}>
-                  {/* Post row */}
-                  <div className="flex items-center gap-3 px-4 py-3">
-                    {/* Expand toggle */}
-                    <button
-                      onClick={() => toggleExpand(post.id)}
-                      className="shrink-0 text-muted hover:text-foreground transition-colors"
-                      aria-label={isExpanded ? "Collapse" : "Expand"}
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </button>
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <span className="text-muted animate-pulse">{t("common.loading")}</span>
+            </div>
+          ) : posts.length === 0 ? (
+            <Card className="text-center py-12">
+              <Shield className="mx-auto mb-3 h-10 w-10 text-muted/40" />
+              <p className="text-muted">{t("admin.empty")}</p>
+            </Card>
+          ) : (
+            <Card className="overflow-hidden p-0">
+              <div className="divide-y divide-card-border/30">
+                {posts.map((post) => {
+                  const isExpanded = expandedId === post.id;
+                  const isHidden = post.hiddenAt !== null;
+                  const isBusy = busyId === post.id;
 
-                    {/* Title + agent */}
-                    <div className="min-w-0 flex-1">
-                      <button
-                        onClick={() => toggleExpand(post.id)}
-                        className="text-left w-full"
-                      >
-                        <span className="text-sm font-medium text-foreground line-clamp-1">
-                          {post.title}
-                        </span>
-                      </button>
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-muted">
-                        <span className="text-accent-secondary">{post.agent?.name}</span>
-                        <span>&middot;</span>
-                        <span>{formatTimeAgo(post.createdAt)}</span>
-                        <span>&middot;</span>
-                        <span>{post.likeCount} {t("forum.likes")}</span>
-                        <span>&middot;</span>
-                        <span>{post.viewCount} {t("common.views")}</span>
-                        <span>&middot;</span>
-                        <span>
-                          {t("admin.replies", { n: post.replyCount })}
-                        </span>
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <Badge
-                          variant={
-                            post.featuredOverride === true
-                              ? "warning"
-                              : post.featuredOverride === false
-                                ? "muted"
-                                : "default"
-                          }
+                  return (
+                    <div key={post.id}>
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <button
+                          onClick={() => toggleExpand(post.id)}
+                          className="shrink-0 text-muted transition-colors hover:text-foreground"
+                          aria-label={isExpanded ? "Collapse" : "Expand"}
                         >
-                          {post.featuredOverride === true
-                            ? t("admin.forum.featured.on")
-                            : post.featuredOverride === false
-                              ? t("admin.forum.featured.off")
-                              : t("admin.forum.featured.auto")}
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </button>
+
+                        <div className="min-w-0 flex-1">
+                          <button
+                            onClick={() => toggleExpand(post.id)}
+                            className="w-full text-left"
+                          >
+                            <span className="line-clamp-1 text-sm font-medium text-foreground">
+                              {post.title}
+                            </span>
+                          </button>
+                          <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
+                            <span className="text-accent-secondary">{post.agent?.name}</span>
+                            <span>&middot;</span>
+                            <span>{formatTimeAgo(post.createdAt)}</span>
+                            <span>&middot;</span>
+                            <span>{post.likeCount} {t("forum.likes")}</span>
+                            <span>&middot;</span>
+                            <span>{post.viewCount} {t("common.views")}</span>
+                            <span>&middot;</span>
+                            <span>{t("admin.replies", { n: post.replyCount })}</span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <Badge
+                              variant={
+                                post.featuredOverride === true
+                                  ? "warning"
+                                  : post.featuredOverride === false
+                                    ? "muted"
+                                    : "default"
+                              }
+                            >
+                              {post.featuredOverride === true
+                                ? t("admin.forum.featured.on")
+                                : post.featuredOverride === false
+                                  ? t("admin.forum.featured.off")
+                                  : t("admin.forum.featured.auto")}
+                            </Badge>
+                            {post.tags.map((tag) => (
+                              <Badge
+                                key={`${post.id}-${tag.slug}`}
+                                variant={tag.kind === "core" ? "default" : "muted"}
+                              >
+                                {tag.label}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+
+                        <Badge
+                          variant={isHidden ? "danger" : "success"}
+                          className="shrink-0"
+                        >
+                          {isHidden ? t("admin.status.hidden") : t("admin.status.visible")}
                         </Badge>
-                        {post.tags.map((tag) => (
-                          <Badge
-                            key={`${post.id}-${tag.slug}`}
-                            variant={tag.kind === "core" ? "default" : "muted"}
+
+                        {isHidden ? (
+                          <Button
+                            variant="secondary"
+                            className="shrink-0 px-3 py-1.5 text-xs"
+                            disabled={isBusy}
+                            onClick={() => handleAction(post.id, "restore")}
                           >
-                            {tag.label}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Status badge */}
-                    <Badge variant={isHidden ? "danger" : "success"} className="shrink-0">
-                      {isHidden ? t("admin.status.hidden") : t("admin.status.visible")}
-                    </Badge>
-
-                    {/* Action button */}
-                    {isHidden ? (
-                      <Button
-                        variant="secondary"
-                        className="shrink-0 text-xs px-3 py-1.5"
-                        disabled={isBusy}
-                        onClick={() => handleAction(post.id, "restore")}
-                      >
-                        {isBusy ? t("admin.action.restoring") : t("admin.action.restore")}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="danger"
-                        className="shrink-0 text-xs px-3 py-1.5"
-                        disabled={isBusy}
-                        onClick={() => handleAction(post.id, "hide")}
-                      >
-                        {isBusy ? t("admin.action.hiding") : t("admin.action.hide")}
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Expanded content */}
-                  {isExpanded && (
-                    <div className="px-4 pb-4 pl-11">
-                      <div className="rounded-xl bg-background/40 border border-card-border/20 p-4">
-                        <p className="text-sm text-foreground/80 whitespace-pre-wrap">
-                          {post.content}
-                        </p>
-                      </div>
-
-                      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                        <div className="rounded-xl border border-card-border/20 bg-background/30 p-4">
-                          <p className="text-xs font-semibold text-muted">
-                            {t("admin.forum.featured.auto")}
-                          </p>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <Button
-                              variant="secondary"
-                              className="text-xs px-3 py-1.5"
-                              disabled={isBusy}
-                              onClick={() => handleFeaturedOverride(post.id, null)}
-                            >
-                              {t("admin.forum.featured.auto")}
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              className="text-xs px-3 py-1.5"
-                              disabled={isBusy}
-                              onClick={() => handleFeaturedOverride(post.id, true)}
-                            >
-                              {t("admin.forum.featured.on")}
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              className="text-xs px-3 py-1.5"
-                              disabled={isBusy}
-                              onClick={() => handleFeaturedOverride(post.id, false)}
-                            >
-                              {t("admin.forum.featured.off")}
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="rounded-xl border border-card-border/20 bg-background/30 p-4">
-                          <label
-                            className="text-xs font-semibold text-muted"
-                            htmlFor={`post-tags-${post.id}`}
+                            {isBusy ? t("admin.action.restoring") : t("admin.action.restore")}
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="danger"
+                            className="shrink-0 px-3 py-1.5 text-xs"
+                            disabled={isBusy}
+                            onClick={() => handleAction(post.id, "hide")}
                           >
-                            {t("admin.forum.tags.label")}
-                          </label>
-                          <textarea
-                            id={`post-tags-${post.id}`}
-                            value={tagDrafts[post.id] ?? ""}
-                            onChange={(event) =>
-                              setTagDrafts((current) => ({
-                                ...current,
-                                [post.id]: event.target.value,
-                              }))
-                            }
-                            className="mt-3 min-h-24 w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-                          />
-                          <div className="mt-3 flex justify-end">
-                            <Button
-                              variant="secondary"
-                              className="text-xs px-3 py-1.5"
-                              disabled={isBusy}
-                              onClick={() => handleTagSave(post.id)}
-                            >
-                              {t("admin.forum.tags.save")}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Replies section */}
-                      <div className="mt-4 space-y-2">
-                        <p className="text-xs font-semibold text-muted">
-                          {t("admin.replies", {
-                            n: String(post.replyCount),
-                          })}
-                        </p>
-                        {(replies[post.id] || []).map((reply) => (
-                          <div
-                            key={reply.id}
-                            className="flex items-start justify-between gap-2 rounded-lg border border-card-border/30 p-3"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-medium text-foreground">
-                                  {reply.agent.name}
-                                </span>
-                                <span className="text-xs text-muted">
-                                  {formatTimeAgo(reply.createdAt)}
-                                </span>
-                                <Badge
-                                  variant={reply.hiddenAt ? "danger" : "success"}
-                                >
-                                  {reply.hiddenAt
-                                    ? t("admin.status.hidden")
-                                    : t("admin.status.visible")}
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-foreground/70 line-clamp-2">
-                                {reply.content}
-                              </p>
-                            </div>
-                            {reply.hiddenAt ? (
-                              <Button
-                                variant="secondary"
-                                className="shrink-0 text-xs px-3 py-1.5"
-                                disabled={busyId === reply.id}
-                                onClick={() =>
-                                  handleReplyAction(reply.id, post.id, "restore")
-                                }
-                              >
-                                {busyId === reply.id
-                                  ? t("admin.action.restoring")
-                                  : t("admin.action.restore")}
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="danger"
-                                className="shrink-0 text-xs px-3 py-1.5"
-                                disabled={busyId === reply.id}
-                                onClick={() =>
-                                  handleReplyAction(reply.id, post.id, "hide")
-                                }
-                              >
-                                {busyId === reply.id
-                                  ? t("admin.action.hiding")
-                                  : t("admin.action.hide")}
-                              </Button>
-                            )}
-                          </div>
-                        ))}
-                        {replies[post.id]?.length === 0 && (
-                          <p className="text-xs text-muted">
-                            {t("admin.noReplies")}
-                          </p>
+                            {isBusy ? t("admin.action.hiding") : t("admin.action.hide")}
+                          </Button>
                         )}
                       </div>
+
+                      {isExpanded && (
+                        <div className="px-4 pb-4 pl-11">
+                          <div className="rounded-xl border border-card-border/20 bg-background/40 p-4">
+                            <p className="whitespace-pre-wrap text-sm text-foreground/80">
+                              {post.content}
+                            </p>
+                          </div>
+
+                          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                            <div className="rounded-xl border border-card-border/20 bg-background/30 p-4">
+                              <p className="text-xs font-semibold text-muted">
+                                {t("admin.forum.featured.auto")}
+                              </p>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <Button
+                                  variant="secondary"
+                                  className="px-3 py-1.5 text-xs"
+                                  disabled={isBusy}
+                                  onClick={() => handleFeaturedOverride(post.id, null)}
+                                >
+                                  {t("admin.forum.featured.auto")}
+                                </Button>
+                                <Button
+                                  variant="secondary"
+                                  className="px-3 py-1.5 text-xs"
+                                  disabled={isBusy}
+                                  onClick={() => handleFeaturedOverride(post.id, true)}
+                                >
+                                  {t("admin.forum.featured.on")}
+                                </Button>
+                                <Button
+                                  variant="secondary"
+                                  className="px-3 py-1.5 text-xs"
+                                  disabled={isBusy}
+                                  onClick={() => handleFeaturedOverride(post.id, false)}
+                                >
+                                  {t("admin.forum.featured.off")}
+                                </Button>
+                              </div>
+                            </div>
+
+                            <div className="rounded-xl border border-card-border/20 bg-background/30 p-4">
+                              <label
+                                className="text-xs font-semibold text-muted"
+                                htmlFor={`post-tags-${post.id}`}
+                              >
+                                {t("admin.forum.tags.label")}
+                              </label>
+                              <textarea
+                                id={`post-tags-${post.id}`}
+                                value={tagDrafts[post.id] ?? ""}
+                                onChange={(event) =>
+                                  setTagDrafts((current) => ({
+                                    ...current,
+                                    [post.id]: event.target.value,
+                                  }))
+                                }
+                                className="mt-3 min-h-24 w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+                              />
+                              <div className="mt-3 flex justify-end">
+                                <Button
+                                  variant="secondary"
+                                  className="px-3 py-1.5 text-xs"
+                                  disabled={isBusy}
+                                  onClick={() => handleTagSave(post.id)}
+                                >
+                                  {t("admin.forum.tags.save")}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 space-y-2">
+                            <p className="text-xs font-semibold text-muted">
+                              {t("admin.replies", { n: String(post.replyCount) })}
+                            </p>
+                            {(replies[post.id] || []).map((reply) => (
+                              <div
+                                key={reply.id}
+                                className="flex items-start justify-between gap-2 rounded-lg border border-card-border/30 p-3"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="mb-1 flex items-center gap-2">
+                                    <span className="text-xs font-medium text-foreground">
+                                      {reply.agent.name}
+                                    </span>
+                                    <span className="text-xs text-muted">
+                                      {formatTimeAgo(reply.createdAt)}
+                                    </span>
+                                    <Badge
+                                      variant={reply.hiddenAt ? "danger" : "success"}
+                                    >
+                                      {reply.hiddenAt
+                                        ? t("admin.status.hidden")
+                                        : t("admin.status.visible")}
+                                    </Badge>
+                                  </div>
+                                  <p className="line-clamp-2 text-sm text-foreground/70">
+                                    {reply.content}
+                                  </p>
+                                </div>
+                                {reply.hiddenAt ? (
+                                  <Button
+                                    variant="secondary"
+                                    className="shrink-0 px-3 py-1.5 text-xs"
+                                    disabled={busyId === reply.id}
+                                    onClick={() =>
+                                      handleReplyAction(reply.id, post.id, "restore")
+                                    }
+                                  >
+                                    {busyId === reply.id
+                                      ? t("admin.action.restoring")
+                                      : t("admin.action.restore")}
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="danger"
+                                    className="shrink-0 px-3 py-1.5 text-xs"
+                                    disabled={busyId === reply.id}
+                                    onClick={() =>
+                                      handleReplyAction(reply.id, post.id, "hide")
+                                    }
+                                  >
+                                    {busyId === reply.id
+                                      ? t("admin.action.hiding")
+                                      : t("admin.action.hide")}
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                            {replies[post.id]?.length === 0 && (
+                              <p className="text-xs text-muted">{t("admin.noReplies")}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex items-center justify-center gap-4">
+              <Button
+                variant="secondary"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                {t("common.prevPage")}
+              </Button>
+              <span className="text-sm text-muted">
+                {t("common.pageOf", { page: pagination.page, total: pagination.totalPages })}
+              </span>
+              <Button
+                variant="secondary"
+                disabled={page >= pagination.totalPages}
+                onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+              >
+                {t("common.nextPage")}
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+
+      {activePrimaryTab === "site" && (
+        <Card className="border-card-border/50 bg-card/70">
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">
+                {t("admin.siteControls.title")}
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                {t("admin.siteControls.subtitle")}
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {([
+                "registrationEnabled",
+                "publicContentEnabled",
+              ] as const).map((key) => {
+                const checked = siteConfig?.[key] ?? false;
+                const isBusy = siteConfigBusy === key;
+                const labelKey =
+                  key === "registrationEnabled"
+                    ? "admin.siteControls.registration"
+                    : "admin.siteControls.publicContent";
+
+                return (
+                  <div
+                    key={key}
+                    className="rounded-2xl border border-card-border/40 bg-background/30 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-foreground">
+                          {t(labelKey)}
+                        </p>
+                        <Badge variant={checked ? "success" : "danger"}>
+                          {isBusy
+                            ? t("admin.siteControls.saving")
+                            : checked
+                              ? t("admin.siteControls.enabled")
+                              : t("admin.siteControls.disabled")}
+                        </Badge>
+                      </div>
+
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={checked}
+                        disabled={!siteConfig || isBusy}
+                        onClick={() => void handleSiteConfigToggle(key)}
+                        className={`relative inline-flex h-7 w-12 shrink-0 rounded-full border transition-colors ${
+                          checked
+                            ? "border-accent/40 bg-accent/20"
+                            : "border-card-border/60 bg-card/50"
+                        } disabled:cursor-not-allowed disabled:opacity-50`}
+                      >
+                        <span
+                          className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-transform ${
+                            checked ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </Card>
       )}
 
-      {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-4">
-          <Button
-            variant="secondary"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            {t("common.prevPage")}
-          </Button>
-          <span className="text-sm text-muted">
-            {t("common.pageOf", { page: pagination.page, total: pagination.totalPages })}
-          </span>
-          <Button
-            variant="secondary"
-            disabled={page >= pagination.totalPages}
-            onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-          >
-            {t("common.nextPage")}
-          </Button>
-        </div>
-      )}
+      {activePrimaryTab === "knowledge" && <AdminKnowledgePanel />}
     </div>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-32">
+          <span className="animate-pulse text-muted">Loading...</span>
+        </div>
+      }
+    >
+      <AdminPageContent />
+    </Suspense>
   );
 }

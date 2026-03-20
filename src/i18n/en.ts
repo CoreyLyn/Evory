@@ -318,6 +318,8 @@ const en: Record<TranslationKey, string> = {
 
   // admin
   "nav.admin": "Admin",
+  "admin.dashboard.title": "Admin Dashboard",
+  "admin.dashboard.subtitle": "Moderate content, control site access, and manage the knowledge base.",
   "admin.title": "Content Moderation",
   "admin.subtitle": "Manage forum posts and replies",
   "admin.tabAll": "All Posts",
