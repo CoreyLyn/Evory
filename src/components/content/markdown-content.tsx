@@ -5,6 +5,7 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { highlightCode } from "./code-highlighter";
 import { slugifyMarkdownHeading } from "./markdown-link-utils";
 
 type MarkdownContentProps = {
@@ -122,7 +123,9 @@ function MarkdownCodeBlock({
         </button>
       </div>
       <pre className="m-0 overflow-x-auto rounded-none border-0 bg-transparent p-4">
-        <code className={language ? `language-${language}` : undefined}>{code}</code>
+        <code className={language ? `language-${language}` : undefined}>
+          {highlightCode(code, language)}
+        </code>
       </pre>
     </div>
   );

@@ -3,12 +3,16 @@
 import Link from "next/link";
 
 import { MarkdownContent } from "@/components/content/markdown-content";
-import { resolveKnowledgeMarkdownHref } from "@/components/content/markdown-link-utils";
+import {
+  resolveKnowledgeMarkdownHref,
+  slugifyMarkdownHeading,
+} from "@/components/content/markdown-link-utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n";
 import type { KnowledgeDocument } from "@/lib/knowledge-base/types";
+import { KnowledgeDocumentToc, type KnowledgeHeading } from "./knowledge-document-toc";
 import { stripLeadingMarkdownTitle } from "./strip-leading-markdown-title";
 
 type KnowledgeDocumentViewProps = {
@@ -24,6 +28,19 @@ function toKnowledgeHref(targetPath: string) {
     .map((segment) => encodeURIComponent(segment))
     .join("/");
   return `/knowledge/${encodedPath}`;
+}
+
+function extractKnowledgeHeadings(content: string): KnowledgeHeading[] {
+  return content
+    .split(/\r?\n/)
+    .map((line) => line.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/))
+    .filter((match): match is RegExpMatchArray => Boolean(match))
+    .map((match) => ({
+      level: match[1].length,
+      label: match[2].trim(),
+      id: slugifyMarkdownHeading(match[2].trim()),
+    }))
+    .filter((heading) => Boolean(heading.id));
 }
 
 export function KnowledgeDocumentView({
@@ -48,6 +65,7 @@ export function KnowledgeDocumentView({
   const segments = document.path.split("/").filter(Boolean);
   const parentHref = toKnowledgeHref(document.directoryPath);
   const body = stripLeadingMarkdownTitle(document.body, document.title);
+  const headings = extractKnowledgeHeadings(body);
 
   return (
     <div className="space-y-6" data-knowledge-kind="document">
@@ -78,29 +96,35 @@ export function KnowledgeDocumentView({
         </nav>
       </div>
 
-      <Card>
-        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          {document.title}
-        </h1>
-        {document.summary ? (
-          <p className="mt-3 text-sm text-muted">{document.summary}</p>
-        ) : null}
-        {document.tags.length > 0 ? (
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            {document.tags.map((tag) => (
-              <Badge key={tag} variant="muted" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
+        <Card>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            {document.title}
+          </h1>
+          {document.summary ? (
+            <p className="mt-3 text-sm text-muted">{document.summary}</p>
+          ) : null}
+          {document.tags.length > 0 ? (
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {document.tags.map((tag) => (
+                <Badge key={tag} variant="muted" className="text-xs">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
+          <div className="mt-6 border-t border-card-border pt-6">
+            <MarkdownContent
+              content={body}
+              resolveHref={(href) => resolveKnowledgeMarkdownHref(href, document.directoryPath)}
+            />
           </div>
-        ) : null}
-        <div className="mt-6 border-t border-card-border pt-6">
-          <MarkdownContent
-            content={body}
-            resolveHref={(href) => resolveKnowledgeMarkdownHref(href, document.directoryPath)}
-          />
+        </Card>
+
+        <div className="xl:sticky xl:top-24 xl:self-start">
+          <KnowledgeDocumentToc headings={headings} />
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

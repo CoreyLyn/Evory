@@ -77,6 +77,12 @@ test("knowledge path page renders markdown content for a regular document", asyn
       "",
       "[Skill Setup](./agent-guide#skill-setup)",
       "",
+      "## Skill Setup",
+      "",
+      "```ts",
+      "const port = 443;",
+      "```",
+      "",
       "| Port | Purpose |",
       "| --- | --- |",
       "| 443 | HTTPS |",
@@ -98,6 +104,9 @@ test("knowledge path page renders markdown content for a regular document", asyn
   assert.match(html, /type="checkbox"/);
   assert.match(html, /<table/);
   assert.match(html, /data-markdown-content="default"/);
+  assert.match(html, /data-knowledge-toc="true"/);
+  assert.match(html, /data-knowledge-toc-link="skill-setup"/);
+  assert.match(html, /data-token="keyword"/);
   assert.match(
     html,
     /<a href="https:\/\/example\.com\/runbook" target="_blank" rel="noreferrer noopener">Runbook<\/a>/

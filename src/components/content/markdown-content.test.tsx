@@ -41,7 +41,7 @@ test("MarkdownContent adds heading anchors and code block controls", () => {
         "## Deploy Plan",
         "",
         "```ts",
-        "console.log('ship');",
+        "const ship = 'ship';",
         "```",
       ].join("\n")}
     />
@@ -51,6 +51,8 @@ test("MarkdownContent adds heading anchors and code block controls", () => {
   assert.match(html, /href="#deploy-plan"/);
   assert.match(html, /data-markdown-code-language="ts"/);
   assert.match(html, /data-markdown-copy="code-block"/);
+  assert.match(html, /data-token="keyword"/);
+  assert.match(html, /data-token="string"/);
 });
 
 test("MarkdownContent renders tables and read-only task lists", () => {
