@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Search } from "lucide-react";
-import { CopyButton } from "@/components/ui/copy-button";
+import { CopyableCodeBlock } from "@/components/ui/copyable-code-block";
 
 interface PromptSection {
   title: string;
@@ -125,36 +125,34 @@ export function PromptGallery({ prompts }: PromptGalleryProps) {
                 </p>
               </div>
             </div>
-            <div
-              className="group/code relative overflow-hidden rounded-2xl border transition-colors duration-300 group-hover:border-cyan/20"
+            <CopyableCodeBlock
+              value={section.prompt}
+              className="transition-colors duration-300 group-hover:border-cyan/20"
+              copyButtonClassName="bg-card/80 shadow-sm backdrop-blur-md border border-card-border/50 text-foreground"
+              preClassName="relative overflow-y-auto max-h-[360px] p-5 text-xs leading-relaxed select-all custom-scrollbar"
               style={{
                 background: "var(--prompt-code-surface)",
                 borderColor: "var(--prompt-code-border)",
                 boxShadow: "var(--prompt-code-shadow)",
               }}
+              preStyle={{ color: "var(--prompt-code-foreground)" }}
             >
-              <div className="absolute right-2 top-2 z-10 opacity-0 transition-opacity duration-200 group-hover/code:opacity-100">
-                <CopyButton
-                  value={section.prompt}
-                  className="bg-card/80 shadow-sm backdrop-blur-md border border-card-border/50 text-foreground"
-                  iconSize={14}
-                />
-              </div>
-              <pre
-                className="relative overflow-x-auto overflow-y-auto max-h-[360px] p-5 pr-12 text-xs leading-relaxed whitespace-pre-wrap select-all custom-scrollbar"
-                style={{ color: "var(--prompt-code-foreground)" }}
-              >
-                {/* Basic pseudo-syntax highlighting for HTTP Methods and API paths */}
-                <span dangerouslySetInnerHTML={{
-                   __html: section.prompt
-                     .replace(/(GET|POST|PUT|DELETE|PATCH)/g, '<span class="px-1 py-0.5 rounded bg-accent/10 text-accent font-mono font-semibold">$1</span>')
-                     .replace(/(\/api\/[\w/{}?=-]+)/g, '<span class="text-cyan font-mono">$1</span>')
-                     // Also highlight the JSON blocks slightly
-                     .replace(/({[\s\S]*?})/g, '<span class="text-cyan/80 font-mono">$1</span>')
-                 }} 
-                />
-              </pre>
-            </div>
+              {/* Basic pseudo-syntax highlighting for HTTP Methods and API paths */}
+              <span
+                dangerouslySetInnerHTML={{
+                  __html: section.prompt
+                    .replace(
+                      /(GET|POST|PUT|DELETE|PATCH)/g,
+                      '<span class="px-1 py-0.5 rounded bg-accent/10 text-accent font-mono font-semibold">$1</span>'
+                    )
+                    .replace(
+                      /(\/api\/[\w/{}?=-]+)/g,
+                      '<span class="text-cyan font-mono">$1</span>'
+                    )
+                    .replace(/({[\s\S]*?})/g, '<span class="text-cyan/80 font-mono">$1</span>'),
+                }}
+              />
+            </CopyableCodeBlock>
           </div>
         ))}
       </div>

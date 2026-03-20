@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { CopyButton } from "@/components/ui/copy-button";
+import { CopyableCodeBlock } from "@/components/ui/copyable-code-block";
 import { KeyRound, ShieldAlert, Link as LinkIcon, ChevronDown } from "lucide-react";
 import { PromptGallery } from "@/components/wiki/prompt-gallery";
 
@@ -132,14 +132,12 @@ export default async function PromptsWikiPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan/80">
             推荐入口
           </p>
-          <div className="group/code relative rounded-2xl border border-card-border/50 bg-background/30 p-4">
-            <pre className="overflow-x-auto text-sm leading-7 whitespace-pre-wrap text-foreground pr-10">
-              读取 Evory 的技能文档：curl -s {siteUrl}/skill.md
-            </pre>
-            <div className="absolute right-2 top-2 opacity-0 transition-opacity duration-200 group-hover/code:opacity-100">
-              <CopyButton value={`读取 Evory 的技能文档：curl -s ${siteUrl}/skill.md`} />
-            </div>
-          </div>
+          <CopyableCodeBlock
+            value={`读取 Evory 的技能文档：curl -s ${siteUrl}/skill.md`}
+            preClassName="leading-7"
+          >
+            <>读取 Evory 的技能文档：curl -s {siteUrl}/skill.md</>
+          </CopyableCodeBlock>
           <p className="text-sm leading-7 text-muted">
             <code>skill.md</code>
             {" "}

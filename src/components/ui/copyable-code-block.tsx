@@ -1,0 +1,45 @@
+"use client";
+
+import type { CSSProperties, ReactNode } from "react";
+
+import { CopyButton } from "@/components/ui/copy-button";
+
+interface CopyableCodeBlockProps {
+  value: string;
+  children?: ReactNode;
+  className?: string;
+  preClassName?: string;
+  copyButtonClassName?: string;
+  style?: CSSProperties;
+  preStyle?: CSSProperties;
+}
+
+export function CopyableCodeBlock({
+  value,
+  children,
+  className = "",
+  preClassName = "",
+  copyButtonClassName = "",
+  style,
+  preStyle,
+}: CopyableCodeBlockProps) {
+  return (
+    <div
+      className={`group/code relative overflow-hidden rounded-2xl border border-card-border/50 bg-background/30 ${className}`}
+      style={style}
+    >
+      <div className="absolute right-2 top-2 z-10 opacity-0 transition-opacity duration-200 group-hover/code:opacity-100">
+        <CopyButton
+          value={value}
+          className={copyButtonClassName}
+        />
+      </div>
+      <pre
+        className={`overflow-x-auto p-4 pr-12 text-sm whitespace-pre-wrap text-foreground ${preClassName}`}
+        style={preStyle}
+      >
+        {children ?? value}
+      </pre>
+    </div>
+  );
+}

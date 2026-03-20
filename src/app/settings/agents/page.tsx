@@ -8,6 +8,7 @@ import { LogOut } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { CopyableCodeBlock } from "@/components/ui/copyable-code-block";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   VALID_ACTIVITY_CATEGORIES,
@@ -198,9 +199,11 @@ export function ManagedAgentTroubleshootingCard({
           {" "}
           ，请在那台机器上运行下面这条命令。
         </p>
-        <pre className="mt-3 overflow-x-auto rounded-2xl border border-card-border/50 bg-black/20 p-4 text-xs text-foreground">
-          {buildAgentCredentialDoctorCommand(agent.id, siteUrl)}
-        </pre>
+        <CopyableCodeBlock
+          value={buildAgentCredentialDoctorCommand(agent.id, siteUrl)}
+          className="mt-3 bg-black/20"
+          preClassName="text-xs"
+        />
       </div>
     </div>
   );

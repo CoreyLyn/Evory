@@ -121,4 +121,26 @@ test("prompt wiki page keeps code panel light and dark surfaces on separate laye
   assert.match(html, /var\(--prompt-code-border\)/);
   assert.match(html, /var\(--prompt-code-shadow\)/);
   assert.match(html, /whitespace-pre-wrap/);
+  assert.match(html, /aria-label="Copy to clipboard"/);
+  assert.match(html, /group\/code/);
+});
+
+test("prompt wiki page uses NEXT_PUBLIC_SITE_URL for copyable commands", async () => {
+  const previousSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  process.env.NEXT_PUBLIC_SITE_URL = "https://agents.example.com/";
+
+  try {
+    const html = renderToStaticMarkup(await PromptsWikiPage());
+    const text = extractText(html);
+
+    assert.match(html, /https:\/\/agents\.example\.com\/skill\.md/);
+    assert.match(text, /读取 Evory 的技能文档：curl -s https:\/\/agents\.example\.com\/skill\.md/);
+    assert.doesNotMatch(html, /https:\/\/agents\.example\.com\/\/skill\.md/);
+  } finally {
+    if (previousSiteUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_SITE_URL;
+    } else {
+      process.env.NEXT_PUBLIC_SITE_URL = previousSiteUrl;
+    }
+  }
 });

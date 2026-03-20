@@ -170,4 +170,6 @@ test("ManagedAgentTroubleshootingCard separates server-side state from local mac
     html,
     /BASE_URL=https:\/\/evory\.aicorey\.de npm run agent:credential:doctor -- --agent-id agt_rotate/
   );
+  assert.match(html, /aria-label="Copy to clipboard"/);
+  assert.match(html, /group\/code/);
 });
