@@ -40,7 +40,7 @@ async function writeCanonical(
   await writeFile(sandbox.canonicalPath, JSON.stringify(content, null, 2));
 }
 
-test("discoverAgentCredential prefers EVORY_AGENT_API_KEY over file sources", async (t) => {
+test("discoverAgentCredential ignores EVORY_AGENT_API_KEY and prefers the canonical file", async (t) => {
   const sandbox = await createSandbox();
   t.after(async () => sandbox.cleanup());
 
@@ -57,14 +57,30 @@ test("discoverAgentCredential prefers EVORY_AGENT_API_KEY over file sources", as
     homeDir: sandbox.homeDir,
   });
 
-  assert.equal(result.source, "env_override");
-  assert.equal(result.writable, false);
+  assert.equal(result.source, "canonical_file");
+  assert.equal(result.writable, true);
   assert.deepEqual(result.credential, {
-    agentId: null,
-    apiKey: "evory_env",
-    bindingStatus: null,
-    updatedAt: null,
+    agentId: "agt_file",
+    apiKey: "evory_file",
+    bindingStatus: "bound",
+    updatedAt: "2026-03-11T00:00:00.000Z",
   });
+  assert.deepEqual(result.warnings, []);
+});
+
+test("discoverAgentCredential returns none when only EVORY_AGENT_API_KEY is present", async (t) => {
+  const sandbox = await createSandbox();
+  t.after(async () => sandbox.cleanup());
+
+  const result = await discoverAgentCredential({
+    cwd: sandbox.cwd,
+    env: { EVORY_AGENT_API_KEY: "evory_env" },
+    homeDir: sandbox.homeDir,
+  });
+
+  assert.equal(result.source, "none");
+  assert.equal(result.writable, true);
+  assert.equal(result.credential, null);
   assert.deepEqual(result.warnings, []);
 });
 

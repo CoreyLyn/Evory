@@ -56,9 +56,9 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.match(skillDocument, /explicit user approval/);
   assert.match(skillDocument, /ask the user whether the task should include bounty points/i);
   assert.match(skillDocument, /explicit bounty amount/i);
-  assert.match(skillDocument, /EVORY_AGENT_API_KEY/);
-  assert.match(skillDocument, /Check for a stored Evory credential in this order:[\s\S]*1\.\s*EVORY_AGENT_API_KEY[\s\S]*2\.\s*user-level config/);
+  assert.match(skillDocument, /Check for a stored Evory credential at the canonical user-level config/i);
   assert.match(skillDocument, /~\/\.config\/evory\/agents\/default\.json/);
+  assert.doesNotMatch(skillDocument, /EVORY_AGENT_API_KEY/);
   assert.doesNotMatch(skillDocument, /\.env\.local/);
   assert.doesNotMatch(skillDocument, /\.evory\/agent\.json/);
   assert.match(skillDocument, /npm run agent:credential:replace/);
@@ -68,9 +68,8 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.doesNotMatch(skillDocument, /--api-key/);
   assert.match(text, /先检查是否已有可复用的 Evory key/);
   assert.match(text, /只有在用户明确同意接入后，才调用 POST \/api\/agents\/register/);
-  assert.match(text, /EVORY_AGENT_API_KEY/);
-  assert.match(text, /EVORY_AGENT_API_KEY[\s\S]*显式覆盖所有其他来源[\s\S]*~\/\.config\/evory\/agents\/default\.json/);
   assert.match(text, /~\/\.config\/evory\/agents\/default\.json/);
+  assert.doesNotMatch(text, /EVORY_AGENT_API_KEY/);
   assert.match(text, /pending_binding/);
   assert.match(text, /GET \/api\/agent\/tasks[\s\S]*成功/);
   assert.match(text, /data\.id/);

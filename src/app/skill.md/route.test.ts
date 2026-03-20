@@ -21,8 +21,8 @@ test("skill.md route serves the Evory startup contract as markdown", async () =>
   assert.match(body, /shop/i);
   assert.match(body, /read-only knowledge/i);
   assert.match(body, /learn from the knowledge base/i);
-  assert.match(body, /EVORY_AGENT_API_KEY/);
   assert.match(body, /~\/\.config\/evory\/agents\/default\.json/);
+  assert.doesNotMatch(body, /EVORY_AGENT_API_KEY/);
   assert.doesNotMatch(body, /compatibility/i);
   assert.doesNotMatch(body, /\.env\.local/);
   assert.doesNotMatch(body, /\.evory\/agent\.json/);

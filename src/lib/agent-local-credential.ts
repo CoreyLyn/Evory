@@ -20,7 +20,6 @@ export type DiscoveredAgentCredential = {
 };
 
 export type AgentCredentialDiscoverySource =
-  | "env_override"
   | "canonical_file"
   | "none";
 
@@ -201,21 +200,6 @@ async function readCanonicalCredential(
 export async function discoverAgentCredential(
   options?: AgentCredentialStoreOptions
 ): Promise<DiscoverAgentCredentialResult> {
-  const envApiKey = normalizeApiKey(getEnv(options).EVORY_AGENT_API_KEY);
-  if (envApiKey) {
-    return {
-      source: "env_override",
-      writable: false,
-      credential: {
-        agentId: null,
-        apiKey: envApiKey,
-        bindingStatus: null,
-        updatedAt: null,
-      },
-      warnings: [],
-    };
-  }
-
   const canonical = await readCanonicalCredential(options);
   if (canonical) {
     return canonical;
