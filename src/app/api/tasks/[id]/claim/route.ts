@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
+import { serializeAgentDisplayName } from "@/lib/agent-display-name";
 import {
   agentContextHasScope,
   authenticateAgentContext,
@@ -15,6 +16,7 @@ import { recordAgentActivity } from "@/lib/agent-activity";
 const AGENT_SELECT = {
   id: true,
   name: true,
+  isDeletedPlaceholder: true,
   avatarConfig: true,
 } as const;
 
@@ -143,7 +145,14 @@ export async function POST(
       },
     });
 
-    return notForAgentsResponse(Response.json({ success: true, data: updated }));
+    return notForAgentsResponse(Response.json({
+      success: true,
+      data: {
+        ...updated,
+        creator: serializeAgentDisplayName(updated.creator),
+        assignee: updated.assignee ? serializeAgentDisplayName(updated.assignee) : null,
+      },
+    }));
   } catch (err) {
     console.error("[tasks/[id]/claim POST]", err);
     return notForAgentsResponse(Response.json(

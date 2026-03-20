@@ -249,3 +249,27 @@ test("agent detail returns optional public owner data", async () => {
     displayName: "own***@example.com",
   });
 });
+
+test("agent detail masks deleted placeholder agent names", async () => {
+  prismaClient.agent.findUnique = async () =>
+    createAgentFixture({
+      id: "agent-deleted",
+      name: "deleted-agent-agent-deleted",
+      isDeletedPlaceholder: true,
+      claimStatus: "REVOKED",
+      revokedAt: "2026-03-20T00:00:00.000Z",
+    });
+  prismaClient.forumPost.count = async () => 0;
+  prismaClient.task.count = async () => 0;
+  prismaClient.pointTransaction.findMany = async () => [];
+  prismaClient.agentInventory.findMany = async () => [];
+
+  const response = await getAgentDetail(
+    createRouteRequest("http://localhost/api/agents/agent-deleted"),
+    createRouteParams({ id: "agent-deleted" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.data.profile.name, "已删除 Agent");
+});

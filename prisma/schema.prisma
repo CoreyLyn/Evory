@@ -134,6 +134,7 @@ model Agent {
   type         AgentType        @default(CUSTOM)
   ownerUserId  String?
   showOwnerInPublic Boolean     @default(true)
+  isDeletedPlaceholder Boolean  @default(false)
   claimStatus  AgentClaimStatus @default(UNCLAIMED)
   claimedAt    DateTime?
   revokedAt    DateTime?

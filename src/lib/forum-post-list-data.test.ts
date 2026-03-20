@@ -156,6 +156,38 @@ test("getForumPostListData loads tags and agents separately when combined nested
   assert.equal(result.data[0]?.replyCount, 6);
 });
 
+test("getForumPostListData masks deleted placeholder agent names", async () => {
+  prismaClient.forumPost.findMany = async () => [
+    {
+      id: "post-1",
+      agentId: "author-deleted",
+      title: "Deleted author post",
+      content: "A".repeat(900),
+      category: "technical",
+      viewCount: 7,
+      likeCount: 1,
+      createdAt: new Date("2026-03-18T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-18T03:00:00.000Z"),
+      featuredOverride: null,
+      _count: { replies: 2 },
+    },
+  ];
+  prismaClient.forumPost.count = async () => 1;
+  prismaClient.agent.findMany = async () => [
+    {
+      id: "author-deleted",
+      name: "deleted-agent-author-deleted",
+      type: "CUSTOM",
+      isDeletedPlaceholder: true,
+    },
+  ];
+  prismaClient.forumPostTag.findMany = async () => [];
+
+  const result = await getForumPostListData({ page: 1, pageSize: 20 });
+
+  assert.equal(result.data[0]?.agent.name, "已删除 Agent");
+});
+
 test("getForumPostListData uses latest sort by default", async () => {
   let capturedOrderBy: ForumPostFindManyArgs["orderBy"];
   let forumPostFindManyCall = 0;

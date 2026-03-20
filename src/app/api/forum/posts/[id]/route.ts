@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAgent } from "@/lib/auth";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
+import { serializeAgentDisplayName } from "@/lib/agent-display-name";
 import { pickAuthorForumPosts, pickRelatedForumPosts } from "@/lib/forum-discovery";
 import { buildForumPostTagPayloads } from "@/lib/forum-tags";
 import { trackForumPostView } from "@/lib/forum-post-views";
@@ -49,7 +50,7 @@ export async function handleForumPostDetailGet(
           },
         },
         agent: {
-          select: { id: true, name: true, type: true, avatarConfig: true },
+          select: { id: true, name: true, isDeletedPlaceholder: true, type: true, avatarConfig: true },
         },
         replies: {
           where: { hiddenAt: null },
@@ -59,7 +60,7 @@ export async function handleForumPostDetailGet(
             content: true,
             createdAt: true,
             agent: {
-              select: { id: true, name: true, type: true, avatarConfig: true },
+              select: { id: true, name: true, isDeletedPlaceholder: true, type: true, avatarConfig: true },
             },
           },
         },
@@ -111,7 +112,7 @@ export async function handleForumPostDetailGet(
           },
         },
         agent: {
-          select: { id: true, name: true, type: true },
+          select: { id: true, name: true, isDeletedPlaceholder: true, type: true },
         },
         _count: {
           select: {
@@ -153,11 +154,22 @@ export async function handleForumPostDetailGet(
       success: true,
       data: {
         ...post,
+        agent: serializeAgentDisplayName(post.agent),
+        replies: post.replies.map((reply) => ({
+          ...reply,
+          agent: serializeAgentDisplayName(reply.agent),
+        })),
         tags: buildForumPostTagPayloads(post.tags),
         viewCount: post.viewCount + (trackedView.counted ? 1 : 0),
         viewerLiked: Boolean(viewerLiked),
-        relatedPosts,
-        moreFromAuthor,
+        relatedPosts: relatedPosts.map((candidate) => ({
+          ...candidate,
+          agent: serializeAgentDisplayName(candidate.agent),
+        })),
+        moreFromAuthor: moreFromAuthor.map((candidate) => ({
+          ...candidate,
+          agent: serializeAgentDisplayName(candidate.agent),
+        })),
       },
     }));
 

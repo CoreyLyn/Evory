@@ -17,6 +17,7 @@ type OwnedAgentDetailPrismaClient = {
       showOwnerInPublic?: boolean | null;
       ownerUserId?: string | null;
       claimStatus?: string | null;
+      isDeletedPlaceholder?: boolean | null;
       claimedAt?: Date | string | null;
       revokedAt?: Date | string | null;
       lastSeenAt?: Date | string | null;
@@ -61,6 +62,7 @@ export async function GET(
         showOwnerInPublic: true,
         ownerUserId: true,
         claimStatus: true,
+        isDeletedPlaceholder: true,
         claimedAt: true,
         revokedAt: true,
         lastSeenAt: true,
@@ -100,6 +102,7 @@ export async function GET(
         points: agent.points,
         showOwnerInPublic: agent.showOwnerInPublic ?? false,
         claimStatus: agent.claimStatus ?? "ACTIVE",
+        isDeletedPlaceholder: agent.isDeletedPlaceholder ?? false,
         claimedAt: agent.claimedAt ?? null,
         revokedAt: agent.revokedAt ?? null,
         lastSeenAt: agent.lastSeenAt ?? null,
@@ -131,6 +134,7 @@ type UpdateOwnedAgentPrismaClient = {
       id: string;
       ownerUserId?: string | null;
       claimStatus?: string | null;
+      isDeletedPlaceholder?: boolean | null;
     } | null>;
     update: (args: unknown) => Promise<{
       id: string;
@@ -192,10 +196,11 @@ export async function PATCH(
         id: true,
         ownerUserId: true,
         claimStatus: true,
+        isDeletedPlaceholder: true,
       },
     });
 
-    if (!agent || agent.ownerUserId !== user.id) {
+    if (!agent || agent.ownerUserId !== user.id || agent.isDeletedPlaceholder) {
       return Response.json(
         { success: false, error: "Agent not found" },
         { status: 404 }
@@ -254,6 +259,215 @@ export async function PATCH(
     }
 
     console.error("[users/me/agents/[id] PATCH]", error);
+    return Response.json(
+      { success: false, error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+type DeleteOwnedAgentRecord = {
+  id: string;
+  name: string;
+  type: string;
+  ownerUserId?: string | null;
+  claimStatus?: string | null;
+  isDeletedPlaceholder?: boolean | null;
+  avatarConfig?: unknown;
+  bio?: string | null;
+};
+
+type DeleteOwnedAgentPrismaClient = {
+  agent: {
+    findUnique: (args: unknown) => Promise<DeleteOwnedAgentRecord | null>;
+    create: (args: unknown) => Promise<{ id: string }>;
+    delete: (args: unknown) => Promise<{ id: string }>;
+  };
+  forumPost?: {
+    updateMany: (args: unknown) => Promise<unknown>;
+  };
+  forumReply?: {
+    updateMany: (args: unknown) => Promise<unknown>;
+  };
+  forumLike?: {
+    updateMany: (args: unknown) => Promise<unknown>;
+  };
+  knowledgeArticle?: {
+    updateMany: (args: unknown) => Promise<unknown>;
+  };
+  task?: {
+    updateMany: (args: unknown) => Promise<unknown>;
+  };
+  pointTransaction?: {
+    updateMany: (args: unknown) => Promise<unknown>;
+  };
+  dailyCheckin?: {
+    updateMany: (args: unknown) => Promise<unknown>;
+  };
+  agentInventory?: {
+    updateMany: (args: unknown) => Promise<unknown>;
+  };
+  $transaction: <T>(
+    input: (tx: DeleteOwnedAgentPrismaClient) => Promise<T>
+  ) => Promise<T>;
+};
+
+const deletePrisma = prisma as unknown as DeleteOwnedAgentPrismaClient;
+
+function buildDeletedAgentAvatarConfig() {
+  return {
+    color: "gray",
+    hat: null,
+    accessory: null,
+  };
+}
+
+function buildDeletedAgentCreateData(agent: DeleteOwnedAgentRecord, revokedAt: Date) {
+  return {
+    name: `deleted-agent-${agent.id}`,
+    type: agent.type,
+    ownerUserId: null,
+    showOwnerInPublic: false,
+    claimStatus: "REVOKED",
+    revokedAt,
+    status: "OFFLINE",
+    points: 0,
+    avatarConfig: buildDeletedAgentAvatarConfig(),
+    bio: "",
+    isDeletedPlaceholder: true,
+  };
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = await authenticateUser(request);
+
+  if (!user) {
+    return Response.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
+  const sameOriginRejected = await enforceSameOriginControlPlaneRequest({
+    request,
+    routeKey: "agent-delete",
+    userId: user.id,
+  });
+
+  if (sameOriginRejected) {
+    return sameOriginRejected;
+  }
+
+  const { id } = await params;
+  const rateLimited = await enforceRateLimit({
+    bucketId: "agent-delete",
+    routeKey: "agent-delete",
+    maxRequests: 5,
+    windowMs: 10 * 60 * 1000,
+    request,
+    subjectId: user.id,
+    userId: user.id,
+    metadata: {
+      agentId: id,
+    },
+  });
+
+  if (rateLimited) {
+    return rateLimited;
+  }
+
+  try {
+    const agent = await deletePrisma.agent.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        ownerUserId: true,
+        claimStatus: true,
+        isDeletedPlaceholder: true,
+        avatarConfig: true,
+        bio: true,
+      },
+    });
+
+    if (!agent || agent.ownerUserId !== user.id || agent.isDeletedPlaceholder) {
+      return Response.json(
+        { success: false, error: "Agent not found" },
+        { status: 404 }
+      );
+    }
+
+    if (agent.claimStatus !== "REVOKED") {
+      return Response.json(
+        { success: false, error: "Agent must be revoked before deletion" },
+        { status: 409 }
+      );
+    }
+
+    const revokedAt = new Date();
+    const deleted = await deletePrisma.$transaction(async (tx) => {
+      const tombstoneAgent = await tx.agent.create({
+        data: buildDeletedAgentCreateData(agent, revokedAt),
+        select: { id: true },
+      });
+
+      await tx.forumPost?.updateMany({
+        where: { agentId: id },
+        data: { agentId: tombstoneAgent.id },
+      });
+      await tx.forumReply?.updateMany({
+        where: { agentId: id },
+        data: { agentId: tombstoneAgent.id },
+      });
+      await tx.forumLike?.updateMany({
+        where: { agentId: id },
+        data: { agentId: tombstoneAgent.id },
+      });
+      await tx.knowledgeArticle?.updateMany({
+        where: { agentId: id },
+        data: { agentId: tombstoneAgent.id },
+      });
+      await tx.task?.updateMany({
+        where: { creatorId: id },
+        data: { creatorId: tombstoneAgent.id },
+      });
+      await tx.task?.updateMany({
+        where: { assigneeId: id },
+        data: { assigneeId: tombstoneAgent.id },
+      });
+      await tx.pointTransaction?.updateMany({
+        where: { agentId: id },
+        data: { agentId: tombstoneAgent.id },
+      });
+      await tx.dailyCheckin?.updateMany({
+        where: { agentId: id },
+        data: { agentId: tombstoneAgent.id },
+      });
+      await tx.agentInventory?.updateMany({
+        where: { agentId: id },
+        data: { agentId: tombstoneAgent.id },
+      });
+
+      await tx.agent.delete({
+        where: { id },
+      });
+
+      return {
+        id,
+        tombstoneAgentId: tombstoneAgent.id,
+      };
+    });
+
+    return Response.json({
+      success: true,
+      data: deleted,
+    });
+  } catch (error) {
+    console.error("[users/me/agents/[id] DELETE]", error);
     return Response.json(
       { success: false, error: "Internal server error" },
       { status: 500 }

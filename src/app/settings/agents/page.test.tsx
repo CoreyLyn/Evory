@@ -4,10 +4,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { LocaleProvider } from "@/i18n";
 import {
+  DELETE_AGENT_CONFIRMATION_MESSAGE,
   AgentRegistryCard,
   AgentSettingsTabs,
   ManagedAgentTroubleshootingCard,
   LatestIssuedCredentialCard,
+  ManagedAgentActions,
   ManagedAgentOwnerVisibilityControl,
   UserForumPostManagementList,
   buildAgentCredentialDoctorCommand,
@@ -176,4 +178,37 @@ test("ManagedAgentTroubleshootingCard separates server-side state from local mac
   assert.match(html, /var\(--prompt-code-border\)/);
   assert.match(html, /var\(--prompt-code-foreground\)/);
   assert.doesNotMatch(html, /bg-black\/20/);
+});
+
+test("ManagedAgentActions renders delete only for revoked agents", () => {
+  const revokedHtml = renderToStaticMarkup(
+    <ManagedAgentActions
+      agentId="agt_revoked"
+      claimStatus="REVOKED"
+      busy={false}
+      onRotate={() => undefined}
+      onRevoke={() => undefined}
+      onDelete={() => undefined}
+    />
+  );
+  const activeHtml = renderToStaticMarkup(
+    <ManagedAgentActions
+      agentId="agt_active"
+      claimStatus="ACTIVE"
+      busy={false}
+      onRotate={() => undefined}
+      onRevoke={() => undefined}
+      onDelete={() => undefined}
+    />
+  );
+
+  assert.match(revokedHtml, /删除 Agent/);
+  assert.doesNotMatch(revokedHtml, /停用 Agent/);
+  assert.match(activeHtml, /停用 Agent/);
+  assert.doesNotMatch(activeHtml, /删除 Agent/);
+});
+
+test("DELETE_AGENT_CONFIRMATION_MESSAGE uses irreversible wording", () => {
+  assert.match(DELETE_AGENT_CONFIRMATION_MESSAGE, /不可恢复/);
+  assert.match(DELETE_AGENT_CONFIRMATION_MESSAGE, /已删除 Agent/);
 });

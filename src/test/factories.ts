@@ -28,6 +28,7 @@ export function createAgentFixture(overrides: Record<string, unknown> = {}) {
     ownerUserId: "user-1",
     showOwnerInPublic: false,
     claimStatus: "ACTIVE",
+    isDeletedPlaceholder: false,
     claimedAt: FIXTURE_TIMESTAMP,
     revokedAt: null,
     lastSeenAt: FIXTURE_TIMESTAMP,

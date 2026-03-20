@@ -1,11 +1,13 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
+import { serializeAgentDisplayName } from "@/lib/agent-display-name";
 import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
 
 const AGENT_SELECT = {
   id: true,
   name: true,
+  isDeletedPlaceholder: true,
   avatarConfig: true,
 } as const;
 
@@ -51,7 +53,14 @@ export async function handleTaskDetailGet(
       ));
     }
 
-    return notForAgentsResponse(Response.json({ success: true, data: task }));
+    return notForAgentsResponse(Response.json({
+      success: true,
+      data: {
+        ...task,
+        creator: serializeAgentDisplayName(task.creator),
+        assignee: task.assignee ? serializeAgentDisplayName(task.assignee) : null,
+      },
+    }));
   } catch (err) {
     console.error("[tasks/[id] GET]", err);
     return notForAgentsResponse(Response.json(

@@ -88,6 +88,9 @@ type ActivityFilters = {
   range: string;
 };
 
+export const DELETE_AGENT_CONFIRMATION_MESSAGE =
+  "删除后不可恢复，关联内容将显示为“已删除 Agent”。确认删除？";
+
 const CATEGORY_ICON_COLORS: Record<string, { icon: string; color: string }> = {
   security: { icon: "\u{1F6E1}\uFE0F", color: "text-red-400" },
   forum: { icon: "\u{1F4AC}", color: "text-blue-400" },
@@ -364,6 +367,55 @@ export function UserForumPostManagementList({
         })}
       </div>
     </Card>
+  );
+}
+
+export function ManagedAgentActions({
+  agentId: _agentId,
+  claimStatus,
+  busy,
+  onRotate,
+  onRevoke,
+  onDelete,
+}: {
+  agentId: string;
+  claimStatus: string;
+  busy: boolean;
+  onRotate: () => void;
+  onRevoke: () => void;
+  onDelete: () => void;
+}) {
+  if (claimStatus === "REVOKED") {
+    return (
+      <div className="mt-5 flex flex-wrap gap-2">
+        <Button
+          variant="danger"
+          disabled={busy}
+          onClick={onDelete}
+        >
+          {busy ? "处理中..." : "删除 Agent"}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-5 flex flex-wrap gap-2">
+      <Button
+        variant="secondary"
+        disabled={busy}
+        onClick={onRotate}
+      >
+        {busy ? "处理中..." : "轮换 Key"}
+      </Button>
+      <Button
+        variant="danger"
+        disabled={busy}
+        onClick={onRevoke}
+      >
+        停用 Agent
+      </Button>
+    </div>
   );
 }
 
@@ -668,6 +720,33 @@ export default function ManageAgentsPage() {
       await loadData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "停用失败");
+    } finally {
+      setBusyAgentId(null);
+    }
+  }
+
+  async function handleDeleteAgent(agentId: string) {
+    if (typeof window !== "undefined" && !window.confirm(DELETE_AGENT_CONFIRMATION_MESSAGE)) {
+      return;
+    }
+
+    setBusyAgentId(agentId);
+    setError(null);
+    setLatestIssuedCredential(null);
+
+    try {
+      const response = await fetch(`/api/users/me/agents/${agentId}`, {
+        method: "DELETE",
+      });
+      const json = await response.json();
+
+      if (!response.ok || !json.success) {
+        throw new Error(json.error ?? "删除失败");
+      }
+
+      await loadData();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "删除失败");
     } finally {
       setBusyAgentId(null);
     }
@@ -1023,22 +1102,14 @@ export default function ManageAgentsPage() {
                   )}
                 </div>
 
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <Button
-                    variant="secondary"
-                    disabled={busyAgentId === agent.id || agent.claimStatus === "REVOKED"}
-                    onClick={() => void handleRotate(agent.id)}
-                  >
-                    {busyAgentId === agent.id ? "处理中..." : "轮换 Key"}
-                  </Button>
-                  <Button
-                    variant="danger"
-                    disabled={busyAgentId === agent.id || agent.claimStatus === "REVOKED"}
-                    onClick={() => void handleRevoke(agent.id)}
-                  >
-                    停用 Agent
-                  </Button>
-                </div>
+                <ManagedAgentActions
+                  agentId={agent.id}
+                  claimStatus={agent.claimStatus}
+                  busy={busyAgentId === agent.id}
+                  onRotate={() => void handleRotate(agent.id)}
+                  onRevoke={() => void handleRevoke(agent.id)}
+                  onDelete={() => void handleDeleteAgent(agent.id)}
+                />
 
                 <ManagedAgentTroubleshootingCard agent={agent} siteUrl={siteUrl} />
                   </Card>

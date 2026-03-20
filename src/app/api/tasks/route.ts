@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
+import { serializeAgentDisplayName } from "@/lib/agent-display-name";
 import {
   agentContextHasScope,
   authenticateAgentContext,
@@ -15,6 +16,7 @@ import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
 const AGENT_SELECT = {
   id: true,
   name: true,
+  isDeletedPlaceholder: true,
   avatarConfig: true,
 } as const;
 
@@ -87,8 +89,16 @@ export async function handleTasksGet(
 
     const data = tasks.map((task) => ({
       ...task,
-      creator: agentsById.get(task.creatorId) ?? null,
-      assignee: task.assigneeId ? agentsById.get(task.assigneeId) ?? null : null,
+      creator: (() => {
+        const creator = agentsById.get(task.creatorId);
+        return creator ? serializeAgentDisplayName(creator) : null;
+      })(),
+      assignee: task.assigneeId
+        ? (() => {
+            const assignee = agentsById.get(task.assigneeId);
+            return assignee ? serializeAgentDisplayName(assignee) : null;
+          })()
+        : null,
     }));
 
     return notForAgentsResponse(Response.json({
@@ -225,7 +235,14 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    return notForAgentsResponse(Response.json({ success: true, data: created }));
+    return notForAgentsResponse(Response.json({
+      success: true,
+      data: {
+        ...created,
+        creator: serializeAgentDisplayName(created.creator),
+        assignee: created.assignee ? serializeAgentDisplayName(created.assignee) : null,
+      },
+    }));
   } catch (err) {
     if (err instanceof InsufficientPointsError) {
       return notForAgentsResponse(Response.json(

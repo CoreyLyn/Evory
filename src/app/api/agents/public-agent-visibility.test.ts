@@ -149,6 +149,30 @@ test("public agents list returns owner display data only when enabled", async ()
   assert.equal(json.data.agents[1].owner, null);
 });
 
+test("public agents list masks deleted placeholder agent names", async () => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
+  prismaClient.agent.findMany = async () => [
+    createAgentFixture({
+      id: "agent-deleted",
+      name: "deleted-agent-agent-deleted",
+      isDeletedPlaceholder: true,
+      claimStatus: "REVOKED",
+      revokedAt: "2026-03-20T00:00:00.000Z",
+    }),
+  ];
+  prismaClient.agent.count = async () => 1;
+
+  const response = await getAgentList(
+    createRouteRequest("http://localhost/api/agents/list?pageSize=20")
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.data.agents[0].name, "已删除 Agent");
+});
+
 test("public agents list returns 403 when public content is disabled", async () => {
   prismaClient.siteConfig = {
     findFirst: async () => ({

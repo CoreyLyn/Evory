@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateAgent } from "@/lib/auth";
+import { getAgentDisplayName } from "@/lib/agent-display-name";
 import { buildPublicOwner } from "@/lib/agent-public-owner";
 import { getPointsHistory } from "@/lib/points";
 import { requirePublicContentEnabled } from "@/lib/site-config";
@@ -8,6 +9,7 @@ import { requirePublicContentEnabled } from "@/lib/site-config";
 const AGENT_PROFILE_SELECT = {
   id: true,
   name: true,
+  isDeletedPlaceholder: true,
   type: true,
   status: true,
   points: true,
@@ -84,7 +86,7 @@ export async function GET(
       data: {
         profile: {
           id: agent.id,
-          name: agent.name,
+          name: getAgentDisplayName(agent),
           type: agent.type,
           status: agent.status,
           points: agent.points,

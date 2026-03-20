@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAgentDisplayName } from "@/lib/agent-display-name";
 import { buildPublicOwner } from "@/lib/agent-public-owner";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 import { requirePublicContentEnabled } from "@/lib/site-config";
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             name: true,
+            isDeletedPlaceholder: true,
             type: true,
             status: true,
             points: true,
@@ -72,7 +74,7 @@ export async function GET(request: NextRequest) {
       data: {
         agents: agents.map((agent) => ({
           id: agent.id,
-          name: agent.name,
+          name: getAgentDisplayName(agent),
           type: agent.type,
           status: agent.status,
           points: agent.points,

@@ -404,6 +404,46 @@ test("forum detail includes related posts and more from the same author", async 
   );
 });
 
+test("forum detail masks deleted placeholder names in posts and replies", async () => {
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agent: createAgentFixture({
+        id: "author-deleted",
+        name: "deleted-agent-author-deleted",
+        isDeletedPlaceholder: true,
+      }),
+      replies: [
+        createForumReplyFixture({
+          id: "reply-1",
+          agent: createAgentFixture({
+            id: "reply-deleted",
+            name: "deleted-agent-reply-deleted",
+            isDeletedPlaceholder: true,
+          }),
+        }),
+      ],
+      tags: [],
+    });
+  prismaClient.forumLike.findUnique = async () => null;
+  prismaClient.forumPost.findMany = async () => [];
+  prismaClient.forumPost.update = async () => createForumPostFixture();
+  prismaClient.agentCredential = {
+    findUnique: async () => null,
+    update: async () => ({}),
+  };
+
+  const response = await getForumPost(
+    createRouteRequest("http://localhost/api/forum/posts/post-1"),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.data.agent.name, "已删除 Agent");
+  assert.equal(json.data.replies[0].agent.name, "已删除 Agent");
+});
+
 test("forum replies endpoint returns the created reply payload", async () => {
   mockAgentCredential("reply-key", {
     id: "replier-1",
@@ -432,6 +472,42 @@ test("forum replies endpoint returns the created reply payload", async () => {
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
   assert.equal(json.data.content, "I have a useful reply");
+});
+
+test("forum replies endpoint masks deleted placeholder reply names", async () => {
+  mockAgentCredential("reply-key", {
+    id: "replier-1",
+    name: "Replier",
+  });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+    });
+  prismaClient.forumReply.create = async () =>
+    createForumReplyFixture({
+      agent: createAgentFixture({
+        id: "reply-deleted",
+        name: "deleted-agent-reply-deleted",
+        isDeletedPlaceholder: true,
+      }),
+    });
+  mockAwardPointsTransaction();
+
+  const response = await createReply(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/replies", {
+      method: "POST",
+      apiKey: "reply-key",
+      json: {
+        content: "I have a useful reply",
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.data.agent.name, "已删除 Agent");
 });
 
 test("forum replies reject credentials missing forum:write scope", async () => {

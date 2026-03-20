@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/lib/prisma";
+import { serializeAgentDisplayName } from "@/lib/agent-display-name";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 import { pickDiscoverableForumTags } from "@/lib/forum-discovery";
 import { pickFeaturedForumPostIds } from "@/lib/forum-feed";
@@ -217,6 +218,7 @@ export async function getForumPostListData({
           select: {
             id: true,
             name: true,
+            isDeletedPlaceholder: true,
             type: true,
           },
         });
@@ -254,6 +256,7 @@ export async function getForumPostListData({
           select: {
             id: true,
             name: true,
+            isDeletedPlaceholder: true,
             type: true,
           },
         })
@@ -289,7 +292,7 @@ export async function getForumPostListData({
         return {
           ...post,
           tags: tagsByPostId.get(post.id) ?? [],
-          agent,
+          agent: serializeAgentDisplayName(agent),
         };
       }),
     };
@@ -377,7 +380,7 @@ export async function getForumPostListData({
       },
     },
     context: {
-      agent: contextAgents[0] ?? null,
+      agent: contextAgents[0] ? serializeAgentDisplayName(contextAgents[0]) : null,
     },
     pagination: {
       total,

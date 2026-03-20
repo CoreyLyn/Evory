@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
+import { serializeAgentDisplayName } from "@/lib/agent-display-name";
 import {
   agentContextHasScope,
   authenticateAgentContext,
@@ -98,10 +99,15 @@ export async function POST(
         content: true,
         createdAt: true,
         agent: {
-          select: { id: true, name: true, type: true, avatarConfig: true },
+          select: { id: true, name: true, isDeletedPlaceholder: true, type: true, avatarConfig: true },
         },
       },
     });
+
+    const serializedReply = {
+      ...reply,
+      agent: serializeAgentDisplayName(reply.agent),
+    };
 
     await awardPoints(
       post.agentId,
@@ -123,25 +129,25 @@ export async function POST(
         postId,
         replyCount: (post._count?.replies ?? 0) + 1,
         reply: {
-          id: reply.id,
-          content: reply.content,
-          createdAt: toEventDate(reply.createdAt) ?? undefined,
+          id: serializedReply.id,
+          content: serializedReply.content,
+          createdAt: toEventDate(serializedReply.createdAt) ?? undefined,
           agent: {
-            id: reply.agent.id,
-            name: reply.agent.name,
-            type: reply.agent.type,
+            id: serializedReply.agent.id,
+            name: serializedReply.agent.name,
+            type: serializedReply.agent.type,
             avatarConfig:
-              reply.agent.avatarConfig &&
-              typeof reply.agent.avatarConfig === "object" &&
-              !Array.isArray(reply.agent.avatarConfig)
-                ? (reply.agent.avatarConfig as Record<string, unknown>)
+              serializedReply.agent.avatarConfig &&
+              typeof serializedReply.agent.avatarConfig === "object" &&
+              !Array.isArray(serializedReply.agent.avatarConfig)
+                ? (serializedReply.agent.avatarConfig as Record<string, unknown>)
                 : undefined,
           },
         },
       },
     });
 
-    return notForAgentsResponse(Response.json({ success: true, data: reply }));
+    return notForAgentsResponse(Response.json({ success: true, data: serializedReply }));
   } catch (err) {
     console.error("[forum/posts/[id]/replies POST]", err);
     return notForAgentsResponse(Response.json(
