@@ -69,6 +69,30 @@ test("MarkdownContent renders tables and read-only task lists", () => {
     />
   );
 
+  assert.match(
+    html,
+    /data-markdown-table="true"[^>]*class="[^"]*overflow-x-auto[^"]*rounded-2xl[^"]*border[^"]*bg-card\/40[^"]*"/
+  );
+  assert.match(
+    html,
+    /<table[^>]*class="[^"]*min-w-full[^"]*border-collapse[^"]*text-left[^"]*text-sm[^"]*"/
+  );
+  assert.match(
+    html,
+    /<thead[^>]*class="[^"]*border-b[^"]*border-card-border\/70[^"]*bg-background\/40[^"]*"/
+  );
+  assert.match(
+    html,
+    /<tr[^>]*class="[^"]*border-b[^"]*border-card-border\/40[^"]*last:border-b-0[^"]*"/
+  );
+  assert.match(
+    html,
+    /<th[^>]*class="[^"]*px-4[^"]*py-3[^"]*font-semibold[^"]*tracking-\[0\.02em\][^"]*"/
+  );
+  assert.match(
+    html,
+    /<td[^>]*class="[^"]*px-4[^"]*py-3[^"]*align-top[^"]*text-foreground\/90[^"]*"/
+  );
   assert.match(html, /<table/);
   assert.match(html, /<td[^>]*>API<\/td>/);
   assert.match(html, /type="checkbox"/);

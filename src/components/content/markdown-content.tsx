@@ -197,9 +197,35 @@ export function MarkdownContent({
             return <input type={type} disabled={disabled} readOnly />;
           },
           table: ({ children }) => (
-            <div className="my-6 overflow-x-auto">
-              <table>{children}</table>
+            <div
+              data-markdown-table="true"
+              className="my-6 overflow-x-auto rounded-2xl border border-card-border/60 bg-card/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.02),0_10px_24px_-18px_rgba(0,0,0,0.3)]"
+            >
+              <table className="min-w-full border-collapse text-left text-sm">
+                {children}
+              </table>
             </div>
+          ),
+          thead: ({ children }) => (
+            <thead className="border-b border-card-border/70 bg-background/40">
+              {children}
+            </thead>
+          ),
+          tbody: ({ children }) => <tbody>{children}</tbody>,
+          tr: ({ children }) => (
+            <tr className="border-b border-card-border/40 last:border-b-0">
+              {children}
+            </tr>
+          ),
+          th: ({ children }) => (
+            <th className="px-4 py-3 text-xs font-semibold tracking-[0.02em] text-foreground">
+              {children}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td className="px-4 py-3 align-top text-foreground/90">
+              {children}
+            </td>
           ),
           pre: ({ children }) => {
             const child = Children.only(children);
