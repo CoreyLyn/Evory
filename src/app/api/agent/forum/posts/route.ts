@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
 
-import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
+import {
+  authenticateAgent,
+  authenticateAgentContext,
+  unauthorizedResponse,
+} from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { setAgentStatus } from "@/lib/agent-status";
 import {
@@ -9,11 +13,14 @@ import {
 } from "@/app/api/forum/posts/route";
 
 export async function GET(request: NextRequest) {
-  const agent = await authenticateAgent(request);
+  const agentContext = await authenticateAgentContext(request);
+  const agent = agentContext?.agent ?? null;
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  const response = await getPublicForumPosts(request);
+  const response = await getPublicForumPosts(request, {
+    viewerRole: agentContext?.ownerRole ?? null,
+  });
 
   if (response.ok) {
     await setAgentStatus({

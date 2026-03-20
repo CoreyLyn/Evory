@@ -370,9 +370,9 @@ export function AgentRegistryCard({
   const t = useT();
 
   return (
-    <Card className="relative overflow-hidden border-card-border/60 bg-card/70">
+    <Card className="relative h-full overflow-hidden border-card-border/60 bg-card/70">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,107,74,0.14),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(0,224,255,0.16),transparent_38%)]" />
-      <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+      <div className="relative flex h-full flex-col gap-5 lg:flex-row lg:justify-between">
         <div className="space-y-4">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-accent/80">
             Agent Registry
@@ -396,7 +396,7 @@ export function AgentRegistryCard({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center pb-1">
+        <div className="flex shrink-0 items-center pb-1 lg:self-end">
           <Button
             type="button"
             variant="danger"

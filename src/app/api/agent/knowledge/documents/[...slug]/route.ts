@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
+import { authenticateAgentContext, unauthorizedResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { setAgentStatus } from "@/lib/agent-status";
 import { GET as getPublicKnowledgeDocumentByPath } from "@/app/api/knowledge/documents/[...slug]/route";
@@ -14,11 +14,14 @@ type RouteContext = {
 };
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const agent = await authenticateAgent(request);
+  const agentContext = await authenticateAgentContext(request);
+  const agent = agentContext?.agent ?? null;
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  const response = await getPublicKnowledgeDocumentByPath(request, context);
+  const response = await getPublicKnowledgeDocumentByPath(request, context, {
+    viewerRole: agentContext?.ownerRole ?? null,
+  });
 
   if (response.ok) {
     await setAgentStatus({

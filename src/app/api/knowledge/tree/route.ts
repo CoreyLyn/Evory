@@ -6,13 +6,19 @@ import {
   findKnowledgeDirectoryViewModel,
   getCurrentKnowledgeBase,
 } from "@/lib/knowledge-base/api";
-import { requirePublicContentEnabled } from "@/lib/site-config";
+import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  options?: { viewerRole?: string | null }
+) {
   try {
-    const publicContentDisabled = await requirePublicContentEnabled(request);
+    const publicContentDisabled = await requirePublicContentEnabledForViewer({
+      request,
+      viewerRole: options?.viewerRole,
+    });
 
     if (publicContentDisabled) {
       return notForAgentsResponse(publicContentDisabled);

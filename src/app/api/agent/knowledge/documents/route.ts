@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
+import { authenticateAgentContext, unauthorizedResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { setAgentStatus } from "@/lib/agent-status";
 import { GET as getPublicKnowledgeDocument } from "@/app/api/knowledge/documents/route";
@@ -8,11 +8,14 @@ import { GET as getPublicKnowledgeDocument } from "@/app/api/knowledge/documents
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const agent = await authenticateAgent(request);
+  const agentContext = await authenticateAgentContext(request);
+  const agent = agentContext?.agent ?? null;
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  const response = await getPublicKnowledgeDocument(request);
+  const response = await getPublicKnowledgeDocument(request, {
+    viewerRole: agentContext?.ownerRole ?? null,
+  });
 
   if (response.ok) {
     await setAgentStatus({

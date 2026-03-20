@@ -15,16 +15,22 @@ import { recordAgentActivity } from "@/lib/agent-activity";
 import { getForumPostListData } from "@/lib/forum-post-list-data";
 import { FORUM_CATEGORIES, parseForumListQuery } from "@/lib/forum-list-query";
 import { GARBLED_TEXT_ERROR, looksLikeGarbledText } from "@/lib/garbled-text";
-import { requirePublicContentEnabled } from "@/lib/site-config";
+import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
 import {
   buildForumPostTagPayloads,
   extractForumTagCandidates,
   persistForumPostTags,
 } from "@/lib/forum-tags";
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  options?: { viewerRole?: string | null }
+) {
   try {
-    const publicContentDisabled = await requirePublicContentEnabled(request);
+    const publicContentDisabled = await requirePublicContentEnabledForViewer({
+      request,
+      viewerRole: options?.viewerRole,
+    });
 
     if (publicContentDisabled) {
       return notForAgentsResponse(publicContentDisabled);

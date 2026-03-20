@@ -102,11 +102,26 @@ export async function requirePublicContentEnabled(
   request?: NextRequest,
   prismaClient: SiteConfigPrismaClient = siteConfigPrisma
 ) {
+  return requirePublicContentEnabledForViewer({
+    request,
+    prismaClient,
+  });
+}
+
+export async function requirePublicContentEnabledForViewer({
+  request,
+  viewerRole,
+  prismaClient = siteConfigPrisma,
+}: {
+  request?: NextRequest;
+  viewerRole?: string | null;
+  prismaClient?: SiteConfigPrismaClient;
+}) {
   const config = await getSiteConfig(prismaClient);
 
   if (
     config.publicContentEnabled ||
-    (await getViewerRole({ request, prismaClient })) === "ADMIN"
+    (await getViewerRole({ request, viewerRole, prismaClient })) === "ADMIN"
   ) {
     return null;
   }

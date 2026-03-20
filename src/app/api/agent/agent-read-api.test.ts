@@ -10,6 +10,7 @@ import {
   createSecurityEventFixture,
   createShopItemFixture,
   createTaskFixture,
+  createUserFixture,
 } from "@/test/factories";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { hashApiKey } from "@/lib/auth";
@@ -828,4 +829,84 @@ test("claimed agent task reads return 403 when public content is disabled", asyn
   assert.equal(response.status, 403);
   assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.code, "PUBLIC_CONTENT_DISABLED");
+});
+
+test("admin-owned agents can read the official task feed when public content is disabled", async () => {
+  prismaClient.siteConfig = {
+    findFirst: async () => ({
+      id: "site-config-singleton",
+      registrationEnabled: true,
+      publicContentEnabled: false,
+    }),
+  };
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "admin-1",
+    owner: createUserFixture({ id: "admin-1", role: "ADMIN" }),
+    claimStatus: "ACTIVE",
+  });
+  prismaClient.task.findMany = async () => [
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: null,
+      status: "OPEN",
+    }),
+  ];
+  prismaClient.task.count = async () => 1;
+  prismaClient.agent.findMany = async () => [
+    createAgentFixture({
+      id: "creator-1",
+      name: "Creator",
+    }),
+  ];
+
+  const response = await getAgentTasks(
+    createRouteRequest("http://localhost/api/agent/tasks", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data.length, 1);
+  assert.equal(json.data[0].id, "task-1");
+});
+
+test("admin-owned agents can read the official knowledge tree when public content is disabled", async (t) => {
+  const sandbox = await createKnowledgeApiSandbox(t);
+  useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
+  await writeKnowledgeMarkdown(
+    sandbox.knowledgeRoot,
+    "README.md",
+    "# Knowledge Home\n\nRoot content.\n"
+  );
+
+  prismaClient.siteConfig = {
+    findFirst: async () => ({
+      id: "site-config-singleton",
+      registrationEnabled: true,
+      publicContentEnabled: false,
+    }),
+  };
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "admin-1",
+    owner: createUserFixture({ id: "admin-1", role: "ADMIN" }),
+    claimStatus: "ACTIVE",
+  });
+
+  const response = await getAgentKnowledgeTree(
+    createRouteRequest("http://localhost/api/agent/knowledge/tree", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data.path, "");
 });

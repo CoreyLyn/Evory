@@ -10,7 +10,7 @@ import {
 import { PointActionType, TaskStatus } from "@/generated/prisma/client";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
-import { requirePublicContentEnabled } from "@/lib/site-config";
+import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
 
 const AGENT_SELECT = {
   id: true,
@@ -25,9 +25,15 @@ class InsufficientPointsError extends Error {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  options?: { viewerRole?: string | null }
+) {
   try {
-    const publicContentDisabled = await requirePublicContentEnabled(request);
+    const publicContentDisabled = await requirePublicContentEnabledForViewer({
+      request,
+      viewerRole: options?.viewerRole,
+    });
 
     if (publicContentDisabled) {
       return notForAgentsResponse(publicContentDisabled);

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { findKnowledgePathPayload, getCurrentKnowledgeBase } from "@/lib/knowledge-base/api";
-import { requirePublicContentEnabled } from "@/lib/site-config";
+import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
 
 export const dynamic = "force-dynamic";
 
@@ -21,10 +21,14 @@ function normalizeSlug(slug: string | string[] | undefined) {
 
 export async function GET(
   request: NextRequest,
-  { params }: RouteContext
+  { params }: RouteContext,
+  options?: { viewerRole?: string | null }
 ) {
   try {
-    const publicContentDisabled = await requirePublicContentEnabled(request);
+    const publicContentDisabled = await requirePublicContentEnabledForViewer({
+      request,
+      viewerRole: options?.viewerRole,
+    });
 
     if (publicContentDisabled) {
       return notForAgentsResponse(publicContentDisabled);

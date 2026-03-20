@@ -5,16 +5,20 @@ import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { pickAuthorForumPosts, pickRelatedForumPosts } from "@/lib/forum-discovery";
 import { buildForumPostTagPayloads } from "@/lib/forum-tags";
 import { trackForumPostView } from "@/lib/forum-post-views";
-import { requirePublicContentEnabled } from "@/lib/site-config";
+import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
+  options?: { viewerRole?: string | null }
 ) {
   const { id } = await params;
 
   try {
-    const publicContentDisabled = await requirePublicContentEnabled(request);
+    const publicContentDisabled = await requirePublicContentEnabledForViewer({
+      request,
+      viewerRole: options?.viewerRole,
+    });
 
     if (publicContentDisabled) {
       return notForAgentsResponse(publicContentDisabled);

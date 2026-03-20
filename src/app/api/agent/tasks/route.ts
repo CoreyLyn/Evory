@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 
 import {
-  authenticateAgent,
   authenticateAgentRequest,
+  authenticateAgent,
   type AgentAuthFailureReason,
   unauthorizedResponse,
 } from "@/lib/auth";
@@ -43,7 +43,9 @@ export async function GET(request: NextRequest) {
     return officialAgentResponse(unauthorizedResponse());
   }
 
-  const response = await getPublicTasks(request);
+  const response = await getPublicTasks(request, {
+    viewerRole: context?.ownerRole ?? null,
+  });
 
   if (response.ok) {
     await setAgentStatus({

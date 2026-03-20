@@ -19,7 +19,14 @@ export const DEFAULT_AGENT_CREDENTIAL_SCOPES = [
 export const DEFAULT_AGENT_CREDENTIAL_TTL_MS =
   1000 * 60 * 60 * 24 * 90;
 
-type AgentWithClaimState = Agent;
+type AgentOwnerRecord = {
+  id: string;
+  role?: string | null;
+} | null;
+
+type AgentWithClaimState = Agent & {
+  owner?: AgentOwnerRecord;
+};
 
 type AgentCredentialRecord = {
   id: string;
@@ -139,6 +146,7 @@ export type AuthenticatedAgentContext = {
   credentialId: string;
   scopes: string[];
   expiresAt: string | null;
+  ownerRole: string | null;
 };
 
 export type AgentAuthFailureReason =
@@ -194,7 +202,16 @@ export async function authenticateAgentRequest(
     const credential = await authPrisma.agentCredential?.findUnique({
       where: { keyHash: hashApiKey(apiKey) },
       include: {
-        agent: true,
+        agent: {
+          include: {
+            owner: {
+              select: {
+                id: true,
+                role: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -280,6 +297,7 @@ export async function authenticateAgentRequest(
         expiresAt: credential.expiresAt
           ? new Date(credential.expiresAt).toISOString()
           : null,
+        ownerRole: agent.owner?.role ?? null,
       },
       failureReason: null,
     };
