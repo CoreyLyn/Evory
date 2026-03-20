@@ -197,6 +197,9 @@ export function MarkdownContent({
 
             return <Link href={resolvedHref}>{children}</Link>;
           },
+          hr: () => (
+            <hr className="my-8 border-t border-card-border/60" />
+          ),
           blockquote: ({ children }) => <blockquote>{children}</blockquote>,
           code: ({ children, className }) => (
             <code className={className}>{children}</code>
