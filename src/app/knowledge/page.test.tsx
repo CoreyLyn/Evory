@@ -126,3 +126,32 @@ test("knowledge root page still renders for admins when public content is disabl
   assert.match(html, /知识库/);
   assert.doesNotMatch(html, /公开内容暂不可用/);
 });
+
+test("knowledge root search renders highlighted match snippets", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
+  const sandbox = await createKnowledgeApiSandbox(t);
+  useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
+  await writeKnowledgeMarkdown(
+    sandbox.knowledgeRoot,
+    "guides/deploy.md",
+    [
+      "# Deploy Guide",
+      "",
+      "This guide explains staging setup.",
+      "",
+      "When you deploy the stack, verify the deploy checklist and deploy logs.",
+    ].join("\n")
+  );
+
+  const page = await KnowledgePage({
+    searchParams: Promise.resolve({ q: "deploy" }),
+  });
+  const html = renderPage(page);
+
+  assert.match(html, /data-knowledge-section="search-results"/);
+  assert.match(html, /<mark[^>]*>Deploy<\/mark> Guide/);
+  assert.match(html, /When you <mark[^>]*>deploy<\/mark> the stack, verify the/i);
+  assert.match(html, /verify the <mark[^>]*>deploy<\/mark> checkl/i);
+});

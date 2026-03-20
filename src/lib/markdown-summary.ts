@@ -1,7 +1,7 @@
-export function summarizeMarkdown(content: string) {
+export function markdownToPlainText(content: string) {
   return content
     .replace(/\r\n/g, "\n")
-    .replace(/^```[^\n]*$/gm, "")
+    .replace(/```[\s\S]*?```/g, "")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/^\s{0,3}>\s?/gm, "")
     .replace(/^\s*[-*+]\s+\[(?: |x|X)\]\s+/gm, "")
@@ -18,4 +18,8 @@ export function summarizeMarkdown(content: string) {
     .replace(/\n+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function summarizeMarkdown(content: string) {
+  return markdownToPlainText(content);
 }

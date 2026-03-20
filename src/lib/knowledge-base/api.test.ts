@@ -94,6 +94,7 @@ test("searchKnowledgeDocumentPreviews omits document bodies from result cards", 
     path: "guides/install",
     title: "Install",
     summary: "Install body mentions rollout token.",
+    snippet: "Install body mentions rollout token.",
   });
   assert.ok(!("body" in results[0]));
 });

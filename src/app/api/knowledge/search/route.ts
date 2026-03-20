@@ -51,7 +51,7 @@ export async function handleKnowledgeSearchGet(
     const total = matches.length;
     const data = matches
       .slice((page - 1) * pageSize, page * pageSize)
-      .map(toLegacyCompatibleKnowledgeSearchResult);
+      .map((document) => toLegacyCompatibleKnowledgeSearchResult(document, q));
 
     return notForAgentsResponse(Response.json({
       success: true,

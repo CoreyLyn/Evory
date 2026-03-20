@@ -12,7 +12,9 @@ export type KnowledgeDocument = {
   lastModified: string;
 };
 
-export type KnowledgeDocumentPreview = Pick<KnowledgeDocument, "path" | "title" | "summary">;
+export type KnowledgeDocumentPreview = Pick<KnowledgeDocument, "path" | "title" | "summary"> & {
+  snippet?: string;
+};
 
 export type KnowledgeDirectoryPreview = {
   path: string;

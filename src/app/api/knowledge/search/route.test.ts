@@ -81,6 +81,35 @@ generic body
   assert.deepEqual(json.data[0].tags, ["deploy"]);
 });
 
+test("knowledge search returns a body snippet around the best match", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => null,
+  };
+  const sandbox = await createKnowledgeApiSandbox(t);
+  useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
+  await writeKnowledgeMarkdown(
+    sandbox.knowledgeRoot,
+    "deploy-runbook.md",
+    [
+      "# Runbook",
+      "",
+      "Intro paragraph.",
+      "",
+      "Later in the document the deploy checklist covers rollback, deploy logs, and deploy timing.",
+    ].join("\n")
+  );
+
+  const response = await GET(
+    createRouteRequest("http://localhost/api/knowledge/search?q=deploy")
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(typeof json.data[0].snippet, "string");
+  assert.match(json.data[0].snippet, /deploy checklist/i);
+});
+
 test("knowledge search returns 403 when public content is disabled", async () => {
   prismaClient.siteConfig = {
     findFirst: async () => ({

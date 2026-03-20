@@ -39,6 +39,25 @@ function splitDirectoryPath(targetPath: string) {
   return targetPath.split("/").filter(Boolean);
 }
 
+function renderHighlightedText(text: string, query: string) {
+  if (!query.trim()) {
+    return text;
+  }
+
+  const pattern = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "ig");
+  const parts = text.split(pattern);
+
+  return parts.map((part, index) => {
+    if (!part) {
+      return null;
+    }
+
+    return part.toLocaleLowerCase() === query.toLocaleLowerCase()
+      ? <mark key={`${part}-${index}`} className="rounded bg-accent/20 px-0.5 text-foreground">{part}</mark>
+      : part;
+  });
+}
+
 export function KnowledgeDirectoryView({
   directory,
   searchQuery = "",
@@ -156,14 +175,18 @@ export function KnowledgeDirectoryView({
             />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {searchResults.map((document) => (
-                <Link key={document.path} href={toKnowledgeHref(document.path)}>
-                  <Card className="h-full hover:border-accent/30 hover:shadow-cyan-glow hover:-translate-y-0.5">
-                    <h3 className="font-semibold text-foreground">{document.title}</h3>
-                    <p className="mt-2 text-sm text-muted">{document.summary}</p>
-                  </Card>
-                </Link>
-              ))}
+                {searchResults.map((document) => (
+                  <Link key={document.path} href={toKnowledgeHref(document.path)}>
+                    <Card className="h-full hover:border-accent/30 hover:shadow-cyan-glow hover:-translate-y-0.5">
+                      <h3 className="font-semibold text-foreground">
+                        {renderHighlightedText(document.title, searchQuery)}
+                      </h3>
+                      <p className="mt-2 text-sm text-muted">
+                        {renderHighlightedText(document.snippet || document.summary, searchQuery)}
+                      </p>
+                    </Card>
+                  </Link>
+                ))}
             </div>
           )}
         </section>

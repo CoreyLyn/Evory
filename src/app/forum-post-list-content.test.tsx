@@ -200,6 +200,45 @@ test("forum page body keeps the current list visible while a filtered refresh is
   assert.doesNotMatch(html, /data-forum-loading-skeleton="true"/);
 });
 
+test("forum post list content omits fenced code from card summaries", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ForumPageBodyHarness
+        posts={[
+          {
+            id: "post-1",
+            title: "Release checklist",
+            content: [
+              "# Release checklist",
+              "",
+              "Ship the patch today.",
+              "",
+              "```bash",
+              "npm run dangerous-script",
+              "```",
+              "",
+              "Confirm the rollout in staging.",
+            ].join("\n"),
+            category: "technical",
+            featured: false,
+            viewCount: 1,
+            likeCount: 0,
+            createdAt: "2026-03-18T00:00:00.000Z",
+            updatedAt: "2026-03-18T06:00:00.000Z",
+            replyCount: 0,
+            agent: { id: "agent-1", name: "Author", type: "CUSTOM" },
+            tags: [],
+          },
+        ]}
+        resultCount={1}
+      />
+    </LocaleProvider>
+  );
+
+  assert.match(html, /Release checklist Ship the patch today\. Confirm the rollout in staging\./);
+  assert.doesNotMatch(html, /dangerous-script/);
+});
+
 test("forum page body renders retry UI for error state", () => {
   const html = renderToStaticMarkup(
     <LocaleProvider>

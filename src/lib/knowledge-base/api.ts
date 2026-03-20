@@ -1,4 +1,5 @@
 import { getKnowledgeBase } from "./service";
+import { markdownToPlainText } from "@/lib/markdown-summary";
 import type {
   KnowledgeDirectoryNode,
   KnowledgeDirectoryPreview,
@@ -41,6 +42,38 @@ export function toKnowledgeDocumentPreview(document: KnowledgeDocument): Knowled
     title: document.title,
     summary: document.summary,
   };
+}
+
+function buildKnowledgeSearchSnippet(document: KnowledgeDocument, rawQuery: string) {
+  const query = rawQuery.trim().toLocaleLowerCase();
+  if (!query) {
+    return document.summary;
+  }
+
+  const normalizedTitle = document.title.trim();
+  let bodySource = document.body.trimStart();
+  if (normalizedTitle && bodySource.startsWith(`# ${normalizedTitle}`)) {
+    bodySource = bodySource.slice(`# ${normalizedTitle}`.length).trimStart();
+  }
+
+  const bodyText = markdownToPlainText(bodySource);
+  const normalizedBody = bodyText.toLocaleLowerCase();
+  const matchIndex = normalizedBody.indexOf(query);
+
+  if (matchIndex === -1) {
+    if (document.summary.toLocaleLowerCase().includes(query)) {
+      return document.summary;
+    }
+    return bodyText || document.summary;
+  }
+
+  const windowSize = 72;
+  const start = Math.max(0, matchIndex - windowSize / 2);
+  const end = Math.min(bodyText.length, matchIndex + query.length + windowSize / 2);
+  const prefix = start > 0 ? "..." : "";
+  const suffix = end < bodyText.length ? "..." : "";
+
+  return `${prefix}${bodyText.slice(start, end).trim()}${suffix}`;
 }
 
 export function toKnowledgeDirectoryPreview(
@@ -156,14 +189,21 @@ export function searchKnowledgeDocuments(index: KnowledgeIndex, rawQuery: string
 }
 
 export function searchKnowledgeDocumentPreviews(index: KnowledgeIndex, rawQuery: string) {
-  return searchKnowledgeDocuments(index, rawQuery).map(toKnowledgeDocumentPreview);
+  return searchKnowledgeDocuments(index, rawQuery).map((document) => ({
+    ...toKnowledgeDocumentPreview(document),
+    snippet: buildKnowledgeSearchSnippet(document, rawQuery),
+  }));
 }
 
-export function toLegacyCompatibleKnowledgeSearchResult(document: KnowledgeDocument) {
+export function toLegacyCompatibleKnowledgeSearchResult(
+  document: KnowledgeDocument,
+  rawQuery?: string
+) {
   return {
     ...document,
     id: encodeLegacyKnowledgeArticleId(document.path),
     content: document.body,
+    snippet: rawQuery ? buildKnowledgeSearchSnippet(document, rawQuery) : document.summary,
     viewCount: 0,
     createdAt: document.lastModified,
     agent: KNOWLEDGE_BASE_AGENT,
