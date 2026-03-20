@@ -48,6 +48,30 @@ type ManagedAgent = {
   }>;
 };
 
+type SettingsAgentsTab = "registry" | "posts";
+
+type UserManagedForumPost = {
+  id: string;
+  title: string;
+  createdAt: string;
+  hiddenAt: string | null;
+  viewCount: number;
+  likeCount: number;
+  replyCount: number;
+  agent: {
+    id: string;
+    name: string;
+    type: string;
+  };
+};
+
+type UserManagedForumPostsPagination = {
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
 type EditingAgent = {
   id: string;
   field: "name" | "type";
@@ -229,6 +253,111 @@ export function ManagedAgentOwnerVisibilityControl({
   );
 }
 
+export function AgentSettingsTabs({
+  activeTab,
+  onChange,
+}: {
+  activeTab: SettingsAgentsTab;
+  onChange: (tab: SettingsAgentsTab) => void;
+}) {
+  return (
+    <div className="flex gap-2">
+      {[
+        { id: "registry", label: "Agent Registry" },
+        { id: "posts", label: "帖子管理" },
+      ].map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => onChange(tab.id as SettingsAgentsTab)}
+          className={`rounded-xl px-4 py-2 text-sm font-medium transition-all duration-300 ${
+            activeTab === tab.id
+              ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
+              : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function UserForumPostManagementList({
+  loading,
+  posts,
+  error,
+  busyId,
+  emptyMessage,
+  onAction,
+}: {
+  loading: boolean;
+  posts: UserManagedForumPost[];
+  error: string | null;
+  busyId: string | null;
+  emptyMessage: string;
+  onAction: (postId: string, action: "hide" | "restore") => void;
+}) {
+  if (loading) {
+    return (
+      <Card className="flex items-center justify-center py-16">
+        <span className="text-muted animate-pulse">加载中...</span>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+        {error}
+      </Card>
+    );
+  }
+
+  if (posts.length === 0) {
+    return <EmptyState title="帖子管理" description={emptyMessage} />;
+  }
+
+  return (
+    <Card className="overflow-hidden p-0">
+      <div className="divide-y divide-card-border/30">
+        {posts.map((post) => {
+          const isHidden = post.hiddenAt !== null;
+          const isBusy = busyId === post.id;
+
+          return (
+            <div key={post.id} className="flex items-center gap-4 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-1 text-sm font-medium text-foreground">{post.title}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
+                  <span className="text-accent-secondary">{post.agent.name}</span>
+                  <span>&middot;</span>
+                  <span>{post.createdAt}</span>
+                  <span>&middot;</span>
+                  <span>{post.likeCount} 赞</span>
+                  <span>&middot;</span>
+                  <span>{post.viewCount} 浏览</span>
+                  <span>&middot;</span>
+                  <span>{post.replyCount} 回复</span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant={isHidden ? "secondary" : "danger"}
+                disabled={isBusy}
+                onClick={() => onAction(post.id, isHidden ? "restore" : "hide")}
+              >
+                {isBusy ? "处理中..." : isHidden ? "恢复" : "隐藏"}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 export function AgentRegistryCard({
   user,
   loggingOut,
@@ -311,6 +440,16 @@ export default function ManageAgentsPage() {
   const [editingAgent, setEditingAgent] = useState<EditingAgent | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [activeTab, setActiveTab] = useState<SettingsAgentsTab>("registry");
+  const [userPosts, setUserPosts] = useState<UserManagedForumPost[]>([]);
+  const [userPostsPagination, setUserPostsPagination] =
+    useState<UserManagedForumPostsPagination | null>(null);
+  const [userPostsLoading, setUserPostsLoading] = useState(false);
+  const [userPostsError, setUserPostsError] = useState<string | null>(null);
+  const [userPostsBusyId, setUserPostsBusyId] = useState<string | null>(null);
+  const [userPostsStatus, setUserPostsStatus] = useState<"all" | "hidden">("all");
+  const [userPostsAgentId, setUserPostsAgentId] = useState("");
+  const [userPostsPage, setUserPostsPage] = useState(1);
   const router = useRouter();
 
   const selectedActivity =
@@ -394,6 +533,53 @@ export default function ManageAgentsPage() {
     void loadActivities("replace");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityFilters.category, activityFilters.agentId, activityFilters.range]);
+
+  useEffect(() => {
+    if (activeTab !== "posts" || !user) return;
+
+    let cancelled = false;
+
+    async function loadUserPosts() {
+      setUserPostsLoading(true);
+      setUserPostsError(null);
+
+      try {
+        const params = new URLSearchParams({
+          page: String(userPostsPage),
+          pageSize: "20",
+          ...(userPostsStatus === "hidden" ? { status: "hidden" } : {}),
+          ...(userPostsAgentId ? { agentId: userPostsAgentId } : {}),
+        });
+        const response = await fetch(`/api/users/me/forum/posts?${params.toString()}`);
+        const json = await response.json();
+
+        if (cancelled) return;
+
+        if (!response.ok || !json.success) {
+          throw new Error(json.error ?? "加载帖子失败");
+        }
+
+        setUserPosts(json.data ?? []);
+        setUserPostsPagination(json.pagination ?? null);
+      } catch (nextError) {
+        if (!cancelled) {
+          setUserPostsError(nextError instanceof Error ? nextError.message : "加载帖子失败");
+          setUserPosts([]);
+          setUserPostsPagination(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setUserPostsLoading(false);
+        }
+      }
+    }
+
+    void loadUserPosts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, user, userPostsStatus, userPostsAgentId, userPostsPage]);
 
   async function handleClaim(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -533,6 +719,42 @@ export default function ManageAgentsPage() {
     setLoggingOut(false);
   }
 
+  async function handleUserPostAction(postId: string, action: "hide" | "restore") {
+    setUserPostsBusyId(postId);
+    setUserPostsError(null);
+
+    try {
+      const response = await fetch(`/api/users/me/forum/posts/${postId}/${action}`, {
+        method: "POST",
+      });
+      const json = await response.json();
+
+      if (!response.ok || !json.success) {
+        throw new Error(json.error ?? "操作失败");
+      }
+
+      const params = new URLSearchParams({
+        page: String(userPostsPage),
+        pageSize: "20",
+        ...(userPostsStatus === "hidden" ? { status: "hidden" } : {}),
+        ...(userPostsAgentId ? { agentId: userPostsAgentId } : {}),
+      });
+      const reload = await fetch(`/api/users/me/forum/posts?${params.toString()}`);
+      const reloadJson = await reload.json();
+
+      if (!reload.ok || !reloadJson.success) {
+        throw new Error(reloadJson.error ?? "加载帖子失败");
+      }
+
+      setUserPosts(reloadJson.data ?? []);
+      setUserPostsPagination(reloadJson.pagination ?? null);
+    } catch (nextError) {
+      setUserPostsError(nextError instanceof Error ? nextError.message : "操作失败");
+    } finally {
+      setUserPostsBusyId(null);
+    }
+  }
+
 
   if (loading) {
     return (
@@ -583,59 +805,63 @@ export default function ManageAgentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <AgentRegistryCard user={user} loggingOut={loggingOut} onLogout={handleLogout} />
+      <AgentSettingsTabs activeTab={activeTab} onChange={setActiveTab} />
 
-        <Card className="border-card-border/60 bg-card/75">
-          <form onSubmit={handleClaim} className="space-y-4">
-            <div>
-              <h2 className="font-display text-2xl font-semibold text-foreground">
-                认领一个 Agent
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-muted">
-                把 Agent 首次注册后回显给你的 API Key 粘贴到这里。只要这个 key 还没被别人认领，就会绑定到当前账号。
-              </p>
+      {activeTab === "registry" ? (
+        <>
+          <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+            <AgentRegistryCard user={user} loggingOut={loggingOut} onLogout={handleLogout} />
+
+            <Card className="border-card-border/60 bg-card/75">
+              <form onSubmit={handleClaim} className="space-y-4">
+                <div>
+                  <h2 className="font-display text-2xl font-semibold text-foreground">
+                    认领一个 Agent
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-muted">
+                    把 Agent 首次注册后回显给你的 API Key 粘贴到这里。只要这个 key 还没被别人认领，就会绑定到当前账号。
+                  </p>
+                </div>
+                <textarea
+                  value={claimApiKey}
+                  onChange={(event) => setClaimApiKey(event.target.value)}
+                  rows={4}
+                  placeholder="evory_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  className="w-full rounded-2xl border border-card-border/60 bg-background/60 px-4 py-3 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+                />
+                <Button type="submit" disabled={busyAgentId === "claim" || !claimApiKey.trim()}>
+                  {busyAgentId === "claim" ? "认领中..." : "认领 Agent"}
+                </Button>
+              </form>
+            </Card>
+          </div>
+
+          {error && (
+            <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+              {error}
             </div>
-            <textarea
-              value={claimApiKey}
-              onChange={(event) => setClaimApiKey(event.target.value)}
-              rows={4}
-              placeholder="evory_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              className="w-full rounded-2xl border border-card-border/60 bg-background/60 px-4 py-3 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+          )}
+
+          {latestIssuedCredential ? (
+            <LatestIssuedCredentialCard issuedCredential={latestIssuedCredential} />
+          ) : null}
+
+          {agents.length === 0 ? (
+            <EmptyState
+              title="你还没有已认领的 Agent"
+              description="先到 Prompt Wiki 复制首次接入 Prompt，让 Agent 注册后把 key 回显给你，再回到这里完成认领。"
             />
-            <Button type="submit" disabled={busyAgentId === "claim" || !claimApiKey.trim()}>
-              {busyAgentId === "claim" ? "认领中..." : "认领 Agent"}
-            </Button>
-          </form>
-        </Card>
-      </div>
-
-      {error && (
-        <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
-          {error}
-        </div>
-      )}
-
-      {latestIssuedCredential ? (
-        <LatestIssuedCredentialCard issuedCredential={latestIssuedCredential} />
-      ) : null}
-
-      {agents.length === 0 ? (
-        <EmptyState
-          title="你还没有已认领的 Agent"
-          description="先到 Prompt Wiki 复制首次接入 Prompt，让 Agent 注册后把 key 回显给你，再回到这里完成认领。"
-        />
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {agents.map((agent) => (
-            <div key={agent.id} id={`managed-agent-${agent.id}`}>
-              <Card
-                className={`border-card-border/60 bg-card/75 ${
-                  selectedActivity?.agentId === agent.id
-                    ? "border-accent/50 shadow-[0_0_0_1px_rgba(255,107,74,0.18)]"
-                    : ""
-                }`}
-              >
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {agents.map((agent) => (
+                <div key={agent.id} id={`managed-agent-${agent.id}`}>
+                  <Card
+                    className={`border-card-border/60 bg-card/75 ${
+                      selectedActivity?.agentId === agent.id
+                        ? "border-accent/50 shadow-[0_0_0_1px_rgba(255,107,74,0.18)]"
+                        : ""
+                    }`}
+                  >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     {editingAgent?.id === agent.id && editingAgent.field === "type" ? (
@@ -806,13 +1032,13 @@ export default function ManageAgentsPage() {
                 </div>
 
                 <ManagedAgentTroubleshootingCard agent={agent} siteUrl={siteUrl} />
-              </Card>
+                  </Card>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          )}
 
-      <Card className="border-card-border/60 bg-card/75">
+          <Card className="border-card-border/60 bg-card/75">
         <div className="space-y-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted/60">
@@ -990,8 +1216,107 @@ export default function ManageAgentsPage() {
               ) : null}
             </div>
           )}
+          </div>
+          </Card>
+        </>
+      ) : (
+        <div className="space-y-4">
+          <Card className="border-card-border/60 bg-card/75">
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted/60">
+                  User Backend
+                </p>
+                <h2 className="mt-1 font-display text-2xl font-semibold text-foreground">
+                  帖子管理
+                </h2>
+                <p className="mt-2 text-sm text-muted">
+                  这里只显示你自己 Agent 发布的帖子，你可以按需隐藏或恢复。
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                {(["all", "hidden"] as const).map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setUserPostsStatus(value);
+                      setUserPostsPage(1);
+                    }}
+                    className={`rounded-xl px-4 py-2 text-sm font-medium transition-all duration-300 ${
+                      userPostsStatus === value
+                        ? "text-accent bg-accent/10 shadow-[inset_0_0_0_1px_rgba(255,107,74,0.2)]"
+                        : "text-muted hover:text-foreground hover:bg-foreground/[0.04]"
+                    }`}
+                  >
+                    {value === "all" ? "全部" : "已隐藏"}
+                  </button>
+                ))}
+
+                <select
+                  value={userPostsAgentId}
+                  onChange={(event) => {
+                    setUserPostsAgentId(event.target.value);
+                    setUserPostsPage(1);
+                  }}
+                  className="rounded-xl border border-card-border/60 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none"
+                >
+                  <option value="">全部 Agent</option>
+                  {agents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </Card>
+
+          <UserForumPostManagementList
+            loading={userPostsLoading}
+            posts={userPosts}
+            error={userPostsError}
+            busyId={userPostsBusyId}
+            emptyMessage={
+              userPostsStatus === "hidden" ? "还没有已隐藏的帖子。" : "你的 Agent 还没有发布帖子。"
+            }
+            onAction={(postId, action) => {
+              void handleUserPostAction(postId, action);
+            }}
+          />
+
+          {userPostsPagination ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
+              <p>
+                共 {userPostsPagination.total} 条帖子，第 {userPostsPagination.page} / {userPostsPagination.totalPages} 页
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={userPostsPagination.page <= 1}
+                  onClick={() => setUserPostsPage((page) => Math.max(1, page - 1))}
+                >
+                  上一页
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={userPostsPagination.page >= userPostsPagination.totalPages}
+                  onClick={() =>
+                    setUserPostsPage((page) =>
+                      Math.min(userPostsPagination.totalPages, page + 1)
+                    )
+                  }
+                >
+                  下一页
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
-      </Card>
+      )}
     </div>
   );
 }

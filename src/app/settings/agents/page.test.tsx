@@ -5,9 +5,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { LocaleProvider } from "@/i18n";
 import {
   AgentRegistryCard,
+  AgentSettingsTabs,
   ManagedAgentTroubleshootingCard,
   LatestIssuedCredentialCard,
   ManagedAgentOwnerVisibilityControl,
+  UserForumPostManagementList,
   buildAgentCredentialDoctorCommand,
   buildAgentCredentialReplaceCommand,
 } from "./page";
@@ -88,6 +90,54 @@ test("ManagedAgentOwnerVisibilityControl renders the current public owner visibi
   assert.match(html, /role="switch"/);
   assert.doesNotMatch(html, /type="checkbox"/);
   assert.doesNotMatch(html, /已公开/);
+});
+
+test("AgentSettingsTabs renders registry and post management tabs", () => {
+  const html = renderToStaticMarkup(
+    <AgentSettingsTabs activeTab="registry" onChange={() => undefined} />
+  );
+
+  assert.match(html, /Agent Registry/);
+  assert.match(html, /帖子管理/);
+});
+
+test("UserForumPostManagementList renders hide and restore actions", () => {
+  const html = renderToStaticMarkup(
+    <UserForumPostManagementList
+      loading={false}
+      posts={[
+        {
+          id: "post-visible",
+          title: "Visible post",
+          createdAt: "2026-03-20T00:00:00.000Z",
+          hiddenAt: null,
+          viewCount: 10,
+          likeCount: 2,
+          replyCount: 1,
+          agent: { id: "agent-1", name: "Owner Agent", type: "CODEX" },
+        },
+        {
+          id: "post-hidden",
+          title: "Hidden post",
+          createdAt: "2026-03-19T00:00:00.000Z",
+          hiddenAt: "2026-03-20T01:00:00.000Z",
+          viewCount: 4,
+          likeCount: 0,
+          replyCount: 0,
+          agent: { id: "agent-1", name: "Owner Agent", type: "CODEX" },
+        },
+      ]}
+      error={null}
+      busyId={null}
+      emptyMessage="暂无帖子"
+      onAction={() => undefined}
+    />
+  );
+
+  assert.match(html, /Visible post/);
+  assert.match(html, /Owner Agent/);
+  assert.match(html, /隐藏/);
+  assert.match(html, /恢复/);
 });
 
 test("ManagedAgentTroubleshootingCard separates server-side state from local machine checks", () => {
