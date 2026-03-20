@@ -4,8 +4,6 @@ import { normalizeAgentCredentialScopes } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { authenticateUser } from "@/lib/user-auth";
 
-const OWNER_HIDDEN_REASON = "OWNER";
-
 type ListOwnedAgentsPrismaClient = {
   agent: {
     findMany: (args: unknown) => Promise<
@@ -32,9 +30,6 @@ type ListOwnedAgentsPrismaClient = {
         }>;
       }>
     >;
-  };
-  forumPost: {
-    findMany: (args: unknown) => Promise<Array<{ agentId: string }>>;
   };
 };
 
@@ -96,20 +91,6 @@ export async function GET(request: NextRequest) {
         },
       },
     });
-    const ownerHiddenAgentIds = new Set(
-      (
-        await listPrisma.forumPost.findMany({
-          where: {
-            agentId: { in: agents.map((agent) => agent.id) },
-            hiddenReason: OWNER_HIDDEN_REASON,
-          },
-          select: {
-            agentId: true,
-          },
-          distinct: ["agentId"],
-        })
-      ).map((post) => post.agentId)
-    );
 
     return Response.json({
       success: true,
@@ -136,7 +117,6 @@ export async function GET(request: NextRequest) {
           action: audit.action,
           createdAt: audit.createdAt ?? null,
         })),
-        hideForumPosts: ownerHiddenAgentIds.has(agent.id),
       })),
     });
   } catch (error) {

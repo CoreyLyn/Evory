@@ -16,10 +16,6 @@ type UpdateAgentPrismaMock = {
     findUnique: AsyncMethod;
     update: AsyncMethod;
   };
-  forumPost?: {
-    updateMany: AsyncMethod;
-    count: AsyncMethod;
-  };
   userSession?: {
     findUnique: AsyncMethod;
   };
@@ -35,8 +31,6 @@ type UpdateAgentPrismaMock = {
 const prismaClient = prisma as unknown as UpdateAgentPrismaMock;
 const originalAgentFindUnique = prismaClient.agent?.findUnique;
 const originalAgentUpdate = prismaClient.agent?.update;
-const originalForumPostUpdateMany = prismaClient.forumPost?.updateMany;
-const originalForumPostCount = prismaClient.forumPost?.count;
 const originalUserSessionFindUnique = prismaClient.userSession?.findUnique;
 const originalSecurityEventCreate = prismaClient.securityEvent?.create;
 const originalRateLimitCounter = prismaClient.rateLimitCounter;
@@ -66,10 +60,6 @@ function mockSecurityEvent() {
 
 beforeEach(() => {
   installRateLimitStoreMock(prismaClient);
-  prismaClient.forumPost = {
-    updateMany: async () => ({ count: 0 }),
-    count: async () => 0,
-  };
 });
 
 afterEach(() => {
@@ -77,14 +67,6 @@ afterEach(() => {
     if (originalAgentFindUnique)
       prismaClient.agent.findUnique = originalAgentFindUnique;
     if (originalAgentUpdate) prismaClient.agent.update = originalAgentUpdate;
-  }
-  if (prismaClient.forumPost) {
-    if (originalForumPostUpdateMany) {
-      prismaClient.forumPost.updateMany = originalForumPostUpdateMany;
-    }
-    if (originalForumPostCount) {
-      prismaClient.forumPost.count = originalForumPostCount;
-    }
   }
   if (prismaClient.userSession && originalUserSessionFindUnique) {
     prismaClient.userSession.findUnique = originalUserSessionFindUnique;
@@ -356,118 +338,4 @@ test("PATCH updates agent public owner visibility successfully", async () => {
   assert.equal(json.success, true);
   assert.equal(json.data.showOwnerInPublic, true);
   assert.equal(updatedData?.showOwnerInPublic, true);
-});
-
-test("PATCH hides owned agent forum posts with OWNER hidden reason", async () => {
-  mockAuthenticatedUser();
-  mockSecurityEvent();
-
-  let capturedUpdateManyArgs: Record<string, unknown> | null = null;
-
-  prismaClient.agent = {
-    findUnique: async () => ({
-      id: "agt-1",
-      ownerUserId: TEST_USER_ID,
-      claimStatus: "ACTIVE",
-    }),
-    update: async () => ({
-      id: "agt-1",
-      name: "Test Agent",
-      type: "CUSTOM",
-      showOwnerInPublic: true,
-    }),
-  };
-  prismaClient.forumPost = {
-    updateMany: async (args: unknown) => {
-      capturedUpdateManyArgs = args as Record<string, unknown>;
-      return { count: 3 };
-    },
-    count: async () => 3,
-  };
-
-  const response = await PATCH(
-    createRouteRequest("http://localhost/api/users/me/agents/agt-1", {
-      method: "PATCH",
-      json: { hideForumPosts: true },
-      headers: {
-        cookie: `evory_user_session=${TEST_SESSION_TOKEN}`,
-        origin: "http://localhost",
-      },
-    }),
-    createRouteParams({ id: "agt-1" })
-  );
-  const json = await response.json();
-
-  assert.equal(response.status, 200);
-  assert.equal(json.success, true);
-  assert.equal(json.data.hideForumPosts, true);
-  assert.deepEqual(capturedUpdateManyArgs?.where, {
-    agentId: "agt-1",
-    hiddenAt: null,
-  });
-  assert.equal(
-    (capturedUpdateManyArgs?.data as Record<string, unknown> | undefined)?.hiddenById,
-    TEST_USER_ID
-  );
-  assert.equal(
-    (capturedUpdateManyArgs?.data as Record<string, unknown> | undefined)?.hiddenReason,
-    "OWNER"
-  );
-  assert.ok(
-    (capturedUpdateManyArgs?.data as Record<string, unknown> | undefined)?.hiddenAt instanceof Date
-  );
-});
-
-test("PATCH restores only owner-hidden forum posts", async () => {
-  mockAuthenticatedUser();
-  mockSecurityEvent();
-
-  let capturedUpdateManyArgs: Record<string, unknown> | null = null;
-
-  prismaClient.agent = {
-    findUnique: async () => ({
-      id: "agt-1",
-      ownerUserId: TEST_USER_ID,
-      claimStatus: "ACTIVE",
-    }),
-    update: async () => ({
-      id: "agt-1",
-      name: "Test Agent",
-      type: "CUSTOM",
-      showOwnerInPublic: true,
-    }),
-  };
-  prismaClient.forumPost = {
-    updateMany: async (args: unknown) => {
-      capturedUpdateManyArgs = args as Record<string, unknown>;
-      return { count: 2 };
-    },
-    count: async () => 0,
-  };
-
-  const response = await PATCH(
-    createRouteRequest("http://localhost/api/users/me/agents/agt-1", {
-      method: "PATCH",
-      json: { hideForumPosts: false },
-      headers: {
-        cookie: `evory_user_session=${TEST_SESSION_TOKEN}`,
-        origin: "http://localhost",
-      },
-    }),
-    createRouteParams({ id: "agt-1" })
-  );
-  const json = await response.json();
-
-  assert.equal(response.status, 200);
-  assert.equal(json.success, true);
-  assert.equal(json.data.hideForumPosts, false);
-  assert.deepEqual(capturedUpdateManyArgs?.where, {
-    agentId: "agt-1",
-    hiddenReason: "OWNER",
-  });
-  assert.deepEqual(capturedUpdateManyArgs?.data, {
-    hiddenAt: null,
-    hiddenById: null,
-    hiddenReason: null,
-  });
 });
