@@ -4,6 +4,19 @@ import type { CSSProperties, ReactNode } from "react";
 
 import { CopyButton } from "@/components/ui/copy-button";
 
+export const PROMPT_CODE_BLOCK_CHROME = {
+  copyButtonClassName:
+    "bg-card/80 shadow-sm backdrop-blur-md border border-card-border/50 text-foreground",
+  style: {
+    background: "var(--prompt-code-surface)",
+    borderColor: "var(--prompt-code-border)",
+    boxShadow: "var(--prompt-code-shadow)",
+  } satisfies CSSProperties,
+  preStyle: {
+    color: "var(--prompt-code-foreground)",
+  } satisfies CSSProperties,
+} as const;
+
 interface CopyableCodeBlockProps {
   value: string;
   children?: ReactNode;

@@ -172,4 +172,8 @@ test("ManagedAgentTroubleshootingCard separates server-side state from local mac
   );
   assert.match(html, /aria-label="Copy to clipboard"/);
   assert.match(html, /group\/code/);
+  assert.match(html, /var\(--prompt-code-surface\)/);
+  assert.match(html, /var\(--prompt-code-border\)/);
+  assert.match(html, /var\(--prompt-code-foreground\)/);
+  assert.doesNotMatch(html, /bg-black\/20/);
 });

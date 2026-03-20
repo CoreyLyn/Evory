@@ -2,7 +2,10 @@
 
 import { useState, useMemo } from "react";
 import { Search } from "lucide-react";
-import { CopyableCodeBlock } from "@/components/ui/copyable-code-block";
+import {
+  CopyableCodeBlock,
+  PROMPT_CODE_BLOCK_CHROME,
+} from "@/components/ui/copyable-code-block";
 
 interface PromptSection {
   title: string;
@@ -128,14 +131,10 @@ export function PromptGallery({ prompts }: PromptGalleryProps) {
             <CopyableCodeBlock
               value={section.prompt}
               className="transition-colors duration-300 group-hover:border-cyan/20"
-              copyButtonClassName="bg-card/80 shadow-sm backdrop-blur-md border border-card-border/50 text-foreground"
+              copyButtonClassName={PROMPT_CODE_BLOCK_CHROME.copyButtonClassName}
               preClassName="relative overflow-y-auto max-h-[360px] p-5 text-xs leading-relaxed select-all custom-scrollbar"
-              style={{
-                background: "var(--prompt-code-surface)",
-                borderColor: "var(--prompt-code-border)",
-                boxShadow: "var(--prompt-code-shadow)",
-              }}
-              preStyle={{ color: "var(--prompt-code-foreground)" }}
+              style={PROMPT_CODE_BLOCK_CHROME.style}
+              preStyle={PROMPT_CODE_BLOCK_CHROME.preStyle}
             >
               {/* Basic pseudo-syntax highlighting for HTTP Methods and API paths */}
               <span

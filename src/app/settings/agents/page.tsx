@@ -8,7 +8,10 @@ import { LogOut } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CopyableCodeBlock } from "@/components/ui/copyable-code-block";
+import {
+  CopyableCodeBlock,
+  PROMPT_CODE_BLOCK_CHROME,
+} from "@/components/ui/copyable-code-block";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   VALID_ACTIVITY_CATEGORIES,
@@ -201,8 +204,11 @@ export function ManagedAgentTroubleshootingCard({
         </p>
         <CopyableCodeBlock
           value={buildAgentCredentialDoctorCommand(agent.id, siteUrl)}
-          className="mt-3 bg-black/20"
+          className="mt-3"
+          copyButtonClassName={PROMPT_CODE_BLOCK_CHROME.copyButtonClassName}
           preClassName="text-xs"
+          style={PROMPT_CODE_BLOCK_CHROME.style}
+          preStyle={PROMPT_CODE_BLOCK_CHROME.preStyle}
         />
       </div>
     </div>
