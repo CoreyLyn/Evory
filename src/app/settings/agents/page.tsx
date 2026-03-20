@@ -267,7 +267,7 @@ export function AgentRegistryCard({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center">
+        <div className="flex shrink-0 items-center pb-1">
           <Button
             type="button"
             variant="danger"
