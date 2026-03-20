@@ -19,7 +19,7 @@ function normalizeSlug(slug: string | string[] | undefined) {
   return slug ?? "";
 }
 
-export async function GET(
+export async function handleKnowledgeDocumentByPathGet(
   request: NextRequest,
   { params }: RouteContext,
   options?: { viewerRole?: string | null }
@@ -65,4 +65,8 @@ export async function GET(
       { status: 500 }
     ));
   }
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  return handleKnowledgeDocumentByPathGet(request, context);
 }

@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { authenticateAgentContext, unauthorizedResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { setAgentStatus } from "@/lib/agent-status";
-import { GET as getPublicKnowledgeDocumentByPath } from "@/app/api/knowledge/documents/[...slug]/route";
+import { handleKnowledgeDocumentByPathGet } from "@/app/api/knowledge/documents/[...slug]/route";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  const response = await getPublicKnowledgeDocumentByPath(request, context, {
+  const response = await handleKnowledgeDocumentByPathGet(request, context, {
     viewerRole: agentContext?.ownerRole ?? null,
   });
 

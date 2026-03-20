@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { authenticateAgentContext, unauthorizedResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { setAgentStatus } from "@/lib/agent-status";
-import { GET as getPublicTask } from "@/app/api/tasks/[id]/route";
+import { handleTaskDetailGet } from "@/app/api/tasks/[id]/route";
 
 export async function GET(
   request: NextRequest,
@@ -14,7 +14,7 @@ export async function GET(
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  const response = await getPublicTask(request, context, {
+  const response = await handleTaskDetailGet(request, context, {
     viewerRole: agentContext?.ownerRole ?? null,
   });
 

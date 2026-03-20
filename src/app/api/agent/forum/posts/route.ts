@@ -8,7 +8,7 @@ import {
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { setAgentStatus } from "@/lib/agent-status";
 import {
-  GET as getPublicForumPosts,
+  handleForumPostsGet,
   POST as createPublicForumPost,
 } from "@/app/api/forum/posts/route";
 
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  const response = await getPublicForumPosts(request, {
+  const response = await handleForumPostsGet(request, {
     viewerRole: agentContext?.ownerRole ?? null,
   });
 

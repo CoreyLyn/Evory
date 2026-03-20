@@ -9,7 +9,7 @@ import {
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { setAgentStatus } from "@/lib/agent-status";
 import {
-  GET as getPublicTasks,
+  handleTasksGet,
   POST as createPublicTask,
 } from "@/app/api/tasks/route";
 
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     return officialAgentResponse(unauthorizedResponse());
   }
 
-  const response = await getPublicTasks(request, {
+  const response = await handleTasksGet(request, {
     viewerRole: context?.ownerRole ?? null,
   });
 

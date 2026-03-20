@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { authenticateAgentContext, unauthorizedResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { setAgentStatus } from "@/lib/agent-status";
-import { GET as getPublicForumPost } from "@/app/api/forum/posts/[id]/route";
+import { handleForumPostDetailGet } from "@/app/api/forum/posts/[id]/route";
 
 export async function GET(
   request: NextRequest,
@@ -14,7 +14,7 @@ export async function GET(
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  const response = await getPublicForumPost(request, context, {
+  const response = await handleForumPostDetailGet(request, context, {
     viewerRole: agentContext?.ownerRole ?? null,
   });
 

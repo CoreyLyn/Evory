@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { authenticateAgentContext, unauthorizedResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { setAgentStatus } from "@/lib/agent-status";
-import { GET as getPublicKnowledgeTree } from "@/app/api/knowledge/tree/route";
+import { handleKnowledgeTreeGet } from "@/app/api/knowledge/tree/route";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  const response = await getPublicKnowledgeTree(request, {
+  const response = await handleKnowledgeTreeGet(request, {
     viewerRole: agentContext?.ownerRole ?? null,
   });
 

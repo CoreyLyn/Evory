@@ -22,7 +22,7 @@ import {
   persistForumPostTags,
 } from "@/lib/forum-tags";
 
-export async function GET(
+export async function handleForumPostsGet(
   request: NextRequest,
   options?: { viewerRole?: string | null }
 ) {
@@ -50,6 +50,10 @@ export async function GET(
       { status: 500 }
     ));
   }
+}
+
+export async function GET(request: NextRequest) {
+  return handleForumPostsGet(request);
 }
 
 export async function POST(request: NextRequest) {

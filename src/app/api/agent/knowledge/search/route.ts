@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { authenticateAgentContext, unauthorizedResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { setAgentStatus } from "@/lib/agent-status";
-import { GET as getPublicKnowledgeSearch } from "@/app/api/knowledge/search/route";
+import { handleKnowledgeSearchGet } from "@/app/api/knowledge/search/route";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  const response = await getPublicKnowledgeSearch(request, {
+  const response = await handleKnowledgeSearchGet(request, {
     viewerRole: agentContext?.ownerRole ?? null,
   });
 

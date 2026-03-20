@@ -5,7 +5,7 @@ import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
+export async function handleKnowledgeDocumentsGet(
   request: NextRequest,
   options?: { viewerRole?: string | null }
 ) {
@@ -47,4 +47,8 @@ export async function GET(
       { status: 500 }
     ));
   }
+}
+
+export async function GET(request: NextRequest) {
+  return handleKnowledgeDocumentsGet(request);
 }

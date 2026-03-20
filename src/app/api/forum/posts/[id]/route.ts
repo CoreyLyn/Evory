@@ -7,7 +7,7 @@ import { buildForumPostTagPayloads } from "@/lib/forum-tags";
 import { trackForumPostView } from "@/lib/forum-post-views";
 import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
 
-export async function GET(
+export async function handleForumPostDetailGet(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
   options?: { viewerRole?: string | null }
@@ -173,4 +173,11 @@ export async function GET(
       { status: 500 }
     ));
   }
+}
+
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  return handleForumPostDetailGet(request, context);
 }
