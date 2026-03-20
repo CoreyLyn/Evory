@@ -20,6 +20,11 @@ const variantClasses = {
   compact: "text-sm leading-6",
 } as const;
 
+const variantInsetClasses = {
+  default: "px-1 sm:px-2",
+  compact: "px-0.5 sm:px-1",
+} as const;
+
 const headingLevelClasses = {
   1: "first:mt-0 mt-8 text-3xl font-semibold tracking-tight sm:text-4xl",
   2: "mt-10 text-2xl font-semibold tracking-tight sm:text-[1.75rem]",
@@ -162,6 +167,7 @@ export function MarkdownContent({
         "prose-th:text-foreground prose-td:text-foreground",
         "prose-a:text-accent prose-a:no-underline hover:prose-a:underline",
         variantClasses[variant],
+        variantInsetClasses[variant],
         className,
       ].join(" ")}
     >

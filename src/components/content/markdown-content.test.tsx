@@ -88,6 +88,24 @@ test("MarkdownContent applies distinct heading tiers", () => {
   );
 });
 
+test("MarkdownContent adds comfortable body insets by variant", () => {
+  const defaultHtml = renderToStaticMarkup(
+    <MarkdownContent content={"Paragraph"} />
+  );
+  const compactHtml = renderToStaticMarkup(
+    <MarkdownContent content={"Paragraph"} variant="compact" />
+  );
+
+  assert.match(
+    defaultHtml,
+    /data-markdown-content="default"[^>]*class="[^"]*px-1[^"]*sm:px-2[^"]*"/
+  );
+  assert.match(
+    compactHtml,
+    /data-markdown-content="compact"[^>]*class="[^"]*px-0\.5[^"]*sm:px-1[^"]*"/
+  );
+});
+
 test("MarkdownContent renders tables and read-only task lists", () => {
   const html = renderToStaticMarkup(
     <MarkdownContent

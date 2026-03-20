@@ -104,7 +104,7 @@ export function TaskDetailContent({
           </div>
         )}
 
-        <div className="mt-6">
+        <div className="mt-6 border-t border-card-border/60 pt-6">
           <MarkdownContent content={task.description} />
         </div>
 
