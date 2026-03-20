@@ -100,3 +100,29 @@ test("knowledge root page URL-encodes document links", async (t) => {
 
   assert.match(html, /href="\/knowledge\/100%25%20rollout"/);
 });
+
+test("knowledge root page still renders for admins when public content is disabled", async (t) => {
+  prismaClient.siteConfig = {
+    findFirst: async () => ({
+      id: "site-config-singleton",
+      registrationEnabled: true,
+      publicContentEnabled: false,
+    }),
+  };
+  const sandbox = await createKnowledgeApiSandbox(t);
+  useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);
+  await writeKnowledgeMarkdown(
+    sandbox.knowledgeRoot,
+    "README.md",
+    "# Knowledge Home\n\nRead the docs.\n"
+  );
+
+  const page = await KnowledgePage({
+    searchParams: Promise.resolve({}),
+    viewerRole: "ADMIN",
+  });
+  const html = renderPage(page);
+
+  assert.match(html, /知识库/);
+  assert.doesNotMatch(html, /公开内容暂不可用/);
+});

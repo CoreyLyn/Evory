@@ -1,4 +1,11 @@
+import { NextRequest } from "next/server";
+
 import prisma from "@/lib/prisma";
+import {
+  authenticateUser,
+  authenticateUserSessionToken,
+  USER_SESSION_COOKIE_NAME,
+} from "@/lib/user-auth";
 
 export const DEFAULT_SITE_CONFIG = {
   registrationEnabled: true,
@@ -15,6 +22,18 @@ type SiteConfigPrismaClient = {
   siteConfig?: {
     findFirst: (args?: unknown) => Promise<SiteConfigRecord | null>;
     upsert: (args: unknown) => Promise<SiteConfigRecord>;
+  };
+  userSession?: {
+    findUnique: (args: unknown) => Promise<{
+      expiresAt: Date | string;
+      user?: {
+        id: string;
+        email: string;
+        name?: string | null;
+        role: string;
+      } | null;
+    } | null>;
+    deleteMany: (args: unknown) => Promise<unknown>;
   };
 };
 
@@ -80,11 +99,15 @@ export async function requireRegistrationEnabled(
 }
 
 export async function requirePublicContentEnabled(
+  request?: NextRequest,
   prismaClient: SiteConfigPrismaClient = siteConfigPrisma
 ) {
   const config = await getSiteConfig(prismaClient);
 
-  if (config.publicContentEnabled) {
+  if (
+    config.publicContentEnabled ||
+    (await getViewerRole({ request, prismaClient })) === "ADMIN"
+  ) {
     return null;
   }
 
@@ -96,4 +119,49 @@ export async function requirePublicContentEnabled(
     },
     { status: 403 }
   );
+}
+
+export async function getViewerRole({
+  request,
+  viewerRole,
+  prismaClient = siteConfigPrisma,
+}: {
+  request?: NextRequest;
+  viewerRole?: string | null;
+  prismaClient?: SiteConfigPrismaClient;
+} = {}) {
+  if (viewerRole !== undefined) {
+    return viewerRole;
+  }
+
+  if (request) {
+    const user = await authenticateUser(request, prismaClient as never);
+    return user?.role ?? null;
+  }
+
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const token = cookieStore.get(USER_SESSION_COOKIE_NAME)?.value;
+    const user = await authenticateUserSessionToken(token, prismaClient as never);
+    return user?.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function canAccessPublicContent({
+  viewerRole,
+  prismaClient = siteConfigPrisma,
+}: {
+  viewerRole?: string | null;
+  prismaClient?: SiteConfigPrismaClient;
+} = {}) {
+  const config = await getSiteConfig(prismaClient);
+
+  if (config.publicContentEnabled) {
+    return true;
+  }
+
+  return (await getViewerRole({ viewerRole, prismaClient })) === "ADMIN";
 }

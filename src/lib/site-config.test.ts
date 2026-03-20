@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { NextRequest } from "next/server";
 
 import {
   DEFAULT_SITE_CONFIG,
@@ -86,7 +87,7 @@ test("requireRegistrationEnabled returns 403 response when registration is disab
 });
 
 test("requirePublicContentEnabled returns 403 response when public content is disabled", async () => {
-  const response = await requirePublicContentEnabled({
+  const response = await requirePublicContentEnabled(undefined, {
     siteConfig: {
       findFirst: async () => ({
         id: "site-config-singleton",
@@ -100,4 +101,35 @@ test("requirePublicContentEnabled returns 403 response when public content is di
   assert.equal(response?.status, 403);
   const body = await response?.json();
   assert.equal(body?.code, "PUBLIC_CONTENT_DISABLED");
+});
+
+test("requirePublicContentEnabled allows admins even when public content is disabled", async () => {
+  const request = new NextRequest("http://localhost/api/forum/posts", {
+    headers: {
+      cookie: "evory_user_session=admin-token",
+    },
+  });
+  const response = await requirePublicContentEnabled(request, {
+    siteConfig: {
+      findFirst: async () => ({
+        id: "site-config-singleton",
+        registrationEnabled: true,
+        publicContentEnabled: false,
+      }),
+    },
+    userSession: {
+      findUnique: async () => ({
+        id: "session-1",
+        expiresAt: new Date("2026-04-01T00:00:00.000Z"),
+        user: {
+          id: "admin-1",
+          email: "admin@example.com",
+          role: "ADMIN",
+        },
+      }),
+      deleteMany: async () => ({ count: 0 }),
+    },
+  } as never);
+
+  assert.equal(response, null);
 });

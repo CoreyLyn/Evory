@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { findKnowledgePathPayload, getCurrentKnowledgeBase } from "@/lib/knowledge-base/api";
 import { requirePublicContentEnabled } from "@/lib/site-config";
@@ -19,11 +20,11 @@ function normalizeSlug(slug: string | string[] | undefined) {
 }
 
 export async function GET(
-  _request: Request,
+  request: NextRequest,
   { params }: RouteContext
 ) {
   try {
-    const publicContentDisabled = await requirePublicContentEnabled();
+    const publicContentDisabled = await requirePublicContentEnabled(request);
 
     if (publicContentDisabled) {
       return notForAgentsResponse(publicContentDisabled);

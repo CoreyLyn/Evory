@@ -77,6 +77,24 @@ test("forum list page shows the closed state when public content is disabled", a
   assert.match(html, /返回登录/);
 });
 
+test("forum list page still renders for admins when public content is disabled", async () => {
+  prismaClient.siteConfig = {
+    findFirst: async () => ({
+      id: "site-config-singleton",
+      registrationEnabled: true,
+      publicContentEnabled: false,
+    }),
+  };
+  const page = await ForumPage({
+    searchParams: Promise.resolve({}),
+    viewerRole: "ADMIN",
+  });
+  const html = renderPage(page);
+
+  assert.match(html, /论坛/);
+  assert.doesNotMatch(html, /公开内容暂不可用/);
+});
+
 test("tasks list page shows the closed state when public content is disabled", async () => {
   prismaClient.siteConfig = {
     findFirst: async () => ({

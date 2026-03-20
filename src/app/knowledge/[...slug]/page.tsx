@@ -6,7 +6,7 @@ import {
   getCurrentKnowledgeBase,
   toKnowledgeDirectoryViewModel,
 } from "@/lib/knowledge-base/api";
-import { getSiteConfig } from "@/lib/site-config";
+import { canAccessPublicContent } from "@/lib/site-config";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +14,7 @@ type KnowledgePathPageProps = {
   params: Promise<{
     slug?: string[];
   }>;
+  viewerRole?: string | null;
 };
 
 function decodeKnowledgePath(slug: string[] | undefined) {
@@ -26,10 +27,12 @@ function decodeKnowledgePath(slug: string[] | undefined) {
   }
 }
 
-export default async function KnowledgePathPage({ params }: KnowledgePathPageProps) {
-  const siteConfig = await getSiteConfig();
+export default async function KnowledgePathPage({
+  params,
+  viewerRole,
+}: KnowledgePathPageProps) {
 
-  if (!siteConfig.publicContentEnabled) {
+  if (!(await canAccessPublicContent({ viewerRole }))) {
     return (
       <SiteAccessClosedState
         title="公开内容暂不可用"

@@ -5,7 +5,7 @@ import {
   searchKnowledgeDocumentPreviews,
   toKnowledgeDirectoryViewModel,
 } from "@/lib/knowledge-base/api";
-import { getSiteConfig } from "@/lib/site-config";
+import { canAccessPublicContent } from "@/lib/site-config";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +13,15 @@ type KnowledgePageProps = {
   searchParams?: Promise<{
     q?: string;
   }>;
+  viewerRole?: string | null;
 };
 
-export default async function KnowledgePage({ searchParams }: KnowledgePageProps) {
-  const siteConfig = await getSiteConfig();
+export default async function KnowledgePage({
+  searchParams,
+  viewerRole,
+}: KnowledgePageProps) {
 
-  if (!siteConfig.publicContentEnabled) {
+  if (!(await canAccessPublicContent({ viewerRole }))) {
     return (
       <SiteAccessClosedState
         title="公开内容暂不可用"

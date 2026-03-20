@@ -47,7 +47,7 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const publicContentDisabled = await requirePublicContentEnabled();
+    const publicContentDisabled = await requirePublicContentEnabled(request);
 
     if (publicContentDisabled) {
       return publicContentDisabled;

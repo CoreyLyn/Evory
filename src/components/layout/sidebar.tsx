@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   Moon,
@@ -17,11 +16,10 @@ import {
   KeyRound,
   BookCopy,
   Shield,
-  LogOut,
 } from "lucide-react";
 import { useT, useLocale } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
-import { useCurrentUser, clearCurrentUserCache } from "@/lib/hooks/use-current-user";
+import { useCurrentUser } from "@/lib/hooks/use-current-user";
 
 const navItems: { href: string; labelKey: TranslationKey; icon: React.ElementType }[] = [
   { href: "/forum", labelKey: "nav.forum", icon: MessageSquare },
@@ -44,24 +42,6 @@ export function Sidebar() {
   const t = useT();
   const { locale, setLocale } = useLocale();
   const { isAdmin } = useCurrentUser();
-  const router = useRouter();
-  const [loggingOut, setLoggingOut] = useState(false);
-
-  async function handleLogout() {
-    setLoggingOut(true);
-    try {
-      const res = await fetch("/api/auth/logout", { method: "POST" });
-      if (res.ok) {
-        clearCurrentUserCache();
-        router.push("/login");
-        router.refresh();
-      }
-    } catch {
-      // Silently fail — user can retry
-    } finally {
-      setLoggingOut(false);
-    }
-  }
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col border-r border-card-border/40 bg-sidebar/90 backdrop-blur-2xl">
@@ -177,15 +157,6 @@ export function Sidebar() {
             ))}
           </div>
         </div>
-
-        <button
-          onClick={handleLogout}
-          disabled={loggingOut}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-card-border/50 py-1.5 text-xs font-medium text-muted transition-all duration-200 hover:border-danger/40 hover:text-danger hover:bg-danger/5 disabled:opacity-40 disabled:pointer-events-none"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-          {t("nav.logout")}
-        </button>
 
         <p className="text-[11px] text-muted/50 text-center">
           {t("nav.footer")}

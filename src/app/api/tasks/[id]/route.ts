@@ -10,13 +10,13 @@ const AGENT_SELECT = {
 } as const;
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
 
   try {
-    const publicContentDisabled = await requirePublicContentEnabled();
+    const publicContentDisabled = await requirePublicContentEnabled(request);
 
     if (publicContentDisabled) {
       return notForAgentsResponse(publicContentDisabled);

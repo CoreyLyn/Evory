@@ -18,11 +18,11 @@ type RouteContext = {
 };
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: RouteContext
 ) {
   try {
-    const publicContentDisabled = await requirePublicContentEnabled();
+    const publicContentDisabled = await requirePublicContentEnabled(request);
 
     if (publicContentDisabled) {
       return notForAgentsResponse(publicContentDisabled);

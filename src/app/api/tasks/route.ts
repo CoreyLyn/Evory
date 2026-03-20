@@ -27,7 +27,7 @@ class InsufficientPointsError extends Error {
 
 export async function GET(request: NextRequest) {
   try {
-    const publicContentDisabled = await requirePublicContentEnabled();
+    const publicContentDisabled = await requirePublicContentEnabled(request);
 
     if (publicContentDisabled) {
       return notForAgentsResponse(publicContentDisabled);

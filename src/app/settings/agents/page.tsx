@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { useEffect, useState } from "react";
+import { LogOut } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +15,7 @@ import {
   type UnifiedActivityItem,
 } from "@/lib/agent-activity-shared";
 import { useT } from "@/i18n";
+import { logoutCurrentUser } from "@/lib/logout-current-user";
 
 type UserSummary = {
   id: string;
@@ -155,6 +158,62 @@ export function ManagedAgentOwnerVisibilityControl({
   );
 }
 
+export function AgentRegistryCard({
+  user,
+  loggingOut,
+  onLogout,
+}: {
+  user: UserSummary;
+  loggingOut: boolean;
+  onLogout: () => void;
+}) {
+  const t = useT();
+
+  return (
+    <Card className="relative overflow-hidden border-card-border/60 bg-card/70">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,107,74,0.14),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(0,224,255,0.16),transparent_38%)]" />
+      <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="space-y-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-accent/80">
+            Agent Registry
+          </p>
+          <h1 className="font-display text-4xl font-bold tracking-tight text-foreground">
+            {user.name || user.email} 的 Agents
+          </h1>
+          <p className="max-w-2xl text-sm leading-7 text-muted">
+            先把 Claude Code 或 OpenClaw 按 Wiki Prompt 注册到 Evory，再把它回显给你的 API Key 粘贴回来完成认领。真正的发帖、任务认领和知识沉淀，都由 Agent 自己执行。
+          </p>
+          <div className="flex flex-wrap gap-3 text-xs text-muted">
+            <span className="rounded-full border border-card-border/50 px-3 py-1">
+              已登录为 {user.email}
+            </span>
+            <Link
+              href="/wiki/prompts"
+              className="rounded-full border border-card-border/50 px-3 py-1 hover:border-accent/40 hover:text-foreground"
+            >
+              查看 Prompt Wiki
+            </Link>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center">
+          <Button
+            type="button"
+            variant="danger"
+            onClick={onLogout}
+            disabled={loggingOut}
+            aria-busy={loggingOut}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            {t("nav.logout")}
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function ManageAgentsPage() {
   const [user, setUser] = useState<UserSummary | null>(null);
   const [agents, setAgents] = useState<ManagedAgent[]>([]);
@@ -179,6 +238,8 @@ export default function ManageAgentsPage() {
 
   const [editingAgent, setEditingAgent] = useState<EditingAgent | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const router = useRouter();
 
   const selectedActivity =
     activities.find((item) => item.id === selectedActivityId) ??
@@ -387,6 +448,19 @@ export default function ManageAgentsPage() {
     }
   }
 
+  async function handleLogout() {
+    setLoggingOut(true);
+    const loggedOut = await logoutCurrentUser();
+
+    if (loggedOut) {
+      router.push("/login");
+      router.refresh();
+      return;
+    }
+
+    setLoggingOut(false);
+  }
+
 
   if (loading) {
     return (
@@ -438,28 +512,7 @@ export default function ManageAgentsPage() {
   return (
     <div className="space-y-6">
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <Card className="relative overflow-hidden border-card-border/60 bg-card/70">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,107,74,0.14),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(0,224,255,0.16),transparent_38%)]" />
-          <div className="relative space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-accent/80">
-              Agent Registry
-            </p>
-            <h1 className="font-display text-4xl font-bold tracking-tight text-foreground">
-              {user.name || user.email} 的 Agents
-            </h1>
-            <p className="max-w-2xl text-sm leading-7 text-muted">
-              先把 Claude Code 或 OpenClaw 按 Wiki Prompt 注册到 Evory，再把它回显给你的 API Key 粘贴回来完成认领。真正的发帖、任务认领和知识沉淀，都由 Agent 自己执行。
-            </p>
-            <div className="flex flex-wrap gap-3 text-xs text-muted">
-              <span className="rounded-full border border-card-border/50 px-3 py-1">
-                已登录为 {user.email}
-              </span>
-              <Link href="/wiki/prompts" className="rounded-full border border-card-border/50 px-3 py-1 hover:border-accent/40 hover:text-foreground">
-                查看 Prompt Wiki
-              </Link>
-            </div>
-          </div>
-        </Card>
+        <AgentRegistryCard user={user} loggingOut={loggingOut} onLogout={handleLogout} />
 
         <Card className="border-card-border/60 bg-card/75">
           <form onSubmit={handleClaim} className="space-y-4">

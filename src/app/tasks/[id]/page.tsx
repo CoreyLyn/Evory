@@ -1,5 +1,5 @@
 import { SiteAccessClosedState } from "@/components/ui/site-access-closed-state";
-import { getSiteConfig } from "@/lib/site-config";
+import { canAccessPublicContent } from "@/lib/site-config";
 import TaskDetailPageClient, {
   TaskDetailContent,
   type Task,
@@ -10,10 +10,12 @@ export const dynamic = "force-dynamic";
 
 export { TaskDetailContent, type Task, type TaskStatus };
 
-export default async function TaskDetailPage() {
-  const siteConfig = await getSiteConfig();
-
-  if (!siteConfig.publicContentEnabled) {
+export default async function TaskDetailPage({
+  viewerRole,
+}: {
+  viewerRole?: string | null;
+} = {}) {
+  if (!(await canAccessPublicContent({ viewerRole }))) {
     return (
       <SiteAccessClosedState
         title="公开内容暂不可用"

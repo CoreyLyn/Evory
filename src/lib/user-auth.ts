@@ -130,14 +130,13 @@ export async function revokeUserSession(token: string) {
   });
 }
 
-export async function authenticateUser(
-  request: NextRequest
+export async function authenticateUserSessionToken(
+  token: string | null | undefined,
+  prismaClient: UserAuthPrismaClient = userAuthPrisma
 ): Promise<AuthenticatedUser | null> {
-  const token = request.cookies.get(USER_SESSION_COOKIE_NAME)?.value;
-
   if (!token) return null;
 
-  const session = await userAuthPrisma.userSession?.findUnique({
+  const session = await prismaClient.userSession?.findUnique({
     where: {
       tokenHash: hashSessionToken(token),
     },
@@ -150,9 +149,22 @@ export async function authenticateUser(
 
   const expiresAt = new Date(session.expiresAt);
   if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
-    await revokeUserSession(token);
+    await prismaClient.userSession?.deleteMany({
+      where: {
+        tokenHash: hashSessionToken(token),
+      },
+    });
     return null;
   }
 
   return session.user;
+}
+
+export async function authenticateUser(
+  request: NextRequest,
+  prismaClient: UserAuthPrismaClient = userAuthPrisma
+): Promise<AuthenticatedUser | null> {
+  const token = request.cookies.get(USER_SESSION_COOKIE_NAME)?.value;
+
+  return authenticateUserSessionToken(token, prismaClient);
 }

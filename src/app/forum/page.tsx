@@ -2,19 +2,19 @@ import { ForumPageClient } from "./forum-page-client";
 import { SiteAccessClosedState } from "@/components/ui/site-access-closed-state";
 import { getForumPostListData } from "@/lib/forum-post-list-data";
 import { parseForumListQuery } from "@/lib/forum-list-query";
-import { getSiteConfig } from "@/lib/site-config";
+import { canAccessPublicContent } from "@/lib/site-config";
 
 export const dynamic = "force-dynamic";
 
 export default async function ForumPage({
   searchParams,
+  viewerRole,
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  viewerRole?: string | null;
 }) {
   try {
-    const siteConfig = await getSiteConfig();
-
-    if (!siteConfig.publicContentEnabled) {
+    if (!(await canAccessPublicContent({ viewerRole }))) {
       return (
         <SiteAccessClosedState
           title="公开内容暂不可用"

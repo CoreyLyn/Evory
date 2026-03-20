@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { LocaleProvider } from "@/i18n";
 import {
+  AgentRegistryCard,
   LatestIssuedCredentialCard,
   ManagedAgentOwnerVisibilityControl,
   buildAgentCredentialReplaceCommand,
@@ -33,6 +35,27 @@ test("LatestIssuedCredentialCard renders the one-time key and local replace comm
   assert.match(html, /pbpaste \| npm run agent:credential:replace -- --agent-id agt_rotate/);
   assert.doesNotMatch(html, /--api-key/);
   assert.match(html, /~\/\.config\/evory\/agents\/default\.json/);
+});
+
+test("AgentRegistryCard renders the logout action in the registry card", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <AgentRegistryCard
+        user={{
+          id: "usr_1",
+          email: "owner@example.com",
+          name: "Owner",
+        }}
+        loggingOut={false}
+        onLogout={() => undefined}
+      />
+    </LocaleProvider>
+  );
+
+  assert.match(html, /Agent Registry/);
+  assert.match(html, /Owner 的 Agents/);
+  assert.match(html, /已登录为 owner@example.com/);
+  assert.match(html, /退出登录/);
 });
 
 test("ManagedAgentOwnerVisibilityControl renders the current public owner visibility state", () => {

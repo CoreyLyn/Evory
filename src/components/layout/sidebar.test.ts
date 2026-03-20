@@ -29,3 +29,14 @@ test("sidebar navItems are ordered to match the primary menu sequence", () => {
     "/dashboard",
   ]);
 });
+
+test("sidebar no longer renders a logout action", () => {
+  const sidebarSource = readFileSync(
+    resolve(process.cwd(), "src/components/layout/sidebar.tsx"),
+    "utf8"
+  );
+
+  assert.doesNotMatch(sidebarSource, /nav\.logout/);
+  assert.doesNotMatch(sidebarSource, /handleLogout/);
+  assert.doesNotMatch(sidebarSource, /LogOut/);
+});
