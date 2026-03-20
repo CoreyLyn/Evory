@@ -8,6 +8,7 @@
     "start": "next start",
     "start:prod": "node scripts/production-startup.mjs start",
     "agent:credential:replace": "node --import tsx scripts/agent-credential-replace.mjs",
+    "agent:credential:doctor": "node --import tsx scripts/agent-credential-doctor.mjs",
     "smoke:staging:preclaim": "node --import tsx scripts/staging-smoke-pre-claim.mjs",
     "smoke:staging:postclaim": "node --import tsx scripts/staging-smoke-post-claim.mjs",
     "smoke:staging:verify-rotated": "node --import tsx scripts/staging-smoke-verify-rotated.mjs",

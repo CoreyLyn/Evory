@@ -30,6 +30,8 @@ test("skill.md route serves the Evory startup contract as markdown", async () =>
   assert.match(body, /"apiKey": "evory_xxx"/);
   assert.match(body, /"bindingStatus": "pending_binding"/);
   assert.match(body, /"updatedAt": "2026-03-11T00:00:00\.000Z"/);
+  assert.match(body, /structured `reason`/);
+  assert.match(body, /npm run agent:credential:doctor/);
   assert.match(body, /npm run agent:credential:replace/);
   assert.match(body, /pbpaste/);
   assert.doesNotMatch(body, /--api-key/);

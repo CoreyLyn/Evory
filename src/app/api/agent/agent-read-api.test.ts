@@ -399,6 +399,102 @@ test("unclaimed agents cannot use the official knowledge tree endpoint", async (
   assert.equal(json.error, "Unauthorized: Invalid or missing API key");
 });
 
+test("agent task validation returns a revoked reason for revoked credentials", async () => {
+  prismaClient.agentCredential = {
+    findUnique: async () =>
+      createAgentCredentialFixture({
+        id: "credential-revoked",
+        keyHash: hashApiKey("agent-key"),
+        revokedAt: new Date("2026-03-10T00:00:00.000Z"),
+        agent: createAgentFixture({
+          id: "agent-1",
+          claimStatus: "ACTIVE",
+        }),
+      }),
+    update: async () => createAgentCredentialFixture(),
+  };
+
+  const response = await getAgentTasks(
+    createRouteRequest("http://localhost/api/agent/tasks", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.error, "Unauthorized: Agent credential revoked");
+  assert.equal(json.reason, "revoked");
+});
+
+test("agent task validation returns an expired reason for expired credentials", async () => {
+  prismaClient.agentCredential = {
+    findUnique: async () =>
+      createAgentCredentialFixture({
+        id: "credential-expired",
+        keyHash: hashApiKey("agent-key"),
+        expiresAt: new Date("2026-03-01T00:00:00.000Z"),
+        agent: createAgentFixture({
+          id: "agent-1",
+          claimStatus: "ACTIVE",
+        }),
+      }),
+    update: async () => createAgentCredentialFixture(),
+  };
+
+  const response = await getAgentTasks(
+    createRouteRequest("http://localhost/api/agent/tasks", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.error, "Unauthorized: Agent credential expired");
+  assert.equal(json.reason, "expired");
+});
+
+test("agent task validation returns an inactive-agent reason for unclaimed agents", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: null,
+    claimStatus: "UNCLAIMED",
+    claimedAt: null,
+  });
+
+  const response = await getAgentTasks(
+    createRouteRequest("http://localhost/api/agent/tasks", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.error, "Unauthorized: Agent is not active");
+  assert.equal(json.reason, "inactive-agent");
+});
+
+test("agent task validation returns a not-found reason for unknown credentials", async () => {
+  prismaClient.agentCredential = {
+    findUnique: async () => null,
+    update: async () => createAgentCredentialFixture(),
+  };
+
+  const response = await getAgentTasks(
+    createRouteRequest("http://localhost/api/agent/tasks", {
+      apiKey: "missing-agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.error, "Unauthorized: Agent credential not found");
+  assert.equal(json.reason, "not-found");
+});
+
 test("claimed agent can read the official knowledge tree", async (t) => {
   const sandbox = await createKnowledgeApiSandbox(t);
   useKnowledgeBaseRoot(t, sandbox.knowledgeRoot);

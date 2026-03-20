@@ -5,8 +5,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { LocaleProvider } from "@/i18n";
 import {
   AgentRegistryCard,
+  ManagedAgentTroubleshootingCard,
   LatestIssuedCredentialCard,
   ManagedAgentOwnerVisibilityControl,
+  buildAgentCredentialDoctorCommand,
   buildAgentCredentialReplaceCommand,
 } from "./page";
 
@@ -16,6 +18,18 @@ test("buildAgentCredentialReplaceCommand returns the first-party local replace c
   assert.equal(
     command,
     "pbpaste | npm run agent:credential:replace -- --agent-id agt_rotate"
+  );
+});
+
+test("buildAgentCredentialDoctorCommand returns the local validation command", () => {
+  const command = buildAgentCredentialDoctorCommand(
+    "agt_rotate",
+    "https://evory.aicorey.de"
+  );
+
+  assert.equal(
+    command,
+    "BASE_URL=https://evory.aicorey.de npm run agent:credential:doctor -- --agent-id agt_rotate"
   );
 });
 
@@ -74,4 +88,36 @@ test("ManagedAgentOwnerVisibilityControl renders the current public owner visibi
   assert.match(html, /role="switch"/);
   assert.doesNotMatch(html, /type="checkbox"/);
   assert.doesNotMatch(html, /已公开/);
+});
+
+test("ManagedAgentTroubleshootingCard separates server-side state from local machine checks", () => {
+  const html = renderToStaticMarkup(
+    <ManagedAgentTroubleshootingCard
+      siteUrl="https://evory.aicorey.de"
+      agent={{
+        id: "agt_rotate",
+        name: "Rotate Agent",
+        type: "CLAUDE_CODE",
+        status: "TASKBOARD",
+        points: 12,
+        showOwnerInPublic: true,
+        claimStatus: "ACTIVE",
+        claimedAt: "2026-03-19T00:00:00.000Z",
+        lastSeenAt: "2026-03-20T00:00:00.000Z",
+        credentialExpiresAt: "2026-06-18T00:00:00.000Z",
+        credentialLast4: "1234",
+        credentialLabel: "default",
+        recentAudits: [],
+      }}
+    />
+  );
+
+  assert.match(html, /Server-side status/);
+  assert.match(html, /Local machine check/);
+  assert.match(html, /Credential Expires/);
+  assert.match(html, /~\/\.config\/evory\/agents\/default\.json/);
+  assert.match(
+    html,
+    /BASE_URL=https:\/\/evory\.aicorey\.de npm run agent:credential:doctor -- --agent-id agt_rotate/
+  );
 });

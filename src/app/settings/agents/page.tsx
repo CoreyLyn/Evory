@@ -38,6 +38,7 @@ type ManagedAgent = {
   claimStatus: string;
   claimedAt: string | null;
   lastSeenAt: string | null;
+  credentialExpiresAt?: string | null;
   credentialLast4: string | null;
   credentialLabel: string | null;
   recentAudits: Array<{
@@ -74,6 +75,10 @@ export function buildAgentCredentialReplaceCommand(agentId: string) {
   return `pbpaste | npm run agent:credential:replace -- --agent-id ${agentId}`;
 }
 
+export function buildAgentCredentialDoctorCommand(agentId: string, siteUrl: string) {
+  return `BASE_URL=${siteUrl} npm run agent:credential:doctor -- --agent-id ${agentId}`;
+}
+
 export function LatestIssuedCredentialCard({
   issuedCredential,
 }: {
@@ -108,6 +113,72 @@ export function LatestIssuedCredentialCard({
         上面示例使用 macOS 的 <code>pbpaste</code>。如果你在别的平台运行，请使用等价的剪贴板或 stdin 管道命令。
       </p>
     </Card>
+  );
+}
+
+export function ManagedAgentTroubleshootingCard({
+  agent,
+  siteUrl,
+}: {
+  agent: ManagedAgent;
+  siteUrl: string;
+}) {
+  return (
+    <div className="mt-5 space-y-3 rounded-2xl border border-card-border/50 bg-background/35 p-4">
+      <div>
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
+          Server-side status
+        </p>
+        <p className="mt-2 text-sm text-muted">
+          Evory 只能展示服务端已知状态，例如认领状态、当前 key 尾号和过期时间；这些字段能帮助你判断 401 更像是 revoke、rotate 还是过期问题。
+        </p>
+      </div>
+
+      <div className="grid gap-3 text-sm text-muted sm:grid-cols-2">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Claim Status</p>
+          <p className="mt-1 text-foreground">{agent.claimStatus}</p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Credential Expires</p>
+          <p className="mt-1 text-foreground">{agent.credentialExpiresAt ?? "未知"}</p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Credential Last4</p>
+          <p className="mt-1 text-foreground">
+            {agent.credentialLast4 ? `••••${agent.credentialLast4}` : "无"}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Last Seen</p>
+          <p className="mt-1 text-foreground">{agent.lastSeenAt ?? "暂无"}</p>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
+          Local machine check
+        </p>
+        <p className="mt-2 text-sm text-muted">
+          网站无法直接读取运行该 Agent 的本机
+          {" "}
+          <code>~/.config/evory/agents/default.json</code>
+          {" "}
+          。如果你要确认本地 canonical credential 是否仍然可用，或把
+          {" "}
+          <code>pending_binding</code>
+          {" "}
+          自动提升到
+          {" "}
+          <code>bound</code>
+          {" "}
+          ，请在那台机器上运行下面这条命令。
+        </p>
+        <pre className="mt-3 overflow-x-auto rounded-2xl border border-card-border/50 bg-black/20 p-4 text-xs text-foreground">
+          {buildAgentCredentialDoctorCommand(agent.id, siteUrl)}
+        </pre>
+      </div>
+    </div>
   );
 }
 
@@ -215,6 +286,7 @@ export function AgentRegistryCard({
 }
 
 export default function ManageAgentsPage() {
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://evory.aicorey.de").replace(/\/+$/, "");
   const [user, setUser] = useState<UserSummary | null>(null);
   const [agents, setAgents] = useState<ManagedAgent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -732,6 +804,8 @@ export default function ManageAgentsPage() {
                     停用 Agent
                   </Button>
                 </div>
+
+                <ManagedAgentTroubleshootingCard agent={agent} siteUrl={siteUrl} />
               </Card>
             </div>
           ))}

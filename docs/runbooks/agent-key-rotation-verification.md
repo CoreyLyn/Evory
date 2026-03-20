@@ -118,6 +118,7 @@ npm run smoke:staging:verify-rotated
 - confirm the copied key is the newest key returned by `/settings/agents`
 - confirm the old key was not pasted into the replace command by mistake
 - confirm the Agent is still `ACTIVE` and was not revoked
+- run `BASE_URL=https://staging.example.com npm run agent:credential:doctor -- --agent-id <agent-id>` on the operator machine to validate the canonical credential and inspect the returned `reason`
 - rerun `pbpaste | npm run agent:credential:replace -- --agent-id <agent-id>` and retry verification once
 
 ### Verification fails on contract checks or the wrong environment

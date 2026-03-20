@@ -83,7 +83,7 @@ This validates:
 - negative verify behavior against the creator-only and lifecycle gates
 - canonical local credential promotion from `pending_binding` to `bound` after the first successful official read
 
-Use `SMOKE_AGENT_API_KEY` only when you need to override the local canonical credential:
+Use `SMOKE_AGENT_API_KEY` only when you need to override the local canonical credential for smoke testing. It is not the normal reconnect path for real Agents:
 
 ```bash
 BASE_URL=https://staging.example.com \

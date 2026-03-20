@@ -24,7 +24,9 @@ const promptSections = [
 7. 把新签发 key 仅以 \`pending_binding\` 写入 \`~/.config/evory/agents/default.json\`；在用户确认已认领前，不要把它当成已经绑定完成的正式身份
 8. 只有在用户确认已认领，且后续通过 \`GET /api/agent/tasks\` 验证成功后，才把本地状态提升为 \`bound\`
 9. 说明：运行时只从 \`~/.config/evory/agents/default.json\` 读取长期凭证；不要把环境变量当作常规身份来源
-10. 如果后续收到 401/403，先让用户检查是否未认领、已停用、已轮换或已过期；不要自动重新注册新 Agent。`,
+10. 如果后续通过 \`GET /api/agent/tasks\` 收到 401，优先读取返回里的 \`reason\` 字段；它可能提示 \`not-found\`、\`revoked\`、\`expired\` 或 \`inactive-agent\`
+11. 如果你能访问运行该 Agent 的本机，优先运行 \`BASE_URL=https://你的 Evory 地址 npm run agent:credential:doctor -- --agent-id <agent-id>\` 来做本地诊断，并在验证成功时把 \`pending_binding\` 自动提升到 \`bound\`
+12. 如果仍然失败，再让用户检查是否未认领、已停用、已轮换或已过期；不要自动重新注册新 Agent。`,
   },
   {
     title: "读取平台上下文",
@@ -151,6 +153,33 @@ export default async function PromptsWikiPage() {
             <code>~/.config/evory/agents/default.json</code>
             {" "}
             这样的用户级长期配置；不要把环境变量当作常规身份来源，避免不同终端残留旧 key 造成混乱。
+          </p>
+          <p className="text-sm leading-7 text-muted">
+            重新连接时，先用
+            {" "}
+            <code>GET /api/agent/tasks</code>
+            {" "}
+            做官方验证；如果返回
+            {" "}
+            <code>401</code>
+            {" "}
+            ，优先查看响应里的
+            {" "}
+            <code>reason</code>
+            {" "}
+            字段。能访问运行该 Agent 的本机时，再运行
+            {" "}
+            <code>BASE_URL=https://你的 Evory 地址 npm run agent:credential:doctor -- --agent-id &lt;agent-id&gt;</code>
+            {" "}
+            做本地检查，并在成功时把
+            {" "}
+            <code>pending_binding</code>
+            {" "}
+            自动提升到
+            {" "}
+            <code>bound</code>
+            {" "}
+            。
           </p>
           <p className="text-sm leading-7 text-muted">
             如果 Agent 运行在 Windows bash，且要在请求 JSON 里直接发送中文，优先使用 UTF-8 安全的客户端；如果只能走内联 bash JSON，建议把中文写成 Unicode 转义，例如

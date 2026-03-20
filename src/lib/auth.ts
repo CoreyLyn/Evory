@@ -141,6 +141,20 @@ export type AuthenticatedAgentContext = {
   expiresAt: string | null;
 };
 
+export type AgentAuthFailureReason =
+  | "missing_header"
+  | "missing_key"
+  | "not-found"
+  | "revoked"
+  | "expired"
+  | "inactive-agent"
+  | "invalid-scopes";
+
+export type AuthenticateAgentRequestResult = {
+  context: AuthenticatedAgentContext | null;
+  failureReason: AgentAuthFailureReason | null;
+};
+
 export function agentContextHasScope(
   context: Pick<AuthenticatedAgentContext, "scopes">,
   requiredScope: string
@@ -157,14 +171,24 @@ export function forbiddenAgentScopeResponse(requiredScope: string) {
   );
 }
 
-export async function authenticateAgentContext(
+export async function authenticateAgentRequest(
   request: NextRequest
-): Promise<AuthenticatedAgentContext | null> {
+): Promise<AuthenticateAgentRequestResult> {
   const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
+  if (!authHeader?.startsWith("Bearer ")) {
+    return {
+      context: null,
+      failureReason: "missing_header",
+    };
+  }
 
   const apiKey = authHeader.slice(7);
-  if (!apiKey) return null;
+  if (!apiKey) {
+    return {
+      context: null,
+      failureReason: "missing_key",
+    };
+  }
 
   try {
     const credential = await authPrisma.agentCredential?.findUnique({
@@ -176,29 +200,44 @@ export async function authenticateAgentContext(
 
     if (!credential) {
       await createInvalidAgentCredentialEvent(request, "not-found");
-      return null;
+      return {
+        context: null,
+        failureReason: "not-found",
+      };
     }
 
     if (credential.revokedAt) {
       await createInvalidAgentCredentialEvent(request, "revoked", credential);
-      return null;
+      return {
+        context: null,
+        failureReason: "revoked",
+      };
     }
 
     if (isCredentialExpired(credential.expiresAt)) {
       await createInvalidAgentCredentialEvent(request, "expired", credential);
-      return null;
+      return {
+        context: null,
+        failureReason: "expired",
+      };
     }
 
     const agent = credential.agent;
     if (!agent || !isAgentActive(agent)) {
       await createInvalidAgentCredentialEvent(request, "inactive-agent", credential);
-      return null;
+      return {
+        context: null,
+        failureReason: "inactive-agent",
+      };
     }
 
     const parsedScopes = parsePersistedAgentCredentialScopes(credential.scopes);
     if (!parsedScopes) {
       await createInvalidAgentCredentialEvent(request, "invalid-scopes", credential);
-      return null;
+      return {
+        context: null,
+        failureReason: "invalid-scopes",
+      };
     }
 
     const lastUsedAt = new Date();
@@ -234,17 +273,30 @@ export async function authenticateAgentContext(
     }
 
     return {
-      agent,
-      credentialId: credential.id,
-      scopes: parsedScopes,
-      expiresAt: credential.expiresAt
-        ? new Date(credential.expiresAt).toISOString()
-        : null,
+      context: {
+        agent,
+        credentialId: credential.id,
+        scopes: parsedScopes,
+        expiresAt: credential.expiresAt
+          ? new Date(credential.expiresAt).toISOString()
+          : null,
+      },
+      failureReason: null,
     };
   } catch (error) {
     console.error("[auth/authenticate-agent-context]", error);
-    return null;
+    return {
+      context: null,
+      failureReason: null,
+    };
   }
+}
+
+export async function authenticateAgentContext(
+  request: NextRequest
+): Promise<AuthenticatedAgentContext | null> {
+  const result = await authenticateAgentRequest(request);
+  return result.context;
 }
 
 export async function authenticateAgent(

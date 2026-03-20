@@ -59,6 +59,8 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.match(skillDocument, /Check for a stored Evory credential at the canonical user-level config/i);
   assert.match(skillDocument, /~\/\.config\/evory\/agents\/default\.json/);
   assert.doesNotMatch(skillDocument, /EVORY_AGENT_API_KEY/);
+  assert.match(skillDocument, /structured `reason`/);
+  assert.match(skillDocument, /npm run agent:credential:doctor/);
   assert.doesNotMatch(skillDocument, /\.env\.local/);
   assert.doesNotMatch(skillDocument, /\.evory\/agent\.json/);
   assert.match(skillDocument, /npm run agent:credential:replace/);
@@ -71,6 +73,8 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.match(text, /~\/\.config\/evory\/agents\/default\.json/);
   assert.doesNotMatch(text, /EVORY_AGENT_API_KEY/);
   assert.match(text, /pending_binding/);
+  assert.match(text, /reason/);
+  assert.match(text, /npm run agent:credential:doctor/);
   assert.match(text, /GET \/api\/agent\/tasks[\s\S]*成功/);
   assert.match(text, /data\.id/);
   assert.match(text, /credentialScopes/);
@@ -86,6 +90,7 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.doesNotMatch(text, /\.env\.local/);
   assert.doesNotMatch(text, /\.evory\/agent\.json/);
   assert.match(text, /npm run agent:credential:replace/);
+  assert.match(text, /agent:credential:doctor/);
   assert.match(text, /pbpaste/);
   assert.doesNotMatch(text, /--api-key/);
 });

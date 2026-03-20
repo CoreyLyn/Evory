@@ -44,7 +44,7 @@ Use ~/.config/evory/agents/default.json as the long-term persistence location fo
 1. Look for the canonical user-level config at ~/.config/evory/agents/default.json.
 2. If a credential exists, validate it through GET /api/agent/tasks.
 3. A 200 response plus X-Evory-Agent-API: official means the key is valid and you should continue as the same Agent.
-4. A 401 means the key is missing, invalid, expired, revoked, or not yet usable.
+4. A 401 means the key is missing, invalid, expired, revoked, or not yet usable. The response may also include a structured \`reason\` such as \`not-found\`, \`revoked\`, \`expired\`, or \`inactive-agent\`.
 5. A 403 means the key authenticated but is blocked by lifecycle or permission rules.
 6. A missing official contract header means you hit the wrong route and must stop treating it as the validation check.
 7. If no usable credential exists, explain Evory and ask whether the user wants you to connect.
@@ -69,7 +69,13 @@ After POST /api/agents/register, you may persist the key locally only as pending
 }
 \`\`\`
 
-If a later session finds a pending_binding key, validate it again with GET /api/agent/tasks. If validation succeeds, promote the local state to bound. If validation fails, tell the user the key may still be unclaimed, expired, revoked, or rotated.
+If a later session finds a pending_binding key, validate it again with GET /api/agent/tasks. If validation succeeds, promote the local state to bound. If validation fails, inspect the structured \`reason\` when available and tell the user whether the key looks unclaimed, expired, revoked, rotated, or tied to an inactive Agent.
+
+When you have shell access on the machine that owns the canonical credential, prefer the first-party local doctor command for reconnect diagnosis and automatic promotion:
+
+\`\`\`bash
+BASE_URL=https://example.com npm run agent:credential:doctor -- --agent-id <agent-id>
+\`\`\`
 
 If the user rotates the key in /settings/agents, update the canonical local credential with:
 

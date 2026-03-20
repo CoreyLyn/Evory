@@ -1,6 +1,11 @@
 import { NextRequest } from "next/server";
 
-import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
+import {
+  authenticateAgent,
+  authenticateAgentRequest,
+  type AgentAuthFailureReason,
+  unauthorizedResponse,
+} from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { setAgentStatus } from "@/lib/agent-status";
 import {
@@ -8,10 +13,35 @@ import {
   POST as createPublicTask,
 } from "@/app/api/tasks/route";
 
-export async function GET(request: NextRequest) {
-  const agent = await authenticateAgent(request);
+const AUTH_REASON_MESSAGE: Record<AgentAuthFailureReason, string> = {
+  missing_header: "Unauthorized: Missing API key",
+  missing_key: "Unauthorized: Missing API key",
+  "not-found": "Unauthorized: Agent credential not found",
+  revoked: "Unauthorized: Agent credential revoked",
+  expired: "Unauthorized: Agent credential expired",
+  "inactive-agent": "Unauthorized: Agent is not active",
+  "invalid-scopes": "Unauthorized: Agent credential is invalid",
+};
 
-  if (!agent) return officialAgentResponse(unauthorizedResponse());
+export async function GET(request: NextRequest) {
+  const { context, failureReason } = await authenticateAgentRequest(request);
+  const agent = context?.agent ?? null;
+
+  if (!agent) {
+    if (failureReason) {
+      return officialAgentResponse(
+        Response.json(
+          {
+            error: AUTH_REASON_MESSAGE[failureReason],
+            reason: failureReason,
+          },
+          { status: 401 }
+        )
+      );
+    }
+
+    return officialAgentResponse(unauthorizedResponse());
+  }
 
   const response = await getPublicTasks(request);
 

@@ -7,6 +7,7 @@ import { createRouteRequest } from "@/test/request-helpers";
 import {
   DEFAULT_AGENT_CREDENTIAL_SCOPES,
   authenticateAgent,
+  authenticateAgentRequest,
   generateApiKey,
   hashApiKey,
 } from "./auth";
@@ -359,6 +360,31 @@ test("authenticateAgent rejects a revoked credential", async () => {
   });
 });
 
+test("authenticateAgentRequest returns revoked failure reason", async () => {
+  prismaClient.agentCredential = {
+    findUnique: async () =>
+      createAgentCredentialFixture({
+        id: "credential-revoked",
+        keyHash: hashApiKey("agent-key"),
+        revokedAt: new Date("2026-03-10T00:00:00.000Z"),
+        agent: createAgentFixture({
+          id: "agent-1",
+          claimStatus: "ACTIVE",
+        }),
+      }),
+    update: async () => createAgentCredentialFixture(),
+  };
+
+  const result = await authenticateAgentRequest(
+    createRouteRequest("http://localhost/api/agent/tasks", {
+      apiKey: "agent-key",
+    })
+  );
+
+  assert.equal(result.context, null);
+  assert.equal(result.failureReason, "revoked");
+});
+
 test("authenticateAgent rejects expired credentials", async () => {
   let createdEvent: Record<string, unknown> | null = null;
 
@@ -392,6 +418,65 @@ test("authenticateAgent rejects expired credentials", async () => {
 
   assert.equal(agent, null);
   assert.equal((createdEvent?.metadata as Record<string, unknown>).reason, "expired");
+});
+
+test("authenticateAgentRequest returns expired failure reason", async () => {
+  prismaClient.agentCredential = {
+    findUnique: async () =>
+      createAgentCredentialFixture({
+        id: "credential-expired",
+        keyHash: hashApiKey("agent-key"),
+        expiresAt: new Date("2026-03-01T00:00:00.000Z"),
+        agent: createAgentFixture({
+          id: "agent-expired",
+          claimStatus: "ACTIVE",
+        }),
+      }),
+    update: async () => createAgentCredentialFixture(),
+  };
+
+  const result = await authenticateAgentRequest(
+    createRouteRequest("http://localhost/api/agent/tasks", {
+      apiKey: "agent-key",
+    })
+  );
+
+  assert.equal(result.context, null);
+  assert.equal(result.failureReason, "expired");
+});
+
+test("authenticateAgentRequest returns inactive-agent failure reason", async () => {
+  prismaClient.agentCredential = {
+    findUnique: async () =>
+      createAgentCredentialFixture({
+        keyHash: hashApiKey("agent-key"),
+        agent: createAgentFixture({
+          id: "agent-1",
+          claimStatus: "UNCLAIMED",
+          ownerUserId: null,
+          claimedAt: null,
+        }),
+      }),
+    update: async () => createAgentCredentialFixture(),
+  };
+
+  const result = await authenticateAgentRequest(
+    createRouteRequest("http://localhost/api/agent/tasks", {
+      apiKey: "agent-key",
+    })
+  );
+
+  assert.equal(result.context, null);
+  assert.equal(result.failureReason, "inactive-agent");
+});
+
+test("authenticateAgentRequest returns missing_header when authorization is absent", async () => {
+  const result = await authenticateAgentRequest(
+    createRouteRequest("http://localhost/api/agent/tasks")
+  );
+
+  assert.equal(result.context, null);
+  assert.equal(result.failureReason, "missing_header");
 });
 
 test("authenticateAgent rejects credentials with malformed scopes", async () => {
