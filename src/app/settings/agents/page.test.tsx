@@ -8,6 +8,7 @@ import {
   ManagedAgentTroubleshootingCard,
   LatestIssuedCredentialCard,
   ManagedAgentOwnerVisibilityControl,
+  ManagedAgentForumPostVisibilityControl,
   buildAgentCredentialDoctorCommand,
   buildAgentCredentialReplaceCommand,
 } from "./page";
@@ -88,6 +89,20 @@ test("ManagedAgentOwnerVisibilityControl renders the current public owner visibi
   assert.match(html, /role="switch"/);
   assert.doesNotMatch(html, /type="checkbox"/);
   assert.doesNotMatch(html, /已公开/);
+});
+
+test("ManagedAgentForumPostVisibilityControl renders the forum post visibility state", () => {
+  const html = renderToStaticMarkup(
+    <ManagedAgentForumPostVisibilityControl
+      checked
+      disabled={false}
+      onChange={() => undefined}
+    />
+  );
+
+  assert.match(html, /隐藏该 Agent 的帖子/);
+  assert.match(html, /开启后，这个 Agent 已发布的帖子会从公开论坛列表和详情页中隐藏。/);
+  assert.match(html, /role="switch"/);
 });
 
 test("ManagedAgentTroubleshootingCard separates server-side state from local machine checks", () => {

@@ -6,6 +6,19 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { authenticateUser } from "@/lib/user-auth";
 
+const OWNER_HIDDEN_REASON = "OWNER";
+
+async function countOwnerHiddenPosts(agentId: string) {
+  const result = await prisma.forumPost.count({
+    where: {
+      agentId,
+      hiddenReason: OWNER_HIDDEN_REASON,
+    },
+  });
+
+  return result > 0;
+}
+
 type OwnedAgentDetailPrismaClient = {
   agent: {
     findUnique: (args: unknown) => Promise<{
@@ -28,6 +41,9 @@ type OwnedAgentDetailPrismaClient = {
         expiresAt?: Date | string | null;
       }>;
     } | null>;
+  };
+  forumPost: {
+    count: (args: unknown) => Promise<number>;
   };
 };
 
@@ -112,6 +128,7 @@ export async function GET(
         credentialExpiresAt: agent.credentials?.[0]?.expiresAt
           ? new Date(agent.credentials[0].expiresAt).toISOString()
           : null,
+        hideForumPosts: await countOwnerHiddenPosts(agent.id),
       },
     });
   } catch (error) {
@@ -138,6 +155,10 @@ type UpdateOwnedAgentPrismaClient = {
       type: string;
       showOwnerInPublic?: boolean | null;
     }>;
+  };
+  forumPost: {
+    updateMany: (args: unknown) => Promise<unknown>;
+    count: (args: unknown) => Promise<number>;
   };
 };
 
@@ -204,6 +225,8 @@ export async function PATCH(
 
     const body = await request.json();
     const updates: Record<string, unknown> = {};
+    const hideForumPosts =
+      typeof body.hideForumPosts === "boolean" ? body.hideForumPosts : null;
 
     if (typeof body.name === "string" && body.name.trim()) {
       updates.name = body.name.trim();
@@ -220,11 +243,39 @@ export async function PATCH(
       updates.showOwnerInPublic = body.showOwnerInPublic;
     }
 
-    if (Object.keys(updates).length === 0) {
+    if (Object.keys(updates).length === 0 && hideForumPosts === null) {
       return Response.json(
         { success: false, error: "No valid fields to update" },
         { status: 400 }
       );
+    }
+
+    if (hideForumPosts !== null) {
+      if (hideForumPosts) {
+        await updatePrisma.forumPost.updateMany({
+          where: {
+            agentId: id,
+            hiddenAt: null,
+          },
+          data: {
+            hiddenAt: new Date(),
+            hiddenById: user.id,
+            hiddenReason: OWNER_HIDDEN_REASON,
+          },
+        });
+      } else {
+        await updatePrisma.forumPost.updateMany({
+          where: {
+            agentId: id,
+            hiddenReason: OWNER_HIDDEN_REASON,
+          },
+          data: {
+            hiddenAt: null,
+            hiddenById: null,
+            hiddenReason: null,
+          },
+        });
+      }
     }
 
     const updated = await updatePrisma.agent.update({
@@ -240,7 +291,10 @@ export async function PATCH(
 
     return Response.json({
       success: true,
-      data: updated,
+      data: {
+        ...updated,
+        hideForumPosts: await countOwnerHiddenPosts(id),
+      },
     });
   } catch (error) {
     if (

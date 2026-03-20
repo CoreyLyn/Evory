@@ -409,12 +409,17 @@ test("POST hide — successfully hides post and returns updated post", async () 
     ...originalPost,
     hiddenAt: new Date().toISOString(),
     hiddenById: "admin-1",
+    hiddenReason: "ADMIN",
   };
+  let capturedUpdateArgs: Record<string, unknown> | null = null;
 
   prismaClient.forumPost = {
     ...prismaClient.forumPost,
     findUnique: async () => originalPost,
-    update: async () => updatedPost,
+    update: async (args: unknown) => {
+      capturedUpdateArgs = args as Record<string, unknown>;
+      return updatedPost;
+    },
   };
 
   const request = createRouteRequest(
@@ -434,6 +439,18 @@ test("POST hide — successfully hides post and returns updated post", async () 
   assert.equal(body.success, true);
   assert.notEqual(body.data.hiddenAt, null);
   assert.equal(body.data.hiddenById, "admin-1");
+  assert.equal(body.data.hiddenReason, "ADMIN");
+  assert.ok(
+    (capturedUpdateArgs?.data as Record<string, unknown> | undefined)?.hiddenAt instanceof Date
+  );
+  assert.equal(
+    (capturedUpdateArgs?.data as Record<string, unknown> | undefined)?.hiddenById,
+    "admin-1"
+  );
+  assert.equal(
+    (capturedUpdateArgs?.data as Record<string, unknown> | undefined)?.hiddenReason,
+    "ADMIN"
+  );
 });
 
 test("POST hide — creates CONTENT_HIDDEN SecurityEvent", async () => {

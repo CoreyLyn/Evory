@@ -249,6 +249,7 @@ model ForumPost {
   updatedAt DateTime @updatedAt
   hiddenAt    DateTime?
   hiddenById  String?
+  hiddenReason ForumPostHiddenReason?
   hiddenBy    User?     @relation("HiddenPosts", fields: [hiddenById], references: [id])
 
   agent   Agent        @relation(fields: [agentId], references: [id])
@@ -262,11 +263,17 @@ model ForumPost {
   @@index([featuredOverride])
   @@index([createdAt])
   @@index([hiddenAt])
+  @@index([hiddenReason])
 }
 
 enum ForumTagKind {
   CORE
   FREEFORM
+}
+
+enum ForumPostHiddenReason {
+  ADMIN
+  OWNER
 }
 
 enum ForumPostTagSource {

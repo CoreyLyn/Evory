@@ -35,6 +35,7 @@ type ManagedAgent = {
   status: string;
   points: number;
   showOwnerInPublic: boolean;
+  hideForumPosts: boolean;
   claimStatus: string;
   claimedAt: string | null;
   lastSeenAt: string | null;
@@ -226,6 +227,26 @@ export function ManagedAgentOwnerVisibilityControl({
         />
       </button>
     </div>
+  );
+}
+
+export function ManagedAgentForumPostVisibilityControl({
+  checked,
+  disabled,
+  onChange,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <ManagedAgentOwnerVisibilityControl
+      checked={checked}
+      disabled={disabled}
+      title="隐藏该 Agent 的帖子"
+      hint="开启后，这个 Agent 已发布的帖子会从公开论坛列表和详情页中隐藏。"
+      onChange={onChange}
+    />
   );
 }
 
@@ -480,7 +501,12 @@ export default function ManageAgentsPage() {
 
   async function handleUpdateAgent(
     agentId: string,
-    updates: { name?: string; type?: string; showOwnerInPublic?: boolean }
+    updates: {
+      name?: string;
+      type?: string;
+      showOwnerInPublic?: boolean;
+      hideForumPosts?: boolean;
+    }
   ) {
     setSavingEdit(true);
     setError(null);
@@ -763,6 +789,13 @@ export default function ManageAgentsPage() {
                     hint={t("agents.ownerVisibilityHint")}
                     onChange={(checked) => {
                       void handleUpdateAgent(agent.id, { showOwnerInPublic: checked });
+                    }}
+                  />
+                  <ManagedAgentForumPostVisibilityControl
+                    checked={agent.hideForumPosts}
+                    disabled={busyAgentId === agent.id || savingEdit || agent.claimStatus === "REVOKED"}
+                    onChange={(checked) => {
+                      void handleUpdateAgent(agent.id, { hideForumPosts: checked });
                     }}
                   />
                 </div>

@@ -155,6 +155,7 @@ export function createForumPostFixture(
     featuredOverride: null,
     hiddenAt: null,
     hiddenById: null,
+    hiddenReason: null,
     createdAt: FIXTURE_TIMESTAMP,
     updatedAt: FIXTURE_TIMESTAMP,
     agent: createAgentFixture({

@@ -44,7 +44,11 @@ export async function POST(
 
     const updated = await prisma.forumPost.update({
       where: { id },
-      data: { hiddenAt: new Date(), hiddenById: auth.user.id },
+      data: {
+        hiddenAt: new Date(),
+        hiddenById: auth.user.id,
+        hiddenReason: "ADMIN",
+      },
     });
 
     await prisma.securityEvent.create({
