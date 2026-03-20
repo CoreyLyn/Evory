@@ -1,6 +1,6 @@
 "use client";
 
-import { Children, isValidElement, type ReactNode, useState } from "react";
+import { Children, isValidElement, type ReactElement, type ReactNode, useState } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -23,6 +23,15 @@ function isExternalHref(href: string) {
   return /^(?:https?:)?\/\//.test(href) || /^[a-z][a-z0-9+.-]*:/i.test(href);
 }
 
+type MarkdownElementProps = {
+  children?: ReactNode;
+  className?: string;
+};
+
+function isMarkdownElement(child: ReactNode): child is ReactElement<MarkdownElementProps> {
+  return isValidElement<MarkdownElementProps>(child);
+}
+
 function flattenMarkdownText(children: ReactNode): string {
   return Children.toArray(children)
     .map((child) => {
@@ -30,7 +39,7 @@ function flattenMarkdownText(children: ReactNode): string {
         return String(child);
       }
 
-      if (isValidElement(child)) {
+      if (isMarkdownElement(child)) {
         return flattenMarkdownText(child.props.children);
       }
 
@@ -192,7 +201,7 @@ export function MarkdownContent({
           pre: ({ children }) => {
             const child = Children.only(children);
 
-            if (!isValidElement(child)) {
+            if (!isMarkdownElement(child)) {
               return <pre>{children}</pre>;
             }
 

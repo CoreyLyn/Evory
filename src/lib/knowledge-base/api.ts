@@ -230,5 +230,5 @@ export function listLegacyKnowledgeArticles(index: KnowledgeIndex) {
       if (dateDiff !== 0) return dateDiff;
       return left.path.localeCompare(right.path);
     })
-    .map(toLegacyCompatibleKnowledgeSearchResult);
+    .map((document) => toLegacyCompatibleKnowledgeSearchResult(document));
 }
