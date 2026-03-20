@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { MarkdownContent } from "@/components/content/markdown-content";
+import { resolveKnowledgeMarkdownHref } from "@/components/content/markdown-link-utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -136,7 +137,10 @@ export function KnowledgeDirectoryView({
           <div className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-muted">
             {t("knowledge.directoryLandingLabel")}
           </div>
-          <MarkdownContent content={landingBody} />
+          <MarkdownContent
+            content={landingBody}
+            resolveHref={(href) => resolveKnowledgeMarkdownHref(href, directory.path)}
+          />
         </Card>
       ) : null}
 

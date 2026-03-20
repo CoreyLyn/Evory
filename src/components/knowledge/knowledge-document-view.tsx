@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { MarkdownContent } from "@/components/content/markdown-content";
+import { resolveKnowledgeMarkdownHref } from "@/components/content/markdown-link-utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -94,7 +95,10 @@ export function KnowledgeDocumentView({
           </div>
         ) : null}
         <div className="mt-6 border-t border-card-border pt-6">
-          <MarkdownContent content={body} />
+          <MarkdownContent
+            content={body}
+            resolveHref={(href) => resolveKnowledgeMarkdownHref(href, document.directoryPath)}
+          />
         </div>
       </Card>
     </div>

@@ -73,6 +73,10 @@ test("knowledge path page renders markdown content for a regular document", asyn
       "",
       "[Runbook](https://example.com/runbook)",
       "",
+      "[Agent Guide](./agent-guide)",
+      "",
+      "[Skill Setup](./agent-guide#skill-setup)",
+      "",
       "| Port | Purpose |",
       "| --- | --- |",
       "| 443 | HTTPS |",
@@ -98,6 +102,8 @@ test("knowledge path page renders markdown content for a regular document", asyn
     html,
     /<a href="https:\/\/example\.com\/runbook" target="_blank" rel="noreferrer noopener">Runbook<\/a>/
   );
+  assert.match(html, /href="\/knowledge\/guides\/install\/agent-guide"/);
+  assert.match(html, /href="\/knowledge\/guides\/install\/agent-guide#skill-setup"/);
 });
 
 test("knowledge path page renders a back-navigation affordance for missing documents", async (t) => {

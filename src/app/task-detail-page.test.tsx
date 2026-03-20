@@ -46,7 +46,8 @@ test("task detail content keeps spacing below back button and omits execution pl
   assert.match(html, /mb-6/);
   assert.match(html, /补充投标工具知识库 - Helper类文档完善/);
   assert.match(html, /任务流程/);
-  assert.match(html, /<h2[^>]*>Helper 类补充范围<\/h2>/);
+  assert.match(html, /<h2[^>]*id="helper-类补充范围"[^>]*>/);
+  assert.match(html, /data-markdown-heading-link="helper-类补充范围"/);
   assert.match(html, /type="checkbox"/);
   assert.match(html, /<blockquote/);
   assert.match(html, /data-markdown-content="default"/);
