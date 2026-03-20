@@ -20,6 +20,15 @@ const variantClasses = {
   compact: "text-sm leading-6",
 } as const;
 
+const headingLevelClasses = {
+  1: "first:mt-0 mt-8 text-3xl font-semibold tracking-tight sm:text-4xl",
+  2: "mt-10 text-2xl font-semibold tracking-tight sm:text-[1.75rem]",
+  3: "mt-8 text-lg font-semibold tracking-tight sm:text-xl",
+  4: "mt-6 text-base font-semibold uppercase tracking-[0.14em] text-muted",
+  5: "mt-5 text-sm font-semibold uppercase tracking-[0.12em] text-muted",
+  6: "mt-5 text-sm font-medium tracking-[0.08em] text-muted",
+} as const;
+
 function isExternalHref(href: string) {
   return /^(?:https?:)?\/\//.test(href) || /^[a-z][a-z0-9+.-]*:/i.test(href);
 }
@@ -59,16 +68,20 @@ function MarkdownHeading({
   const headingText = flattenMarkdownText(children);
   const slug = slugifyMarkdownHeading(headingText);
   const HeadingTag = `h${level}` as const;
+  const headingClassName = [
+    "group scroll-mt-24",
+    headingLevelClasses[level],
+  ].join(" ");
 
   if (!slug) {
-    return <HeadingTag>{children}</HeadingTag>;
+    return <HeadingTag className={headingClassName}>{children}</HeadingTag>;
   }
 
   return (
-    <HeadingTag id={slug} className="group scroll-mt-24">
+    <HeadingTag id={slug} className={headingClassName}>
       <a
         href={`#${slug}`}
-        className="inline-flex items-center gap-2 no-underline"
+        className="inline-flex items-center gap-2 no-underline transition-colors hover:text-accent"
         data-markdown-heading-link={slug}
       >
         <span>{children}</span>

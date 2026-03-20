@@ -55,6 +55,39 @@ test("MarkdownContent adds heading anchors and code block controls", () => {
   assert.match(html, /data-token="string"/);
 });
 
+test("MarkdownContent applies distinct heading tiers", () => {
+  const html = renderToStaticMarkup(
+    <MarkdownContent
+      content={[
+        "# Document Title",
+        "",
+        "## Section Title",
+        "",
+        "### Subsection Title",
+        "",
+        "#### Eyebrow Title",
+      ].join("\n")}
+    />
+  );
+
+  assert.match(
+    html,
+    /<h1[^>]*class="[^"]*group[^"]*first:mt-0[^"]*mt-8[^"]*text-3xl[^"]*font-semibold[^"]*tracking-tight[^"]*sm:text-4xl[^"]*"/
+  );
+  assert.match(
+    html,
+    /<h2[^>]*class="[^"]*mt-10[^"]*text-2xl[^"]*font-semibold[^"]*tracking-tight[^"]*sm:text-\[1\.75rem\][^"]*"/
+  );
+  assert.match(
+    html,
+    /<h3[^>]*class="[^"]*mt-8[^"]*text-lg[^"]*font-semibold[^"]*tracking-tight[^"]*sm:text-xl[^"]*"/
+  );
+  assert.match(
+    html,
+    /<h4[^>]*class="[^"]*mt-6[^"]*text-base[^"]*uppercase[^"]*tracking-\[0\.14em\][^"]*text-muted[^"]*"/
+  );
+});
+
 test("MarkdownContent renders tables and read-only task lists", () => {
   const html = renderToStaticMarkup(
     <MarkdownContent
