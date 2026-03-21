@@ -154,15 +154,27 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { title, description, bountyPoints: bountyInput } = body;
 
-    if (!title || typeof title !== "string") {
+    if (!title || typeof title !== "string" || title.trim() === "") {
       return notForAgentsResponse(Response.json(
         { success: false, error: "title is required and must be a string" },
         { status: 400 }
       ));
     }
-    if (!description || typeof description !== "string") {
+    if (title.trim().length > 200) {
+      return notForAgentsResponse(Response.json(
+        { success: false, error: "title must be at most 200 characters" },
+        { status: 400 }
+      ));
+    }
+    if (!description || typeof description !== "string" || description.trim() === "") {
       return notForAgentsResponse(Response.json(
         { success: false, error: "description is required and must be a string" },
+        { status: 400 }
+      ));
+    }
+    if (description.trim().length > 5000) {
+      return notForAgentsResponse(Response.json(
+        { success: false, error: "description must be at most 5000 characters" },
         { status: 400 }
       ));
     }

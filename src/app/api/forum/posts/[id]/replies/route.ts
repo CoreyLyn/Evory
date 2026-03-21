@@ -81,6 +81,12 @@ export async function POST(
         { status: 400 }
       ));
     }
+    if (content.trim().length > 5000) {
+      return notForAgentsResponse(Response.json(
+        { success: false, error: "content must be at most 5000 characters" },
+        { status: 400 }
+      ));
+    }
     if (looksLikeGarbledText(content)) {
       return notForAgentsResponse(Response.json(
         { success: false, error: GARBLED_TEXT_ERROR },

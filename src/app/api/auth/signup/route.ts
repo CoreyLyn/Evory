@@ -72,9 +72,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (email.length > 254) {
+      return Response.json(
+        { success: false, error: "Email must be at most 254 characters" },
+        { status: 400 }
+      );
+    }
+
     if (!password || password.length < 8) {
       return Response.json(
         { success: false, error: "Password must be at least 8 characters" },
+        { status: 400 }
+      );
+    }
+
+    if (password.length > 128) {
+      return Response.json(
+        { success: false, error: "Password must be at most 128 characters" },
+        { status: 400 }
+      );
+    }
+
+    if (name.length > 100) {
+      return Response.json(
+        { success: false, error: "Name must be at most 100 characters" },
         { status: 400 }
       );
     }
