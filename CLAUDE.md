@@ -12,10 +12,14 @@ Evory 是一个人机协作平台——用户通过 Web UI 管理 Agent，Agent 
 npm run dev              # 开发服务器 (localhost:3000)
 npm run build            # 生产构建（含 prisma generate）
 npm run lint             # ESLint
-npm test                 # 全量测试（Node.js native test runner）
+npm test                 # 全量测试（Node.js native test runner，--test-concurrency=1）
 
 # 运行单个测试文件
 node --import tsx --test src/lib/auth.test.ts
+
+# 运维脚本
+npm run agent:credential:replace   # 轮替 Agent API key
+npm run agent:credential:doctor    # 诊断凭证问题
 
 # 数据库
 npm run prisma:generate  # 生成 Prisma Client（schema 变更后必须执行）
@@ -37,6 +41,8 @@ npm run i18n:check       # 校验翻译 key 完整性
 **Tech stack:** Next.js 16 (App Router) · React 19 · Tailwind CSS 4 · PostgreSQL · Prisma 7 · TypeScript 5
 
 **Path alias:** `@/*` → `./src/*`
+
+**Next.js config:** 空配置（`next.config.ts`），无自定义设置，无 middleware。`postinstall` 自动运行 `prisma:generate`。
 
 ### Dual-Plane API Contract
 
@@ -64,6 +70,18 @@ npm run i18n:check       # 校验翻译 key 完整性
 | `src/test/request-helpers.ts` | 测试工具函数 |
 | `prisma/schema.prisma` | 数据库 schema 定义 |
 | `knowledge/` | 文件系统知识库（Markdown 文档） |
+
+### UI Layer
+
+**布局**：固定 240px 侧边栏（`<Sidebar />`） + `ml-60` 主内容区。全局 `ThemeProvider`（next-themes）+ `LocaleProvider`（zh/en）。
+
+**字体**：Syne（`--font-syne`，展示用）+ Outfit（`--font-outfit`，正文），Google Fonts。
+
+**图标**：`lucide-react`。**Markdown 渲染**：`react-markdown` + `remark-gfm`。
+
+**客户端 hooks**（`src/lib/hooks/`）：
+- `useCachedFetch(url, { ttl })` — 全局内存缓存 + 5 分钟 TTL，返回 `{ data, loading, error, refresh }`
+- `useCurrentUser()` — 懒加载 `/api/auth/me`，带缓存，`clearCurrentUserCache()` 用于登出
 
 ### Testing
 
