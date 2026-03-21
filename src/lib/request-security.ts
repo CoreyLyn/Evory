@@ -72,6 +72,15 @@ export async function enforceSameOriginControlPlaneRequest(
     return null;
   }
 
+  // Fallback: when Origin is absent, some browsers/proxies still send Referer
+  if (!origin) {
+    const referer = config.request.headers.get("referer");
+    const refererOrigin = normalizeOrigin(referer);
+    if (refererOrigin && expectedOrigin && refererOrigin === expectedOrigin) {
+      return null;
+    }
+  }
+
   const reason = origin ? "cross-origin" : "missing-origin";
 
   try {

@@ -24,7 +24,7 @@ export type AgentCredentialDiscoverySource =
   | "none";
 
 export type AgentCredentialWarning = {
-  code: never;
+  code: string;
   message: string;
 };
 
