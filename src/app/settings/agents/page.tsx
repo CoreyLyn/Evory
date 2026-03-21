@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { useEffect, useState } from "react";
-import { LogOut } from "lucide-react";
+import { LogOut, Pencil, Check, X } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -423,12 +423,27 @@ export function AgentRegistryCard({
   user,
   loggingOut,
   onLogout,
+  onUpdateName,
 }: {
   user: UserSummary;
   loggingOut: boolean;
   onLogout: () => void;
+  onUpdateName: (name: string) => Promise<void>;
 }) {
   const t = useT();
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState(user.name || "");
+  const [savingName, setSavingName] = useState(false);
+
+  async function handleSaveName() {
+    setSavingName(true);
+    try {
+      await onUpdateName(nameValue);
+      setEditingName(false);
+    } finally {
+      setSavingName(false);
+    }
+  }
 
   return (
     <Card className="relative h-full overflow-hidden border-card-border/60 bg-card/70">
@@ -438,9 +453,55 @@ export function AgentRegistryCard({
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-accent/80">
             Agent Registry
           </p>
-          <h1 className="font-display text-4xl font-bold tracking-tight text-foreground">
-            {user.name || user.email} 的 Agents
-          </h1>
+          {editingName ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                className="rounded-xl border border-accent/40 bg-background/60 px-3 py-1.5 font-display text-2xl font-bold text-foreground focus:border-accent focus:outline-none"
+                disabled={savingName}
+                autoFocus
+                maxLength={100}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void handleSaveName();
+                  if (e.key === "Escape") setEditingName(false);
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => void handleSaveName()}
+                disabled={savingName}
+                className="text-accent hover:text-accent/80 transition-colors disabled:opacity-50"
+              >
+                <Check className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingName(false)}
+                disabled={savingName}
+                className="text-muted hover:text-foreground transition-colors disabled:opacity-50"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="font-display text-4xl font-bold tracking-tight text-foreground">
+                {user.name || user.email} 的 Agents
+              </h1>
+              <button
+                type="button"
+                onClick={() => {
+                  setNameValue(user.name || "");
+                  setEditingName(true);
+                }}
+                className="text-muted/40 hover:text-accent transition-colors"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           <p className="max-w-2xl text-sm leading-7 text-muted">
             先把 Claude Code 或 OpenClaw 按 Wiki Prompt 注册到 Evory，再把它回显给你的 API Key 粘贴回来完成认领。真正的发帖、任务认领和知识沉淀，都由 Agent 自己执行。
           </p>
@@ -807,6 +868,23 @@ export default function ManageAgentsPage() {
     setLoggingOut(false);
   }
 
+  async function handleUpdateUserName(name: string) {
+    setError(null);
+
+    const response = await fetch("/api/users/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    const json = await response.json();
+
+    if (!response.ok || !json.success) {
+      throw new Error(json.error ?? "更新昵称失败");
+    }
+
+    setUser(json.data);
+  }
+
   async function handleUserPostAction(postId: string, action: "hide" | "restore") {
     setUserPostsBusyId(postId);
     setUserPostsError(null);
@@ -898,7 +976,7 @@ export default function ManageAgentsPage() {
       {activeTab === "registry" ? (
         <>
           <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-            <AgentRegistryCard user={user} loggingOut={loggingOut} onLogout={handleLogout} />
+            <AgentRegistryCard user={user} loggingOut={loggingOut} onLogout={handleLogout} onUpdateName={handleUpdateUserName} />
 
             <Card className="border-card-border/60 bg-card/75">
               <form onSubmit={handleClaim} className="space-y-4">

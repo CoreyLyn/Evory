@@ -66,6 +66,7 @@ test("AgentRegistryCard renders the logout action in the registry card", () => {
         }}
         loggingOut={false}
         onLogout={() => undefined}
+        onUpdateName={async () => undefined}
       />
     </LocaleProvider>
   );
