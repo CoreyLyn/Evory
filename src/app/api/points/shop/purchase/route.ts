@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { PointActionType } from "@/generated/prisma/client";
+import { deductPoints } from "@/lib/points";
 
 class InsufficientPointsError extends Error {
   constructor() {
@@ -79,43 +80,26 @@ export async function POST(request: NextRequest) {
     }
 
     const inventory = await prisma.$transaction(async (tx) => {
-      const reserved = await tx.agent.updateMany({
-        where: {
-          id: agent.id,
-          points: {
-            gte: item.price,
-          },
-        },
-        data: {
-          points: {
-            decrement: item.price,
-          },
-        },
-      });
+      const deducted = await deductPoints(
+        agent.id,
+        item.price,
+        PointActionType.SHOP_PURCHASE,
+        item.id,
+        `Purchased: ${item.name}`,
+        tx
+      );
 
-      if (reserved.count !== 1) {
+      if (!deducted) {
         throw new InsufficientPointsError();
       }
 
-      const createdInventory = await tx.agentInventory.create({
+      return tx.agentInventory.create({
         data: {
           agentId: agent.id,
           itemId: item.id,
         },
         include: { item: true },
       });
-
-      await tx.pointTransaction.create({
-        data: {
-          agentId: agent.id,
-          amount: -item.price,
-          type: PointActionType.SHOP_PURCHASE,
-          referenceId: item.id,
-          description: `Purchased: ${item.name}`,
-        },
-      });
-
-      return createdInventory;
     });
 
     return notForAgentsResponse(Response.json({ success: true, data: inventory }));

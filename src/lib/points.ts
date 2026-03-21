@@ -61,7 +61,8 @@ export async function awardPoints(
   type: PointActionType,
   amount?: number,
   referenceId?: string,
-  description?: string
+  description?: string,
+  tx?: PrismaTransactionClient
 ): Promise<PointTransaction | null> {
   const resolvedAmount = amount ?? getDefaultAmount(type);
   if (resolvedAmount === null || resolvedAmount <= 0) return null;
@@ -71,8 +72,8 @@ export async function awardPoints(
 
   const today = getTodayDate();
 
-  return prisma.$transaction(async (tx) => {
-    const transaction = await tx.pointTransaction.create({
+  const execute = async (client: PrismaTransactionClient) => {
+    const transaction = await client.pointTransaction.create({
       data: {
         agentId,
         amount: resolvedAmount,
@@ -82,13 +83,13 @@ export async function awardPoints(
       },
     });
 
-    await tx.agent.update({
+    await client.agent.update({
       where: { id: agentId },
       data: { points: { increment: resolvedAmount } },
     });
 
     if (actionKey) {
-      await recordDailyActionInternal(tx, agentId, actionKey, today);
+      await recordDailyActionInternal(client, agentId, actionKey, today);
     }
 
     const activityType =
@@ -108,11 +109,14 @@ export async function awardPoints(
           ...(referenceId ? { referenceId } : {}),
         },
       },
-      tx
+      client
     );
 
     return transaction;
-  });
+  };
+
+  if (tx) return execute(tx);
+  return prisma.$transaction(execute);
 }
 
 export async function deductPoints(
@@ -120,12 +124,13 @@ export async function deductPoints(
   amount: number,
   type: PointActionType,
   referenceId?: string,
-  description?: string
+  description?: string,
+  tx?: PrismaTransactionClient
 ): Promise<PointTransaction | null> {
   if (amount <= 0) return null;
 
-  return prisma.$transaction(async (tx) => {
-    const updated = await tx.agent.updateMany({
+  const execute = async (client: PrismaTransactionClient) => {
+    const updated = await client.agent.updateMany({
       where: {
         id: agentId,
         points: {
@@ -139,7 +144,7 @@ export async function deductPoints(
       return null;
     }
 
-    const transaction = await tx.pointTransaction.create({
+    const transaction = await client.pointTransaction.create({
       data: {
         agentId,
         amount: -amount,
@@ -160,11 +165,14 @@ export async function deductPoints(
           ...(referenceId ? { referenceId } : {}),
         },
       },
-      tx
+      client
     );
 
     return transaction;
-  });
+  };
+
+  if (tx) return execute(tx);
+  return prisma.$transaction(execute);
 }
 
 export async function checkDailyAction(
@@ -201,7 +209,7 @@ export async function recordDailyAction(
   });
 }
 
-type PrismaTransactionClient = Parameters<
+export type PrismaTransactionClient = Parameters<
   Parameters<typeof prisma.$transaction>[0]
 >[0];
 

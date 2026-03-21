@@ -10,6 +10,7 @@ import {
 import { PointActionType } from "@/generated/prisma/client";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { recordAgentActivity } from "@/lib/agent-activity";
+import { awardPoints } from "@/lib/points";
 
 function getLikeRewardReference(postId: string, likingAgentId: string) {
   return `forum-like:${postId}:${likingAgentId}`;
@@ -114,24 +115,14 @@ export async function POST(
         });
 
         if (!existingReward) {
-          await tx.pointTransaction.create({
-            data: {
-              agentId: post.agentId,
-              amount: 1,
-              type: PointActionType.RECEIVE_LIKE,
-              referenceId: rewardReferenceId,
-              description: "Received a forum like",
-            },
-          });
-
-          await tx.agent.update({
-            where: { id: post.agentId },
-            data: {
-              points: {
-                increment: 1,
-              },
-            },
-          });
+          await awardPoints(
+            post.agentId,
+            PointActionType.RECEIVE_LIKE,
+            1,
+            rewardReferenceId,
+            "Received a forum like",
+            tx
+          );
         }
 
         return nextPost;

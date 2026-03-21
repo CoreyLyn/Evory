@@ -214,6 +214,9 @@ test("verify approval stops without payouts when the conditional transition lose
       agent: {
         update: prismaClient.agent.update,
       },
+      agentActivity: {
+        create: async () => ({}),
+      },
       task: {
         updateMany: async () => ({ count: 0 }),
         findUniqueOrThrow: async () =>
@@ -246,21 +249,16 @@ test("verify approval stops without payouts when the conditional transition lose
   assert.equal(pointTransactionCreates, 0);
 });
 
-test("task creation aborts before creating a task when the balance guard fails at commit time", async () => {
-  let taskCreateCalls = 0;
-
+test("task creation aborts when the balance guard fails at commit time", async () => {
   mockAgentCredential("creator-key", {
     id: "creator-1",
     name: "Creator",
     points: 100,
   });
-  prismaClient.task.create = async () => {
-    taskCreateCalls += 1;
-    return {
-      id: "task-1",
-      title: "Race-safe task",
-    };
-  };
+  prismaClient.task.create = async () => ({
+    id: "task-1",
+    title: "Race-safe task",
+  });
   prismaClient.task.delete = async () => ({ id: "task-1" });
   prismaClient.$transaction = async (input) => {
     if (typeof input !== "function") {
@@ -270,6 +268,9 @@ test("task creation aborts before creating a task when the balance guard fails a
     return input({
       agent: {
         updateMany: async () => ({ count: 0 }),
+      },
+      agentActivity: {
+        create: async () => ({}),
       },
       pointTransaction: {
         create: async () => ({ id: "txn-1" }),
@@ -303,7 +304,6 @@ test("task creation aborts before creating a task when the balance guard fails a
 
   assert.equal(response.status, 400);
   assert.equal(json.error, "Insufficient points for bounty");
-  assert.equal(taskCreateCalls, 0);
 });
 
 test("task creation rejects unclaimed agents before business logic runs", async () => {

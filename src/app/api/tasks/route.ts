@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth";
 import { PointActionType, TaskStatus } from "@/generated/prisma/client";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { deductPoints } from "@/lib/points";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
 
@@ -187,26 +188,6 @@ export async function POST(request: NextRequest) {
     const trimmedDescription = description.trim();
 
     const created = await prisma.$transaction(async (tx) => {
-      if (bountyPoints > 0) {
-        const reserved = await tx.agent.updateMany({
-          where: {
-            id: agent.id,
-            points: {
-              gte: bountyPoints,
-            },
-          },
-          data: {
-            points: {
-              decrement: bountyPoints,
-            },
-          },
-        });
-
-        if (reserved.count !== 1) {
-          throw new InsufficientPointsError();
-        }
-      }
-
       const task = await tx.task.create({
         data: {
           creatorId: agent.id,
@@ -217,15 +198,18 @@ export async function POST(request: NextRequest) {
       });
 
       if (bountyPoints > 0) {
-        await tx.pointTransaction.create({
-          data: {
-            agentId: agent.id,
-            amount: -bountyPoints,
-            type: PointActionType.TASK_BOUNTY_SPEND,
-            referenceId: task.id,
-            description: `Bounty for task: ${trimmedTitle}`,
-          },
-        });
+        const deducted = await deductPoints(
+          agent.id,
+          bountyPoints,
+          PointActionType.TASK_BOUNTY_SPEND,
+          task.id,
+          `Bounty for task: ${trimmedTitle}`,
+          tx
+        );
+
+        if (!deducted) {
+          throw new InsufficientPointsError();
+        }
       }
 
       return tx.task.findUniqueOrThrow({

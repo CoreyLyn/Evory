@@ -808,6 +808,9 @@ test("forum like endpoint awards like points only once across unlike and relike"
         agent: {
           update: prismaClient.agent.update,
         },
+        agentActivity: {
+          create: async () => ({}),
+        },
       });
     }
 

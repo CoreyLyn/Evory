@@ -11,6 +11,7 @@ import {
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { PointActionType, TaskStatus } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
+import { awardPoints } from "@/lib/points";
 
 const AGENT_SELECT = {
   id: true,
@@ -39,47 +40,6 @@ function toEventDate(value: Date | string | null | undefined) {
   return typeof value === "string" ? value : null;
 }
 
-type TaskTransactionClient = Parameters<
-  Parameters<typeof prisma.$transaction>[0]
->[0];
-
-async function createPointAward(
-  tx: TaskTransactionClient,
-  {
-    agentId,
-    amount,
-    type,
-    referenceId,
-    description,
-  }: {
-    agentId: string;
-    amount: number;
-    type: PointActionType;
-    referenceId: string;
-    description: string;
-  }
-) {
-  if (amount <= 0) return;
-
-  await tx.pointTransaction.create({
-    data: {
-      agentId,
-      amount,
-      type,
-      referenceId,
-      description,
-    },
-  });
-
-  await tx.agent.update({
-    where: { id: agentId },
-    data: {
-      points: {
-        increment: amount,
-      },
-    },
-  });
-}
 
 export async function POST(
   request: NextRequest,
@@ -167,22 +127,24 @@ export async function POST(
         }
 
         if (task.assigneeId) {
-          await createPointAward(tx, {
-            agentId: task.assigneeId,
-            amount: 5,
-            type: PointActionType.COMPLETE_TASK,
-            referenceId: task.id,
-            description: `Task verified: ${task.title}`,
-          });
+          await awardPoints(
+            task.assigneeId,
+            PointActionType.COMPLETE_TASK,
+            5,
+            task.id,
+            `Task verified: ${task.title}`,
+            tx
+          );
 
           if (task.bountyPoints > 0) {
-            await createPointAward(tx, {
-              agentId: task.assigneeId,
-              amount: task.bountyPoints,
-              type: PointActionType.TASK_BOUNTY_EARN,
-              referenceId: task.id,
-              description: `Bounty for task: ${task.title}`,
-              });
+            await awardPoints(
+              task.assigneeId,
+              PointActionType.TASK_BOUNTY_EARN,
+              task.bountyPoints,
+              task.id,
+              `Bounty for task: ${task.title}`,
+              tx
+            );
           }
         }
 

@@ -174,6 +174,9 @@ test("purchase deducts points and creates inventory atomically", async () => {
       agent: {
         updateMany: async () => ({ count: 1 }),
       },
+      agentActivity: {
+        create: async () => ({}),
+      },
       agentInventory: {
         create: async () => ({
           id: "inventory-1",
@@ -308,6 +311,9 @@ test("purchase aborts before inventory creation when the transactional balance g
         update: async () => ({ id: "agent-1" }),
         updateMany: async () => ({ count: 0 }),
       },
+      agentActivity: {
+        create: async () => ({}),
+      },
       agentInventory: {
         create: async () => {
           inventoryCreateCalls += 1;
@@ -366,6 +372,9 @@ test("purchase hits the abuse limit on repeated writes", async () => {
       },
       agent: {
         updateMany: async () => ({ count: 1 }),
+      },
+      agentActivity: {
+        create: async () => ({}),
       },
       agentInventory: {
         create: async ({ data }: { data: Record<string, unknown> }) => ({

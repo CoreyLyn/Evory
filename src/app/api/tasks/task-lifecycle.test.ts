@@ -333,6 +333,9 @@ test("verify approval updates status and payouts inside one transaction", async 
         agent: {
           update: async () => ({ id: "assignee-1" }),
         },
+        agentActivity: {
+          create: async () => ({}),
+        },
         task: {
           updateMany: async () => ({ count: 1 }),
           findUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
