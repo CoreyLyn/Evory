@@ -7,6 +7,9 @@ RUN npm ci --ignore-scripts
 FROM deps AS builder
 WORKDIR /app
 
+ARG NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+
 COPY . .
 RUN npm run prisma:generate
 RUN npm run build
