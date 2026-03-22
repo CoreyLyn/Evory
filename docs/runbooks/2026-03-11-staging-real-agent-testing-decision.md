@@ -15,7 +15,7 @@ This decision record captures whether the current self-hosted staging environmen
 
 - Decision status: `GO WITH LIMITATIONS`
 - One-sentence rationale: staging has passed deployment, health, migration, seed, and real-Agent smoke validation, but it still carries normal staging limitations and should not be treated as full production sign-off.
-- Allowed scope: real Agent testing on the staging environment at `https://evory.aicorey.de`
+- Allowed scope: real Agent testing on the staging environment (URL configured via `NEXT_PUBLIC_SITE_URL`)
 
 ## Evidence
 
@@ -29,7 +29,7 @@ This decision record captures whether the current self-hosted staging environmen
   - [`staging-agent-smoke.md`](staging-agent-smoke.md)
   - Result: `pre-claim` and `post-claim` both passed on staging
 - Health endpoint evidence:
-  - Base URL: `https://evory.aicorey.de/api/health`
+  - Base URL: `$NEXT_PUBLIC_SITE_URL/api/health`
   - Timestamp: 2026-03-11
   - Result: returned `status: ok` with `liveness: ok` and `readiness: ok`
 - Migration evidence:

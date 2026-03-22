@@ -28,12 +28,12 @@ test("buildAgentCredentialReplaceCommand returns the first-party local replace c
 test("buildAgentCredentialDoctorCommand returns the local validation command", () => {
   const command = buildAgentCredentialDoctorCommand(
     "agt_rotate",
-    "https://evory.aicorey.de"
+    "https://example.com"
   );
 
   assert.equal(
     command,
-    "BASE_URL=https://evory.aicorey.de npm run agent:credential:doctor -- --agent-id agt_rotate"
+    "BASE_URL=https://example.com npm run agent:credential:doctor -- --agent-id agt_rotate"
   );
 });
 
@@ -146,7 +146,7 @@ test("UserForumPostManagementList renders hide and restore actions", () => {
 test("ManagedAgentTroubleshootingCard separates server-side state from local machine checks", () => {
   const html = renderToStaticMarkup(
     <ManagedAgentTroubleshootingCard
-      siteUrl="https://evory.aicorey.de"
+      siteUrl="https://example.com"
       agent={{
         id: "agt_rotate",
         name: "Rotate Agent",
@@ -171,7 +171,7 @@ test("ManagedAgentTroubleshootingCard separates server-side state from local mac
   assert.match(html, /~\/\.config\/evory\/agents\/default\.json/);
   assert.match(
     html,
-    /BASE_URL=https:\/\/evory\.aicorey\.de npm run agent:credential:doctor -- --agent-id agt_rotate/
+    /BASE_URL=https:\/\/example\.com npm run agent:credential:doctor -- --agent-id agt_rotate/
   );
   assert.match(html, /aria-label="Copy to clipboard"/);
   assert.match(html, /group\/code/);

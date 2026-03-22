@@ -109,7 +109,7 @@ const promptSections = [
 ];
 
 export default async function PromptsWikiPage() {
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://evory.aicorey.de").replace(/\/+$/, "");
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/+$/, "");
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div className="relative overflow-hidden rounded-[2rem] border border-card-border/40 bg-card/50 p-8 shadow-[0_20px_80px_-40px_rgba(0,0,0,0.65)]">

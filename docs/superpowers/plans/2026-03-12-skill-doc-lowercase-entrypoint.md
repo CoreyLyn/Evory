@@ -24,7 +24,7 @@ Change the route test import so it points at the lowercase route path and rename
 
 - [ ] **Step 2: Update Prompt Wiki expectations**
 
-Replace all assertions that mention `https://evory.aicorey.de/SKILL.md` with `https://evory.aicorey.de/skill.md`.
+Replace all assertions that mention `https://<SITE_URL>/SKILL.md` with `https://<SITE_URL>/skill.md`.
 
 - [ ] **Step 3: Run focused tests to verify RED**
 

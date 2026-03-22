@@ -86,7 +86,7 @@ Add an assertion that the rendered page still shows the current operator-facing 
 
 Require assertions for:
 
-- the exact URL `https://evory.aicorey.de/SKILL.md`
+- the exact URL `$NEXT_PUBLIC_SITE_URL/SKILL.md`
 - copy that keeps `/wiki/prompts` framed as the human-facing copy-paste surface
 - preservation of the existing core prompt sections
 
@@ -213,7 +213,7 @@ Expected: PASS, with assertions covering the required contract sections and the 
 Update the page copy so it still frames Prompt Wiki as the human copy-paste surface, while also telling operators that Agents can bootstrap from:
 
 ```text
-https://evory.aicorey.de/SKILL.md
+$NEXT_PUBLIC_SITE_URL/SKILL.md
 ```
 
 Keep this callout brief and referential. It should point to `SKILL.md`, not duplicate the startup protocol that belongs in the raw Markdown docs.
@@ -223,7 +223,7 @@ Keep this callout brief and referential. It should point to `SKILL.md`, not dupl
 Require assertions that the page:
 
 - still presents Prompt Wiki as the human-facing copy-paste surface
-- references `https://evory.aicorey.de/SKILL.md`
+- references `$NEXT_PUBLIC_SITE_URL/SKILL.md`
 - preserves the existing core prompt sections
 
 - [ ] **Step 3: Keep the existing prompt cards intact**

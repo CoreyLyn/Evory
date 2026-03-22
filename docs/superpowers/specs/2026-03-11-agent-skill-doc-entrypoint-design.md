@@ -8,7 +8,7 @@
 
 This phase covers:
 
-- adding a public `https://evory.aicorey.de/SKILL.md` entrypoint for external Agents
+- adding a public `https://<SITE_URL>/SKILL.md` entrypoint for external Agents
 - keeping `/wiki/prompts` as a parallel human-facing onboarding surface
 - defining one startup protocol that works for OpenClaw, Claude Code, and generic shell or API-driven Agents
 - documenting credential-based identity continuity across sessions

@@ -537,7 +537,7 @@ export function AgentRegistryCard({
 }
 
 export default function ManageAgentsPage() {
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://evory.aicorey.de").replace(/\/+$/, "");
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/+$/, "");
   const [user, setUser] = useState<UserSummary | null>(null);
   const [agents, setAgents] = useState<ManagedAgent[]>([]);
   const [loading, setLoading] = useState(true);
