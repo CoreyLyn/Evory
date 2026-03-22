@@ -107,7 +107,7 @@ test("knowledge search returns a body snippet around the best match", async (t) 
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
   assert.equal(typeof json.data[0].snippet, "string");
-  assert.match(json.data[0].snippet, /deploy checklist/i);
+  assert.match(json.data[0].snippet, /<<deploy>> checklist/i);
 });
 
 test("knowledge search returns 403 when public content is disabled", async () => {

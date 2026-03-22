@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-import { authenticateAgentContext, unauthorizedResponse } from "@/lib/auth";
+import { authenticateAgentContext, unauthorizedResponse, agentContextHasScope, forbiddenAgentScopeResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { setAgentStatus } from "@/lib/agent-status";
 import { handleKnowledgeTreeGet } from "@/app/api/knowledge/tree/route";
@@ -9,12 +9,15 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const agentContext = await authenticateAgentContext(request);
-  const agent = agentContext?.agent ?? null;
+  if (!agentContext) return officialAgentResponse(unauthorizedResponse());
+  if (!agentContextHasScope(agentContext, "knowledge:read")) {
+    return officialAgentResponse(forbiddenAgentScopeResponse("knowledge:read"));
+  }
 
-  if (!agent) return officialAgentResponse(unauthorizedResponse());
+  const agent = agentContext.agent;
 
   const response = await handleKnowledgeTreeGet(request, {
-    viewerRole: agentContext?.ownerRole ?? null,
+    viewerRole: agentContext.ownerRole ?? null,
   });
 
   if (response.ok) {

@@ -1,4 +1,5 @@
 import { getKnowledgeBase } from "./service";
+import { tokenizeToSet, tokenOverlapRatio } from "./tokenizer";
 import { markdownToPlainText } from "@/lib/markdown-summary";
 import type {
   KnowledgeDirectoryNode,
@@ -15,6 +16,7 @@ export type KnowledgeDirectoryResponse = KnowledgeDirectoryNode & {
 
 export type KnowledgeDocumentResponse = KnowledgeDocument & {
   kind: "document";
+  relatedDocuments: KnowledgeDocumentPreview[];
 };
 
 const KNOWLEDGE_BASE_AGENT = {
@@ -58,7 +60,18 @@ function buildKnowledgeSearchSnippet(document: KnowledgeDocument, rawQuery: stri
 
   const bodyText = markdownToPlainText(bodySource);
   const normalizedBody = bodyText.toLocaleLowerCase();
-  const matchIndex = normalizedBody.indexOf(query);
+  let matchIndex = normalizedBody.indexOf(query);
+
+  if (matchIndex === -1) {
+    const queryTokens = tokenizeToSet(query);
+    for (const token of queryTokens) {
+      const tokenIndex = normalizedBody.indexOf(token);
+      if (tokenIndex !== -1) {
+        matchIndex = tokenIndex;
+        break;
+      }
+    }
+  }
 
   if (matchIndex === -1) {
     if (document.summary.toLocaleLowerCase().includes(query)) {
@@ -67,13 +80,37 @@ function buildKnowledgeSearchSnippet(document: KnowledgeDocument, rawQuery: stri
     return bodyText || document.summary;
   }
 
-  const windowSize = 72;
+  const windowSize = 200;
   const start = Math.max(0, matchIndex - windowSize / 2);
   const end = Math.min(bodyText.length, matchIndex + query.length + windowSize / 2);
   const prefix = start > 0 ? "..." : "";
   const suffix = end < bodyText.length ? "..." : "";
 
-  return `${prefix}${bodyText.slice(start, end).trim()}${suffix}`;
+  let snippetText = bodyText.slice(start, end).trim();
+
+  const queryTokens = tokenizeToSet(query);
+  const termsToHighlight = new Set<string>();
+  if (normalizedBody.slice(start, end).includes(query)) {
+    termsToHighlight.add(query);
+  }
+  for (const token of queryTokens) {
+    if (token && !termsToHighlight.has(token)) {
+      termsToHighlight.add(token);
+    }
+  }
+
+  if (termsToHighlight.size > 0) {
+    const sortedTerms = [...termsToHighlight].sort((a, b) => b.length - a.length);
+    const pattern = sortedTerms
+      .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("|");
+    snippetText = snippetText.replace(
+      new RegExp(pattern, "gi"),
+      (match) => `<<${match}>>`
+    );
+  }
+
+  return `${prefix}${snippetText}${suffix}`;
 }
 
 export function toKnowledgeDirectoryPreview(
@@ -112,6 +149,53 @@ export function findKnowledgeDocument(index: KnowledgeIndex, targetPath: string)
   return index.directoriesByPath.get(targetPath)?.document ?? null;
 }
 
+const DEFAULT_RELATED_LIMIT = 5;
+
+export function findRelatedDocuments(
+  index: KnowledgeIndex,
+  document: KnowledgeDocument,
+  limit: number = DEFAULT_RELATED_LIMIT
+): KnowledgeDocumentPreview[] {
+  const results: KnowledgeDocumentPreview[] = [];
+  const seen = new Set<string>([document.path]);
+
+  for (const relatedPath of document.related) {
+    if (results.length >= limit) break;
+    if (seen.has(relatedPath)) continue;
+    const relatedDoc = findKnowledgeDocument(index, relatedPath);
+    if (!relatedDoc) continue;
+    seen.add(relatedPath);
+    results.push(toKnowledgeDocumentPreview(relatedDoc));
+  }
+
+  if (results.length >= limit || document.tags.length === 0) return results;
+
+  const candidates: { doc: KnowledgeDocument; sharedTags: number }[] = [];
+  const docTagSet = new Set(document.tags.map((t) => t.toLocaleLowerCase()));
+
+  for (const [entryPath] of index.searchEntriesByPath) {
+    if (seen.has(entryPath)) continue;
+    const candidate = findKnowledgeDocument(index, entryPath);
+    if (!candidate) continue;
+
+    let sharedTags = 0;
+    for (const tag of candidate.tags) {
+      if (docTagSet.has(tag.toLocaleLowerCase())) sharedTags++;
+    }
+    if (sharedTags > 0) candidates.push({ doc: candidate, sharedTags });
+  }
+
+  candidates.sort((a, b) => b.sharedTags - a.sharedTags);
+
+  for (const { doc } of candidates) {
+    if (results.length >= limit) break;
+    seen.add(doc.path);
+    results.push(toKnowledgeDocumentPreview(doc));
+  }
+
+  return results;
+}
+
 export function findKnowledgePathPayload(
   index: KnowledgeIndex,
   targetPath: string
@@ -130,6 +214,7 @@ export function findKnowledgePathPayload(
   return {
     kind: "document",
     ...document,
+    relatedDocuments: findRelatedDocuments(index, document),
   };
 }
 
@@ -147,10 +232,25 @@ function getNormalizedBody(index: KnowledgeIndex, entryPath: string) {
   return normalizedBody;
 }
 
+function getTokenizedBody(index: KnowledgeIndex, entryPath: string): Set<string> {
+  const entry = index.searchEntriesByPath.get(entryPath);
+  if (!entry) return new Set();
+
+  if (entry.tokenizedBody) {
+    return entry.tokenizedBody;
+  }
+
+  const document = findKnowledgeDocument(index, entryPath);
+  const tokenizedBody = document ? tokenizeToSet(document.body) : new Set<string>();
+  entry.tokenizedBody = tokenizedBody;
+  return tokenizedBody;
+}
+
 function getSearchScore(
   index: KnowledgeIndex,
   entryPath: string,
-  query: string
+  query: string,
+  queryTokens: Set<string>
 ) {
   const entry = index.searchEntriesByPath.get(entryPath);
   if (!entry) return 0;
@@ -162,12 +262,26 @@ function getSearchScore(
   if (entry.normalizedTags.some((tag) => tag.includes(query))) score += 40;
   if (getNormalizedBody(index, entryPath).includes(query)) score += 10;
 
+  if (score > 0 || queryTokens.size === 0) return score;
+
+  const titleRatio = tokenOverlapRatio(queryTokens, entry.tokenizedTitle);
+  const summaryRatio = tokenOverlapRatio(queryTokens, entry.tokenizedSummary);
+  const tagRatio = tokenOverlapRatio(queryTokens, entry.tokenizedTags);
+  const bodyRatio = tokenOverlapRatio(queryTokens, getTokenizedBody(index, entryPath));
+
+  if (titleRatio > 0) score += Math.round(80 * titleRatio);
+  if (summaryRatio > 0) score += Math.round(30 * summaryRatio);
+  if (tagRatio > 0) score += Math.round(30 * tagRatio);
+  if (bodyRatio > 0) score += Math.round(8 * bodyRatio);
+
   return score;
 }
 
 export function searchKnowledgeDocuments(index: KnowledgeIndex, rawQuery: string) {
   const query = rawQuery.trim().toLocaleLowerCase();
   if (!query) return [];
+
+  const queryTokens = tokenizeToSet(query);
 
   return Array.from(index.searchEntriesByPath.keys())
     .map((entryPath) => ({
@@ -178,7 +292,7 @@ export function searchKnowledgeDocuments(index: KnowledgeIndex, rawQuery: string
     .map((entry) => ({
       entryPath: entry.entryPath,
       document: entry.document,
-      score: getSearchScore(index, entry.entryPath, query),
+      score: getSearchScore(index, entry.entryPath, query, queryTokens),
     }))
     .filter((entry) => entry.score > 0)
     .sort((left, right) => {

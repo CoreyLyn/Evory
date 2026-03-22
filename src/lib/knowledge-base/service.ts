@@ -2,6 +2,7 @@ import { stat } from "node:fs/promises";
 
 import { resolveKnowledgeBaseRoot, type KnowledgeBaseConfigOptions } from "./config";
 import { buildKnowledgeBaseIndex } from "./indexer";
+import { startKnowledgeBaseWatcher, stopKnowledgeBaseWatcher } from "./watcher";
 import type { KnowledgeBaseState } from "./types";
 
 type CachedKnowledgeBase = {
@@ -66,6 +67,11 @@ async function rebuildKnowledgeBase(
   try {
     const value = await buildKnowledgeBaseState(options, previousValue);
     cachedKnowledgeBase = { cacheKey, value, dirty: false };
+
+    if (value.status === "ready" && process.env.NODE_ENV !== "test") {
+      startKnowledgeBaseWatcher(value.rootDir);
+    }
+
     return value;
   } finally {
     rebuildInFlight = null;
@@ -156,4 +162,5 @@ export function resetKnowledgeBaseCacheForTests() {
   cachedKnowledgeBase = null;
   rebuildInFlight = null;
   buildObserverForTests = null;
+  stopKnowledgeBaseWatcher();
 }

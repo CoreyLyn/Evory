@@ -3,6 +3,7 @@ import path from "node:path";
 
 import matter from "gray-matter";
 
+import { tokenizeToSet } from "./tokenizer";
 import type {
   KnowledgeDirectoryNode,
   KnowledgeDocument,
@@ -26,6 +27,7 @@ type Frontmatter = {
   title?: unknown;
   summary?: unknown;
   tags?: unknown;
+  related?: unknown;
 };
 
 function titleize(input: string) {
@@ -122,6 +124,7 @@ function toDocument({
     title,
     summary,
     tags: toTags(data.tags),
+    related: toTags(data.related),
     directoryPath: isDirectoryIndex
       ? logicalPath
       : path.posix.dirname(logicalPath) === "."
@@ -143,6 +146,9 @@ function toSearchEntry(document: KnowledgeDocument): KnowledgeSearchEntry {
     normalizedTitle: document.title.toLocaleLowerCase(),
     normalizedSummary: document.summary.toLocaleLowerCase(),
     normalizedTags: document.tags.map((tag) => tag.toLocaleLowerCase()),
+    tokenizedTitle: tokenizeToSet(document.title),
+    tokenizedSummary: tokenizeToSet(document.summary),
+    tokenizedTags: tokenizeToSet(document.tags.join(" ")),
   };
 }
 

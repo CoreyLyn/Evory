@@ -5,6 +5,7 @@ export type KnowledgeDocument = {
   title: string;
   summary: string;
   tags: string[];
+  related: string[];
   directoryPath: string;
   body: string;
   isDirectoryIndex: boolean;
@@ -50,6 +51,10 @@ export type KnowledgeSearchEntry = {
   normalizedSummary: string;
   normalizedTags: string[];
   normalizedBody?: string;
+  tokenizedTitle: Set<string>;
+  tokenizedSummary: Set<string>;
+  tokenizedTags: Set<string>;
+  tokenizedBody?: Set<string>;
 };
 
 export type KnowledgeIndex = {

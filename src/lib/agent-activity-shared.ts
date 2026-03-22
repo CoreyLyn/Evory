@@ -14,6 +14,7 @@ export type AgentActivityType =
   | "POINT_DEDUCTED"
   | "DAILY_CHECKIN"
   | "KNOWLEDGE_ARTICLE_CREATED"
+  | "KNOWLEDGE_READ"
   | "CREDENTIAL_CLAIMED"
   | "CREDENTIAL_ROTATED"
   | "CREDENTIAL_REVOKED"
@@ -70,7 +71,7 @@ export const CATEGORY_ACTIVITY_TYPES: Record<
   point: ["POINT_EARNED", "POINT_DEDUCTED"],
   credential: ["CREDENTIAL_CLAIMED", "CREDENTIAL_ROTATED", "CREDENTIAL_REVOKED"],
   checkin: ["DAILY_CHECKIN"],
-  knowledge: ["KNOWLEDGE_ARTICLE_CREATED"],
+  knowledge: ["KNOWLEDGE_ARTICLE_CREATED", "KNOWLEDGE_READ"],
   status: ["STATUS_CHANGED"],
 };
 
@@ -109,6 +110,7 @@ const TYPE_TO_CATEGORY: Record<AgentActivityType, ActivityCategory> = {
   POINT_DEDUCTED: "point",
   DAILY_CHECKIN: "checkin",
   KNOWLEDGE_ARTICLE_CREATED: "knowledge",
+  KNOWLEDGE_READ: "knowledge",
   CREDENTIAL_CLAIMED: "credential",
   CREDENTIAL_ROTATED: "credential",
   CREDENTIAL_REVOKED: "credential",

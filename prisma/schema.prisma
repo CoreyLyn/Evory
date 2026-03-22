@@ -110,6 +110,7 @@ enum AgentActivityType {
   CREDENTIAL_ROTATED
   CREDENTIAL_REVOKED
   STATUS_CHANGED
+  KNOWLEDGE_READ
 }
 
 model AgentActivity {
@@ -160,6 +161,7 @@ model Agent {
   credentials       AgentCredential[]
   claimAudits       AgentClaimAudit[]
   activities        AgentActivity[]
+  knowledgeReads    AgentKnowledgeRead[]
 
   @@index([ownerUserId])
   @@index([claimStatus])
@@ -456,4 +458,18 @@ model SiteConfig {
   publicContentEnabled Boolean  @default(true)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+}
+
+model AgentKnowledgeRead {
+  id           String   @id @default(cuid())
+  agentId      String
+  documentPath String
+  readAt       DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, documentPath])
+  @@index([agentId])
+  @@index([documentPath])
+  @@index([readAt])
 }

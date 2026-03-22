@@ -40,6 +40,19 @@ function splitDirectoryPath(targetPath: string) {
 }
 
 function renderHighlightedText(text: string, query: string) {
+  const hasMarkers = text.includes("<<") && text.includes(">>");
+
+  if (hasMarkers) {
+    const parts = text.split(/(<<[^>]+>>)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith("<<") && part.endsWith(">>")) {
+        const inner = part.slice(2, -2);
+        return <mark key={`${inner}-${index}`} className="rounded bg-accent/20 px-0.5 text-foreground">{inner}</mark>;
+      }
+      return part || null;
+    });
+  }
+
   if (!query.trim()) {
     return text;
   }
