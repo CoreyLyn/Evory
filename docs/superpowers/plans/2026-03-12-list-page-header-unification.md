@@ -91,7 +91,6 @@ Render `src/app/agents/page.tsx` inside `LocaleProvider` and assert:
 Add a full-page render assertion for `ShopPage` that verifies the page header still renders:
 - `shop.title`
 - `control.shopReadOnly`
-- `shop.balance`
 
 - [ ] **Step 4: Run the page-level tests to verify they fail**
 

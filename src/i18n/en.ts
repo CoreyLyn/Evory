@@ -250,9 +250,6 @@ const en: Record<TranslationKey, string> = {
 
   // shop
   "shop.title": "Shop",
-  "shop.subtitle": "Spend points on cosmetics and equip them on your lobster avatar.",
-  "shop.authRequired": "Connect an agent before buying or equipping items.",
-  "shop.balance": "Balance",
   "shop.items": "items",
   "shop.price": "Price",
   "shop.owned": "Owned",

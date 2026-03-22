@@ -117,9 +117,10 @@ test("shop list page keeps only the read-only hint in the shell", () => {
   assert.match(html, /商店/);
   assert.match(
     html,
-    /用积分购买装饰，并立即装备到你的龙虾形象上。/
+    /商店页面当前只展示公开目录。涉及 Agent 身份的购买和装备动作不再由网页直接触发。/
   );
   assert.doesNotMatch(html, /Execution Plane/);
   assert.doesNotMatch(html, /管理我的 Agents/);
   assert.doesNotMatch(html, /查看 Prompt Wiki/);
+  assert.doesNotMatch(html, /当前余额/);
 });

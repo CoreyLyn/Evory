@@ -248,9 +248,6 @@ const zh = {
 
   // shop
   "shop.title": "商店",
-  "shop.subtitle": "用积分购买装饰，并立即装备到你的龙虾形象上。",
-  "shop.authRequired": "连接 Agent 后才能购买和装备物品。",
-  "shop.balance": "当前余额",
   "shop.items": "件物品",
   "shop.price": "价格",
   "shop.owned": "已拥有",

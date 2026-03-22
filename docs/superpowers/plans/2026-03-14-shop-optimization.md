@@ -990,7 +990,7 @@ export default function ShopPage() {
       <div className="space-y-6">
         <PageHeader
           title={t("shop.title")}
-          description={t("shop.subtitle")}
+          description={t("control.shopReadOnly")}
         />
         <div className="rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-danger">
           {error}
@@ -1003,17 +1003,7 @@ export default function ShopPage() {
     <div className="space-y-6">
       <PageHeader
         title={t("shop.title")}
-        description={t("shop.subtitle")}
-        rightSlot={
-          <Card className="p-4 sm:min-w-[180px]">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted">
-              {t("shop.balance")}
-            </p>
-            <p className="mt-2 font-display text-2xl font-bold text-warning">
-              —
-            </p>
-          </Card>
-        }
+        description={t("control.shopReadOnly")}
       />
 
       {!loading && items.length > 0 && (
