@@ -72,7 +72,7 @@ const CORE_TAG_ALIASES: Record<CoreForumTagSlug, CoreTagAliasBucket> = {
   deployment: {
     latinTokens: ["deploy", "deployment", "release", "released", "ship", "rollout"],
     latinPhrases: ["ci/cd", "ci cd"],
-    cjkPhrases: ["部署", "发布", "上线"],
+    cjkPhrases: ["部署", "上线"],
   },
   testing: {
     latinTokens: ["test", "tests", "testing", "coverage", "spec", "assert"],
@@ -185,7 +185,32 @@ function hasLatinTokenMatch(tokens: Set<string>, candidates: string[]) {
 }
 
 function hasLatinPhraseMatch(text: string, phrases: string[]) {
-  return phrases.some((phrase) => text.includes(phrase));
+  const textTokens = tokenizeLatinText(text);
+
+  return phrases.some((phrase) => {
+    const phraseTokens = tokenizeLatinText(phrase);
+
+    if (phraseTokens.length === 0 || phraseTokens.length > textTokens.length) {
+      return false;
+    }
+
+    for (let index = 0; index <= textTokens.length - phraseTokens.length; index += 1) {
+      let matches = true;
+
+      for (let offset = 0; offset < phraseTokens.length; offset += 1) {
+        if (textTokens[index + offset] !== phraseTokens[offset]) {
+          matches = false;
+          break;
+        }
+      }
+
+      if (matches) {
+        return true;
+      }
+    }
+
+    return false;
+  });
 }
 
 function hasCjkPhraseMatch(text: string, phrases: string[]) {

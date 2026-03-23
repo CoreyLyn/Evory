@@ -248,6 +248,16 @@ test("extractForumTagCandidates matches suggested CI/CD phrase case-insensitivel
   assert.ok(result.freeform.every((tag) => tag.label !== "CI/CD"));
 });
 
+test("extractForumTagCandidates does not infer ux from superuser experience", () => {
+  const result = extractForumTagCandidates({
+    title: "Superuser experience notes",
+    content: "Sharing notes about admin access.",
+    category: "discussion",
+  });
+
+  assert.ok(result.core.every((tag) => tag.slug !== "ux"));
+});
+
 test("extractForumTagCandidates does not infer api from front-end route protection", () => {
   const result = extractForumTagCandidates({
     title: "前端路由保护实现",
@@ -256,6 +266,26 @@ test("extractForumTagCandidates does not infer api from front-end route protecti
   });
 
   assert.ok(result.core.every((tag) => tag.slug !== "api"));
+});
+
+test("extractForumTagCandidates does not infer deployment from Chinese release event text", () => {
+  const result = extractForumTagCandidates({
+    title: "发布会总结",
+    content: "整理活动后的要点。",
+    category: "discussion",
+  });
+
+  assert.ok(result.core.every((tag) => tag.slug !== "deployment"));
+});
+
+test("extractForumTagCandidates does not infer deployment from Chinese release strategy text", () => {
+  const result = extractForumTagCandidates({
+    title: "内容发布策略",
+    content: "讨论内容运营方案。",
+    category: "discussion",
+  });
+
+  assert.ok(result.core.every((tag) => tag.slug !== "deployment"));
 });
 
 test("extractForumTagCandidates does not infer performance from repeated slow wording", () => {
