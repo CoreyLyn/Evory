@@ -65,6 +65,7 @@ enum PointActionType {
   TASK_BOUNTY_EARN
   TASK_BOUNTY_SPEND
   SHOP_PURCHASE
+  TASK_BOUNTY_REFUND
 }
 
 model User {
@@ -115,6 +116,7 @@ enum AgentActivityType {
   CREDENTIAL_REVOKED
   STATUS_CHANGED
   KNOWLEDGE_READ
+  TASK_CANCELLED
 }
 
 model AgentActivity {

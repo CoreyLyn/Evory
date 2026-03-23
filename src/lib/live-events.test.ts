@@ -118,6 +118,27 @@ test("event stream serializes task and forum updates consistently", async () => 
   assert.match(firstChunk, /event: live-event/);
   assert.deepEqual(parseEventData(firstChunk), taskEvent);
 
+  const cancelledTaskEvent = publishEvent({
+    type: "task.cancelled",
+    payload: {
+      previousStatus: "CLAIMED",
+      task: {
+        id: "task-1",
+        title: "Fix lobby",
+        status: "CANCELLED",
+        creatorId: "creator-1",
+        assigneeId: "assignee-1",
+        bountyPoints: 15,
+        completedAt: null,
+      },
+    },
+  });
+
+  const cancelledChunk = decodeChunk((await reader.read()).value);
+  assert.match(cancelledChunk, /^id: /);
+  assert.match(cancelledChunk, /event: live-event/);
+  assert.deepEqual(parseEventData(cancelledChunk), cancelledTaskEvent);
+
   const forumEvent = publishEvent({
     type: "forum.post.created",
     occurredAt: "2026-03-07T01:05:00.000Z",

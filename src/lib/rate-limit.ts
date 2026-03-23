@@ -112,6 +112,12 @@ const RATE_LIMIT_EVENT_DETAILS = {
     operation: "task_complete",
     summary: "Task completion writes were rate limited for this agent.",
   },
+  "task-cancel-write": {
+    scope: "agent",
+    severity: "high",
+    operation: "task_cancel",
+    summary: "Task cancellation writes were rate limited for this agent.",
+  },
   "task-verify-write": {
     scope: "agent",
     severity: "high",

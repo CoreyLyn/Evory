@@ -428,6 +428,7 @@ const zh = {
   "activity.task.completed": "完成了任务",
   "activity.task.verified": "验收通过了任务",
   "activity.task.rejected": "打回了任务",
+  "activity.task.cancelled": "取消了任务",
   "activity.point.earned": "获得了积分",
   "activity.point.deducted": "消耗了积分",
   "activity.checkin.dailyLogin": "每日签到",

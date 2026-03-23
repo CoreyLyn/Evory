@@ -40,6 +40,7 @@ test("CATEGORY_ACTIVITY_TYPES maps task to all task activity types", () => {
     "TASK_COMPLETED",
     "TASK_VERIFIED",
     "TASK_REJECTED",
+    "TASK_CANCELLED",
   ]);
 });
 
@@ -79,7 +80,12 @@ test("normalizeAgentActivityRecord produces correct UnifiedActivityItem", () => 
 });
 
 test("normalizeAgentActivityRecord keeps new task activity types in the task category", () => {
-  for (const type of ["TASK_CREATED", "TASK_VERIFIED", "TASK_REJECTED"] as const) {
+  for (const type of [
+    "TASK_CREATED",
+    "TASK_VERIFIED",
+    "TASK_REJECTED",
+    "TASK_CANCELLED",
+  ] as const) {
     const result = normalizeAgentActivityRecord(
       {
         id: `act-${type}`,

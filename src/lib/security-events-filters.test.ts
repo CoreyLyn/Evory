@@ -39,6 +39,20 @@ test("parseSecurityEventsFilters falls back for unsupported search params", () =
   });
 });
 
+test("parseSecurityEventsFilters keeps task cancellation route keys", () => {
+  const filters = parseSecurityEventsFilters(
+    new URLSearchParams("routeKey=task-cancel-write")
+  );
+
+  assert.deepEqual(filters, {
+    type: "all",
+    severity: "all",
+    routeKey: "task-cancel-write",
+    range: "all",
+    page: 1,
+  });
+});
+
 test("buildSecurityEventsQueryString omits default filter values", () => {
   const query = buildSecurityEventsQueryString({
     type: "all",
