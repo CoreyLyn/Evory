@@ -957,12 +957,14 @@ test("claimed agent can claim a task via the official agent task action endpoint
 
 test("official agent task cancel returns 200 with a cancelled task for the creator", async () => {
   const agentStatusWrites: Array<Record<string, unknown>> = [];
+  const statusActivityWrites: Array<Record<string, unknown>> = [];
 
   mockAgentCredential("creator-key", {
     id: "creator-1",
     name: "Creator",
     status: "WORKING",
   });
+  const credentialAgentUpdate = prismaClient.agent.update;
   prismaClient.agent.update = async ({
     where,
     data,
@@ -970,13 +972,23 @@ test("official agent task cancel returns 200 with a cancelled task for the creat
     where: { id: string };
     data: Record<string, unknown>;
   }) => {
-    agentStatusWrites.push({ where, data });
-    return createAgentFixture({
-      id: where.id,
-      apiKey: "creator-key",
-      name: "Creator",
-      status: String(data.status ?? "TASKBOARD"),
-    });
+    if (Object.prototype.hasOwnProperty.call(data, "status")) {
+      agentStatusWrites.push({ where, data });
+      return createAgentFixture({
+        id: where.id,
+        apiKey: "creator-key",
+        name: "Creator",
+        status: String(data.status),
+      });
+    }
+
+    return credentialAgentUpdate({ where, data });
+  };
+  prismaClient.agentActivity = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      statusActivityWrites.push(data);
+      return { id: "activity-status" };
+    },
   };
   prismaClient.task.findUnique = async () =>
     createTaskFixture({
@@ -1022,20 +1034,42 @@ test("official agent task cancel returns 200 with a cancelled task for the creat
   assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.success, true);
   assert.equal(json.data.status, "CANCELLED");
-  assert.equal(
-    agentStatusWrites.some(
-      (write) =>
-        write.where?.id === "creator-1" && write.data?.status === "TASKBOARD"
-    ),
-    true
-  );
+  assert.equal(agentStatusWrites.length, 1);
+  assert.equal(agentStatusWrites[0]?.where?.id, "creator-1");
+  assert.equal(agentStatusWrites[0]?.data?.status, "TASKBOARD");
+  assert.equal(statusActivityWrites.length, 1);
+  assert.equal(statusActivityWrites[0]?.metadata?.source, "tasks");
+  assert.equal(statusActivityWrites[0]?.metadata?.route, "task-cancel");
 });
 
 test("official agent task cancel returns 403 for a non-creator", async () => {
+  const agentStatusWrites: Array<Record<string, unknown>> = [];
+  const statusActivityWrites: Array<Record<string, unknown>> = [];
+
   mockAgentCredential("non-creator-key", {
     id: "agent-2",
     name: "Non Creator",
   });
+  const credentialAgentUpdate = prismaClient.agent.update;
+  prismaClient.agent.update = async ({
+    where,
+    data,
+  }: {
+    where: { id: string };
+    data: Record<string, unknown>;
+  }) => {
+    if (Object.prototype.hasOwnProperty.call(data, "status")) {
+      agentStatusWrites.push({ where, data });
+    }
+
+    return credentialAgentUpdate({ where, data });
+  };
+  prismaClient.agentActivity = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      statusActivityWrites.push(data);
+      return { id: "activity-status" };
+    },
+  };
   prismaClient.task.findUnique = async () =>
     createTaskFixture({
       id: "task-1",
@@ -1057,9 +1091,14 @@ test("official agent task cancel returns 403 for a non-creator", async () => {
   assert.equal(response.status, 403);
   assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.error, "Only the creator can cancel this task");
+  assert.equal(agentStatusWrites.length, 0);
+  assert.equal(statusActivityWrites.length, 0);
 });
 
 test("official agent task cancel returns 403 with the official header for read-only credentials", async () => {
+  const agentStatusWrites: Array<Record<string, unknown>> = [];
+  const statusActivityWrites: Array<Record<string, unknown>> = [];
+
   mockAgentCredential(
     "reader-key",
     {
@@ -1070,6 +1109,26 @@ test("official agent task cancel returns 403 with the official header for read-o
       scopes: ["tasks:read"],
     }
   );
+  const credentialAgentUpdate = prismaClient.agent.update;
+  prismaClient.agent.update = async ({
+    where,
+    data,
+  }: {
+    where: { id: string };
+    data: Record<string, unknown>;
+  }) => {
+    if (Object.prototype.hasOwnProperty.call(data, "status")) {
+      agentStatusWrites.push({ where, data });
+    }
+
+    return credentialAgentUpdate({ where, data });
+  };
+  prismaClient.agentActivity = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      statusActivityWrites.push(data);
+      return { id: "activity-status" };
+    },
+  };
 
   const response = await cancelAgentTask(
     createRouteRequest("http://localhost/api/agent/tasks/task-1/cancel", {
@@ -1083,6 +1142,8 @@ test("official agent task cancel returns 403 with the official header for read-o
   assert.equal(response.status, 403);
   assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.match(json.error, /Missing required scope tasks:write/);
+  assert.equal(agentStatusWrites.length, 0);
+  assert.equal(statusActivityWrites.length, 0);
 });
 
 test("official agent task verify keeps creator-only enforcement", async () => {
