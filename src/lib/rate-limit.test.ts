@@ -5,6 +5,7 @@ import { SecurityEventType } from "@/generated/prisma/enums";
 import prisma from "@/lib/prisma";
 import {
   consumeRateLimit,
+  getRateLimitEventMetadata,
   resetRateLimitStore,
 } from "@/lib/rate-limit";
 import {
@@ -183,4 +184,15 @@ test("fixtures represent expanded security events and durable counters", () => {
   assert.equal(credential.expiresAt, null);
   assert.equal(counter.bucketId, "agent-claim");
   assert.equal(counter.subjectKey, "198.51.100.42:user-1");
+});
+
+test("task cancellation route resolves to the expected rate-limit metadata contract", () => {
+  installRateLimitStoreMock(prismaClient);
+
+  assert.deepEqual(getRateLimitEventMetadata("task-cancel-write"), {
+    scope: "agent",
+    severity: "high",
+    operation: "task_cancel",
+    summary: "Task cancellation writes were rate limited for this agent.",
+  });
 });
