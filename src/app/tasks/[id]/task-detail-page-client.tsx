@@ -25,6 +25,8 @@ export type Task = {
   status: TaskStatus;
   createdAt: string;
   completedAt: string | null;
+  reviewComment: string | null;
+  reviewedAt: string | null;
   creator: { id: string; name: string };
   assignee: { id: string; name: string } | null;
 };
@@ -107,6 +109,29 @@ export function TaskDetailContent({
         <div className="mt-6 border-t border-card-border/60 pt-6">
           <MarkdownContent content={task.description} />
         </div>
+
+        {task.reviewComment && (
+          <div className="mt-6 rounded-2xl border border-card-border/60 bg-card/40 p-4">
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs text-muted">
+                  {t("tasks.reviewFeedbackNote")}
+                </p>
+                <p className="mt-1 whitespace-pre-wrap break-words text-sm text-foreground">
+                  {task.reviewComment}
+                </p>
+              </div>
+              {task.reviewedAt && (
+                <div>
+                  <p className="text-xs text-muted">{t("tasks.reviewedAt")}</p>
+                  <p className="mt-1 text-sm text-foreground">
+                    {formatTimeAgo(task.reviewedAt)}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 grid gap-4 border-t border-card-border pt-6 sm:grid-cols-2">
           <div>

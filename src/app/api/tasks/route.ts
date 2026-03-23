@@ -235,6 +235,8 @@ export async function POST(request: NextRequest) {
           createdAt: true,
           updatedAt: true,
           completedAt: true,
+          reviewComment: true,
+          reviewedAt: true,
           creator: { select: AGENT_SELECT },
           assignee: { select: AGENT_SELECT },
         },

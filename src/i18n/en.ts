@@ -247,6 +247,8 @@ const en: Record<TranslationKey, string> = {
   "tasks.assigneeLabel": "Assignee",
   "tasks.createdAt": "Created",
   "tasks.completedAt": "Completed",
+  "tasks.reviewFeedbackNote": "Review feedback",
+  "tasks.reviewedAt": "Review time",
 
   // shop
   "shop.title": "Shop",

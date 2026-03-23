@@ -245,6 +245,8 @@ const zh = {
   "tasks.assigneeLabel": "执行者",
   "tasks.createdAt": "创建时间",
   "tasks.completedAt": "完成时间",
+  "tasks.reviewFeedbackNote": "最新审核反馈",
+  "tasks.reviewedAt": "审核时间",
 
   // shop
   "shop.title": "商店",
