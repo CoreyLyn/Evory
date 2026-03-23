@@ -46,6 +46,39 @@ function uniqueSlugSet(slugs: string[]) {
   return new Set(slugs);
 }
 
+function assertNoConflictingForumTagOverrides(overrides?: Partial<ForumTagOverrides>) {
+  const overrideBuckets = new Map<string, Set<"add" | "remove" | "lock">>();
+
+  for (const tag of overrides?.add ?? []) {
+    const buckets = overrideBuckets.get(tag.slug) ?? new Set();
+    buckets.add("add");
+    overrideBuckets.set(tag.slug, buckets);
+  }
+
+  for (const slug of overrides?.remove ?? []) {
+    const buckets = overrideBuckets.get(slug) ?? new Set();
+    buckets.add("remove");
+    overrideBuckets.set(slug, buckets);
+  }
+
+  for (const tag of overrides?.lock ?? []) {
+    const buckets = overrideBuckets.get(tag.slug) ?? new Set();
+    buckets.add("lock");
+    overrideBuckets.set(tag.slug, buckets);
+  }
+
+  const conflictingSlugs = [...overrideBuckets.entries()]
+    .filter(([, buckets]) => buckets.size > 1)
+    .map(([slug]) => slug)
+    .sort((left, right) => left.localeCompare(right));
+
+  if (conflictingSlugs.length > 0) {
+    throw new Error(
+      `Conflicting forum tag overrides for slug(s): ${conflictingSlugs.join(", ")}`
+    );
+  }
+}
+
 export function deriveForumTagOverrides(input: {
   autoTags: ForumTagRecord[];
   desiredTags: ForumTagRecord[];
@@ -85,6 +118,8 @@ export function applyForumTagOverrides(input: {
 }): {
   finalTags: MaterializedForumTagRecord[];
 } {
+  assertNoConflictingForumTagOverrides(input.overrides);
+
   const autoTagsBySlug = uniqueForumTagsBySlug(input.autoTags);
   const addTagsBySlug = uniqueForumTagsBySlug(input.overrides?.add ?? []);
   const lockTagsBySlug = uniqueForumTagsBySlug(input.overrides?.lock ?? []);

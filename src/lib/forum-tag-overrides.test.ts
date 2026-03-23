@@ -54,3 +54,17 @@ test("applyForumTagOverrides keeps locked tags as MANUAL when re-extraction drop
     { slug: "api", label: "API", kind: "CORE", source: "MANUAL" },
   ]);
 });
+
+test("applyForumTagOverrides rejects conflicting override actions for the same slug", () => {
+  assert.throws(
+    () =>
+      applyForumTagOverrides({
+        autoTags: [{ slug: "api", label: "API", kind: "CORE" }],
+        overrides: {
+          remove: ["api"],
+          lock: [{ slug: "api", label: "API", kind: "CORE" }],
+        },
+      }),
+    /conflicting forum tag overrides.*api/i
+  );
+});
