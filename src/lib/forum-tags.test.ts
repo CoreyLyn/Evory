@@ -162,6 +162,30 @@ test("extractForumTagCandidates matches suggested HTTP API phrase case-insensiti
   assert.ok(result.freeform.every((tag) => tag.label !== "HTTP API"));
 });
 
+test("extractForumTagCandidates matches suggested API gateway phrase", () => {
+  const result = extractForumTagCandidates({
+    title: "Team update",
+    content: "Sharing notes",
+    category: "discussion",
+    suggestedTags: ["API gateway"],
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "api"));
+  assert.ok(result.freeform.every((tag) => tag.slug !== "api-gateway"));
+});
+
+test("extractForumTagCandidates matches suggested SQL query phrase", () => {
+  const result = extractForumTagCandidates({
+    title: "Team update",
+    content: "Sharing notes",
+    category: "discussion",
+    suggestedTags: ["SQL query"],
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "database"));
+  assert.ok(result.freeform.every((tag) => tag.slug !== "sql-query"));
+});
+
 test("extractForumTagCandidates matches suggested CI/CD phrase case-insensitively", () => {
   const result = extractForumTagCandidates({
     title: "Team update",
@@ -218,7 +242,8 @@ test("extractForumTagCandidates merges normalized suggested tags and rejects sen
   });
 
   assert.ok(result.core.some((tag) => tag.slug === "api"));
-  assert.ok(result.freeform.some((tag) => tag.slug === "release-prep"));
+  assert.ok(result.core.some((tag) => tag.slug === "deployment"));
+  assert.ok(result.freeform.every((tag) => tag.slug !== "release-prep"));
   assert.ok(
     result.freeform.every((tag) => !tag.label.includes("extractor keeps the whole sentence"))
   );

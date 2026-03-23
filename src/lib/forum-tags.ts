@@ -194,10 +194,7 @@ function hasCjkPhraseMatch(text: string, phrases: string[]) {
 
 function matchesCoreForumTag(
   text: string,
-  slug: CoreForumTagSlug,
-  options?: {
-    allowLatinTokenMatch?: boolean;
-  }
+  slug: CoreForumTagSlug
 ) {
   const aliases = CORE_TAG_ALIASES[slug];
   const normalizedText = normalizeSearchableText(text);
@@ -205,22 +202,14 @@ function matchesCoreForumTag(
 
   return (
     normalizeSlug(normalizedText) === slug ||
-    (options?.allowLatinTokenMatch !== false &&
-      hasLatinTokenMatch(latinTokens, aliases.latinTokens)) ||
+    hasLatinTokenMatch(latinTokens, aliases.latinTokens) ||
     hasLatinPhraseMatch(normalizedText, aliases.latinPhrases) ||
     hasCjkPhraseMatch(normalizedText, aliases.cjkPhrases)
   );
 }
 
-function findMatchingCoreForumTags(
-  text: string,
-  options?: {
-    allowLatinTokenMatch?: boolean;
-  }
-) {
-  return CORE_FORUM_TAGS.filter(({ slug }) =>
-    matchesCoreForumTag(text, slug, options)
-  );
+function findMatchingCoreForumTags(text: string) {
+  return CORE_FORUM_TAGS.filter(({ slug }) => matchesCoreForumTag(text, slug));
 }
 
 function toSearchableText(input: ExtractForumTagCandidatesInput) {
@@ -246,9 +235,7 @@ function normalizeSuggestedForumTags(suggestedTags: string[]) {
   const freeform = new Map<string, { slug: string; label: string }>();
 
   for (const rawTag of suggestedTags) {
-    const matchedCore = findMatchingCoreForumTags(rawTag, {
-      allowLatinTokenMatch: !normalizeSlug(rawTag).includes("-"),
-    });
+    const matchedCore = findMatchingCoreForumTags(rawTag);
     if (matchedCore.length > 0) {
       for (const coreTag of matchedCore) {
         core.set(coreTag.slug, coreTag);
