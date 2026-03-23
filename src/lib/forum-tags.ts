@@ -171,10 +171,8 @@ function normalizeSlug(value: string) {
 }
 
 function tokenizeLatinText(input: string) {
-  return input
-    .toLowerCase()
-    .split(/[^\p{Letter}\p{Number}]+/u)
-    .map((token) => token.trim())
+  return (input.match(/[\p{Script=Latin}\p{Number}]+/gu) ?? [])
+    .map((token) => token.toLowerCase())
     .filter(Boolean);
 }
 
@@ -188,6 +186,36 @@ function hasLatinPhraseMatch(text: string, phrases: string[]) {
 
 function hasCjkPhraseMatch(text: string, phrases: string[]) {
   return phrases.some((phrase) => text.includes(phrase));
+}
+
+function matchesCoreForumTag(
+  text: string,
+  slug: (typeof CORE_FORUM_TAGS)[number]["slug"],
+  options?: {
+    allowLatinTokenMatch?: boolean;
+  }
+) {
+  const aliases = CORE_TAG_ALIASES[slug];
+  const latinTokens = new Set(tokenizeLatinText(text));
+
+  return (
+    normalizeSlug(text) === slug ||
+    (options?.allowLatinTokenMatch !== false &&
+      hasLatinTokenMatch(latinTokens, aliases.latinTokens)) ||
+    hasLatinPhraseMatch(text, aliases.latinPhrases) ||
+    hasCjkPhraseMatch(text, aliases.cjkPhrases)
+  );
+}
+
+function findMatchingCoreForumTags(
+  text: string,
+  options?: {
+    allowLatinTokenMatch?: boolean;
+  }
+) {
+  return CORE_FORUM_TAGS.filter(({ slug }) =>
+    matchesCoreForumTag(text, slug, options)
+  );
 }
 
 function toSearchableText(input: ExtractForumTagCandidatesInput) {
@@ -213,10 +241,13 @@ function normalizeSuggestedForumTags(suggestedTags: string[]) {
   const freeform = new Map<string, { slug: string; label: string }>();
 
   for (const rawTag of suggestedTags) {
-    const normalizedSlug = normalizeSlug(rawTag);
-    const coreTag = CORE_FORUM_TAGS.find((tag) => tag.slug === normalizedSlug);
-    if (coreTag) {
-      core.set(coreTag.slug, coreTag);
+    const matchedCore = findMatchingCoreForumTags(rawTag, {
+      allowLatinTokenMatch: !normalizeSlug(rawTag).includes("-"),
+    });
+    if (matchedCore.length > 0) {
+      for (const coreTag of matchedCore) {
+        core.set(coreTag.slug, coreTag);
+      }
       continue;
     }
 
@@ -272,21 +303,12 @@ export function extractForumTagCandidates(
   input: ExtractForumTagCandidatesInput
 ): ExtractForumTagCandidatesResult {
   const text = toSearchableText(input);
-  const latinTokens = new Set(tokenizeLatinText(text));
   const normalizedSuggested = normalizeSuggestedForumTags(input.suggestedTags ?? []);
   const matchedCore = [...new Map(
-    [
-      ...CORE_FORUM_TAGS.filter(({ slug }) => {
-        const aliases = CORE_TAG_ALIASES[slug];
-
-        return (
-          hasLatinTokenMatch(latinTokens, aliases.latinTokens) ||
-          hasLatinPhraseMatch(text, aliases.latinPhrases) ||
-          hasCjkPhraseMatch(text, aliases.cjkPhrases)
-        );
-      }),
-      ...normalizedSuggested.core,
-    ].map((tag) => [tag.slug, tag])
+    [...findMatchingCoreForumTags(text), ...normalizedSuggested.core].map((tag) => [
+      tag.slug,
+      tag,
+    ])
   ).values()];
   const maxFreeformCount =
     matchedCore.length === 0 ? 2 : matchedCore.length === 1 ? 1 : 0;

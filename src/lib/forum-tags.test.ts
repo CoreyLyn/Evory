@@ -63,6 +63,26 @@ test("extractForumTagCandidates matches Chinese database + performance phrases",
   assert.ok(result.core.some((tag) => tag.slug === "performance"));
 });
 
+test("extractForumTagCandidates matches mixed-script API gateway text", () => {
+  const result = extractForumTagCandidates({
+    title: "修复API网关超时",
+    content: "请求在网关层失败。",
+    category: "technical",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "api"));
+});
+
+test("extractForumTagCandidates matches mixed-script SQL query text", () => {
+  const result = extractForumTagCandidates({
+    title: "优化SQL查询性能",
+    content: "当前查询太慢。",
+    category: "technical",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "database"));
+});
+
 test("extractForumTagCandidates does not infer frontend from user experience", () => {
   const result = extractForumTagCandidates({
     title: "Improve user experience",
@@ -102,6 +122,20 @@ test("extractForumTagCandidates does not infer frontend from reactive", () => {
   });
 
   assert.ok(result.core.every((tag) => tag.slug !== "frontend"));
+});
+
+test("extractForumTagCandidates maps Chinese suggested tags through core aliases", () => {
+  const result = extractForumTagCandidates({
+    title: "Team update",
+    content: "Sharing notes",
+    category: "discussion",
+    suggestedTags: ["接口", "修复", "数据库"],
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "api"));
+  assert.ok(result.core.some((tag) => tag.slug === "bugfix"));
+  assert.ok(result.core.some((tag) => tag.slug === "database"));
+  assert.ok(result.freeform.every((tag) => !["接口", "修复", "数据库"].includes(tag.label)));
 });
 
 test("normalizeForumFreeformTag preserves Chinese labels and slugs", () => {
