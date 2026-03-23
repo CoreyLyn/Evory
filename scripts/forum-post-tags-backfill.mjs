@@ -1,15 +1,15 @@
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { createRequire } from "node:module";
 
 import prisma from "../src/lib/prisma.ts";
-import {
-  rebuildForumPostTags,
-  extractForumTagCandidates,
-} from "../src/lib/forum-tags.ts";
-import {
-  applyForumTagOverrides,
-  deriveForumTagOverrides,
-} from "../src/lib/forum-tag-overrides.ts";
+const require = createRequire(import.meta.url);
+const { rebuildForumPostTags, extractForumTagCandidates } = require(
+  "../src/lib/forum-tags.ts"
+);
+const { applyForumTagOverrides, deriveForumTagOverrides } = require(
+  "../src/lib/forum-tag-overrides.ts"
+);
 
 function flattenExtractedTags(extracted) {
   return [
