@@ -3,9 +3,13 @@ import path from "node:path";
 
 import prisma from "../src/lib/prisma.ts";
 import {
+  rebuildForumPostTags,
   extractForumTagCandidates,
-  replaceForumPostTags,
 } from "../src/lib/forum-tags.ts";
+import {
+  applyForumTagOverrides,
+  deriveForumTagOverrides,
+} from "../src/lib/forum-tag-overrides.ts";
 
 function flattenExtractedTags(extracted) {
   return [
@@ -22,34 +26,185 @@ function flattenExtractedTags(extracted) {
   ];
 }
 
+function flattenExistingTags(tags) {
+  return (tags ?? []).map(({ tag }) => ({
+    slug: tag.slug,
+    label: tag.label,
+    kind: tag.kind,
+  }));
+}
+
+function flattenLegacyManualTags(tags) {
+  return (tags ?? [])
+    .filter((tag) => tag.source === "MANUAL")
+    .map(({ tag }) => ({
+      slug: tag.slug,
+      label: tag.label,
+      kind: tag.kind,
+    }));
+}
+
+function normalizeOverrideActions(overrides) {
+  return (overrides ?? []).map((override) => ({
+    action: override.action,
+    tag: {
+      slug: override.tag.slug,
+      label: override.tag.label,
+      kind: override.tag.kind,
+    },
+  }));
+}
+
+function buildOverrideActions(derivedOverrides) {
+  return [
+    ...derivedOverrides.add.map((tag) => ({ action: "ADD", tag })),
+    ...derivedOverrides.remove.map((tag) => ({ action: "REMOVE", tag })),
+    ...derivedOverrides.lock.map((tag) => ({ action: "LOCK", tag })),
+  ];
+}
+
+function buildOverrideInput(overrideActions) {
+  return {
+    add: overrideActions
+      .filter((override) => override.action === "ADD")
+      .map((override) => override.tag),
+    remove: overrideActions
+      .filter((override) => override.action === "REMOVE")
+      .map((override) => override.tag.slug),
+    lock: overrideActions
+      .filter((override) => override.action === "LOCK")
+      .map((override) => override.tag),
+  };
+}
+
+function flattenFinalTags(finalTags) {
+  return finalTags.map(({ source: _source, ...tag }) => tag);
+}
+
+function uniqueTagsBySlug(tags) {
+  const tagsBySlug = new Map();
+
+  for (const tag of tags) {
+    if (!tagsBySlug.has(tag.slug)) {
+      tagsBySlug.set(tag.slug, tag);
+    }
+  }
+
+  return [...tagsBySlug.values()];
+}
+
+async function persistForumPostTagBackfillOperation(prismaClient, operation) {
+  const participatingTags = uniqueTagsBySlug([
+    ...flattenExtractedTags(operation.extracted),
+    ...operation.overrideActions.map((override) => override.tag),
+  ]);
+  const tagIdsBySlug = new Map();
+
+  await Promise.all(
+    participatingTags.map(async (tag) => {
+      const record = await prismaClient.forumTag.upsert({
+        where: { slug: tag.slug },
+        update: {
+          label: tag.label,
+          kind: tag.kind,
+        },
+        create: {
+          slug: tag.slug,
+          label: tag.label,
+          kind: tag.kind,
+        },
+      });
+
+      tagIdsBySlug.set(tag.slug, record.id);
+    })
+  );
+
+  await prismaClient.forumPostTagOverride.deleteMany({
+    where: { postId: operation.postId },
+  });
+
+  if (operation.overrideActions.length > 0) {
+    await prismaClient.forumPostTagOverride.createMany({
+      data: operation.overrideActions.map((override) => ({
+        postId: operation.postId,
+        tagId: tagIdsBySlug.get(override.tag.slug),
+        action: override.action,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  await rebuildForumPostTags(prismaClient, {
+    postId: operation.postId,
+    extracted: operation.extracted,
+    overrideRows: operation.overrideActions,
+  });
+}
+
+async function executeForumPostTagBackfillOperation(prismaClient, operation) {
+  if (typeof prismaClient.$transaction === "function") {
+    await prismaClient.$transaction(async (tx) => {
+      await persistForumPostTagBackfillOperation(tx, operation);
+    });
+    return;
+  }
+
+  await persistForumPostTagBackfillOperation(prismaClient, operation);
+}
+
 export async function buildForumPostTagBackfillPlan(posts) {
   const operations = [];
   let skippedManual = 0;
   let emptyTagPosts = 0;
+  let convertedLegacyManual = 0;
+  let rebuiltFromOverrides = 0;
 
   for (const post of posts) {
-    if ((post.tags ?? []).some((tag) => tag.source === "MANUAL")) {
-      skippedManual += 1;
-      continue;
-    }
-
     const extracted = extractForumTagCandidates({
       title: post.title,
       content: post.content,
       category: post.category,
     });
-    const tags = flattenExtractedTags(extracted);
+    const autoTags = flattenExtractedTags(extracted);
+    const existingOverrideActions = normalizeOverrideActions(post.overrides);
+    const legacyManualTags = flattenLegacyManualTags(post.tags);
 
-    if (tags.length === 0) {
+    let overrideActions = existingOverrideActions;
+
+    if (existingOverrideActions.length > 0) {
+      rebuiltFromOverrides += 1;
+    } else if (legacyManualTags.length > 0) {
+      overrideActions = buildOverrideActions(
+        deriveForumTagOverrides({
+          autoTags,
+          desiredTags: legacyManualTags,
+        })
+      );
+      convertedLegacyManual += 1;
+    }
+
+    const { finalTags } = applyForumTagOverrides({
+      autoTags,
+      overrides: buildOverrideInput(overrideActions),
+    });
+    const tags = flattenFinalTags(finalTags);
+
+    if (autoTags.length === 0) {
       emptyTagPosts += 1;
-      if ((post.tags ?? []).length === 0) {
+      if (
+        tags.length === 0 &&
+        flattenExistingTags(post.tags).length === 0 &&
+        overrideActions.length === 0
+      ) {
         continue;
       }
     }
 
     operations.push({
       postId: post.id,
+      extracted,
       tags,
+      overrideActions,
     });
   }
 
@@ -57,6 +212,8 @@ export async function buildForumPostTagBackfillPlan(posts) {
     operations,
     skippedManual,
     emptyTagPosts,
+    convertedLegacyManual,
+    rebuiltFromOverrides,
   };
 }
 
@@ -69,8 +226,9 @@ export async function runForumPostTagBackfill(options = {}) {
   let cursor;
   let scanned = 0;
   let updated = 0;
-  let skippedManual = 0;
   let emptyTagPosts = 0;
+  let convertedLegacyManual = 0;
+  let rebuiltFromOverrides = 0;
 
   for (;;) {
     const posts = await prismaClient.forumPost.findMany({
@@ -82,6 +240,18 @@ export async function runForumPostTagBackfill(options = {}) {
         tags: {
           select: {
             source: true,
+            tag: {
+              select: {
+                slug: true,
+                label: true,
+                kind: true,
+              },
+            },
+          },
+        },
+        overrides: {
+          select: {
+            action: true,
             tag: {
               select: {
                 slug: true,
@@ -109,16 +279,13 @@ export async function runForumPostTagBackfill(options = {}) {
     scanned += posts.length;
 
     const plan = await buildForumPostTagBackfillPlan(posts);
-    skippedManual += plan.skippedManual;
     emptyTagPosts += plan.emptyTagPosts;
+    convertedLegacyManual += plan.convertedLegacyManual;
+    rebuiltFromOverrides += plan.rebuiltFromOverrides;
 
     if (!dryRun) {
       for (const operation of plan.operations) {
-        await replaceForumPostTags(prismaClient, {
-          postId: operation.postId,
-          tags: operation.tags,
-          source: "AUTO",
-        });
+        await executeForumPostTagBackfillOperation(prismaClient, operation);
       }
     }
 
@@ -126,14 +293,15 @@ export async function runForumPostTagBackfill(options = {}) {
     cursor = posts.at(-1)?.id;
 
     logger.info(
-      `[forum-post-tags-backfill] processed=${scanned} updated=${updated} skippedManual=${skippedManual} emptyTagPosts=${emptyTagPosts}`
+      `[forum-post-tags-backfill] processed=${scanned} updated=${updated} convertedLegacyManual=${convertedLegacyManual} rebuiltFromOverrides=${rebuiltFromOverrides} emptyTagPosts=${emptyTagPosts}`
     );
   }
 
   const summary = {
     scanned,
     updated,
-    skippedManual,
+    convertedLegacyManual,
+    rebuiltFromOverrides,
     emptyTagPosts,
     dryRun,
   };
