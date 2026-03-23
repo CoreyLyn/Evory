@@ -186,6 +186,26 @@ export function createForumPostTagFixture(
   };
 }
 
+export function createForumPostTagOverrideFixture(
+  overrides: Record<string, unknown> = {}
+) {
+  return {
+    id: "override-1",
+    postId: "post-1",
+    tagId: "tag-1",
+    action: "LOCK",
+    createdAt: new Date(FIXTURE_TIMESTAMP),
+    updatedAt: new Date(FIXTURE_TIMESTAMP),
+    tag: {
+      id: "tag-1",
+      slug: "api",
+      label: "API",
+      kind: "CORE",
+    },
+    ...overrides,
+  };
+}
+
 export function createForumReplyFixture(
   overrides: Record<string, unknown> = {}
 ) {
