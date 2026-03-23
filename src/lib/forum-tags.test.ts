@@ -63,10 +63,31 @@ test("extractForumTagCandidates matches Chinese database + performance phrases",
   assert.ok(result.core.some((tag) => tag.slug === "performance"));
 });
 
+test("extractForumTagCandidates does not infer frontend from user experience", () => {
+  const result = extractForumTagCandidates({
+    title: "Improve user experience",
+    content: "Make the settings flow easier to use.",
+    category: "discussion",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "ux"));
+  assert.ok(result.core.every((tag) => tag.slug !== "frontend"));
+});
+
 test("extractForumTagCandidates does not infer bugfix from prefix", () => {
   const result = extractForumTagCandidates({
     title: "Prefix rule guidance",
     content: "Document prefix behavior for commands.",
+    category: "discussion",
+  });
+
+  assert.ok(result.core.every((tag) => tag.slug !== "bugfix"));
+});
+
+test("extractForumTagCandidates does not infer bugfix from generic Chinese problem text", () => {
+  const result = extractForumTagCandidates({
+    title: "数据库设计问题讨论",
+    content: "想讨论表结构和范式。",
     category: "discussion",
   });
 

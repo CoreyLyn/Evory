@@ -41,7 +41,7 @@ const CORE_TAG_ALIASES: Record<
 > = {
   frontend: {
     latinTokens: ["frontend", "ui", "client", "browser", "css", "react"],
-    latinPhrases: ["user experience"],
+    latinPhrases: [],
     cjkPhrases: ["前端", "界面", "浏览器"],
   },
   backend: {
@@ -62,7 +62,7 @@ const CORE_TAG_ALIASES: Record<
   bugfix: {
     latinTokens: ["bug", "bugfix", "fix", "error", "issue", "broken", "timeout"],
     latinPhrases: [],
-    cjkPhrases: ["修复", "报错", "错误", "异常", "故障", "超时", "问题"],
+    cjkPhrases: ["修复", "报错", "错误", "异常", "故障", "超时"],
   },
   performance: {
     latinTokens: ["performance", "optimize", "optimization", "slow", "latency"],
