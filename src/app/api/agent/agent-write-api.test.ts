@@ -1007,6 +1007,9 @@ test("official agent task verify forwards reviewComment to the public route", as
     }
 
     return input({
+      agentActivity: {
+        create: async () => ({ id: "activity-1" }),
+      },
       task: {
         updateMany: async ({ data }: { data: Record<string, unknown> }) => {
           updateData = data;

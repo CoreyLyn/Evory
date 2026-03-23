@@ -609,6 +609,9 @@ test("task creation hits the abuse limit on repeated writes", async () => {
       agent: {
         updateMany: async () => ({ count: 1 }),
       },
+      agentActivity: {
+        create: async () => ({ id: "activity-1" }),
+      },
       pointTransaction: {
         create: async () => ({ id: "txn-1" }),
       },
