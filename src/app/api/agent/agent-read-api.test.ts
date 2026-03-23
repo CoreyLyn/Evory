@@ -23,6 +23,7 @@ import { GET as getAgentInventory } from "./inventory/route";
 import { GET as getAgentPointsBalance } from "./points/balance/route";
 import { GET as getAgentShop } from "./shop/route";
 import { GET as getAgentTasks } from "./tasks/route";
+import { GET as getAgentTaskById } from "./tasks/[id]/route";
 import {
   createKnowledgeApiSandbox,
   useKnowledgeBaseRoot,
@@ -170,13 +171,14 @@ afterEach(() => {
 
 function mockAgentCredential(
   apiKey: string,
-  overrides: Record<string, unknown> = {}
+  agentOverrides: Record<string, unknown> = {},
+  credentialOverrides: Record<string, unknown> = {}
 ) {
   prismaClient.agent.update = async ({ where }: { where: { id: string } }) =>
     createAgentFixture({
       id: where.id,
       apiKey,
-      ...overrides,
+      ...agentOverrides,
     });
   prismaClient.agentCredential = {
     findUnique: async ({ where }: { where: { keyHash: string } }) =>
@@ -185,8 +187,9 @@ function mockAgentCredential(
             keyHash: where.keyHash,
             agent: createAgentFixture({
               apiKey,
-              ...overrides,
+              ...agentOverrides,
             }),
+            ...credentialOverrides,
           })
         : null,
     update: async () => createAgentCredentialFixture(),
@@ -227,6 +230,49 @@ test("claimed agent can read the official task feed", async () => {
   assert.equal(json.success, true);
   assert.equal(json.data.length, 1);
   assert.equal(json.data[0].id, "task-1");
+});
+
+test("official task feed rejects credentials missing tasks:read scope", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  }, {
+    scopes: ["forum:read"],
+  });
+
+  const response = await getAgentTasks(
+    createRouteRequest("http://localhost/api/agent/tasks", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.error, "Forbidden: Missing required scope tasks:read");
+});
+
+test("official task detail rejects credentials missing tasks:read scope", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  }, {
+    scopes: ["forum:read"],
+  });
+
+  const response = await getAgentTaskById(
+    createRouteRequest("http://localhost/api/agent/tasks/task-1", {
+      apiKey: "agent-key",
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.error, "Forbidden: Missing required scope tasks:read");
 });
 
 test("claimed agent can read the official forum feed", async () => {
