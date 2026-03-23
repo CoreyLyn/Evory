@@ -1,3 +1,9 @@
+import {
+  applyForumTagOverrides,
+  type ForumTagOverrides,
+  type ForumTagRecord,
+} from "@/lib/forum-tag-overrides";
+
 export const CORE_FORUM_TAGS = [
   { slug: "frontend", label: "Frontend" },
   { slug: "backend", label: "Backend" },
@@ -160,6 +166,11 @@ type PersistForumTagClient = {
       skipDuplicates: boolean;
     }) => Promise<unknown>;
   };
+};
+
+type ForumTagOverrideRow = {
+  action: "ADD" | "REMOVE" | "LOCK";
+  tag: ForumTagRecord;
 };
 
 function normalizeSlug(value: string) {
@@ -459,6 +470,116 @@ export function normalizeEditableForumTags(input: EditableForumTagInput[]) {
   return [...normalized.values()];
 }
 
+function buildExtractedForumTagRecords(
+  extracted: ExtractForumTagCandidatesResult
+): ForumTagRecord[] {
+  return [
+    ...extracted.core.map(({ slug, label }) => ({
+      slug,
+      label,
+      kind: "CORE" as const,
+    })),
+    ...extracted.freeform.map(({ slug, label }) => ({
+      slug,
+      label,
+      kind: "FREEFORM" as const,
+    })),
+  ];
+}
+
+function uniqueForumTagRecordsBySlug(tags: ForumTagRecord[]) {
+  return [...new Map(tags.map((tag) => [tag.slug, tag])).values()];
+}
+
+function mapForumTagOverrideRows(
+  overrideRows?: ForumTagOverrideRow[]
+): Partial<ForumTagOverrides> | undefined {
+  if (!overrideRows || overrideRows.length === 0) {
+    return undefined;
+  }
+
+  const overrides: ForumTagOverrides = {
+    add: [],
+    remove: [],
+    lock: [],
+  };
+
+  for (const row of overrideRows) {
+    if (row.action === "REMOVE") {
+      overrides.remove.push(row.tag.slug);
+      continue;
+    }
+
+    if (row.action === "ADD") {
+      overrides.add.push(row.tag);
+      continue;
+    }
+
+    overrides.lock.push(row.tag);
+  }
+
+  return overrides;
+}
+
+export async function rebuildForumPostTags(
+  prismaClient: PersistForumTagClient,
+  input: {
+    postId: string;
+    extracted: ExtractForumTagCandidatesResult;
+    overrideRows?: ForumTagOverrideRow[];
+  }
+) {
+  const autoTags = buildExtractedForumTagRecords(input.extracted);
+  const overrides = mapForumTagOverrideRows(input.overrideRows);
+  const { finalTags } = applyForumTagOverrides({
+    autoTags,
+    overrides,
+  });
+  const participatingTags = uniqueForumTagRecordsBySlug([
+    ...autoTags,
+    ...(input.overrideRows?.map((row) => row.tag) ?? []),
+  ]);
+  const tagIdsBySlug = new Map<string, string>();
+
+  await Promise.all(
+    participatingTags.map(async (tag) => {
+      const record = await prismaClient.forumTag.upsert({
+        where: { slug: tag.slug },
+        update: {
+          label: tag.label,
+          kind: tag.kind,
+        },
+        create: {
+          slug: tag.slug,
+          label: tag.label,
+          kind: tag.kind,
+        },
+      });
+
+      tagIdsBySlug.set(tag.slug, record.id);
+    })
+  );
+
+  if (prismaClient.forumPostTag.deleteMany) {
+    await prismaClient.forumPostTag.deleteMany({
+      where: { postId: input.postId },
+    });
+  }
+
+  if (finalTags.length === 0) {
+    return;
+  }
+
+  await prismaClient.forumPostTag.createMany({
+    data: finalTags.map((tag) => ({
+      postId: input.postId,
+      tagId: tagIdsBySlug.get(tag.slug)!,
+      source: tag.source,
+    })),
+    skipDuplicates: true,
+  });
+}
+
 export async function persistForumPostTags(
   prismaClient: PersistForumTagClient,
   input: {
@@ -469,6 +590,14 @@ export async function persistForumPostTags(
 ) {
   const source = input.source ?? "AUTO";
   const tags = [...input.extracted.core, ...input.extracted.freeform];
+
+  if (source === "AUTO") {
+    await rebuildForumPostTags(prismaClient, {
+      postId: input.postId,
+      extracted: input.extracted,
+    });
+    return;
+  }
 
   if (tags.length === 0) {
     return;
