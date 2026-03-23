@@ -18,6 +18,7 @@ import { POST as hidePost } from "./[id]/hide/route";
 import { PUT as updateFeaturedOverride } from "./[id]/featured/route";
 import { POST as restorePost } from "./[id]/restore/route";
 import { PUT as replacePostTags } from "./[id]/tags/route";
+import { POST as deletePost } from "./[id]/delete/route";
 
 type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
   ...args: TArgs
@@ -39,6 +40,7 @@ type AdminPostPrismaMock = {
     findMany: AsyncMethod;
     findUnique: AsyncMethod;
     update: AsyncMethod;
+    delete: AsyncMethod;
     count: AsyncMethod;
   };
   forumTag?: {
@@ -996,4 +998,166 @@ test("PUT tags replaces a post's final tag set with manual tags", async () => {
     { slug: "api", label: "API", kind: "core", source: "manual" },
     { slug: "ci-cd", label: "CI / CD", kind: "freeform", source: "manual" },
   ]);
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/forum/posts/[id]/delete
+// ---------------------------------------------------------------------------
+
+test("POST delete — returns 401 when no session", async () => {
+  mockNoSession();
+
+  const request = createRouteRequest(
+    "http://localhost/api/admin/forum/posts/post-1/delete",
+    { method: "POST", headers: { origin: "http://localhost" } }
+  );
+  const response = await deletePost(request, createRouteParams({ id: "post-1" }));
+
+  assert.equal(response.status, 401);
+  const body = await response.json();
+  assert.equal(body.success, false);
+  assert.equal(body.error, "Unauthorized");
+});
+
+test("POST delete — returns 403 when user role is not ADMIN", async () => {
+  mockNonAdminSession();
+
+  const request = createRouteRequest(
+    "http://localhost/api/admin/forum/posts/post-1/delete",
+    {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${USER_TOKEN}`,
+        origin: "http://localhost",
+      },
+    }
+  );
+  const response = await deletePost(request, createRouteParams({ id: "post-1" }));
+
+  assert.equal(response.status, 403);
+  const body = await response.json();
+  assert.equal(body.success, false);
+  assert.equal(body.error, "Forbidden: Admin access required");
+});
+
+test("POST delete — returns 404 for missing post", async () => {
+  mockAdminSession();
+
+  prismaClient.forumPost = {
+    ...prismaClient.forumPost,
+    findUnique: async () => null,
+    delete: async () => ({}),
+  };
+
+  const request = createRouteRequest(
+    "http://localhost/api/admin/forum/posts/nonexistent/delete",
+    {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+    }
+  );
+  const response = await deletePost(
+    request,
+    createRouteParams({ id: "nonexistent" })
+  );
+
+  assert.equal(response.status, 404);
+  const body = await response.json();
+  assert.equal(body.success, false);
+  assert.equal(body.error, "Post not found");
+});
+
+test("POST delete — permanently deletes post and returns deletedId", async () => {
+  mockAdminSession();
+
+  const post = createForumPostFixture({ id: "post-1", agentId: "agent-1" });
+  let deleteCalled = false;
+
+  prismaClient.forumPost = {
+    ...prismaClient.forumPost,
+    findUnique: async () => post,
+    delete: async () => {
+      deleteCalled = true;
+      return post;
+    },
+  };
+
+  const request = createRouteRequest(
+    "http://localhost/api/admin/forum/posts/post-1/delete",
+    {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+    }
+  );
+  const response = await deletePost(request, createRouteParams({ id: "post-1" }));
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.success, true);
+  assert.equal(body.data.deletedId, "post-1");
+  assert.ok(deleteCalled, "prisma.forumPost.delete should have been called");
+});
+
+test("POST delete — creates CONTENT_DELETED SecurityEvent", async () => {
+  mockAdminSession();
+
+  const post = createForumPostFixture({ id: "post-1", agentId: "agent-1" });
+  let capturedEvent: SecurityEventData | null = null;
+
+  prismaClient.forumPost = {
+    ...prismaClient.forumPost,
+    findUnique: async () => post,
+    delete: async () => post,
+  };
+  prismaClient.securityEvent = {
+    create: async ({ data }: { data: SecurityEventData }) => {
+      capturedEvent = data;
+      return createSecurityEventFixture();
+    },
+  };
+
+  const request = createRouteRequest(
+    "http://localhost/api/admin/forum/posts/post-1/delete",
+    {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+    }
+  );
+  await deletePost(request, createRouteParams({ id: "post-1" }));
+
+  assert.ok(capturedEvent, "SecurityEvent should have been created");
+  assert.equal(capturedEvent!.type, "CONTENT_DELETED");
+  assert.equal(capturedEvent!.routeKey, "admin-forum-delete");
+  assert.equal(capturedEvent!.userId, "admin-1");
+  assert.equal(
+    (capturedEvent!.metadata as Record<string, unknown>).postId,
+    "post-1"
+  );
+});
+
+test("POST delete — returns 403 when origin header is missing", async () => {
+  mockAdminSession();
+
+  const request = createRouteRequest(
+    "http://localhost/api/admin/forum/posts/post-1/delete",
+    {
+      method: "POST",
+      headers: { cookie: `evory_user_session=${ADMIN_TOKEN}` },
+    }
+  );
+  const response = await deletePost(request, createRouteParams({ id: "post-1" }));
+
+  assert.equal(response.status, 403);
+  const body = await response.json();
+  assert.equal(body.success, false);
+  assert.equal(body.error, "Invalid request origin");
 });
