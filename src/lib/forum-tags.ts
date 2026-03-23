@@ -31,17 +31,64 @@ const FREEFORM_STOP_WORDS = new Set([
   "update",
 ]);
 
-const CORE_TAG_KEYWORDS: Record<string, string[]> = {
-  frontend: ["frontend", "ui", "client", "browser", "css", "react"],
-  backend: ["backend", "server", "service"],
-  database: ["database", "db", "postgres", "prisma", "sql"],
-  api: ["api", "endpoint", "route", "http"],
-  bugfix: ["bug", "bugfix", "fix", "error", "issue", "broken", "timeout"],
-  performance: ["performance", "optimize", "optimization", "slow", "latency"],
-  deployment: ["deploy", "deployment", "release", "ship", "rollout", "ci/cd", "ci cd"],
-  testing: ["test", "testing", "coverage", "spec", "assert"],
-  security: ["security", "csrf", "auth", "credential", "permission", "scope"],
-  ux: ["ux", "user experience", "copy", "layout", "accessibility"],
+const CORE_TAG_ALIASES: Record<
+  string,
+  {
+    latinTokens: string[];
+    latinPhrases: string[];
+    cjkPhrases: string[];
+  }
+> = {
+  frontend: {
+    latinTokens: ["frontend", "ui", "client", "browser", "css", "react"],
+    latinPhrases: ["user experience"],
+    cjkPhrases: ["前端", "界面", "浏览器"],
+  },
+  backend: {
+    latinTokens: ["backend", "server", "service"],
+    latinPhrases: [],
+    cjkPhrases: ["后端", "服务端"],
+  },
+  database: {
+    latinTokens: ["database", "db", "postgres", "prisma", "sql"],
+    latinPhrases: [],
+    cjkPhrases: ["数据库", "数据表"],
+  },
+  api: {
+    latinTokens: ["api", "endpoint", "route", "http"],
+    latinPhrases: ["http api"],
+    cjkPhrases: ["接口", "路由", "接口网关"],
+  },
+  bugfix: {
+    latinTokens: ["bug", "bugfix", "fix", "error", "issue", "broken", "timeout"],
+    latinPhrases: [],
+    cjkPhrases: ["修复", "报错", "错误", "异常", "故障", "超时", "问题"],
+  },
+  performance: {
+    latinTokens: ["performance", "optimize", "optimization", "slow", "latency"],
+    latinPhrases: [],
+    cjkPhrases: ["性能", "优化", "慢", "延迟"],
+  },
+  deployment: {
+    latinTokens: ["deploy", "deployment", "release", "ship", "rollout"],
+    latinPhrases: ["ci/cd", "ci cd"],
+    cjkPhrases: ["部署", "发布", "上线"],
+  },
+  testing: {
+    latinTokens: ["test", "testing", "coverage", "spec", "assert"],
+    latinPhrases: [],
+    cjkPhrases: ["测试", "覆盖率"],
+  },
+  security: {
+    latinTokens: ["security", "csrf", "auth", "credential", "permission", "scope"],
+    latinPhrases: [],
+    cjkPhrases: ["安全", "认证", "权限"],
+  },
+  ux: {
+    latinTokens: ["ux", "copy", "layout", "accessibility"],
+    latinPhrases: ["user experience"],
+    cjkPhrases: ["体验", "可访问性", "界面文案"],
+  },
 };
 
 type ForumTagKind = "core" | "freeform";
@@ -117,9 +164,30 @@ type PersistForumTagClient = {
 
 function normalizeSlug(value: string) {
   return value
+    .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function tokenizeLatinText(input: string) {
+  return input
+    .toLowerCase()
+    .split(/[^\p{Letter}\p{Number}]+/u)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function hasLatinTokenMatch(tokens: Set<string>, candidates: string[]) {
+  return candidates.some((candidate) => tokens.has(candidate));
+}
+
+function hasLatinPhraseMatch(text: string, phrases: string[]) {
+  return phrases.some((phrase) => text.includes(phrase));
+}
+
+function hasCjkPhraseMatch(text: string, phrases: string[]) {
+  return phrases.some((phrase) => text.includes(phrase));
 }
 
 function toSearchableText(input: ExtractForumTagCandidatesInput) {
@@ -204,12 +272,19 @@ export function extractForumTagCandidates(
   input: ExtractForumTagCandidatesInput
 ): ExtractForumTagCandidatesResult {
   const text = toSearchableText(input);
+  const latinTokens = new Set(tokenizeLatinText(text));
   const normalizedSuggested = normalizeSuggestedForumTags(input.suggestedTags ?? []);
   const matchedCore = [...new Map(
     [
-      ...CORE_FORUM_TAGS.filter(({ slug }) =>
-        CORE_TAG_KEYWORDS[slug].some((keyword) => text.includes(keyword))
-      ),
+      ...CORE_FORUM_TAGS.filter(({ slug }) => {
+        const aliases = CORE_TAG_ALIASES[slug];
+
+        return (
+          hasLatinTokenMatch(latinTokens, aliases.latinTokens) ||
+          hasLatinPhraseMatch(text, aliases.latinPhrases) ||
+          hasCjkPhraseMatch(text, aliases.cjkPhrases)
+        );
+      }),
       ...normalizedSuggested.core,
     ].map((tag) => [tag.slug, tag])
   ).values()];

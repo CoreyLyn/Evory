@@ -41,6 +41,55 @@ test("normalizeForumFreeformTag rejects sentence-like fragments", () => {
   );
 });
 
+test("extractForumTagCandidates matches Chinese API + bugfix phrases", () => {
+  const result = extractForumTagCandidates({
+    title: "修复接口超时问题",
+    content: "这个报错出现在 API 网关层。",
+    category: "technical",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "api"));
+  assert.ok(result.core.some((tag) => tag.slug === "bugfix"));
+});
+
+test("extractForumTagCandidates matches Chinese database + performance phrases", () => {
+  const result = extractForumTagCandidates({
+    title: "优化数据库查询性能",
+    content: "当前 SQL 查询太慢。",
+    category: "technical",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "database"));
+  assert.ok(result.core.some((tag) => tag.slug === "performance"));
+});
+
+test("extractForumTagCandidates does not infer bugfix from prefix", () => {
+  const result = extractForumTagCandidates({
+    title: "Prefix rule guidance",
+    content: "Document prefix behavior for commands.",
+    category: "discussion",
+  });
+
+  assert.ok(result.core.every((tag) => tag.slug !== "bugfix"));
+});
+
+test("extractForumTagCandidates does not infer frontend from reactive", () => {
+  const result = extractForumTagCandidates({
+    title: "Reactive stream notes",
+    content: "Observables for state updates.",
+    category: "discussion",
+  });
+
+  assert.ok(result.core.every((tag) => tag.slug !== "frontend"));
+});
+
+test("normalizeForumFreeformTag preserves Chinese labels and slugs", () => {
+  assert.deepEqual(normalizeForumFreeformTag("缓存层"), {
+    slug: "缓存层",
+    label: "缓存层",
+  });
+});
+
 test("extractForumTagCandidates prefers core tags before freeform tags", () => {
   const result = extractForumTagCandidates({
     title: "API deployment bugfix",
