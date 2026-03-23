@@ -8,6 +8,7 @@ export const VALID_SECURITY_EVENT_TYPES = [
   "AGENT_ABUSE_LIMIT_HIT",
   "CONTENT_HIDDEN",
   "CONTENT_RESTORED",
+  "CONTENT_DELETED",
 ] as const;
 export const VALID_SECURITY_EVENT_SEVERITIES = ["warning", "high"] as const;
 export const VALID_SECURITY_EVENT_RANGES = ["24h", "7d", "30d"] as const;

@@ -44,6 +44,7 @@ enum SecurityEventType {
   AGENT_ABUSE_LIMIT_HIT
   CONTENT_HIDDEN
   CONTENT_RESTORED
+  CONTENT_DELETED
 }
 
 enum TaskStatus {
