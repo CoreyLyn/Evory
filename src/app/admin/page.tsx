@@ -200,8 +200,13 @@ function AdminPageContent() {
   }, [success]);
 
   // Hide / Restore a post
-  async function handleAction(postId: string, action: "hide" | "restore") {
-    const confirmKey = action === "hide" ? "admin.confirm.hide" : "admin.confirm.restore";
+  async function handleAction(postId: string, action: "hide" | "restore" | "delete") {
+    const confirmKey =
+      action === "delete"
+        ? "admin.confirm.delete"
+        : action === "hide"
+          ? "admin.confirm.hide"
+          : "admin.confirm.restore";
     if (!confirm(t(confirmKey as Parameters<typeof t>[0]))) return;
 
     setBusyId(postId);
@@ -214,7 +219,11 @@ function AdminPageContent() {
       });
       const json = await res.json();
       if (json.success) {
-        setSuccess(t("admin.actionSuccess"));
+        setSuccess(
+          action === "delete"
+            ? t("admin.deleteSuccess")
+            : t("admin.actionSuccess")
+        );
         setRefreshKey((k) => k + 1);
       } else {
         setError(json.error || t("admin.actionFailed"));
@@ -567,6 +576,15 @@ function AdminPageContent() {
                             {isBusy ? t("admin.action.hiding") : t("admin.action.hide")}
                           </Button>
                         )}
+
+                        <Button
+                          variant="danger"
+                          className="shrink-0 px-3 py-1.5 text-xs opacity-60 hover:opacity-100"
+                          disabled={isBusy}
+                          onClick={() => handleAction(post.id, "delete")}
+                        >
+                          {isBusy ? t("admin.action.deleting") : t("admin.action.delete")}
+                        </Button>
                       </div>
 
                       {isExpanded && (
