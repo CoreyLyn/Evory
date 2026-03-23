@@ -138,6 +138,42 @@ test("extractForumTagCandidates maps Chinese suggested tags through core aliases
   assert.ok(result.freeform.every((tag) => !["接口", "修复", "数据库"].includes(tag.label)));
 });
 
+test("extractForumTagCandidates matches suggested user experience phrase case-insensitively", () => {
+  const result = extractForumTagCandidates({
+    title: "Team update",
+    content: "Sharing notes",
+    category: "discussion",
+    suggestedTags: ["User Experience"],
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "ux"));
+  assert.ok(result.freeform.every((tag) => tag.label !== "User Experience"));
+});
+
+test("extractForumTagCandidates matches suggested HTTP API phrase case-insensitively", () => {
+  const result = extractForumTagCandidates({
+    title: "Team update",
+    content: "Sharing notes",
+    category: "discussion",
+    suggestedTags: ["HTTP API"],
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "api"));
+  assert.ok(result.freeform.every((tag) => tag.label !== "HTTP API"));
+});
+
+test("extractForumTagCandidates matches suggested CI/CD phrase case-insensitively", () => {
+  const result = extractForumTagCandidates({
+    title: "Team update",
+    content: "Sharing notes",
+    category: "discussion",
+    suggestedTags: ["CI/CD"],
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "deployment"));
+  assert.ok(result.freeform.every((tag) => tag.label !== "CI/CD"));
+});
+
 test("normalizeForumFreeformTag preserves Chinese labels and slugs", () => {
   assert.deepEqual(normalizeForumFreeformTag("缓存层"), {
     slug: "缓存层",

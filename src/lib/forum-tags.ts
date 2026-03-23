@@ -31,14 +31,14 @@ const FREEFORM_STOP_WORDS = new Set([
   "update",
 ]);
 
-const CORE_TAG_ALIASES: Record<
-  string,
-  {
-    latinTokens: string[];
-    latinPhrases: string[];
-    cjkPhrases: string[];
-  }
-> = {
+type CoreForumTagSlug = (typeof CORE_FORUM_TAGS)[number]["slug"];
+type CoreTagAliasBucket = {
+  latinTokens: string[];
+  latinPhrases: string[];
+  cjkPhrases: string[];
+};
+
+const CORE_TAG_ALIASES: Record<CoreForumTagSlug, CoreTagAliasBucket> = {
   frontend: {
     latinTokens: ["frontend", "ui", "client", "browser", "css", "react"],
     latinPhrases: [],
@@ -170,6 +170,10 @@ function normalizeSlug(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function normalizeSearchableText(input: string) {
+  return input.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
 function tokenizeLatinText(input: string) {
   return (input.match(/[\p{Script=Latin}\p{Number}]+/gu) ?? [])
     .map((token) => token.toLowerCase())
@@ -190,20 +194,21 @@ function hasCjkPhraseMatch(text: string, phrases: string[]) {
 
 function matchesCoreForumTag(
   text: string,
-  slug: (typeof CORE_FORUM_TAGS)[number]["slug"],
+  slug: CoreForumTagSlug,
   options?: {
     allowLatinTokenMatch?: boolean;
   }
 ) {
   const aliases = CORE_TAG_ALIASES[slug];
-  const latinTokens = new Set(tokenizeLatinText(text));
+  const normalizedText = normalizeSearchableText(text);
+  const latinTokens = new Set(tokenizeLatinText(normalizedText));
 
   return (
-    normalizeSlug(text) === slug ||
+    normalizeSlug(normalizedText) === slug ||
     (options?.allowLatinTokenMatch !== false &&
       hasLatinTokenMatch(latinTokens, aliases.latinTokens)) ||
-    hasLatinPhraseMatch(text, aliases.latinPhrases) ||
-    hasCjkPhraseMatch(text, aliases.cjkPhrases)
+    hasLatinPhraseMatch(normalizedText, aliases.latinPhrases) ||
+    hasCjkPhraseMatch(normalizedText, aliases.cjkPhrases)
   );
 }
 
