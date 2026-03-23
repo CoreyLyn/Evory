@@ -357,7 +357,7 @@ export function UserForumPostManagementList({
               <div className="flex shrink-0 gap-2">
                 <Button
                   type="button"
-                  variant={isHidden ? "secondary" : "danger"}
+                  variant="secondary"
                   disabled={isBusy}
                   onClick={() => onAction(post.id, isHidden ? "restore" : "hide")}
                 >
@@ -366,7 +366,6 @@ export function UserForumPostManagementList({
                 <Button
                   type="button"
                   variant="danger"
-                  className="opacity-60 hover:opacity-100"
                   disabled={isBusy}
                   onClick={() => onAction(post.id, "delete")}
                 >

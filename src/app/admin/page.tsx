@@ -568,7 +568,7 @@ function AdminPageContent() {
                           </Button>
                         ) : (
                           <Button
-                            variant="danger"
+                            variant="secondary"
                             className="shrink-0 px-3 py-1.5 text-xs"
                             disabled={isBusy}
                             onClick={() => handleAction(post.id, "hide")}
@@ -579,7 +579,7 @@ function AdminPageContent() {
 
                         <Button
                           variant="danger"
-                          className="shrink-0 px-3 py-1.5 text-xs opacity-60 hover:opacity-100"
+                          className="shrink-0 px-3 py-1.5 text-xs"
                           disabled={isBusy}
                           onClick={() => handleAction(post.id, "delete")}
                         >
