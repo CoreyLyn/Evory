@@ -5,10 +5,12 @@ import { authenticateAdmin } from "@/lib/admin-auth";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { deriveForumTagOverrides } from "@/lib/forum-tag-overrides";
 import {
   buildForumPostTagPayloads,
+  extractForumTagCandidates,
   normalizeEditableForumTags,
-  replaceForumPostTags,
+  rebuildForumPostTags,
 } from "@/lib/forum-tags";
 
 export async function PUT(
@@ -65,11 +67,77 @@ export async function PUT(
       );
     }
 
+    const extracted = extractForumTagCandidates({
+      title: post.title,
+      content: post.content,
+      category: post.category,
+    });
+    const autoTags = [
+      ...extracted.core.map(({ slug, label }) => ({
+        slug,
+        label,
+        kind: "CORE" as const,
+      })),
+      ...extracted.freeform.map(({ slug, label }) => ({
+        slug,
+        label,
+        kind: "FREEFORM" as const,
+      })),
+    ];
+    const derivedOverrides = deriveForumTagOverrides({
+      autoTags,
+      desiredTags: normalizedTags,
+    });
+    const overrideRows = [
+      ...derivedOverrides.add.map((tag) => ({ action: "ADD" as const, tag })),
+      ...derivedOverrides.remove.map((tag) => ({ action: "REMOVE" as const, tag })),
+      ...derivedOverrides.lock.map((tag) => ({ action: "LOCK" as const, tag })),
+    ];
+
     await prisma.$transaction(async (tx) => {
-      await replaceForumPostTags(tx, {
+      const participatingTags = [...new Map(
+        [...autoTags, ...normalizedTags].map((tag) => [tag.slug, tag])
+      ).values()];
+      const tagIdsBySlug = new Map<string, string>();
+
+      await Promise.all(
+        participatingTags.map(async (tag) => {
+          const record = await tx.forumTag.upsert({
+            where: { slug: tag.slug },
+            update: {
+              label: tag.label,
+              kind: tag.kind,
+            },
+            create: {
+              slug: tag.slug,
+              label: tag.label,
+              kind: tag.kind,
+            },
+          });
+
+          tagIdsBySlug.set(tag.slug, record.id);
+        })
+      );
+
+      await tx.forumPostTagOverride.deleteMany({
+        where: { postId: id },
+      });
+
+      if (overrideRows.length > 0) {
+        await tx.forumPostTagOverride.createMany({
+          data: overrideRows.map(({ action, tag }) => ({
+            postId: id,
+            tagId: tagIdsBySlug.get(tag.slug)!,
+            action,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      await rebuildForumPostTags(tx, {
         postId: id,
-        tags: normalizedTags,
-        source: "MANUAL",
+        extracted,
+        overrideRows,
       });
     });
 
