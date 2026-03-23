@@ -50,6 +50,10 @@ type AdminPostPrismaMock = {
     deleteMany: AsyncMethod;
     createMany: AsyncMethod;
   };
+  forumPostTagOverride?: {
+    deleteMany: AsyncMethod;
+    createMany: AsyncMethod;
+  };
   securityEvent: {
     create: AsyncMethod<[{
       data: SecurityEventData;
@@ -66,6 +70,7 @@ const originalMethods = {
   forumPost: prismaClient.forumPost,
   forumTag: prismaClient.forumTag,
   forumPostTag: prismaClient.forumPostTag,
+  forumPostTagOverride: prismaClient.forumPostTagOverride,
   securityEvent: prismaClient.securityEvent,
   rateLimitCounter: prismaClient.rateLimitCounter,
   transaction: prismaClient.$transaction,
@@ -124,12 +129,17 @@ beforeEach(() => {
     deleteMany: async () => ({ count: 0 }),
     createMany: async () => ({ count: 0 }),
   };
+  prismaClient.forumPostTagOverride = {
+    deleteMany: async () => ({ count: 0 }),
+    createMany: async () => ({ count: 0 }),
+  };
   prismaClient.$transaction = async (input: unknown) => {
     if (typeof input === "function") {
       return input({
         forumPost: prismaClient.forumPost,
         forumTag: prismaClient.forumTag,
         forumPostTag: prismaClient.forumPostTag,
+        forumPostTagOverride: prismaClient.forumPostTagOverride,
         securityEvent: prismaClient.securityEvent,
       });
     }
@@ -144,6 +154,7 @@ afterEach(async () => {
   prismaClient.forumPost = originalMethods.forumPost;
   prismaClient.forumTag = originalMethods.forumTag;
   prismaClient.forumPostTag = originalMethods.forumPostTag;
+  prismaClient.forumPostTagOverride = originalMethods.forumPostTagOverride;
   prismaClient.securityEvent = originalMethods.securityEvent;
   prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.$transaction = originalMethods.transaction;
@@ -943,31 +954,86 @@ test("PUT featured — returns 403 when origin is cross-origin", async () => {
 // PUT /api/admin/forum/posts/[id]/tags
 // ---------------------------------------------------------------------------
 
-test("PUT tags replaces a post's final tag set with manual tags", async () => {
+test("PUT tags rebuilds overrides and final tags from admin textarea", async () => {
   mockAdminSession();
 
-  const deleteCalls: Array<Record<string, unknown>> = [];
-  const createManyCalls: Array<Record<string, unknown>> = [];
+  const operationOrder: string[] = [];
+  const findUniqueCalls: Array<Record<string, unknown>> = [];
+  const tagUpsertCalls: Array<Record<string, unknown>> = [];
+  const overrideDeleteCalls: Array<Record<string, unknown>> = [];
+  const overrideCreateManyCalls: Array<Record<string, unknown>> = [];
+  const finalTagDeleteCalls: Array<Record<string, unknown>> = [];
+  const finalTagCreateManyCalls: Array<Record<string, unknown>> = [];
+  const materializedTagRows = [
+    createForumPostTagFixture({
+      id: "post-tag-api",
+      source: "MANUAL",
+      tag: { id: "tag-api", slug: "api", label: "API", kind: "CORE" },
+    }),
+    createForumPostTagFixture({
+      id: "post-tag-performance",
+      source: "MANUAL",
+      tag: {
+        id: "tag-performance",
+        slug: "performance",
+        label: "Performance",
+        kind: "CORE",
+      },
+    }),
+  ];
 
   prismaClient.forumPost = {
     ...prismaClient.forumPost,
-    findUnique: async () =>
-      createForumPostFixture({
+    findUnique: async (args: Record<string, unknown>) => {
+      findUniqueCalls.push(args);
+
+      if (findUniqueCalls.length === 1) {
+        return createForumPostFixture({
+          id: "post-1",
+          title: "Backend API",
+          content: "Server service handles HTTP endpoints.",
+          category: "technical",
+        });
+      }
+
+      return createForumPostFixture({
         id: "post-1",
-        tags: [
-          createForumPostTagFixture({
-            tag: { id: "tag-api", slug: "api", label: "API", kind: "CORE" },
-          }),
-        ],
-      }),
+        title: "Backend API",
+        content: "Server service handles HTTP endpoints.",
+        category: "technical",
+        tags: materializedTagRows,
+      });
+    },
   };
-  prismaClient.forumPostTag = {
+  prismaClient.forumTag = {
+    upsert: async (args: Record<string, unknown>) => {
+      tagUpsertCalls.push(args);
+      return {
+        id: `tag-${(args.where as { slug: string }).slug}`,
+      };
+    },
+  };
+  prismaClient.forumPostTagOverride = {
     deleteMany: async (args: Record<string, unknown>) => {
-      deleteCalls.push(args);
+      operationOrder.push("overrideDelete");
+      overrideDeleteCalls.push(args);
       return { count: 1 };
     },
     createMany: async (args: Record<string, unknown>) => {
-      createManyCalls.push(args);
+      operationOrder.push("overrideCreate");
+      overrideCreateManyCalls.push(args);
+      return { count: 3 };
+    },
+  };
+  prismaClient.forumPostTag = {
+    deleteMany: async (args: Record<string, unknown>) => {
+      operationOrder.push("finalDelete");
+      finalTagDeleteCalls.push(args);
+      return { count: 1 };
+    },
+    createMany: async (args: Record<string, unknown>) => {
+      operationOrder.push("finalCreate");
+      finalTagCreateManyCalls.push(args);
       return { count: 2 };
     },
   };
@@ -982,7 +1048,7 @@ test("PUT tags replaces a post's final tag set with manual tags", async () => {
       json: {
         tags: [
           { slug: "api", label: "API", kind: "core" },
-          { slug: "ci-cd", label: "CI / CD", kind: "freeform" },
+          { slug: "performance", label: "Performance", kind: "core" },
         ],
       },
     }),
@@ -992,11 +1058,69 @@ test("PUT tags replaces a post's final tag set with manual tags", async () => {
 
   assert.equal(response.status, 200);
   assert.equal(body.success, true);
-  assert.equal(deleteCalls.length, 1);
-  assert.equal(createManyCalls.length, 1);
+  assert.equal(findUniqueCalls.length, 2);
+  assert.deepEqual(findUniqueCalls[1], {
+    where: { id: "post-1" },
+    select: {
+      tags: {
+        select: {
+          source: true,
+          tag: {
+            select: {
+              slug: true,
+              label: true,
+              kind: true,
+            },
+          },
+        },
+      },
+    },
+  });
+  assert.deepEqual(operationOrder, [
+    "overrideDelete",
+    "overrideCreate",
+    "finalDelete",
+    "finalCreate",
+  ]);
+  assert.deepEqual(overrideDeleteCalls, [{ where: { postId: "post-1" } }]);
+  assert.equal(overrideCreateManyCalls.length, 1);
+  assert.deepEqual(
+    [
+      ...((overrideCreateManyCalls[0].data as Array<Record<string, string>>) ?? []),
+    ]
+      .map(({ action, postId, tagId }) => ({ action, postId, tagId }))
+      .sort((left, right) => left.action.localeCompare(right.action)),
+    [
+      { action: "ADD", postId: "post-1", tagId: "tag-performance" },
+      { action: "LOCK", postId: "post-1", tagId: "tag-api" },
+      { action: "REMOVE", postId: "post-1", tagId: "tag-backend" },
+    ]
+  );
+  assert.deepEqual(finalTagDeleteCalls, [{ where: { postId: "post-1" } }]);
+  assert.equal(finalTagCreateManyCalls.length, 1);
+  assert.deepEqual(
+    (finalTagCreateManyCalls[0].data as Array<Record<string, string>>).map(
+      ({ postId, tagId, source }) => ({ postId, tagId, source })
+    ),
+    [
+      { postId: "post-1", tagId: "tag-api", source: "MANUAL" },
+      { postId: "post-1", tagId: "tag-performance", source: "MANUAL" },
+    ]
+  );
+  assert.deepEqual(
+    [...new Set(
+      tagUpsertCalls.map((call) => (call.where as { slug: string }).slug)
+    )].sort(),
+    ["api", "backend", "performance"]
+  );
   assert.deepEqual(body.data.tags, [
     { slug: "api", label: "API", kind: "core", source: "manual" },
-    { slug: "ci-cd", label: "CI / CD", kind: "freeform", source: "manual" },
+    {
+      slug: "performance",
+      label: "Performance",
+      kind: "core",
+      source: "manual",
+    },
   ]);
 });
 

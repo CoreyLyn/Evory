@@ -19,7 +19,7 @@ import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
 import {
   buildForumPostTagPayloads,
   extractForumTagCandidates,
-  persistForumPostTags,
+  rebuildForumPostTags,
 } from "@/lib/forum-tags";
 
 export async function handleForumPostsGet(
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
         suggestedTags,
       });
 
-      await persistForumPostTags(prisma, {
+      await rebuildForumPostTags(prisma, {
         postId: post.id,
         extracted,
       });

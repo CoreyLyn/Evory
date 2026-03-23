@@ -1,3 +1,9 @@
+import {
+  applyForumTagOverrides,
+  type ForumTagOverrides,
+  type ForumTagRecord,
+} from "@/lib/forum-tag-overrides";
+
 export const CORE_FORUM_TAGS = [
   { slug: "frontend", label: "Frontend" },
   { slug: "backend", label: "Backend" },
@@ -31,17 +37,64 @@ const FREEFORM_STOP_WORDS = new Set([
   "update",
 ]);
 
-const CORE_TAG_KEYWORDS: Record<string, string[]> = {
-  frontend: ["frontend", "ui", "client", "browser", "css", "react"],
-  backend: ["backend", "server", "service"],
-  database: ["database", "db", "postgres", "prisma", "sql"],
-  api: ["api", "endpoint", "route", "http"],
-  bugfix: ["bug", "bugfix", "fix", "error", "issue", "broken", "timeout"],
-  performance: ["performance", "optimize", "optimization", "slow", "latency"],
-  deployment: ["deploy", "deployment", "release", "ship", "rollout", "ci/cd", "ci cd"],
-  testing: ["test", "testing", "coverage", "spec", "assert"],
-  security: ["security", "csrf", "auth", "credential", "permission", "scope"],
-  ux: ["ux", "user experience", "copy", "layout", "accessibility"],
+type CoreForumTagSlug = (typeof CORE_FORUM_TAGS)[number]["slug"];
+type CoreTagAliasBucket = {
+  latinTokens: string[];
+  latinPhrases: string[];
+  cjkPhrases: string[];
+};
+
+const CORE_TAG_ALIASES: Record<CoreForumTagSlug, CoreTagAliasBucket> = {
+  frontend: {
+    latinTokens: ["frontend", "ui", "client", "browser", "css", "react"],
+    latinPhrases: [],
+    cjkPhrases: ["前端", "界面", "浏览器"],
+  },
+  backend: {
+    latinTokens: ["backend", "server", "service"],
+    latinPhrases: [],
+    cjkPhrases: ["后端", "服务端"],
+  },
+  database: {
+    latinTokens: ["database", "db", "postgres", "prisma", "sql"],
+    latinPhrases: [],
+    cjkPhrases: ["数据库", "数据表"],
+  },
+  api: {
+    latinTokens: ["api", "endpoint", "route", "http"],
+    latinPhrases: ["http api"],
+    cjkPhrases: ["接口", "接口网关"],
+  },
+  bugfix: {
+    latinTokens: ["bug", "bugfix", "fix", "fixed", "error", "issue", "broken", "timeout"],
+    latinPhrases: [],
+    cjkPhrases: ["修复", "报错", "错误", "异常", "故障", "超时"],
+  },
+  performance: {
+    latinTokens: ["performance", "optimize", "optimized", "optimization", "latency"],
+    latinPhrases: [],
+    cjkPhrases: ["性能", "优化", "延迟"],
+  },
+  deployment: {
+    latinTokens: ["deploy", "deployment", "release", "released", "ship", "rollout"],
+    latinPhrases: ["ci/cd", "ci cd"],
+    cjkPhrases: ["部署", "上线"],
+  },
+  testing: {
+    latinTokens: ["test", "tests", "testing", "coverage", "spec", "assert"],
+    latinPhrases: [],
+    cjkPhrases: ["测试", "覆盖率"],
+  },
+  security: {
+    latinTokens: ["security", "csrf", "auth", "credential", "permission", "permissions", "scope"],
+    latinPhrases: [],
+    cjkPhrases: ["安全", "认证", "权限"],
+  },
+  ux: {
+    latinTokens: ["ux", "copy", "layout", "accessibility"],
+    latinPhrases: ["user experience"],
+    cjkPhrases: ["体验", "可访问性", "界面文案"],
+  },
 };
 
 type ForumTagKind = "core" | "freeform";
@@ -115,11 +168,88 @@ type PersistForumTagClient = {
   };
 };
 
+type ForumTagOverrideRow = {
+  action: "ADD" | "REMOVE" | "LOCK";
+  tag: ForumTagRecord;
+};
+
 function normalizeSlug(value: string) {
   return value
+    .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function normalizeSearchableText(input: string) {
+  return input.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function tokenizeLatinText(input: string) {
+  return (input.match(/[\p{Script=Latin}\p{Number}]+/gu) ?? [])
+    .map((token) => token.toLowerCase())
+    .filter(Boolean);
+}
+
+function hasLatinTokenMatch(tokens: Set<string>, candidates: string[]) {
+  return candidates.some((candidate) => tokens.has(candidate));
+}
+
+function hasLatinPhraseMatch(text: string, phrases: string[]) {
+  const textTokens = tokenizeLatinText(text);
+
+  return phrases.some((phrase) => {
+    const phraseTokens = tokenizeLatinText(phrase);
+
+    if (phraseTokens.length === 0 || phraseTokens.length > textTokens.length) {
+      return false;
+    }
+
+    for (let index = 0; index <= textTokens.length - phraseTokens.length; index += 1) {
+      let matches = true;
+
+      for (let offset = 0; offset < phraseTokens.length; offset += 1) {
+        if (textTokens[index + offset] !== phraseTokens[offset]) {
+          matches = false;
+          break;
+        }
+      }
+
+      if (matches) {
+        return true;
+      }
+    }
+
+    return false;
+  });
+}
+
+function hasCjkPhraseMatch(text: string, phrases: string[]) {
+  return phrases.some((phrase) => text.includes(phrase));
+}
+
+function matchesCoreForumTag(
+  text: string,
+  slug: CoreForumTagSlug
+) {
+  const aliases = CORE_TAG_ALIASES[slug];
+  const normalizedText = normalizeSearchableText(text);
+  const latinTokens = new Set(tokenizeLatinText(normalizedText));
+
+  return (
+    normalizeSlug(normalizedText) === slug ||
+    hasLatinTokenMatch(latinTokens, aliases.latinTokens) ||
+    hasLatinPhraseMatch(normalizedText, aliases.latinPhrases) ||
+    hasCjkPhraseMatch(normalizedText, aliases.cjkPhrases)
+  );
+}
+
+function findMatchingCoreForumTags(text: string) {
+  return CORE_FORUM_TAGS.filter(({ slug }) => matchesCoreForumTag(text, slug));
+}
+
+function hasCoreForumTagMatch(text: string) {
+  return findMatchingCoreForumTags(text).length > 0;
 }
 
 function toSearchableText(input: ExtractForumTagCandidatesInput) {
@@ -145,10 +275,11 @@ function normalizeSuggestedForumTags(suggestedTags: string[]) {
   const freeform = new Map<string, { slug: string; label: string }>();
 
   for (const rawTag of suggestedTags) {
-    const normalizedSlug = normalizeSlug(rawTag);
-    const coreTag = CORE_FORUM_TAGS.find((tag) => tag.slug === normalizedSlug);
-    if (coreTag) {
-      core.set(coreTag.slug, coreTag);
+    const matchedCore = findMatchingCoreForumTags(rawTag);
+    if (matchedCore.length > 0) {
+      for (const coreTag of matchedCore) {
+        core.set(coreTag.slug, coreTag);
+      }
       continue;
     }
 
@@ -206,12 +337,10 @@ export function extractForumTagCandidates(
   const text = toSearchableText(input);
   const normalizedSuggested = normalizeSuggestedForumTags(input.suggestedTags ?? []);
   const matchedCore = [...new Map(
-    [
-      ...CORE_FORUM_TAGS.filter(({ slug }) =>
-        CORE_TAG_KEYWORDS[slug].some((keyword) => text.includes(keyword))
-      ),
-      ...normalizedSuggested.core,
-    ].map((tag) => [tag.slug, tag])
+    [...findMatchingCoreForumTags(text), ...normalizedSuggested.core].map((tag) => [
+      tag.slug,
+      tag,
+    ])
   ).values()];
   const maxFreeformCount =
     matchedCore.length === 0 ? 2 : matchedCore.length === 1 ? 1 : 0;
@@ -219,10 +348,14 @@ export function extractForumTagCandidates(
   const freeformPhrases = [
     ...normalizedSuggested.freeform,
     ...[
-      ...input.title.split(/[-:,/|，。！？；：、()[\]\n]/),
+      ...input.title.split(/[-:|，。！？；：、()[\]\n]/),
       ...input.content.split(/[.!?,;:\n|，。！？；：、()[\]]/),
-    ].map((part) => normalizeForumFreeformTag(part))
-    .filter((value): value is NonNullable<typeof value> => value !== null)
+    ]
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .filter((part) => !hasCoreForumTagMatch(part))
+      .map((part) => normalizeForumFreeformTag(part))
+      .filter((value): value is NonNullable<typeof value> => value !== null)
   ]
     .filter((value) => !matchedCore.some((core) => core.slug === value.slug));
 
@@ -337,6 +470,116 @@ export function normalizeEditableForumTags(input: EditableForumTagInput[]) {
   return [...normalized.values()];
 }
 
+function buildExtractedForumTagRecords(
+  extracted: ExtractForumTagCandidatesResult
+): ForumTagRecord[] {
+  return [
+    ...extracted.core.map(({ slug, label }) => ({
+      slug,
+      label,
+      kind: "CORE" as const,
+    })),
+    ...extracted.freeform.map(({ slug, label }) => ({
+      slug,
+      label,
+      kind: "FREEFORM" as const,
+    })),
+  ];
+}
+
+function uniqueForumTagRecordsBySlug(tags: ForumTagRecord[]) {
+  return [...new Map(tags.map((tag) => [tag.slug, tag])).values()];
+}
+
+function mapForumTagOverrideRows(
+  overrideRows?: ForumTagOverrideRow[]
+): Partial<ForumTagOverrides> | undefined {
+  if (!overrideRows || overrideRows.length === 0) {
+    return undefined;
+  }
+
+  const overrides: ForumTagOverrides = {
+    add: [],
+    remove: [],
+    lock: [],
+  };
+
+  for (const row of overrideRows) {
+    if (row.action === "REMOVE") {
+      overrides.remove.push(row.tag.slug);
+      continue;
+    }
+
+    if (row.action === "ADD") {
+      overrides.add.push(row.tag);
+      continue;
+    }
+
+    overrides.lock.push(row.tag);
+  }
+
+  return overrides;
+}
+
+export async function rebuildForumPostTags(
+  prismaClient: PersistForumTagClient,
+  input: {
+    postId: string;
+    extracted: ExtractForumTagCandidatesResult;
+    overrideRows?: ForumTagOverrideRow[];
+  }
+) {
+  const autoTags = buildExtractedForumTagRecords(input.extracted);
+  const overrides = mapForumTagOverrideRows(input.overrideRows);
+  const { finalTags } = applyForumTagOverrides({
+    autoTags,
+    overrides,
+  });
+  const participatingTags = uniqueForumTagRecordsBySlug([
+    ...autoTags,
+    ...(input.overrideRows?.map((row) => row.tag) ?? []),
+  ]);
+  const tagIdsBySlug = new Map<string, string>();
+
+  await Promise.all(
+    participatingTags.map(async (tag) => {
+      const record = await prismaClient.forumTag.upsert({
+        where: { slug: tag.slug },
+        update: {
+          label: tag.label,
+          kind: tag.kind,
+        },
+        create: {
+          slug: tag.slug,
+          label: tag.label,
+          kind: tag.kind,
+        },
+      });
+
+      tagIdsBySlug.set(tag.slug, record.id);
+    })
+  );
+
+  if (prismaClient.forumPostTag.deleteMany) {
+    await prismaClient.forumPostTag.deleteMany({
+      where: { postId: input.postId },
+    });
+  }
+
+  if (finalTags.length === 0) {
+    return;
+  }
+
+  await prismaClient.forumPostTag.createMany({
+    data: finalTags.map((tag) => ({
+      postId: input.postId,
+      tagId: tagIdsBySlug.get(tag.slug)!,
+      source: tag.source,
+    })),
+    skipDuplicates: true,
+  });
+}
+
 export async function persistForumPostTags(
   prismaClient: PersistForumTagClient,
   input: {
@@ -347,6 +590,14 @@ export async function persistForumPostTags(
 ) {
   const source = input.source ?? "AUTO";
   const tags = [...input.extracted.core, ...input.extracted.freeform];
+
+  if (source === "AUTO") {
+    await rebuildForumPostTags(prismaClient, {
+      postId: input.postId,
+      extracted: input.extracted,
+    });
+    return;
+  }
 
   if (tags.length === 0) {
     return;

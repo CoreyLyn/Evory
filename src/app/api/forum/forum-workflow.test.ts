@@ -78,6 +78,7 @@ beforeEach(() => {
     }),
   };
   prismaClient.forumPostTag = {
+    deleteMany: async () => ({ count: 0 }),
     createMany: async () => ({ count: 0 }),
   };
   prismaClient.forumPostView = {
@@ -910,6 +911,7 @@ test("forum post creation returns normalized tags for the created post", async (
     }),
   };
   prismaClient.forumPostTag = {
+    deleteMany: async () => ({ count: 0 }),
     createMany: async () => ({ count: 2 }),
   };
   prismaClient.forumPost.findUnique = async () =>
@@ -953,6 +955,109 @@ test("forum post creation returns normalized tags for the created post", async (
   assert.equal(json.success, true);
   assert.ok(Array.isArray(json.data.tags));
   assert.ok(json.data.tags.some((tag: { slug: string }) => tag.slug === "api"));
+});
+
+test("forum post creation returns normalized core tags for Chinese content through materialized tags", async () => {
+  const materializedTags: Array<{ tagId: string; source: "AUTO" | "MANUAL" }> = [];
+  const tagsById = new Map<string, { id: string; slug: string; label: string; kind: "CORE" | "FREEFORM" }>();
+  let materializationStarted = false;
+
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.forumPost.create = async ({ data }: { data: Record<string, string> }) =>
+    createForumPostFixture({
+      id: "post-chinese-tags",
+      title: data.title,
+      content: data.content,
+      category: data.category,
+      tags: [],
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      agent: createAgentFixture({
+        id: data.agentId,
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  prismaClient.forumTag = {
+    upsert: async ({
+      where,
+      create,
+      update,
+    }: {
+      where: { slug: string };
+      create: { label: string; kind: "CORE" | "FREEFORM" };
+      update: { label: string; kind: "CORE" | "FREEFORM" };
+    }) => {
+      const record = {
+        id: `tag-${where.slug}`,
+        slug: where.slug,
+        label: create.label ?? update.label,
+        kind: create.kind ?? update.kind,
+      };
+
+      tagsById.set(record.id, record);
+
+      return record;
+    },
+  };
+  prismaClient.forumPostTag = {
+    deleteMany: async () => {
+      materializationStarted = true;
+      materializedTags.length = 0;
+      return { count: 0 };
+    },
+    createMany: async ({
+      data,
+    }: {
+      data: Array<{ tagId: string; source: "AUTO" | "MANUAL" }>;
+    }) => {
+      if (materializationStarted) {
+        materializedTags.push(...data);
+      }
+
+      return { count: data.length };
+    },
+  };
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-chinese-tags",
+      title: "修复接口超时并优化数据库查询性能",
+      content: "API 网关持续报错，数据库 SQL 查询延迟太高，需要尽快处理。",
+      category: "technical",
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      tags: materializedTags.map((relation, index) =>
+        createForumPostTagFixture({
+          id: `post-tag-${index + 1}`,
+          source: relation.source,
+          tag: tagsById.get(relation.tagId),
+        })
+      ),
+    });
+  mockAwardPointsTransaction();
+
+  const response = await createPost(
+    createRouteRequest("http://localhost/api/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        title: "修复接口超时并优化数据库查询性能",
+        content: "API 网关持续报错，数据库 SQL 查询延迟太高，需要尽快处理。",
+        category: "technical",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.deepEqual(json.data.tags, [
+    { slug: "api", label: "API", kind: "core", source: "auto" },
+    { slug: "bugfix", label: "Bugfix", kind: "core", source: "auto" },
+    { slug: "database", label: "Database", kind: "core", source: "auto" },
+    { slug: "performance", label: "Performance", kind: "core", source: "auto" },
+  ]);
 });
 
 test("forum post creation rejects obviously garbled text before insertion", async () => {
@@ -1013,6 +1118,7 @@ test("forum post creation accepts suggestedTags and still returns normalized tag
     }),
   };
   prismaClient.forumPostTag = {
+    deleteMany: async () => ({ count: 0 }),
     createMany: async () => ({ count: 2 }),
   };
   prismaClient.forumPost.findUnique = async () =>

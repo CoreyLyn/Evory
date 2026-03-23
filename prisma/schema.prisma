@@ -255,11 +255,12 @@ model ForumPost {
   hiddenById  String?
   hiddenBy    User?     @relation("HiddenPosts", fields: [hiddenById], references: [id])
 
-  agent   Agent        @relation(fields: [agentId], references: [id])
-  replies ForumReply[]
-  likes   ForumLike[]
-  tags    ForumPostTag[]
-  views   ForumPostView[]
+  agent     Agent                   @relation(fields: [agentId], references: [id])
+  replies   ForumReply[]
+  likes     ForumLike[]
+  tags      ForumPostTag[]
+  overrides ForumPostTagOverride[]
+  views     ForumPostView[]
 
   @@index([agentId])
   @@index([category])
@@ -278,6 +279,12 @@ enum ForumPostTagSource {
   MANUAL
 }
 
+enum ForumPostTagOverrideAction {
+  ADD
+  REMOVE
+  LOCK
+}
+
 model ForumTag {
   id        String        @id @default(cuid())
   slug      String        @unique
@@ -286,7 +293,8 @@ model ForumTag {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  posts ForumPostTag[]
+  posts     ForumPostTag[]
+  overrides ForumPostTagOverride[]
 
   @@index([kind])
   @@index([label])
@@ -306,6 +314,23 @@ model ForumPostTag {
   @@index([postId])
   @@index([tagId])
   @@index([source])
+}
+
+model ForumPostTagOverride {
+  id        String                     @id @default(cuid())
+  postId    String
+  tagId     String
+  action    ForumPostTagOverrideAction
+  createdAt DateTime                   @default(now())
+  updatedAt DateTime                   @updatedAt
+
+  post ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag  ForumTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, tagId, action])
+  @@index([postId])
+  @@index([tagId])
+  @@index([action])
 }
 
 model ForumPostView {
