@@ -23,6 +23,7 @@ type UserForumPostActionsPrismaMock = {
   forumPost?: {
     findUnique: AsyncMethod;
     update: AsyncMethod;
+    delete: AsyncMethod;
   };
 };
 
@@ -31,6 +32,7 @@ const originalUserSessionFindUnique = prismaClient.userSession?.findUnique;
 const originalUserSessionDeleteMany = prismaClient.userSession?.deleteMany;
 const originalForumPostFindUnique = prismaClient.forumPost?.findUnique;
 const originalForumPostUpdate = prismaClient.forumPost?.update;
+const originalForumPostDelete = prismaClient.forumPost?.delete;
 
 const USER_TOKEN = "owner-session-token";
 const USER_ID = "user-1";
@@ -52,6 +54,7 @@ beforeEach(() => {
   prismaClient.forumPost = {
     findUnique: async () => null,
     update: async () => ({}),
+    delete: async () => ({}),
   };
 });
 
@@ -72,6 +75,9 @@ afterEach(() => {
     if (originalForumPostUpdate) {
       prismaClient.forumPost.update = originalForumPostUpdate;
     }
+    if (originalForumPostDelete) {
+      prismaClient.forumPost.delete = originalForumPostDelete;
+    }
   }
 });
 
@@ -85,6 +91,13 @@ async function loadHideHandler() {
 async function loadRestoreHandler() {
   const mod = await import("./restore/route").catch(() => null);
   assert.ok(mod, "expected src/app/api/users/me/forum/posts/[id]/restore/route.ts to exist");
+  assert.equal(typeof mod.POST, "function");
+  return mod.POST;
+}
+
+async function loadDeleteHandler() {
+  const mod = await import("./delete/route").catch(() => null);
+  assert.ok(mod, "expected src/app/api/users/me/forum/posts/[id]/delete/route.ts to exist");
   assert.equal(typeof mod.POST, "function");
   return mod.POST;
 }
@@ -221,4 +234,84 @@ test("POST restore clears hiddenAt and hiddenById for an owned hidden post", asy
     hiddenAt: null,
     hiddenById: null,
   });
+});
+
+test("POST delete returns 401 without auth", async () => {
+  const POST = await loadDeleteHandler();
+  const response = await POST(
+    createRouteRequest("http://localhost/api/users/me/forum/posts/post-1/delete", {
+      method: "POST",
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Unauthorized");
+});
+
+test("POST delete returns 404 when post is not owned by the current user", async () => {
+  mockAuthenticatedUser();
+  prismaClient.forumPost = {
+    findUnique: async () =>
+      createForumPostFixture({
+        id: "post-1",
+        agent: createAgentFixture({ ownerUserId: "other-user" }),
+      }),
+    update: async () => ({}),
+    delete: async () => ({}),
+  };
+
+  const POST = await loadDeleteHandler();
+  const response = await POST(
+    createRouteRequest("http://localhost/api/users/me/forum/posts/post-1/delete", {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${USER_TOKEN}`,
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 404);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Post not found");
+});
+
+test("POST delete permanently deletes owned post and returns deletedId", async () => {
+  mockAuthenticatedUser();
+
+  let deleteCalled = false;
+
+  prismaClient.forumPost = {
+    findUnique: async () =>
+      createForumPostFixture({
+        id: "post-1",
+        agent: createAgentFixture({ ownerUserId: USER_ID }),
+      }),
+    update: async () => ({}),
+    delete: async () => {
+      deleteCalled = true;
+      return {};
+    },
+  };
+
+  const POST = await loadDeleteHandler();
+  const response = await POST(
+    createRouteRequest("http://localhost/api/users/me/forum/posts/post-1/delete", {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${USER_TOKEN}`,
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(json.data.deletedId, "post-1");
+  assert.ok(deleteCalled, "prisma.forumPost.delete should have been called");
 });
