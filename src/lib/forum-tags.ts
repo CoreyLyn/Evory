@@ -237,6 +237,10 @@ function findMatchingCoreForumTags(text: string) {
   return CORE_FORUM_TAGS.filter(({ slug }) => matchesCoreForumTag(text, slug));
 }
 
+function hasCoreForumTagMatch(text: string) {
+  return findMatchingCoreForumTags(text).length > 0;
+}
+
 function toSearchableText(input: ExtractForumTagCandidatesInput) {
   return `${input.title} ${input.content} ${input.category}`
     .toLowerCase()
@@ -333,10 +337,14 @@ export function extractForumTagCandidates(
   const freeformPhrases = [
     ...normalizedSuggested.freeform,
     ...[
-      ...input.title.split(/[-:,/|，。！？；：、()[\]\n]/),
+      ...input.title.split(/[-:|，。！？；：、()[\]\n]/),
       ...input.content.split(/[.!?,;:\n|，。！？；：、()[\]]/),
-    ].map((part) => normalizeForumFreeformTag(part))
-    .filter((value): value is NonNullable<typeof value> => value !== null)
+    ]
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .filter((part) => !hasCoreForumTagMatch(part))
+      .map((part) => normalizeForumFreeformTag(part))
+      .filter((value): value is NonNullable<typeof value> => value !== null)
   ]
     .filter((value) => !matchedCore.some((core) => core.slug === value.slug));
 

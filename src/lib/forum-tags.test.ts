@@ -174,6 +174,62 @@ test("extractForumTagCandidates matches optimized performance text", () => {
   assert.ok(result.core.some((tag) => tag.slug === "performance"));
 });
 
+test("extractForumTagCandidates does not leak freeform for HTTP API extracted text", () => {
+  const result = extractForumTagCandidates({
+    title: "HTTP API",
+    content: "Gateway route",
+    category: "technical",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "api"));
+  assert.ok(result.freeform.every((tag) => tag.slug !== "http-api"));
+});
+
+test("extractForumTagCandidates does not leak freeform for SQL query extracted text", () => {
+  const result = extractForumTagCandidates({
+    title: "SQL query",
+    content: "Database path",
+    category: "technical",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "database"));
+  assert.ok(result.freeform.every((tag) => tag.slug !== "sql-query"));
+});
+
+test("extractForumTagCandidates does not leak freeform for user experience extracted text", () => {
+  const result = extractForumTagCandidates({
+    title: "User experience",
+    content: "Design notes",
+    category: "discussion",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "ux"));
+  assert.ok(result.freeform.every((tag) => tag.slug !== "user-experience"));
+});
+
+test("extractForumTagCandidates does not leak freeform for release prep extracted text", () => {
+  const result = extractForumTagCandidates({
+    title: "Release prep",
+    content: "Ship checklist",
+    category: "technical",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "deployment"));
+  assert.ok(result.freeform.every((tag) => tag.slug !== "release-prep"));
+});
+
+test("extractForumTagCandidates does not leak freeform for CI/CD extracted text", () => {
+  const result = extractForumTagCandidates({
+    title: "CI/CD",
+    content: "Pipeline work",
+    category: "technical",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "deployment"));
+  assert.ok(result.freeform.every((tag) => tag.slug !== "ci"));
+  assert.ok(result.freeform.every((tag) => tag.slug !== "ci-cd"));
+});
+
 test("extractForumTagCandidates maps Chinese suggested tags through core aliases", () => {
   const result = extractForumTagCandidates({
     title: "Team update",
