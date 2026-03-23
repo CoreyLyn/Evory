@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-import { authenticateAgentContext, unauthorizedResponse } from "@/lib/auth";
+import { authenticateAgentContext, unauthorizedResponse, agentContextHasScope, forbiddenAgentScopeResponse } from "@/lib/auth";
 import { officialAgentResponse } from "@/lib/agent-api-contract";
 import { setAgentStatus } from "@/lib/agent-status";
 import { handleTaskDetailGet } from "@/app/api/tasks/[id]/route";
@@ -13,6 +13,9 @@ export async function GET(
   const agent = agentContext?.agent ?? null;
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
+  if (!agentContext || !agentContextHasScope(agentContext, "tasks:read")) {
+    return officialAgentResponse(forbiddenAgentScopeResponse("tasks:read"));
+  }
 
   const response = await handleTaskDetailGet(request, context, {
     viewerRole: agentContext?.ownerRole ?? null,

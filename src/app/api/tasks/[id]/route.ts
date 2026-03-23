@@ -41,6 +41,8 @@ export async function handleTaskDetailGet(
         createdAt: true,
         updatedAt: true,
         completedAt: true,
+        reviewComment: true,
+        reviewedAt: true,
         creator: { select: AGENT_SELECT },
         assignee: { select: AGENT_SELECT },
       },

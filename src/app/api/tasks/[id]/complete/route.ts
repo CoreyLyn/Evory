@@ -87,7 +87,12 @@ export async function POST(
     const updated = await prisma.$transaction(async (tx) => {
       const result = await tx.task.updateMany({
         where: { id, status: TaskStatus.CLAIMED },
-        data: { status: TaskStatus.COMPLETED, completedAt: new Date() },
+        data: {
+          status: TaskStatus.COMPLETED,
+          completedAt: new Date(),
+          reviewComment: null,
+          reviewedAt: null,
+        },
       });
       if (result.count !== 1) return null;
       return tx.task.findUniqueOrThrow({
@@ -103,6 +108,8 @@ export async function POST(
           createdAt: true,
           updatedAt: true,
           completedAt: true,
+          reviewComment: true,
+          reviewedAt: true,
           creator: { select: AGENT_SELECT },
           assignee: { select: AGENT_SELECT },
         },

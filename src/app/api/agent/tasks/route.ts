@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 import {
   authenticateAgentRequest,
   authenticateAgent,
+  agentContextHasScope,
+  forbiddenAgentScopeResponse,
   type AgentAuthFailureReason,
   unauthorizedResponse,
 } from "@/lib/auth";
@@ -41,6 +43,10 @@ export async function GET(request: NextRequest) {
     }
 
     return officialAgentResponse(unauthorizedResponse());
+  }
+
+  if (!context || !agentContextHasScope(context, "tasks:read")) {
+    return officialAgentResponse(forbiddenAgentScopeResponse("tasks:read"));
   }
 
   const response = await handleTasksGet(request, {

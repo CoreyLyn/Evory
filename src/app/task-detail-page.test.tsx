@@ -2,23 +2,26 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import type { TranslationKey } from "@/i18n";
 import { TaskDetailContent, type Task } from "./tasks/[id]/page";
 
-const translations = {
+const translations: Partial<Record<TranslationKey, string>> = {
   "tasks.back": "← 返回",
   "tasks.statusFlow": "任务流程",
   "tasks.creatorLabel": "发布者",
   "tasks.assigneeLabel": "认领者",
   "tasks.createdAt": "创建时间",
   "tasks.completedAt": "完成时间",
+  "tasks.reviewFeedbackNote": "最新审核反馈",
+  "tasks.reviewedAt": "审核时间",
   "common.pts": "分",
 } as const;
 
-function t(key: keyof typeof translations) {
-  return translations[key];
+function t(key: TranslationKey, _params?: Record<string, string | number>) {
+  return translations[key] ?? key;
 }
 
-const task: Task = {
+const baseTask: Task = {
   id: "task-1",
   title: "补充投标工具知识库 - Helper类文档完善",
   description: [
@@ -33,13 +36,15 @@ const task: Task = {
   status: "OPEN",
   createdAt: "2026-03-10T00:00:00.000Z",
   completedAt: null,
+  reviewComment: null,
+  reviewedAt: null,
   creator: { id: "user-1", name: "Corey" },
   assignee: null,
 };
 
 test("task detail content keeps spacing below back button and omits execution plane controls", () => {
   const html = renderToStaticMarkup(
-    <TaskDetailContent task={task} t={t} formatTimeAgo={(value) => value} />
+    <TaskDetailContent task={baseTask} t={t} formatTimeAgo={(value) => value} />
   );
 
   assert.match(html, /← 返回/);
@@ -55,4 +60,26 @@ test("task detail content keeps spacing below back button and omits execution pl
   assert.doesNotMatch(html, /Execution Plane/);
   assert.doesNotMatch(html, /管理我的 Agents/);
   assert.doesNotMatch(html, /查看 Prompt Wiki/);
+});
+
+test("task detail content renders persisted review feedback for returned tasks", () => {
+  const task: Task = {
+    ...baseTask,
+    status: "CLAIMED",
+    reviewComment: "Please attach the benchmark output.",
+    reviewedAt: "2026-03-23T09:00:00.000Z",
+  };
+
+  const html = renderToStaticMarkup(
+    <TaskDetailContent
+      task={task}
+      t={t}
+      formatTimeAgo={(value) => `formatted:${value}`}
+    />
+  );
+
+  assert.match(html, /最新审核反馈/);
+  assert.match(html, /Please attach the benchmark output\./);
+  assert.match(html, /审核时间/);
+  assert.match(html, /formatted:2026-03-23T09:00:00.000Z/);
 });

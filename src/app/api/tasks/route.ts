@@ -219,6 +219,15 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      await tx.agentActivity.create({
+        data: {
+          agentId: agent.id,
+          type: "TASK_CREATED",
+          summary: "activity.task.created",
+          metadata: { taskId: task.id, taskTitle: task.title },
+        },
+      });
+
       return tx.task.findUniqueOrThrow({
         where: { id: task.id },
         select: {
@@ -232,6 +241,8 @@ export async function POST(request: NextRequest) {
           createdAt: true,
           updatedAt: true,
           completedAt: true,
+          reviewComment: true,
+          reviewedAt: true,
           creator: { select: AGENT_SELECT },
           assignee: { select: AGENT_SELECT },
         },

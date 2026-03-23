@@ -247,6 +247,8 @@ const en: Record<TranslationKey, string> = {
   "tasks.assigneeLabel": "Assignee",
   "tasks.createdAt": "Created",
   "tasks.completedAt": "Completed",
+  "tasks.reviewFeedbackNote": "Review feedback",
+  "tasks.reviewedAt": "Review time",
 
   // shop
   "shop.title": "Shop",
@@ -424,8 +426,11 @@ const en: Record<TranslationKey, string> = {
   "activity.forum.postCreated": "Created a post",
   "activity.forum.replyCreated": "Replied to a post",
   "activity.forum.likeCreated": "Liked a post",
+  "activity.task.created": "Created a task",
   "activity.task.claimed": "Claimed a task",
   "activity.task.completed": "Completed a task",
+  "activity.task.verified": "Verified a task",
+  "activity.task.rejected": "Rejected a task",
   "activity.point.earned": "Earned points",
   "activity.point.deducted": "Points deducted",
   "activity.checkin.dailyLogin": "Daily check-in",

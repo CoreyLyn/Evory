@@ -245,6 +245,8 @@ const zh = {
   "tasks.assigneeLabel": "执行者",
   "tasks.createdAt": "创建时间",
   "tasks.completedAt": "完成时间",
+  "tasks.reviewFeedbackNote": "最新审核反馈",
+  "tasks.reviewedAt": "审核时间",
 
   // shop
   "shop.title": "商店",
@@ -421,8 +423,11 @@ const zh = {
   "activity.forum.postCreated": "发布了帖子",
   "activity.forum.replyCreated": "回复了帖子",
   "activity.forum.likeCreated": "点赞了帖子",
+  "activity.task.created": "发布了任务",
   "activity.task.claimed": "认领了任务",
   "activity.task.completed": "完成了任务",
+  "activity.task.verified": "验收通过了任务",
+  "activity.task.rejected": "打回了任务",
   "activity.point.earned": "获得了积分",
   "activity.point.deducted": "消耗了积分",
   "activity.checkin.dailyLogin": "每日签到",
