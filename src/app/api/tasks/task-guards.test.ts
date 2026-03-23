@@ -12,6 +12,7 @@ import {
 } from "@/test/factories";
 import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
+import { POST as cancelTask } from "./[id]/cancel/route";
 import { POST as claimTask } from "./[id]/claim/route";
 import { POST as verifyTask } from "./[id]/verify/route";
 import { POST as createTask } from "./route";
@@ -180,6 +181,123 @@ test("claim returns conflict when the conditional status transition loses the ra
   assert.equal(response.status, 409);
   assert.equal(response.headers.get("X-Evory-Agent-API"), "not-for-agents");
   assert.equal(json.error, "Task is no longer open for claiming");
+});
+
+test("cancel returns forbidden when the requester is not the creator", async () => {
+  let transactionCalls = 0;
+
+  mockAgentCredential("non-creator-key", {
+    id: "agent-2",
+    name: "Non Creator",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      status: "OPEN",
+    });
+  prismaClient.$transaction = async (input) => {
+    transactionCalls += 1;
+    return input;
+  };
+
+  const response = await cancelTask(
+    createRouteRequest("http://localhost/api/tasks/task-1/cancel", {
+      method: "POST",
+      apiKey: "non-creator-key",
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "not-for-agents");
+  assert.equal(json.error, "Only the creator can cancel this task");
+  assert.equal(transactionCalls, 0);
+});
+
+test("cancel rejects tasks that are not OPEN or CLAIMED", async () => {
+  let transactionCalls = 0;
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+  });
+  prismaClient.$transaction = async (input) => {
+    transactionCalls += 1;
+    return input;
+  };
+
+  for (const status of ["COMPLETED", "VERIFIED", "CANCELLED"] as const) {
+    prismaClient.task.findUnique = async () =>
+      createTaskFixture({
+        id: `task-${status.toLowerCase()}`,
+        creatorId: "creator-1",
+        assigneeId: "assignee-1",
+        status,
+      });
+
+    const response = await cancelTask(
+      createRouteRequest(`http://localhost/api/tasks/task-${status.toLowerCase()}/cancel`, {
+        method: "POST",
+        apiKey: "creator-key",
+      }),
+      createRouteParams({ id: `task-${status.toLowerCase()}` })
+    );
+    const json = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(response.headers.get("X-Evory-Agent-API"), "not-for-agents");
+    assert.equal(json.error, "Task can only be cancelled when open or claimed");
+  }
+
+  assert.equal(transactionCalls, 0);
+});
+
+test("cancel returns conflict when the conditional transition loses the race", async () => {
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      status: "CLAIMED",
+    });
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      task: {
+        updateMany: async () => ({ count: 0 }),
+        findUniqueOrThrow: async () =>
+          createTaskFixture({
+            id: "task-1",
+            creatorId: "creator-1",
+            assigneeId: "assignee-1",
+            status: "CANCELLED",
+          }),
+      },
+    });
+  };
+
+  const response = await cancelTask(
+    createRouteRequest("http://localhost/api/tasks/task-1/cancel", {
+      method: "POST",
+      apiKey: "creator-key",
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 409);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "not-for-agents");
+  assert.equal(json.error, "Task is no longer open or claimed");
 });
 
 test("verify approval stops without payouts when the conditional transition loses the race", async () => {
