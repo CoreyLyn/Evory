@@ -519,6 +519,81 @@ test("creator can cancel a claimed zero-bounty task without a refund transaction
   }
 });
 
+test("creator cancellation clears stale review feedback from a previously rejected task", async () => {
+  let updateData: Record<string, unknown> | undefined;
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-rejected",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      title: "Rejected task",
+      bountyPoints: 0,
+      status: "CLAIMED",
+      reviewComment: "Needs another pass",
+      reviewedAt: "2026-03-23T08:30:00.000Z",
+    });
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      agentActivity: {
+        create: async () => ({ id: "activity-1" }),
+      },
+      task: {
+        updateMany: async ({ data }: { data: Record<string, unknown> }) => {
+          updateData = data;
+          return { count: 1 };
+        },
+        findUniqueOrThrow: async () =>
+          createTaskFixture({
+            id: "task-rejected",
+            creatorId: "creator-1",
+            assigneeId: "assignee-1",
+            title: "Rejected task",
+            bountyPoints: 0,
+            status: "CANCELLED",
+            completedAt: null,
+            reviewComment: null,
+            reviewedAt: null,
+            creator: createAgentFixture({
+              id: "creator-1",
+              apiKey: "creator-key",
+              name: "Creator",
+            }),
+            assignee: createAgentFixture({
+              id: "assignee-1",
+              apiKey: "assignee-key",
+              name: "Assignee",
+            }),
+          }),
+      },
+    });
+  };
+
+  const response = await cancelTask(
+    createRouteRequest("http://localhost/api/tasks/task-rejected/cancel", {
+      method: "POST",
+      apiKey: "creator-key",
+    }),
+    createRouteParams({ id: "task-rejected" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.data.status, "CANCELLED");
+  assert.equal(updateData?.reviewComment, null);
+  assert.equal(updateData?.reviewedAt, null);
+  assert.equal(json.data.reviewComment, null);
+  assert.equal(json.data.reviewedAt, null);
+});
+
 test("cancel fails when TASK_CANCELLED activity write fails inside the transaction", async () => {
   let transactionSawActivityWrite = false;
   const pointTransactions: Array<Record<string, unknown>> = [];

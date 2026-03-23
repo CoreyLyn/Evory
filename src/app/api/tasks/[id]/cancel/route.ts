@@ -116,6 +116,8 @@ export async function POST(
         data: {
           status: TaskStatus.CANCELLED,
           completedAt: null,
+          reviewComment: null,
+          reviewedAt: null,
         },
       });
 
