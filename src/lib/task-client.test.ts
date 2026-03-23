@@ -5,6 +5,7 @@ import {
   claimTask,
   completeTask,
   createTask,
+  cancelTask,
   verifyTask,
 } from "./task-client";
 
@@ -67,12 +68,45 @@ test("task action helpers post to the correct endpoints", async () => {
   await claimTask(agentFetch, "task-1");
   await completeTask(agentFetch, "task-1");
   await verifyTask(agentFetch, "task-1", true);
+  await cancelTask(agentFetch, "task-1");
 
   assert.deepEqual(requests, [
     "/api/tasks/task-1/claim",
     "/api/tasks/task-1/complete",
     "/api/tasks/task-1/verify",
+    "/api/tasks/task-1/cancel",
   ]);
+});
+
+test("cancelTask posts to the cancel endpoint", async () => {
+  let requestInput = "";
+  let requestMethod = "";
+
+  const result = await cancelTask(
+    async (input, init) => {
+      requestInput = String(input);
+      requestMethod = String(init?.method ?? "");
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            id: "task-1",
+            status: "CANCELLED",
+          },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    },
+    "task-1"
+  );
+
+  assert.equal(requestInput, "/api/tasks/task-1/cancel");
+  assert.equal(requestMethod, "POST");
+  assert.equal(result.status, "CANCELLED");
 });
 
 test("verifyTask sends the approval decision", async () => {

@@ -20,6 +20,7 @@ import { PUT as equipAgentEquipment } from "./equipment/route";
 import { POST as publishAgentKnowledge } from "./knowledge/articles/route";
 import { PUT as updateOfficialAgentStatus } from "./me/status/route";
 import { POST as purchaseAgentShopItem } from "./shop/purchase/route";
+import { POST as cancelAgentTask } from "./tasks/[id]/cancel/route";
 import { POST as claimAgentTask } from "./tasks/[id]/claim/route";
 import { POST as verifyAgentTask } from "./tasks/[id]/verify/route";
 import { POST as createAgentTask } from "./tasks/route";
@@ -952,6 +953,136 @@ test("claimed agent can claim a task via the official agent task action endpoint
   assert.equal(json.success, true);
   assert.equal(json.data.status, "CLAIMED");
   assert.equal(json.data.assigneeId, "claimer-1");
+});
+
+test("official agent task cancel returns 200 with a cancelled task for the creator", async () => {
+  const agentStatusWrites: Array<Record<string, unknown>> = [];
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+    status: "WORKING",
+  });
+  prismaClient.agent.update = async ({
+    where,
+    data,
+  }: {
+    where: { id: string };
+    data: Record<string, unknown>;
+  }) => {
+    agentStatusWrites.push({ where, data });
+    return createAgentFixture({
+      id: where.id,
+      apiKey: "creator-key",
+      name: "Creator",
+      status: String(data.status ?? "TASKBOARD"),
+    });
+  };
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: null,
+      status: "OPEN",
+      bountyPoints: 0,
+    });
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      agentActivity: {
+        create: async () => ({ id: "activity-1" }),
+      },
+      task: {
+        updateMany: async () => ({ count: 1 }),
+        findUniqueOrThrow: async () =>
+          createTaskFixture({
+            id: "task-1",
+            creatorId: "creator-1",
+            assigneeId: null,
+            status: "CANCELLED",
+            bountyPoints: 0,
+          }),
+      },
+    });
+  };
+
+  const response = await cancelAgentTask(
+    createRouteRequest("http://localhost/api/agent/tasks/task-1/cancel", {
+      method: "POST",
+      apiKey: "creator-key",
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data.status, "CANCELLED");
+  assert.equal(
+    agentStatusWrites.some(
+      (write) =>
+        write.where?.id === "creator-1" && write.data?.status === "TASKBOARD"
+    ),
+    true
+  );
+});
+
+test("official agent task cancel returns 403 for a non-creator", async () => {
+  mockAgentCredential("non-creator-key", {
+    id: "agent-2",
+    name: "Non Creator",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      status: "CLAIMED",
+      bountyPoints: 10,
+    });
+
+  const response = await cancelAgentTask(
+    createRouteRequest("http://localhost/api/agent/tasks/task-1/cancel", {
+      method: "POST",
+      apiKey: "non-creator-key",
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.error, "Only the creator can cancel this task");
+});
+
+test("official agent task cancel returns 403 with the official header for read-only credentials", async () => {
+  mockAgentCredential(
+    "reader-key",
+    {
+      id: "reader-1",
+      name: "Reader",
+    },
+    {
+      scopes: ["tasks:read"],
+    }
+  );
+
+  const response = await cancelAgentTask(
+    createRouteRequest("http://localhost/api/agent/tasks/task-1/cancel", {
+      method: "POST",
+      apiKey: "reader-key",
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.match(json.error, /Missing required scope tasks:write/);
 });
 
 test("official agent task verify keeps creator-only enforcement", async () => {

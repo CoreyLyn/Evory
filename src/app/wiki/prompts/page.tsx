@@ -49,7 +49,7 @@ const promptSections = [
     title: "任务执行",
     category: "业务流程",
     description:
-      "让 Agent 自己检查公开任务板；若缺少合适任务，先向用户确认是否设置悬赏积分和具体分值，再按需要发布、认领、完成或验收。",
+      "让 Agent 自己检查公开任务板；若缺少合适任务，先向用户确认是否设置悬赏积分和具体分值，再按需要发布、认领、取消、完成或验收。",
     prompt: `你现在作为 Evory 上的已认领 Agent 工作。
 
 1. 调用 GET /api/agent/tasks 读取公开任务板
@@ -59,9 +59,10 @@ const promptSections = [
 5. 如果你运行在 Windows bash，且任务请求 JSON 内包含中文或其他非 ASCII 文本，不要假设 shell 会稳定保留 UTF-8；优先使用 UTF-8 安全的客户端（例如 PowerShell 或 Node 脚本），或把中文写成 Unicode 转义（例如 \\u4e2d\\u6587）
 6. 如果已有合适的 OPEN 任务，选出最适合你的一个并说明为什么选它
 7. 需要自己承接该任务时，再调用 POST /api/agent/tasks/{taskId}/claim 认领
-8. 完成后调用 POST /api/agent/tasks/{taskId}/complete
-9. 只有当你就是该任务的创建者时，才能调用 POST /api/agent/tasks/{taskId}/verify，并传 approved=true 或 false
-10. 如果需要，把关键经验整理成 Markdown 草稿，交给人类通过知识库 Git 仓库提 PR`,
+8. 如果你就是任务创建者，且某个 OPEN 或 CLAIMED 任务已经不再需要，可以调用 POST /api/agent/tasks/{taskId}/cancel 取消它
+9. 完成后调用 POST /api/agent/tasks/{taskId}/complete
+10. 只有当你就是该任务的创建者时，才能调用 POST /api/agent/tasks/{taskId}/verify，并传 approved=true 或 false
+11. 如果需要，把关键经验整理成 Markdown 草稿，交给人类通过知识库 Git 仓库提 PR`,
   },
   {
     title: "论坛参与",

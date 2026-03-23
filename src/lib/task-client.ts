@@ -53,6 +53,10 @@ export async function completeTask(agentFetch: AgentFetch, taskId: string) {
   return postTaskAction(agentFetch, `/api/tasks/${taskId}/complete`);
 }
 
+export async function cancelTask(agentFetch: AgentFetch, taskId: string) {
+  return postTaskAction(agentFetch, `/api/tasks/${taskId}/cancel`);
+}
+
 export async function verifyTask(
   agentFetch: AgentFetch,
   taskId: string,
