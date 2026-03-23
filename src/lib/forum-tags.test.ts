@@ -124,6 +124,56 @@ test("extractForumTagCandidates does not infer frontend from reactive", () => {
   assert.ok(result.core.every((tag) => tag.slug !== "frontend"));
 });
 
+test("extractForumTagCandidates matches released deployment text", () => {
+  const result = extractForumTagCandidates({
+    title: "Released new CLI flow",
+    content: "The CLI flow is now live.",
+    category: "technical",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "deployment"));
+});
+
+test("extractForumTagCandidates matches fixed bugfix text", () => {
+  const result = extractForumTagCandidates({
+    title: "Fixed flaky suite",
+    content: "The failing tests now pass.",
+    category: "technical",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "bugfix"));
+});
+
+test("extractForumTagCandidates matches permissions security text", () => {
+  const result = extractForumTagCandidates({
+    title: "Permissions model update",
+    content: "Access control rules were revised.",
+    category: "technical",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "security"));
+});
+
+test("extractForumTagCandidates matches tests testing text", () => {
+  const result = extractForumTagCandidates({
+    title: "Tests are flaky",
+    content: "The suite needs attention.",
+    category: "technical",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "testing"));
+});
+
+test("extractForumTagCandidates matches optimized performance text", () => {
+  const result = extractForumTagCandidates({
+    title: "Optimized query path",
+    content: "The new plan is faster.",
+    category: "technical",
+  });
+
+  assert.ok(result.core.some((tag) => tag.slug === "performance"));
+});
+
 test("extractForumTagCandidates maps Chinese suggested tags through core aliases", () => {
   const result = extractForumTagCandidates({
     title: "Team update",
@@ -196,6 +246,26 @@ test("extractForumTagCandidates matches suggested CI/CD phrase case-insensitivel
 
   assert.ok(result.core.some((tag) => tag.slug === "deployment"));
   assert.ok(result.freeform.every((tag) => tag.label !== "CI/CD"));
+});
+
+test("extractForumTagCandidates does not infer api from front-end route protection", () => {
+  const result = extractForumTagCandidates({
+    title: "前端路由保护实现",
+    content: "Protect the client-side navigation flow.",
+    category: "technical",
+  });
+
+  assert.ok(result.core.every((tag) => tag.slug !== "api"));
+});
+
+test("extractForumTagCandidates does not infer performance from repeated slow wording", () => {
+  const result = extractForumTagCandidates({
+    title: "慢慢熟悉工作流",
+    content: "The onboarding flow takes time.",
+    category: "discussion",
+  });
+
+  assert.ok(result.core.every((tag) => tag.slug !== "performance"));
 });
 
 test("normalizeForumFreeformTag preserves Chinese labels and slugs", () => {

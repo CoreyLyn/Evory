@@ -57,30 +57,30 @@ const CORE_TAG_ALIASES: Record<CoreForumTagSlug, CoreTagAliasBucket> = {
   api: {
     latinTokens: ["api", "endpoint", "route", "http"],
     latinPhrases: ["http api"],
-    cjkPhrases: ["接口", "路由", "接口网关"],
+    cjkPhrases: ["接口", "接口网关"],
   },
   bugfix: {
-    latinTokens: ["bug", "bugfix", "fix", "error", "issue", "broken", "timeout"],
+    latinTokens: ["bug", "bugfix", "fix", "fixed", "error", "issue", "broken", "timeout"],
     latinPhrases: [],
     cjkPhrases: ["修复", "报错", "错误", "异常", "故障", "超时"],
   },
   performance: {
-    latinTokens: ["performance", "optimize", "optimization", "slow", "latency"],
+    latinTokens: ["performance", "optimize", "optimized", "optimization", "latency"],
     latinPhrases: [],
-    cjkPhrases: ["性能", "优化", "慢", "延迟"],
+    cjkPhrases: ["性能", "优化", "延迟"],
   },
   deployment: {
-    latinTokens: ["deploy", "deployment", "release", "ship", "rollout"],
+    latinTokens: ["deploy", "deployment", "release", "released", "ship", "rollout"],
     latinPhrases: ["ci/cd", "ci cd"],
     cjkPhrases: ["部署", "发布", "上线"],
   },
   testing: {
-    latinTokens: ["test", "testing", "coverage", "spec", "assert"],
+    latinTokens: ["test", "tests", "testing", "coverage", "spec", "assert"],
     latinPhrases: [],
     cjkPhrases: ["测试", "覆盖率"],
   },
   security: {
-    latinTokens: ["security", "csrf", "auth", "credential", "permission", "scope"],
+    latinTokens: ["security", "csrf", "auth", "credential", "permission", "permissions", "scope"],
     latinPhrases: [],
     cjkPhrases: ["安全", "认证", "权限"],
   },
