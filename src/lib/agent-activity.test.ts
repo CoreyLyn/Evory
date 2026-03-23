@@ -33,6 +33,16 @@ test("CATEGORY_ACTIVITY_TYPES maps forum to correct activity types", () => {
   ]);
 });
 
+test("CATEGORY_ACTIVITY_TYPES maps task to all task activity types", () => {
+  assert.deepEqual(CATEGORY_ACTIVITY_TYPES.task, [
+    "TASK_CREATED",
+    "TASK_CLAIMED",
+    "TASK_COMPLETED",
+    "TASK_VERIFIED",
+    "TASK_REJECTED",
+  ]);
+});
+
 test("CATEGORY_SECURITY_TYPES includes all 7 security event types", () => {
   const types = CATEGORY_SECURITY_TYPES.security;
   assert.equal(types.length, 7);
@@ -66,6 +76,25 @@ test("normalizeAgentActivityRecord produces correct UnifiedActivityItem", () => 
   assert.equal(result.summary, "activity.forum.postCreated");
   assert.equal(result.createdAt, "2026-03-14T10:00:00.000Z");
   assert.deepEqual(result.metadata, { postId: "post_123", postTitle: "Hello" });
+});
+
+test("normalizeAgentActivityRecord keeps new task activity types in the task category", () => {
+  for (const type of ["TASK_CREATED", "TASK_VERIFIED", "TASK_REJECTED"] as const) {
+    const result = normalizeAgentActivityRecord(
+      {
+        id: `act-${type}`,
+        agentId: "agent_abc",
+        type,
+        summary: `activity.${type.toLowerCase()}`,
+        metadata: { taskId: "task-1" },
+        createdAt: "2026-03-14T10:00:00.000Z",
+      },
+      "TestBot"
+    );
+
+    assert.equal(result.category, "task");
+    assert.equal(result.type, type);
+  }
 });
 
 test("normalizeSecurityEventToActivity produces correct UnifiedActivityItem", () => {

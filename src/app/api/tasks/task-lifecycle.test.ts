@@ -14,6 +14,7 @@ import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { POST as completeTask } from "./[id]/complete/route";
 import { POST as verifyTask } from "./[id]/verify/route";
+import { POST as createTask } from "./route";
 
 type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
   ...args: TArgs
@@ -226,7 +227,162 @@ test("complete sets completedAt and clears stale review feedback when assignee s
   assert.equal(json.data.reviewedAt, null);
 });
 
+test("task creation records TASK_CREATED activity for the creator", async () => {
+  const activityCreates: Array<Record<string, unknown>> = [];
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+    points: 100,
+  });
+  prismaClient.agentActivity = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      activityCreates.push(data);
+      return { id: "activity-1" };
+    },
+  };
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      return input;
+    }
+
+    return input({
+      task: {
+        create: async () =>
+          createTaskFixture({
+            id: "task-1",
+            creatorId: "creator-1",
+            assigneeId: null,
+            title: "Race-safe task",
+            description: "Should only exist when funds are reserved.",
+            status: "OPEN",
+            bountyPoints: 0,
+          }),
+        findUniqueOrThrow: async () =>
+          createTaskFixture({
+            id: "task-1",
+            creatorId: "creator-1",
+            assigneeId: null,
+            title: "Race-safe task",
+            description: "Should only exist when funds are reserved.",
+            status: "OPEN",
+            bountyPoints: 0,
+          }),
+      },
+    });
+  };
+
+  const response = await createTask(
+    createRouteRequest("http://localhost/api/tasks", {
+      method: "POST",
+      apiKey: "creator-key",
+      json: {
+        title: "Race-safe task",
+        description: "Should only exist when funds are reserved.",
+        bountyPoints: 0,
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.data.id, "task-1");
+  assert.deepEqual(activityCreates, [
+    {
+      agentId: "creator-1",
+      type: "TASK_CREATED",
+      summary: "activity.task.created",
+      metadata: { taskId: "task-1", taskTitle: "Race-safe task" },
+    },
+  ]);
+});
+
+test("task creation still succeeds when TASK_CREATED activity write fails", async () => {
+  let transactionSawActivityWrite = false;
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+    points: 100,
+  });
+  prismaClient.agentActivity = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      if (data.type === "TASK_CREATED") {
+        throw new Error("activity write failed");
+      }
+
+      return { id: "activity-1" };
+    },
+  };
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      return input;
+    }
+
+    let aborted = false;
+    const result = await input({
+      agentActivity: {
+        create: async ({ data }: { data: Record<string, unknown> }) => {
+          if (data.type === "TASK_CREATED") {
+            transactionSawActivityWrite = true;
+            aborted = true;
+            throw new Error("transaction activity write failed");
+          }
+
+          return { id: "activity-1" };
+        },
+      },
+      task: {
+        create: async () =>
+          createTaskFixture({
+            id: "task-1",
+            creatorId: "creator-1",
+            assigneeId: null,
+            title: "Race-safe task",
+            description: "Should only exist when funds are reserved.",
+            status: "OPEN",
+            bountyPoints: 0,
+          }),
+        findUniqueOrThrow: async () =>
+          createTaskFixture({
+            id: "task-1",
+            creatorId: "creator-1",
+            assigneeId: null,
+            title: "Race-safe task",
+            description: "Should only exist when funds are reserved.",
+            status: "OPEN",
+            bountyPoints: 0,
+          }),
+      },
+    });
+
+    if (aborted) {
+      throw new Error("transaction aborted after failed activity write");
+    }
+
+    return result;
+  };
+
+  const response = await createTask(
+    createRouteRequest("http://localhost/api/tasks", {
+      method: "POST",
+      apiKey: "creator-key",
+      json: {
+        title: "Race-safe task",
+        description: "Should only exist when funds are reserved.",
+        bountyPoints: 0,
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.data.id, "task-1");
+  assert.equal(transactionSawActivityWrite, false);
+});
+
 test("verify rejection returns task to CLAIMED and clears completedAt", async () => {
+  const activityCreates: Array<Record<string, unknown>> = [];
   let updateData: Record<string, unknown> | undefined;
   const reviewedAt = "2026-03-23T08:30:00.000Z";
 
@@ -234,6 +390,12 @@ test("verify rejection returns task to CLAIMED and clears completedAt", async ()
     id: "creator-1",
     name: "Creator",
   });
+  prismaClient.agentActivity = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      activityCreates.push(data);
+      return { id: "activity-1" };
+    },
+  };
   prismaClient.task.findUnique = async () =>
     createTaskFixture({
       id: "task-1",
@@ -297,9 +459,109 @@ test("verify rejection returns task to CLAIMED and clears completedAt", async ()
   assert.equal(json.data.completedAt, null);
   assert.equal(json.data.reviewComment, "Needs another pass");
   assert.equal(json.data.reviewedAt, reviewedAt);
+  assert.deepEqual(activityCreates, [
+    {
+      agentId: "creator-1",
+      type: "TASK_REJECTED",
+      summary: "activity.task.rejected",
+      metadata: { taskId: "task-1", taskTitle: "Task title" },
+    },
+  ]);
+});
+
+test("verify rejection still succeeds when TASK_REJECTED activity write fails", async () => {
+  let transactionSawActivityWrite = false;
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+  });
+  prismaClient.agentActivity = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      if (data.type === "TASK_REJECTED") {
+        throw new Error("activity write failed");
+      }
+
+      return { id: "activity-1" };
+    },
+  };
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      status: "COMPLETED",
+    });
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    let aborted = false;
+    const result = await input({
+      task: {
+        updateMany: async () => ({ count: 1 }),
+        findUniqueOrThrow: async () =>
+          createTaskFixture({
+            id: "task-1",
+            creatorId: "creator-1",
+            assigneeId: "assignee-1",
+            status: "CLAIMED",
+            completedAt: null,
+            reviewComment: "Needs another pass",
+            reviewedAt: "2026-03-23T08:30:00.000Z",
+            creator: createAgentFixture({
+              id: "creator-1",
+              apiKey: "creator-key",
+              name: "Creator",
+            }),
+            assignee: createAgentFixture({
+              id: "assignee-1",
+              apiKey: "assignee-key",
+              name: "Assignee",
+            }),
+          }),
+      },
+      agentActivity: {
+        create: async ({ data }: { data: Record<string, unknown> }) => {
+          if (data.type === "TASK_REJECTED") {
+            transactionSawActivityWrite = true;
+            aborted = true;
+            throw new Error("transaction activity write failed");
+          }
+
+          return { id: "activity-1" };
+        },
+      },
+    });
+
+    if (aborted) {
+      throw new Error("transaction aborted after failed activity write");
+    }
+
+    return result;
+  };
+
+  const response = await verifyTask(
+    createRouteRequest("http://localhost/api/tasks/task-1/verify", {
+      method: "POST",
+      apiKey: "creator-key",
+      json: {
+        approved: false,
+        reviewComment: "Needs another pass",
+      },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.data.status, "CLAIMED");
+  assert.equal(transactionSawActivityWrite, false);
 });
 
 test("verify approval updates status and payouts inside one transaction", async () => {
+  const activityCreates: Array<Record<string, unknown>> = [];
   let transactionCalls = 0;
   const pointTransactions: Array<Record<string, unknown>> = [];
   let updateData: Record<string, unknown> | undefined;
@@ -338,6 +600,12 @@ test("verify approval updates status and payouts inside one transaction", async 
         name: "Assignee",
       }),
     });
+  prismaClient.agentActivity = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      activityCreates.push(data);
+      return { id: "activity-1" };
+    },
+  };
   mockAwardPointDependencies();
   prismaClient.$transaction = async (input) => {
     transactionCalls += 1;
@@ -354,7 +622,10 @@ test("verify approval updates status and payouts inside one transaction", async 
           update: async () => ({ id: "assignee-1" }),
         },
         agentActivity: {
-          create: async () => ({}),
+          create: async ({ data }: { data: Record<string, unknown> }) => {
+            activityCreates.push(data);
+            return {};
+          },
         },
         task: {
           updateMany: async ({ data }: { data: Record<string, unknown> }) => {
@@ -394,4 +665,128 @@ test("verify approval updates status and payouts inside one transaction", async 
   assert.equal(json.data.reviewedAt, reviewedAt);
   assert.equal(transactionCalls, 1);
   assert.equal(pointTransactions.length, 2);
+  assert.deepEqual(
+    activityCreates.filter((activity) => activity.type === "TASK_VERIFIED"),
+    [
+      {
+        agentId: "creator-1",
+        type: "TASK_VERIFIED",
+        summary: "activity.task.verified",
+        metadata: { taskId: "task-1", taskTitle: "Task title" },
+      },
+    ]
+  );
+  assert.equal(
+    activityCreates.filter((activity) => activity.type === "POINT_EARNED").length,
+    2
+  );
+});
+
+test("verify approval still succeeds when TASK_VERIFIED activity write fails", async () => {
+  let transactionCalls = 0;
+  let transactionSawTaskVerifiedWrite = false;
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      bountyPoints: 25,
+      status: "COMPLETED",
+    });
+  prismaClient.task.findUniqueOrThrow = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      bountyPoints: 25,
+      status: "VERIFIED",
+      completedAt: new Date().toISOString(),
+      reviewComment: "Looks good",
+      reviewedAt: "2026-03-23T09:00:00.000Z",
+      creator: createAgentFixture({
+        id: "creator-1",
+        apiKey: "creator-key",
+        name: "Creator",
+      }),
+      assignee: createAgentFixture({
+        id: "assignee-1",
+        apiKey: "assignee-key",
+        name: "Assignee",
+      }),
+    });
+  prismaClient.agentActivity = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      if (data.type === "TASK_VERIFIED") {
+        throw new Error("activity write failed");
+      }
+
+      return { id: "activity-1" };
+    },
+  };
+  mockAwardPointDependencies();
+  prismaClient.$transaction = async (input) => {
+    transactionCalls += 1;
+
+    if (typeof input !== "function") {
+      if (Array.isArray(input)) {
+        return Promise.all(input);
+      }
+
+      return input;
+    }
+
+    let aborted = false;
+    const result = await input({
+      pointTransaction: {
+        create: async ({ data }: { data: Record<string, unknown> }) => data,
+      },
+      agent: {
+        update: async () => ({ id: "assignee-1" }),
+      },
+      agentActivity: {
+        create: async ({ data }: { data: Record<string, unknown> }) => {
+          if (data.type === "TASK_VERIFIED") {
+            transactionSawTaskVerifiedWrite = true;
+            aborted = true;
+            throw new Error("transaction activity write failed");
+          }
+
+          return { id: "activity-1" };
+        },
+      },
+      task: {
+        updateMany: async () => ({ count: 1 }),
+        findUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
+      },
+    });
+
+    if (aborted) {
+      throw new Error("transaction aborted after failed activity write");
+    }
+
+    return result;
+  };
+
+  const response = await verifyTask(
+    createRouteRequest("http://localhost/api/tasks/task-1/verify", {
+      method: "POST",
+      apiKey: "creator-key",
+      json: {
+        approved: true,
+        reviewComment: "Looks good",
+      },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.data.status, "VERIFIED");
+  assert.equal(transactionCalls, 1);
+  assert.equal(transactionSawTaskVerifiedWrite, false);
 });

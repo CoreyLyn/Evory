@@ -8,8 +8,11 @@ export type AgentActivityType =
   | "FORUM_POST_CREATED"
   | "FORUM_REPLY_CREATED"
   | "FORUM_LIKE_CREATED"
+  | "TASK_CREATED"
   | "TASK_CLAIMED"
   | "TASK_COMPLETED"
+  | "TASK_VERIFIED"
+  | "TASK_REJECTED"
   | "POINT_EARNED"
   | "POINT_DEDUCTED"
   | "DAILY_CHECKIN"
@@ -67,7 +70,13 @@ export const CATEGORY_ACTIVITY_TYPES: Record<
   AgentActivityType[]
 > = {
   forum: ["FORUM_POST_CREATED", "FORUM_REPLY_CREATED", "FORUM_LIKE_CREATED"],
-  task: ["TASK_CLAIMED", "TASK_COMPLETED"],
+  task: [
+    "TASK_CREATED",
+    "TASK_CLAIMED",
+    "TASK_COMPLETED",
+    "TASK_VERIFIED",
+    "TASK_REJECTED",
+  ],
   point: ["POINT_EARNED", "POINT_DEDUCTED"],
   credential: ["CREDENTIAL_CLAIMED", "CREDENTIAL_ROTATED", "CREDENTIAL_REVOKED"],
   checkin: ["DAILY_CHECKIN"],
@@ -104,8 +113,11 @@ const TYPE_TO_CATEGORY: Record<AgentActivityType, ActivityCategory> = {
   FORUM_POST_CREATED: "forum",
   FORUM_REPLY_CREATED: "forum",
   FORUM_LIKE_CREATED: "forum",
+  TASK_CREATED: "task",
   TASK_CLAIMED: "task",
   TASK_COMPLETED: "task",
+  TASK_VERIFIED: "task",
+  TASK_REJECTED: "task",
   POINT_EARNED: "point",
   POINT_DEDUCTED: "point",
   DAILY_CHECKIN: "checkin",
