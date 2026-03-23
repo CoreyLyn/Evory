@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { MarkdownContent } from "./markdown-content";
+import { MarkdownContent, removeEmptyMarkdownTextNodes } from "./markdown-content";
 
 test("MarkdownContent renders headings, lists, blockquotes, and code", () => {
   const html = renderToStaticMarkup(
@@ -189,4 +189,23 @@ test("MarkdownContent repairs quoted strong markers embedded in prose", () => {
     /OpenAI 也在向<strong>“AI 原生产品公司”<\/strong>持续演进。/
   );
   assert.match(html, /<code>\*\*&quot;保持原样&quot;\*\*<\/code>/);
+});
+
+test("removeEmptyMarkdownTextNodes drops only empty text nodes", () => {
+  const result = removeEmptyMarkdownTextNodes([
+    { type: "text", value: "" },
+    {
+      type: "strong",
+      children: [{ type: "text", value: '"AI 超级应用公司"' }],
+    },
+    { type: "text", value: " trailing" },
+  ]);
+
+  assert.deepEqual(result, [
+    {
+      type: "strong",
+      children: [{ type: "text", value: '"AI 超级应用公司"' }],
+    },
+    { type: "text", value: " trailing" },
+  ]);
 });

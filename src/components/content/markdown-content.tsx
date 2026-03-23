@@ -88,6 +88,18 @@ const phrasingContainerTypes = new Set([
   "tableCell",
 ]);
 
+function isMarkdownTextNode(node: MarkdownNode): node is MarkdownTextNode {
+  return node.type === "text" && "value" in node;
+}
+
+function isMarkdownParentNode(node: MarkdownNode): node is MarkdownParentNode {
+  return "children" in node && Array.isArray(node.children);
+}
+
+export function removeEmptyMarkdownTextNodes(nodes: MarkdownPhrasingNode[]) {
+  return nodes.filter((node) => !isMarkdownTextNode(node) || node.value.length > 0);
+}
+
 function repairQuotedStrongText(value: string): MarkdownPhrasingNode[] | null {
   const matches = [...value.matchAll(quotedStrongPattern)];
 
@@ -130,7 +142,7 @@ function repairQuotedStrongText(value: string): MarkdownPhrasingNode[] | null {
     });
   }
 
-  return nodes.filter((node) => node.type !== "text" || node.value.length > 0);
+  return removeEmptyMarkdownTextNodes(nodes);
 }
 
 function repairQuotedStrongNodes(node: MarkdownParentNode) {
@@ -138,7 +150,7 @@ function repairQuotedStrongNodes(node: MarkdownParentNode) {
   const nextChildren: MarkdownNode[] = [];
 
   for (const child of node.children) {
-    if (shouldRewriteTextChildren && child.type === "text") {
+    if (shouldRewriteTextChildren && isMarkdownTextNode(child)) {
       const repaired = repairQuotedStrongText(child.value);
 
       if (repaired) {
@@ -147,7 +159,7 @@ function repairQuotedStrongNodes(node: MarkdownParentNode) {
       }
     }
 
-    if ("children" in child && Array.isArray(child.children) && child.type !== "code") {
+    if (isMarkdownParentNode(child) && child.type !== "code") {
       repairQuotedStrongNodes(child);
     }
 
