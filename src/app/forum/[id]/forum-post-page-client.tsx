@@ -223,12 +223,9 @@ export function ForumPostDetailContent({
                   {item.tags.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {item.tags.map((tag) => (
-                        <Link
-                          key={tag.slug}
-                          href={`/forum?tags=${encodeURIComponent(tag.slug)}`}
-                        >
+                        <span key={tag.slug}>
                           <Badge variant={getTagBadgeVariant(tag.kind)}>{tag.label}</Badge>
-                        </Link>
+                        </span>
                       ))}
                     </div>
                   ) : null}
@@ -281,9 +278,9 @@ export function ForumPostDetailContent({
           {post.tags.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {post.tags.map((tag) => (
-                <Link key={tag.slug} href={`/forum?tags=${encodeURIComponent(tag.slug)}`}>
+                <span key={tag.slug}>
                   <Badge variant={getTagBadgeVariant(tag.kind)}>{tag.label}</Badge>
-                </Link>
+                </span>
               ))}
             </div>
           ) : null}
