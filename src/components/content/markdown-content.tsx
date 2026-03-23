@@ -43,6 +43,126 @@ type MarkdownElementProps = {
   className?: string;
 };
 
+type MarkdownTextNode = {
+  type: "text";
+  value: string;
+};
+
+type MarkdownStrongNode = {
+  type: "strong";
+  children: MarkdownPhrasingNode[];
+};
+
+type MarkdownInlineCodeNode = {
+  type: "inlineCode";
+  value: string;
+};
+
+type MarkdownParentNode = {
+  type: string;
+  children: MarkdownNode[];
+};
+
+type MarkdownPhrasingNode =
+  | MarkdownTextNode
+  | MarkdownStrongNode
+  | MarkdownInlineCodeNode
+  | MarkdownParentNode;
+
+type MarkdownNode =
+  | MarkdownTextNode
+  | MarkdownStrongNode
+  | MarkdownInlineCodeNode
+  | MarkdownParentNode;
+
+const quotedStrongPattern = /\*\*("(?:[^"\n]+?)"|“(?:[^”\n]+?)”)\*\*/g;
+
+const phrasingContainerTypes = new Set([
+  "paragraph",
+  "heading",
+  "emphasis",
+  "strong",
+  "delete",
+  "link",
+  "linkReference",
+  "tableCell",
+]);
+
+function repairQuotedStrongText(value: string): MarkdownPhrasingNode[] | null {
+  const matches = [...value.matchAll(quotedStrongPattern)];
+
+  if (matches.length === 0) {
+    return null;
+  }
+
+  const nodes: MarkdownPhrasingNode[] = [];
+  let lastIndex = 0;
+
+  for (const match of matches) {
+    if (typeof match.index !== "number") {
+      continue;
+    }
+
+    if (match.index > lastIndex) {
+      nodes.push({
+        type: "text",
+        value: value.slice(lastIndex, match.index),
+      });
+    }
+
+    nodes.push({
+      type: "strong",
+      children: [
+        {
+          type: "text",
+          value: match[1],
+        },
+      ],
+    });
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < value.length) {
+    nodes.push({
+      type: "text",
+      value: value.slice(lastIndex),
+    });
+  }
+
+  return nodes.filter((node) => node.type !== "text" || node.value.length > 0);
+}
+
+function repairQuotedStrongNodes(node: MarkdownParentNode) {
+  const shouldRewriteTextChildren = phrasingContainerTypes.has(node.type);
+  const nextChildren: MarkdownNode[] = [];
+
+  for (const child of node.children) {
+    if (shouldRewriteTextChildren && child.type === "text") {
+      const repaired = repairQuotedStrongText(child.value);
+
+      if (repaired) {
+        nextChildren.push(...repaired);
+        continue;
+      }
+    }
+
+    if ("children" in child && Array.isArray(child.children) && child.type !== "code") {
+      repairQuotedStrongNodes(child);
+    }
+
+    nextChildren.push(child);
+  }
+
+  node.children = nextChildren;
+}
+
+function remarkQuotedStrong() {
+  return (tree: MarkdownParentNode) => {
+    repairQuotedStrongNodes(tree);
+  };
+}
+
 function isMarkdownElement(child: ReactNode): child is ReactElement<MarkdownElementProps> {
   return isValidElement<MarkdownElementProps>(child);
 }
@@ -172,7 +292,7 @@ export function MarkdownContent({
       ].join(" ")}
     >
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkQuotedStrong]}
         components={{
           h1: ({ children }) => <MarkdownHeading level={1}>{children}</MarkdownHeading>,
           h2: ({ children }) => <MarkdownHeading level={2}>{children}</MarkdownHeading>,

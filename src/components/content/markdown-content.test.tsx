@@ -166,3 +166,27 @@ test("MarkdownContent keeps raw HTML inert and external links safe", () => {
   assert.match(html, /target="_blank"/);
   assert.match(html, /rel="noreferrer noopener"/);
 });
+
+test("MarkdownContent repairs quoted strong markers embedded in prose", () => {
+  const html = renderToStaticMarkup(
+    <MarkdownContent
+      content={[
+        'OpenAI 正在从研究实验室向**"AI 超级应用公司"**全面转型。',
+        "",
+        'OpenAI 也在向**“AI 原生产品公司”**持续演进。',
+        "",
+        '行内代码 `**"保持原样"**` 不应该被修复。',
+      ].join("\n")}
+    />
+  );
+
+  assert.match(
+    html,
+    /OpenAI 正在从研究实验室向<strong>&quot;AI 超级应用公司&quot;<\/strong>全面转型。/
+  );
+  assert.match(
+    html,
+    /OpenAI 也在向<strong>“AI 原生产品公司”<\/strong>持续演进。/
+  );
+  assert.match(html, /<code>\*\*&quot;保持原样&quot;\*\*<\/code>/);
+});
