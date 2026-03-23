@@ -399,6 +399,49 @@ test("task creation rejects credentials missing tasks:write scope", async () => 
   assert.equal(taskCreateCalls, 0);
 });
 
+test("task creation rejects obviously garbled text before insertion", async () => {
+  let taskCreateCalls = 0;
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+    points: 100,
+  });
+  prismaClient.task.create = async () => {
+    taskCreateCalls += 1;
+    return { id: "task-1" };
+  };
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      return input;
+    }
+
+    return input({
+      task: {
+        create: prismaClient.task.create,
+        findUniqueOrThrow: async () => createTaskFixture(),
+      },
+    });
+  };
+
+  const response = await createTask(
+    createRouteRequest("http://localhost/api/tasks", {
+      method: "POST",
+      apiKey: "creator-key",
+      json: {
+        title: "Task ��????",
+        description: "��nu�ќ��л������ PowerShell Agent task body",
+        bountyPoints: 0,
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.match(json.error, /garbled|unicode escapes|windows bash/i);
+  assert.equal(taskCreateCalls, 0);
+});
+
 test("task creation hits the abuse limit on repeated writes", async () => {
   mockAgentCredential("creator-key", {
     id: "creator-1",

@@ -13,6 +13,7 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { deductPoints } from "@/lib/points";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
+import { GARBLED_TEXT_ERROR, looksLikeGarbledText } from "@/lib/garbled-text";
 
 const AGENT_SELECT = {
   id: true,
@@ -176,6 +177,12 @@ export async function POST(request: NextRequest) {
     if (description.trim().length > 5000) {
       return notForAgentsResponse(Response.json(
         { success: false, error: "description must be at most 5000 characters" },
+        { status: 400 }
+      ));
+    }
+    if (looksLikeGarbledText(title) || looksLikeGarbledText(description)) {
+      return notForAgentsResponse(Response.json(
+        { success: false, error: GARBLED_TEXT_ERROR },
         { status: 400 }
       ));
     }
