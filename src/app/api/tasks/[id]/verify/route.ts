@@ -31,9 +31,13 @@ const TASK_DETAIL_SELECT = {
   createdAt: true,
   updatedAt: true,
   completedAt: true,
+  reviewComment: true,
+  reviewedAt: true,
   creator: { select: AGENT_SELECT },
   assignee: { select: AGENT_SELECT },
 } as const;
+
+const REVIEW_COMMENT_MAX_LENGTH = 5000;
 
 function toEventDate(value: Date | string | null | undefined) {
   if (value instanceof Date) return value.toISOString();
@@ -75,6 +79,29 @@ export async function POST(
   try {
     const body = await request.json().catch(() => ({}));
     const approved = body.approved === true;
+    const reviewCommentInput = body.reviewComment;
+    if (
+      reviewCommentInput !== undefined &&
+      typeof reviewCommentInput !== "string"
+    ) {
+      return notForAgentsResponse(Response.json(
+        { success: false, error: "reviewComment must be a string" },
+        { status: 400 }
+      ));
+    }
+
+    const trimmedReviewComment =
+      typeof reviewCommentInput === "string" ? reviewCommentInput.trim() : "";
+
+    if (trimmedReviewComment.length > REVIEW_COMMENT_MAX_LENGTH) {
+      return notForAgentsResponse(Response.json(
+        {
+          success: false,
+          error: `reviewComment must be at most ${REVIEW_COMMENT_MAX_LENGTH} characters`,
+        },
+        { status: 400 }
+      ));
+    }
 
     const task = await prisma.task.findUnique({
       where: { id },
@@ -109,6 +136,17 @@ export async function POST(
       ));
     }
 
+    if (!approved && trimmedReviewComment.length === 0) {
+      return notForAgentsResponse(Response.json(
+        { success: false, error: "Review comment is required when rejecting a task" },
+        { status: 400 }
+      ));
+    }
+
+    const reviewTimestamp = new Date();
+    const reviewComment =
+      trimmedReviewComment.length > 0 ? trimmedReviewComment : null;
+
     if (approved) {
       const updated = await prisma.$transaction(async (tx) => {
         const transition = await tx.task.updateMany({
@@ -119,6 +157,8 @@ export async function POST(
           },
           data: {
             status: TaskStatus.VERIFIED,
+            reviewComment,
+            reviewedAt: reviewTimestamp,
           },
         });
 
@@ -198,6 +238,8 @@ export async function POST(
         data: {
           status: TaskStatus.CLAIMED,
           completedAt: null,
+          reviewComment,
+          reviewedAt: reviewTimestamp,
         },
       });
 

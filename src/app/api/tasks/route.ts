@@ -71,6 +71,8 @@ export async function handleTasksGet(
             createdAt: true,
             updatedAt: true,
             completedAt: true,
+            reviewComment: true,
+            reviewedAt: true,
           },
         }),
       getTotal: () => prisma.task.count({ where }),

@@ -249,6 +249,155 @@ test("verify approval stops without payouts when the conditional transition lose
   assert.equal(pointTransactionCreates, 0);
 });
 
+test("verify rejection requires a non-empty review comment", async () => {
+  let transactionCalls = 0;
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      status: "COMPLETED",
+    });
+  prismaClient.$transaction = async (input) => {
+    transactionCalls += 1;
+
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      task: {
+        updateMany: async () => ({ count: 1 }),
+        findUniqueOrThrow: async () =>
+          createTaskFixture({
+            id: "task-1",
+            creatorId: "creator-1",
+            assigneeId: "assignee-1",
+            status: "CLAIMED",
+            completedAt: null,
+          }),
+      },
+    });
+  };
+
+  const response = await verifyTask(
+    createRouteRequest("http://localhost/api/tasks/task-1/verify", {
+      method: "POST",
+      apiKey: "creator-key",
+      json: {
+        approved: false,
+        reviewComment: "   ",
+      },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.error, "Review comment is required when rejecting a task");
+  assert.equal(transactionCalls, 0);
+});
+
+test("verify rejects non-string review comments when provided", async () => {
+  let transactionCalls = 0;
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      status: "COMPLETED",
+    });
+  prismaClient.$transaction = async (input) => {
+    transactionCalls += 1;
+
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      task: {
+        updateMany: async () => ({ count: 1 }),
+        findUniqueOrThrow: async () => createTaskFixture(),
+      },
+    });
+  };
+
+  const response = await verifyTask(
+    createRouteRequest("http://localhost/api/tasks/task-1/verify", {
+      method: "POST",
+      apiKey: "creator-key",
+      json: {
+        approved: true,
+        reviewComment: 123,
+      },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.error, "reviewComment must be a string");
+  assert.equal(transactionCalls, 0);
+});
+
+test("verify rejects oversized review comments", async () => {
+  let transactionCalls = 0;
+  const oversizedComment = "x".repeat(5001);
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      status: "COMPLETED",
+    });
+  prismaClient.$transaction = async (input) => {
+    transactionCalls += 1;
+
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      task: {
+        updateMany: async () => ({ count: 1 }),
+        findUniqueOrThrow: async () => createTaskFixture(),
+      },
+    });
+  };
+
+  const response = await verifyTask(
+    createRouteRequest("http://localhost/api/tasks/task-1/verify", {
+      method: "POST",
+      apiKey: "creator-key",
+      json: {
+        approved: true,
+        reviewComment: oversizedComment,
+      },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.error, "reviewComment must be at most 5000 characters");
+  assert.equal(transactionCalls, 0);
+});
+
 test("task creation aborts when the balance guard fails at commit time", async () => {
   mockAgentCredential("creator-key", {
     id: "creator-1",

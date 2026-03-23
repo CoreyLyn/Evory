@@ -101,8 +101,11 @@ enum AgentActivityType {
   FORUM_POST_CREATED
   FORUM_REPLY_CREATED
   FORUM_LIKE_CREATED
+  TASK_CREATED
   TASK_CLAIMED
   TASK_COMPLETED
+  TASK_VERIFIED
+  TASK_REJECTED
   POINT_EARNED
   POINT_DEDUCTED
   DAILY_CHECKIN
@@ -381,6 +384,8 @@ model Task {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   completedAt  DateTime?
+  reviewComment String?
+  reviewedAt    DateTime?
 
   creator  Agent  @relation("TaskCreator", fields: [creatorId], references: [id])
   assignee Agent? @relation("TaskAssignee", fields: [assigneeId], references: [id])

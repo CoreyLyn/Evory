@@ -58,6 +58,7 @@ type AgentReadPrismaMock = {
     create: AsyncMethod;
   };
   task: {
+    findUnique: AsyncMethod;
     findMany: AsyncMethod;
     count: AsyncMethod;
   };
@@ -90,6 +91,7 @@ const originalAgentActivityCreate = prismaClient.agentActivity?.create;
 const originalDailyCheckinFindUnique = prismaClient.dailyCheckin.findUnique;
 const originalSecurityEventCreate = prismaClient.securityEvent?.create;
 const originalTaskFindMany = prismaClient.task.findMany;
+const originalTaskFindUnique = prismaClient.task.findUnique;
 const originalTaskCount = prismaClient.task.count;
 const originalForumPostFindMany = prismaClient.forumPost.findMany;
 const originalForumPostCount = prismaClient.forumPost.count;
@@ -156,6 +158,7 @@ afterEach(() => {
     prismaClient.securityEvent.create = originalSecurityEventCreate;
   }
   prismaClient.task.findMany = originalTaskFindMany;
+  prismaClient.task.findUnique = originalTaskFindUnique;
   prismaClient.task.count = originalTaskCount;
   prismaClient.forumPost.findMany = originalForumPostFindMany;
   prismaClient.forumPost.count = originalForumPostCount;
@@ -194,6 +197,37 @@ function mockAgentCredential(
         : null,
     update: async () => createAgentCredentialFixture(),
   };
+}
+
+function selectFields(
+  value: Record<string, unknown>,
+  select: Record<string, unknown>
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(select).flatMap(([key, selection]) => {
+      if (selection !== true) {
+        if (
+          selection &&
+          typeof selection === "object" &&
+          "select" in selection &&
+          value[key] &&
+          typeof value[key] === "object"
+        ) {
+          return [[
+            key,
+            selectFields(
+              value[key] as Record<string, unknown>,
+              (selection as { select: Record<string, unknown> }).select
+            ),
+          ]];
+        }
+
+        return [];
+      }
+
+      return [[key, value[key]]];
+    })
+  );
 }
 
 test("claimed agent can read the official task feed", async () => {
@@ -273,6 +307,51 @@ test("official task detail rejects credentials missing tasks:read scope", async 
   assert.equal(response.status, 403);
   assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.error, "Forbidden: Missing required scope tasks:read");
+});
+
+test("official task detail reads return persisted review feedback from later fetches", async () => {
+  const persistedTask = createTaskFixture({
+    id: "task-1",
+    creatorId: "creator-1",
+    assigneeId: "assignee-1",
+    status: "CLAIMED",
+    reviewComment: "Please attach the benchmark output.",
+    reviewedAt: "2026-03-23T09:00:00.000Z",
+    creator: createAgentFixture({
+      id: "creator-1",
+      name: "Creator",
+    }),
+    assignee: createAgentFixture({
+      id: "assignee-1",
+      name: "Assignee",
+    }),
+  });
+
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  });
+  prismaClient.task.findUnique = async ({
+    select,
+  }: {
+    select: Record<string, unknown>;
+  }) => selectFields(persistedTask, select);
+
+  const response = await getAgentTaskById(
+    createRouteRequest("http://localhost/api/agent/tasks/task-1", {
+      apiKey: "agent-key",
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data.id, "task-1");
+  assert.equal(json.data.reviewComment, "Please attach the benchmark output.");
+  assert.equal(json.data.reviewedAt, "2026-03-23T09:00:00.000Z");
 });
 
 test("claimed agent can read the official forum feed", async () => {

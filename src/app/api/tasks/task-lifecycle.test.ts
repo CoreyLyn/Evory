@@ -161,7 +161,7 @@ function mockAwardPointDependencies() {
   prismaClient.dailyCheckin.update = async () => ({ id: "checkin-1" });
 }
 
-test("complete sets completedAt when assignee submits work", async () => {
+test("complete sets completedAt and clears stale review feedback when assignee submits work", async () => {
   let updateData: Record<string, unknown> | undefined;
   const now = new Date();
 
@@ -174,6 +174,8 @@ test("complete sets completedAt when assignee submits work", async () => {
       id: "task-1",
       assigneeId: "assignee-1",
       status: "CLAIMED",
+      reviewComment: "Please tighten the implementation details.",
+      reviewedAt: "2026-03-22T08:00:00.000Z",
     });
 
   const taskFixture = createTaskFixture({
@@ -182,6 +184,8 @@ test("complete sets completedAt when assignee submits work", async () => {
     assigneeId: "assignee-1",
     status: "COMPLETED",
     completedAt: now,
+    reviewComment: null,
+    reviewedAt: null,
     creator: createAgentFixture({
       id: "creator-1",
       apiKey: "creator-key",
@@ -215,11 +219,16 @@ test("complete sets completedAt when assignee submits work", async () => {
   assert.equal(response.status, 200);
   assert.equal(json.data.status, "COMPLETED");
   assert.ok(updateData?.completedAt instanceof Date);
+  assert.equal(updateData?.reviewComment, null);
+  assert.equal(updateData?.reviewedAt, null);
   assert.ok(json.data.completedAt);
+  assert.equal(json.data.reviewComment, null);
+  assert.equal(json.data.reviewedAt, null);
 });
 
 test("verify rejection returns task to CLAIMED and clears completedAt", async () => {
   let updateData: Record<string, unknown> | undefined;
+  const reviewedAt = "2026-03-23T08:30:00.000Z";
 
   mockAgentCredential("creator-key", {
     id: "creator-1",
@@ -250,6 +259,8 @@ test("verify rejection returns task to CLAIMED and clears completedAt", async ()
             assigneeId: "assignee-1",
             status: "CLAIMED",
             completedAt: null,
+            reviewComment: "Needs another pass",
+            reviewedAt,
             creator: createAgentFixture({
               id: "creator-1",
               apiKey: "creator-key",
@@ -271,6 +282,7 @@ test("verify rejection returns task to CLAIMED and clears completedAt", async ()
       apiKey: "creator-key",
       json: {
         approved: false,
+        reviewComment: "  Needs another pass  ",
       },
     }),
     createRouteParams({ id: "task-1" })
@@ -280,12 +292,18 @@ test("verify rejection returns task to CLAIMED and clears completedAt", async ()
   assert.equal(response.status, 200);
   assert.equal(json.data.status, "CLAIMED");
   assert.equal(updateData?.completedAt, null);
+  assert.equal(updateData?.reviewComment, "Needs another pass");
+  assert.ok(updateData?.reviewedAt instanceof Date);
   assert.equal(json.data.completedAt, null);
+  assert.equal(json.data.reviewComment, "Needs another pass");
+  assert.equal(json.data.reviewedAt, reviewedAt);
 });
 
 test("verify approval updates status and payouts inside one transaction", async () => {
   let transactionCalls = 0;
   const pointTransactions: Array<Record<string, unknown>> = [];
+  let updateData: Record<string, unknown> | undefined;
+  const reviewedAt = "2026-03-23T09:00:00.000Z";
 
   mockAgentCredential("creator-key", {
     id: "creator-1",
@@ -307,6 +325,8 @@ test("verify approval updates status and payouts inside one transaction", async 
       bountyPoints: 25,
       status: "VERIFIED",
       completedAt: new Date().toISOString(),
+      reviewComment: "Looks good",
+      reviewedAt,
       creator: createAgentFixture({
         id: "creator-1",
         apiKey: "creator-key",
@@ -337,7 +357,10 @@ test("verify approval updates status and payouts inside one transaction", async 
           create: async () => ({}),
         },
         task: {
-          updateMany: async () => ({ count: 1 }),
+          updateMany: async ({ data }: { data: Record<string, unknown> }) => {
+            updateData = data;
+            return { count: 1 };
+          },
           findUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
         },
       });
@@ -356,6 +379,7 @@ test("verify approval updates status and payouts inside one transaction", async 
       apiKey: "creator-key",
       json: {
         approved: true,
+        reviewComment: "  Looks good  ",
       },
     }),
     createRouteParams({ id: "task-1" })
@@ -364,6 +388,10 @@ test("verify approval updates status and payouts inside one transaction", async 
 
   assert.equal(response.status, 200);
   assert.equal(json.data.status, "VERIFIED");
+  assert.equal(updateData?.reviewComment, "Looks good");
+  assert.ok(updateData?.reviewedAt instanceof Date);
+  assert.equal(json.data.reviewComment, "Looks good");
+  assert.equal(json.data.reviewedAt, reviewedAt);
   assert.equal(transactionCalls, 1);
   assert.equal(pointTransactions.length, 2);
 });

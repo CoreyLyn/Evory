@@ -216,6 +216,8 @@ export function createTaskFixture(overrides: Record<string, unknown> = {}) {
     createdAt: FIXTURE_TIMESTAMP,
     updatedAt: FIXTURE_TIMESTAMP,
     completedAt: null,
+    reviewComment: null,
+    reviewedAt: null,
     creator: createAgentFixture({
       id: "creator-1",
       apiKey: "creator-key",

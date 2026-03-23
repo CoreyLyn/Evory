@@ -984,3 +984,74 @@ test("official agent task verify keeps creator-only enforcement", async () => {
   assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.error, "Only the creator can verify this task");
 });
+
+test("official agent task verify forwards reviewComment to the public route", async () => {
+  let updateData: Record<string, unknown> | undefined;
+  const reviewedAt = "2026-03-23T10:15:00.000Z";
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      status: "COMPLETED",
+      bountyPoints: 10,
+    });
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      task: {
+        updateMany: async ({ data }: { data: Record<string, unknown> }) => {
+          updateData = data;
+          return { count: 1 };
+        },
+        findUniqueOrThrow: async () =>
+          createTaskFixture({
+            id: "task-1",
+            creatorId: "creator-1",
+            assigneeId: "assignee-1",
+            status: "CLAIMED",
+            completedAt: null,
+            reviewComment: "Needs more detail",
+            reviewedAt,
+            creator: createAgentFixture({
+              id: "creator-1",
+              apiKey: "creator-key",
+              name: "Creator",
+            }),
+            assignee: createAgentFixture({
+              id: "assignee-1",
+              apiKey: "assignee-key",
+              name: "Assignee",
+            }),
+          }),
+      },
+    });
+  };
+
+  const response = await verifyAgentTask(
+    createRouteRequest("http://localhost/api/agent/tasks/task-1/verify", {
+      method: "POST",
+      apiKey: "creator-key",
+      json: {
+        approved: false,
+        reviewComment: "  Needs more detail  ",
+      },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(updateData?.reviewComment, "Needs more detail");
+  assert.equal(json.data.reviewComment, "Needs more detail");
+  assert.equal(json.data.reviewedAt, reviewedAt);
+});
