@@ -32,12 +32,25 @@ test("applyForumTagOverrides rebuilds final tags and marks manual influence", ()
     overrides: {
       add: [{ slug: "performance", label: "Performance", kind: "CORE" }],
       remove: ["backend"],
-      lock: ["api"],
+      lock: [{ slug: "api", label: "API", kind: "CORE" }],
     },
   });
 
   assert.deepEqual(result.finalTags.map((tag) => [tag.slug, tag.source]), [
     ["api", "MANUAL"],
     ["performance", "MANUAL"],
+  ]);
+});
+
+test("applyForumTagOverrides keeps locked tags as MANUAL when re-extraction drops them", () => {
+  const result = applyForumTagOverrides({
+    autoTags: [],
+    overrides: {
+      lock: [{ slug: "api", label: "API", kind: "CORE" }],
+    },
+  });
+
+  assert.deepEqual(result.finalTags, [
+    { slug: "api", label: "API", kind: "CORE", source: "MANUAL" },
   ]);
 });

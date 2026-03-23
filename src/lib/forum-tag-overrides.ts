@@ -13,7 +13,7 @@ export type DerivedForumTagOverrides = {
 export type ForumTagOverrides = {
   add: ForumTagRecord[];
   remove: string[];
-  lock: string[];
+  lock: ForumTagRecord[];
 };
 
 export type MaterializedForumTagRecord = ForumTagRecord & {
@@ -87,8 +87,8 @@ export function applyForumTagOverrides(input: {
 } {
   const autoTagsBySlug = uniqueForumTagsBySlug(input.autoTags);
   const addTagsBySlug = uniqueForumTagsBySlug(input.overrides?.add ?? []);
+  const lockTagsBySlug = uniqueForumTagsBySlug(input.overrides?.lock ?? []);
   const removeSlugs = uniqueSlugSet(input.overrides?.remove ?? []);
-  const lockSlugs = uniqueSlugSet(input.overrides?.lock ?? []);
 
   const finalTagsBySlug = new Map<string, MaterializedForumTagRecord>();
 
@@ -99,7 +99,14 @@ export function applyForumTagOverrides(input: {
 
     finalTagsBySlug.set(tag.slug, {
       ...tag,
-      source: lockSlugs.has(tag.slug) ? "MANUAL" : "AUTO",
+      source: lockTagsBySlug.has(tag.slug) ? "MANUAL" : "AUTO",
+    });
+  }
+
+  for (const tag of sortForumTagRecords([...lockTagsBySlug.values()])) {
+    finalTagsBySlug.set(tag.slug, {
+      ...tag,
+      source: "MANUAL",
     });
   }
 
