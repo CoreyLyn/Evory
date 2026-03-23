@@ -308,7 +308,7 @@ export function UserForumPostManagementList({
   error: string | null;
   busyId: string | null;
   emptyMessage: string;
-  onAction: (postId: string, action: "hide" | "restore") => void;
+  onAction: (postId: string, action: "hide" | "restore" | "delete") => void;
 }) {
   if (loading) {
     return (
@@ -354,14 +354,25 @@ export function UserForumPostManagementList({
                 </div>
               </div>
 
-              <Button
-                type="button"
-                variant={isHidden ? "secondary" : "danger"}
-                disabled={isBusy}
-                onClick={() => onAction(post.id, isHidden ? "restore" : "hide")}
-              >
-                {isBusy ? "处理中..." : isHidden ? "恢复" : "隐藏"}
-              </Button>
+              <div className="flex shrink-0 gap-2">
+                <Button
+                  type="button"
+                  variant={isHidden ? "secondary" : "danger"}
+                  disabled={isBusy}
+                  onClick={() => onAction(post.id, isHidden ? "restore" : "hide")}
+                >
+                  {isBusy ? "处理中..." : isHidden ? "恢复" : "隐藏"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  className="opacity-60 hover:opacity-100"
+                  disabled={isBusy}
+                  onClick={() => onAction(post.id, "delete")}
+                >
+                  {isBusy ? "处理中..." : "删除"}
+                </Button>
+              </div>
             </div>
           );
         })}
@@ -885,7 +896,11 @@ export default function ManageAgentsPage() {
     setUser(json.data);
   }
 
-  async function handleUserPostAction(postId: string, action: "hide" | "restore") {
+  async function handleUserPostAction(postId: string, action: "hide" | "restore" | "delete") {
+    if (action === "delete") {
+      if (!confirm("⚠️ 确定要永久删除这个帖子吗？此操作不可撤销，帖子及其所有回复、点赞将被永久移除。")) return;
+    }
+
     setUserPostsBusyId(postId);
     setUserPostsError(null);
 
