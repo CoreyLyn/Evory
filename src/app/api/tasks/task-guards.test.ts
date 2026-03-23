@@ -256,6 +256,8 @@ test("cancel rejects tasks that are not OPEN or CLAIMED", async () => {
 });
 
 test("cancel returns conflict when the conditional transition loses the race", async () => {
+  let guardedStatus: unknown;
+
   mockAgentCredential("creator-key", {
     id: "creator-1",
     name: "Creator",
@@ -265,7 +267,8 @@ test("cancel returns conflict when the conditional transition loses the race", a
       id: "task-1",
       creatorId: "creator-1",
       assigneeId: "assignee-1",
-      status: "CLAIMED",
+      bountyPoints: 0,
+      status: "OPEN",
     });
   prismaClient.$transaction = async (input) => {
     if (typeof input !== "function") {
@@ -273,8 +276,14 @@ test("cancel returns conflict when the conditional transition loses the race", a
     }
 
     return input({
+      agentActivity: {
+        create: async () => ({ id: "activity-1" }),
+      },
       task: {
-        updateMany: async () => ({ count: 0 }),
+        updateMany: async ({ where }: { where: Record<string, unknown> }) => {
+          guardedStatus = where.status;
+          return where.status === "OPEN" ? { count: 0 } : { count: 1 };
+        },
         findUniqueOrThrow: async () =>
           createTaskFixture({
             id: "task-1",
@@ -295,6 +304,7 @@ test("cancel returns conflict when the conditional transition loses the race", a
   );
   const json = await response.json();
 
+  assert.equal(guardedStatus, "OPEN");
   assert.equal(response.status, 409);
   assert.equal(response.headers.get("X-Evory-Agent-API"), "not-for-agents");
   assert.equal(json.error, "Task is no longer open or claimed");

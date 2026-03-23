@@ -111,9 +111,7 @@ export async function POST(
         where: {
           id,
           creatorId: agent.id,
-          status: {
-            in: [TaskStatus.OPEN, TaskStatus.CLAIMED],
-          },
+          status: task.status,
         },
         data: {
           status: TaskStatus.CANCELLED,

@@ -236,17 +236,32 @@ test("creator cancellation refunds bounty, records activity, and publishes task.
     type: string;
     payload: {
       previousStatus: string | null;
-      task: { id: string; status: string };
+      task: {
+        id: string;
+        title: string;
+        status: string;
+        creatorId: string;
+        assigneeId: string | null;
+        bountyPoints: number;
+        completedAt: string | null;
+      };
     };
   }> = [];
   const unsubscribe = subscribeToLiveEvents((event) => {
+    if (event.type !== "task.cancelled") return;
+
     publishedEvents.push({
       type: event.type,
       payload: {
         previousStatus: event.payload.previousStatus,
         task: {
           id: event.payload.task.id,
+          title: event.payload.task.title,
           status: event.payload.task.status,
+          creatorId: event.payload.task.creatorId,
+          assigneeId: event.payload.task.assigneeId,
+          bountyPoints: event.payload.task.bountyPoints,
+          completedAt: event.payload.task.completedAt,
         },
       },
     });
@@ -353,12 +368,23 @@ test("creator cancellation refunds bounty, records activity, and publishes task.
       ]
     );
 
-    const cancelledEvents = publishedEvents.filter(
-      (event) => event.type === "task.cancelled" && event.payload.task.id === "task-1"
-    );
-
-    assert.equal(cancelledEvents.length, 1);
-    assert.equal(cancelledEvents[0]?.payload.previousStatus, "OPEN");
+    assert.deepEqual(publishedEvents, [
+      {
+        type: "task.cancelled",
+        payload: {
+          previousStatus: "OPEN",
+          task: {
+            id: "task-1",
+            title: "Refundable task",
+            status: "CANCELLED",
+            creatorId: "creator-1",
+            assigneeId: null,
+            bountyPoints: 25,
+            completedAt: null,
+          },
+        },
+      },
+    ]);
   } finally {
     unsubscribe();
   }
@@ -366,149 +392,272 @@ test("creator cancellation refunds bounty, records activity, and publishes task.
 
 test("creator can cancel a claimed zero-bounty task without a refund transaction", async () => {
   const pointTransactions: Array<Record<string, unknown>> = [];
+  const publishedEvents: Array<{
+    type: string;
+    payload: {
+      previousStatus: string | null;
+      task: {
+        id: string;
+        title: string;
+        status: string;
+        creatorId: string;
+        assigneeId: string | null;
+        bountyPoints: number;
+        completedAt: string | null;
+      };
+    };
+  }> = [];
+  const unsubscribe = subscribeToLiveEvents((event) => {
+    if (event.type !== "task.cancelled") return;
 
-  mockAgentCredential("creator-key", {
-    id: "creator-1",
-    name: "Creator",
-  });
-  prismaClient.task.findUnique = async () =>
-    createTaskFixture({
-      id: "task-2",
-      creatorId: "creator-1",
-      assigneeId: "assignee-1",
-      title: "Zero bounty task",
-      bountyPoints: 0,
-      status: "CLAIMED",
-    });
-  prismaClient.$transaction = async (input) => {
-    if (typeof input !== "function") {
-      throw new Error("Expected transaction callback");
-    }
-
-    return input({
-      pointTransaction: {
-        create: async ({ data }: { data: Record<string, unknown> }) => {
-          pointTransactions.push(data);
-          return data;
+    publishedEvents.push({
+      type: event.type,
+      payload: {
+        previousStatus: event.payload.previousStatus,
+        task: {
+          id: event.payload.task.id,
+          title: event.payload.task.title,
+          status: event.payload.task.status,
+          creatorId: event.payload.task.creatorId,
+          assigneeId: event.payload.task.assigneeId,
+          bountyPoints: event.payload.task.bountyPoints,
+          completedAt: event.payload.task.completedAt,
         },
       },
-      agent: {
-        update: async () => ({ id: "creator-1" }),
-      },
-      agentActivity: {
-        create: async () => ({ id: "activity-1" }),
-      },
-      task: {
-        updateMany: async () => ({ count: 1 }),
-        findUniqueOrThrow: async () =>
-          createTaskFixture({
+    });
+  });
+
+  try {
+    mockAgentCredential("creator-key", {
+      id: "creator-1",
+      name: "Creator",
+    });
+    prismaClient.task.findUnique = async () =>
+      createTaskFixture({
+        id: "task-2",
+        creatorId: "creator-1",
+        assigneeId: "assignee-1",
+        title: "Zero bounty task",
+        bountyPoints: 0,
+        status: "CLAIMED",
+      });
+    prismaClient.$transaction = async (input) => {
+      if (typeof input !== "function") {
+        throw new Error("Expected transaction callback");
+      }
+
+      return input({
+        pointTransaction: {
+          create: async ({ data }: { data: Record<string, unknown> }) => {
+            pointTransactions.push(data);
+            return data;
+          },
+        },
+        agent: {
+          update: async () => ({ id: "creator-1" }),
+        },
+        agentActivity: {
+          create: async () => ({ id: "activity-1" }),
+        },
+        task: {
+          updateMany: async () => ({ count: 1 }),
+          findUniqueOrThrow: async () =>
+            createTaskFixture({
+              id: "task-2",
+              creatorId: "creator-1",
+              assigneeId: "assignee-1",
+              title: "Zero bounty task",
+              bountyPoints: 0,
+              status: "CANCELLED",
+              completedAt: null,
+              creator: createAgentFixture({
+                id: "creator-1",
+                apiKey: "creator-key",
+                name: "Creator",
+              }),
+              assignee: createAgentFixture({
+                id: "assignee-1",
+                apiKey: "assignee-key",
+                name: "Assignee",
+              }),
+            }),
+        },
+      });
+    };
+
+    const response = await cancelTask(
+      createRouteRequest("http://localhost/api/tasks/task-2/cancel", {
+        method: "POST",
+        apiKey: "creator-key",
+      }),
+      createRouteParams({ id: "task-2" })
+    );
+    const json = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(json.data.status, "CANCELLED");
+    assert.equal(pointTransactions.length, 0);
+    assert.deepEqual(publishedEvents, [
+      {
+        type: "task.cancelled",
+        payload: {
+          previousStatus: "CLAIMED",
+          task: {
             id: "task-2",
+            title: "Zero bounty task",
+            status: "CANCELLED",
             creatorId: "creator-1",
             assigneeId: "assignee-1",
-            title: "Zero bounty task",
             bountyPoints: 0,
-            status: "CANCELLED",
             completedAt: null,
-            creator: createAgentFixture({
-              id: "creator-1",
-              apiKey: "creator-key",
-              name: "Creator",
-            }),
-            assignee: createAgentFixture({
-              id: "assignee-1",
-              apiKey: "assignee-key",
-              name: "Assignee",
-            }),
-          }),
+          },
+        },
       },
-    });
-  };
-
-  const response = await cancelTask(
-    createRouteRequest("http://localhost/api/tasks/task-2/cancel", {
-      method: "POST",
-      apiKey: "creator-key",
-    }),
-    createRouteParams({ id: "task-2" })
-  );
-  const json = await response.json();
-
-  assert.equal(response.status, 200);
-  assert.equal(json.data.status, "CANCELLED");
-  assert.equal(pointTransactions.length, 0);
+    ]);
+  } finally {
+    unsubscribe();
+  }
 });
 
 test("cancel fails when TASK_CANCELLED activity write fails inside the transaction", async () => {
   let transactionSawActivityWrite = false;
-
-  mockAgentCredential("creator-key", {
-    id: "creator-1",
-    name: "Creator",
-  });
-  prismaClient.task.findUnique = async () =>
-    createTaskFixture({
-      id: "task-rollback",
-      creatorId: "creator-1",
-      assigneeId: "assignee-1",
-      title: "Rollback task",
-      bountyPoints: 0,
-      status: "CLAIMED",
-    });
-  prismaClient.$transaction = async (input) => {
-    if (typeof input !== "function") {
-      throw new Error("Expected transaction callback");
-    }
-
-    return input({
+  const pointTransactions: Array<Record<string, unknown>> = [];
+  const publishedEvents: Array<{
+    type: string;
+    payload: {
+      previousStatus: string | null;
       task: {
-        updateMany: async () => ({ count: 1 }),
-        findUniqueOrThrow: async () =>
-          createTaskFixture({
-            id: "task-rollback",
-            creatorId: "creator-1",
-            assigneeId: "assignee-1",
-            title: "Rollback task",
-            bountyPoints: 0,
-            status: "CANCELLED",
-            completedAt: null,
-            creator: createAgentFixture({
-              id: "creator-1",
-              apiKey: "creator-key",
-              name: "Creator",
-            }),
-            assignee: createAgentFixture({
-              id: "assignee-1",
-              apiKey: "assignee-key",
-              name: "Assignee",
-            }),
-          }),
-      },
-      agentActivity: {
-        create: async ({ data }: { data: Record<string, unknown> }) => {
-          if (data.type === "TASK_CANCELLED") {
-            transactionSawActivityWrite = true;
-            throw new Error("transaction activity write failed");
-          }
-
-          return { id: "activity-1" };
+        id: string;
+        title: string;
+        status: string;
+        creatorId: string;
+        assigneeId: string | null;
+        bountyPoints: number;
+        completedAt: string | null;
+      };
+    };
+  }> = [];
+  const unsubscribe = subscribeToLiveEvents((event) => {
+    if (event.type !== "task.cancelled") return;
+    publishedEvents.push({
+      type: event.type,
+      payload: {
+        previousStatus: event.payload.previousStatus,
+        task: {
+          id: event.payload.task.id,
+          title: event.payload.task.title,
+          status: event.payload.task.status,
+          creatorId: event.payload.task.creatorId,
+          assigneeId: event.payload.task.assigneeId,
+          bountyPoints: event.payload.task.bountyPoints,
+          completedAt: event.payload.task.completedAt,
         },
       },
     });
-  };
+  });
 
-  const response = await cancelTask(
-    createRouteRequest("http://localhost/api/tasks/task-rollback/cancel", {
-      method: "POST",
-      apiKey: "creator-key",
-    }),
-    createRouteParams({ id: "task-rollback" })
-  );
-  const json = await response.json();
+  try {
+    mockAgentCredential("creator-key", {
+      id: "creator-1",
+      name: "Creator",
+    });
+    prismaClient.task.findUnique = async () =>
+      createTaskFixture({
+        id: "task-rollback",
+        creatorId: "creator-1",
+        assigneeId: "assignee-1",
+        title: "Rollback task",
+        bountyPoints: 25,
+        status: "CLAIMED",
+      });
+    prismaClient.$transaction = async (input) => {
+      if (typeof input !== "function") {
+        throw new Error("Expected transaction callback");
+      }
 
-  assert.equal(response.status, 500);
-  assert.equal(json.success, false);
-  assert.equal(json.error, "Internal server error");
-  assert.equal(transactionSawActivityWrite, true);
+      return input({
+        pointTransaction: {
+          create: async ({ data }: { data: Record<string, unknown> }) => {
+            pointTransactions.push(data);
+            return data;
+          },
+        },
+        agent: {
+          update: async () => ({ id: "creator-1" }),
+        },
+        task: {
+          updateMany: async () => ({ count: 1 }),
+          findUniqueOrThrow: async () =>
+            createTaskFixture({
+              id: "task-rollback",
+              creatorId: "creator-1",
+              assigneeId: "assignee-1",
+              title: "Rollback task",
+              bountyPoints: 25,
+              status: "CANCELLED",
+              completedAt: null,
+              creator: createAgentFixture({
+                id: "creator-1",
+                apiKey: "creator-key",
+                name: "Creator",
+              }),
+              assignee: createAgentFixture({
+                id: "assignee-1",
+                apiKey: "assignee-key",
+                name: "Assignee",
+              }),
+            }),
+        },
+        agentActivity: {
+          create: async ({ data }: { data: Record<string, unknown> }) => {
+            if (data.type === "TASK_CANCELLED") {
+              transactionSawActivityWrite = true;
+              throw new Error("transaction activity write failed");
+            }
+
+            return { id: "activity-1" };
+          },
+        },
+      });
+    };
+
+    const response = await cancelTask(
+      createRouteRequest("http://localhost/api/tasks/task-rollback/cancel", {
+        method: "POST",
+        apiKey: "creator-key",
+      }),
+      createRouteParams({ id: "task-rollback" })
+    );
+    const json = await response.json();
+
+    assert.equal(response.status, 500);
+    assert.equal(json.success, false);
+    assert.equal(json.error, "Internal server error");
+    assert.equal(transactionSawActivityWrite, true);
+    assert.equal(pointTransactions.length, 1);
+    assert.deepEqual(
+      (({
+        agentId,
+        amount,
+        type,
+        referenceId,
+      }: Record<string, unknown>) => ({
+        agentId,
+        amount,
+        type,
+        referenceId,
+      }))(pointTransactions[0]),
+      {
+        agentId: "creator-1",
+        amount: 25,
+        type: "TASK_BOUNTY_REFUND",
+        referenceId: "task-rollback",
+      }
+    );
+    assert.deepEqual(publishedEvents, []);
+  } finally {
+    unsubscribe();
+  }
 });
 
 test("task creation records TASK_CREATED activity for the creator", async () => {
