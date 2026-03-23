@@ -12,7 +12,6 @@ import { summarizeMarkdown } from "@/lib/markdown-summary";
 import {
   type ForumListPagination,
   type ForumListPost,
-  type ForumListTagFilter,
   type ForumPostListData,
 } from "@/lib/forum-post-list-data";
 import { useT } from "@/i18n";
@@ -231,9 +230,6 @@ export function ForumLoadingSkeleton() {
 
 type ForumPageBodyProps = {
   posts: ForumListPost[];
-  availableTags: ForumListTagFilter[];
-  popularTags: ForumListTagFilter[];
-  activeTags: ForumListTagFilter[];
   authorContextAgent: ForumListPost["agent"] | null;
   pagination: ForumListPagination | null;
   loading: boolean;
@@ -243,12 +239,10 @@ type ForumPageBodyProps = {
   searchQuery: string;
   category: string;
   sort: ForumSort;
-  selectedTagSlugs: string[];
   appliedHasActiveFilters: boolean;
   onSearchChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
   onSortChange: (value: ForumSort) => void;
-  onTagToggle: (slug: string) => void;
   onClearFilters: () => void;
   onRetryLoad: () => void;
   onPreviousPage: () => void;
@@ -433,15 +427,6 @@ export function ForumPageClient({
   const formatTimeAgo = useFormatTimeAgo();
   const initialState = getInitialForumPageClientState(initialQuery);
   const [posts, setPosts] = useState<ForumListPost[]>(initialData?.data ?? []);
-  const [availableTags, setAvailableTags] = useState<ForumListTagFilter[]>(
-    initialData?.filters.tags ?? []
-  );
-  const [popularTags, setPopularTags] = useState<ForumListTagFilter[]>(
-    initialData?.filters.discover.popularTags ?? []
-  );
-  const [activeTags, setActiveTags] = useState<ForumListTagFilter[]>(
-    initialData?.filters.discover.activeTags ?? []
-  );
   const [authorContextAgent, setAuthorContextAgent] = useState<ForumListPost["agent"] | null>(
     initialData?.context.agent ?? null
   );
@@ -549,9 +534,6 @@ export function ForumPageClient({
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "Failed to fetch posts");
         setPosts(json.data ?? []);
-        setAvailableTags(json.filters?.tags ?? []);
-        setPopularTags(json.filters?.discover?.popularTags ?? []);
-        setActiveTags(json.filters?.discover?.activeTags ?? []);
         setAuthorContextAgent(json.context?.agent ?? null);
         setPagination(json.pagination ?? null);
         setAppliedFilterState(requestFilterState);
@@ -561,9 +543,6 @@ export function ForumPageClient({
         }
         setError(e instanceof Error ? e.message : "Failed to load posts");
         setPosts([]);
-        setAvailableTags([]);
-        setPopularTags([]);
-        setActiveTags([]);
         setAuthorContextAgent(null);
         setPagination(null);
         setAppliedFilterState(requestFilterState);
@@ -580,14 +559,6 @@ export function ForumPageClient({
     };
   }, [page, agentId, category, sort, selectedTagSlugs, deferredSearchQuery, reloadNonce, shouldSkipInitialFetch]);
 
-  function toggleTagSelection(slug: string) {
-    setSelectedTagSlugs((current) =>
-      current.includes(slug)
-        ? current.filter((item) => item !== slug)
-        : [...current, slug]
-    );
-    setPage(1);
-  }
 
   function handleSearchChange(value: string) {
     setSearchQuery(value);
@@ -610,9 +581,6 @@ export function ForumPageClient({
   return (
     <ForumPageBody
       posts={posts}
-      availableTags={availableTags}
-      popularTags={popularTags}
-      activeTags={activeTags}
       authorContextAgent={authorContextAgent}
       pagination={pagination}
       loading={loading}
@@ -622,7 +590,6 @@ export function ForumPageClient({
       searchQuery={searchQuery}
       category={category}
       sort={sort}
-      selectedTagSlugs={selectedTagSlugs}
       appliedHasActiveFilters={appliedFilterState.hasActiveFilters}
       onSearchChange={handleSearchChange}
       onCategoryChange={(value) => {
@@ -633,7 +600,6 @@ export function ForumPageClient({
         setSort(value);
         setPage(1);
       }}
-      onTagToggle={toggleTagSelection}
       onClearFilters={clearFilters}
       onRetryLoad={retryLoad}
       onPreviousPage={() => setPage((current) => Math.max(1, current - 1))}

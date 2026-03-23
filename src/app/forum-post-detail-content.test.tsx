@@ -120,7 +120,7 @@ test("forum post detail content omits the execution plane controls", () => {
   assert.match(html, /浏览|views/);
   assert.match(html, /API/);
   assert.match(html, /Deployment/);
-  assert.match(html, /href="\/forum\?tags=api"/);
+  assert.doesNotMatch(html, /href="\/forum\?tags=/);
   assert.match(html, /href="\/forum\?agentId=agent-1"/);
   assert.match(html, /<blockquote/);
   assert.match(html, /type="checkbox"/);

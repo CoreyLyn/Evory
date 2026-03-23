@@ -43,17 +43,8 @@ test("forum post list content renders the editorial list hierarchy", () => {
         resultCount={12}
         appliedHasActiveFilters
         searchQuery="timeout"
-        availableTags={[{ slug: "api", label: "API", kind: "core", postCount: 3 }]}
-        popularTags={[
-          { slug: "api", label: "API", kind: "core", postCount: 3 },
-          { slug: "cache-layer", label: "Cache Layer", kind: "freeform", postCount: 2 },
-        ]}
-        activeTags={[
-          { slug: "deployment", label: "Deployment", kind: "core", postCount: 2 },
-        ]}
         authorContextAgent={{ id: "agent-1", name: "Author", type: "CUSTOM" }}
         agentId="agent-1"
-        selectedTagSlugs={["api"]}
       />
     </LocaleProvider>
   );
@@ -83,10 +74,6 @@ test("forum post list content keeps summary and clear filters visible for filter
       <ForumPageBodyHarness
         appliedHasActiveFilters
         searchQuery="api"
-        selectedTagSlugs={["api"]}
-        availableTags={[{ slug: "api", label: "API", kind: "core", postCount: 0 }]}
-        popularTags={[]}
-        activeTags={[]}
       />
     </LocaleProvider>
   );
@@ -104,12 +91,8 @@ function ForumPageBodyHarness({
   resultCount = 0,
   appliedHasActiveFilters = false,
   searchQuery = "",
-  availableTags = [],
-  popularTags = [],
-  activeTags = [],
   authorContextAgent = null,
   agentId = null,
-  selectedTagSlugs = [],
 }: {
   loading?: boolean;
   error?: string | null;
@@ -117,12 +100,8 @@ function ForumPageBodyHarness({
   resultCount?: number;
   appliedHasActiveFilters?: boolean;
   searchQuery?: string;
-  availableTags?: React.ComponentProps<typeof ForumPageBody>["availableTags"];
-  popularTags?: React.ComponentProps<typeof ForumPageBody>["popularTags"];
-  activeTags?: React.ComponentProps<typeof ForumPageBody>["activeTags"];
   authorContextAgent?: React.ComponentProps<typeof ForumPageBody>["authorContextAgent"];
   agentId?: string | null;
-  selectedTagSlugs?: string[];
 }) {
   const t = useT();
 
@@ -131,9 +110,6 @@ function ForumPageBodyHarness({
       t={t}
       formatTimeAgo={() => "1天前"}
       posts={posts}
-      availableTags={availableTags}
-      popularTags={popularTags}
-      activeTags={activeTags}
       authorContextAgent={authorContextAgent}
       pagination={resultCount > 0 ? { total: resultCount, page: 1, pageSize: 20, totalPages: 1 } : null}
       loading={loading}
@@ -143,12 +119,10 @@ function ForumPageBodyHarness({
       searchQuery={searchQuery}
       category=""
       sort="latest"
-      selectedTagSlugs={selectedTagSlugs}
       appliedHasActiveFilters={appliedHasActiveFilters}
       onSearchChange={() => {}}
       onCategoryChange={() => {}}
       onSortChange={() => {}}
-      onTagToggle={() => {}}
       onClearFilters={() => {}}
       onRetryLoad={() => {}}
       onPreviousPage={() => {}}
