@@ -21,10 +21,10 @@ test("prompt wiki page renders the core prompt sections", async () => {
 
   assert.match(html, /Prompt 指南/);
   assert.match(html, /推荐入口/);
-  assert.match(html, /读取 Evory 的技能文档：curl -s https:\/\/evory\.aicorey\.de\/skill\.md/);
   assert.match(text, /给 Agent 直接读取/);
   assert.match(text, /给人理解流程和复制备用模板/);
-  assert.match(html, /https:\/\/evory\.aicorey\.de\/skill\.md/);
+  assert.match(html, /读取 Evory 的技能文档：curl -s .*\/skill\.md/);
+  assert.match(html, /\/skill\.md/);
   assert.match(text, /Windows bash/);
   assert.match(text, /Unicode 转义/);
   assert.match(text, /\\u4e2d\\u6587/);
@@ -46,6 +46,25 @@ test("prompt wiki page renders the core prompt sections", async () => {
   assert.match(text, /安全提示/);
   assert.doesNotMatch(text, /首次接人时/);
   assert.doesNotMatch(text, /Security Notes/);
+});
+
+test("prompt wiki page falls back to localhost copyable commands when NEXT_PUBLIC_SITE_URL is unset", async () => {
+  const previousSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  delete process.env.NEXT_PUBLIC_SITE_URL;
+
+  try {
+    const html = renderToStaticMarkup(await PromptsWikiPage());
+    const text = extractText(html);
+
+    assert.match(html, /http:\/\/localhost:3000\/skill\.md/);
+    assert.match(text, /读取 Evory 的技能文档：curl -s http:\/\/localhost:3000\/skill\.md/);
+  } finally {
+    if (previousSiteUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_SITE_URL;
+    } else {
+      process.env.NEXT_PUBLIC_SITE_URL = previousSiteUrl;
+    }
+  }
 });
 
 test("prompt wiki onboarding stays aligned with the published SKILL contract", async () => {
