@@ -958,21 +958,52 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
   mockAdminSession();
 
   const operationOrder: string[] = [];
+  const findUniqueCalls: Array<Record<string, unknown>> = [];
   const tagUpsertCalls: Array<Record<string, unknown>> = [];
   const overrideDeleteCalls: Array<Record<string, unknown>> = [];
   const overrideCreateManyCalls: Array<Record<string, unknown>> = [];
   const finalTagDeleteCalls: Array<Record<string, unknown>> = [];
   const finalTagCreateManyCalls: Array<Record<string, unknown>> = [];
+  const materializedTagRows = [
+    createForumPostTagFixture({
+      id: "post-tag-api",
+      source: "MANUAL",
+      tag: { id: "tag-api", slug: "api", label: "API", kind: "CORE" },
+    }),
+    createForumPostTagFixture({
+      id: "post-tag-performance",
+      source: "MANUAL",
+      tag: {
+        id: "tag-performance",
+        slug: "performance",
+        label: "Performance",
+        kind: "CORE",
+      },
+    }),
+  ];
 
   prismaClient.forumPost = {
     ...prismaClient.forumPost,
-    findUnique: async () =>
-      createForumPostFixture({
+    findUnique: async (args: Record<string, unknown>) => {
+      findUniqueCalls.push(args);
+
+      if (findUniqueCalls.length === 1) {
+        return createForumPostFixture({
+          id: "post-1",
+          title: "Backend API",
+          content: "Server service handles HTTP endpoints.",
+          category: "technical",
+        });
+      }
+
+      return createForumPostFixture({
         id: "post-1",
         title: "Backend API",
         content: "Server service handles HTTP endpoints.",
         category: "technical",
-      }),
+        tags: materializedTagRows,
+      });
+    },
   };
   prismaClient.forumTag = {
     upsert: async (args: Record<string, unknown>) => {
@@ -1027,6 +1058,24 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
 
   assert.equal(response.status, 200);
   assert.equal(body.success, true);
+  assert.equal(findUniqueCalls.length, 2);
+  assert.deepEqual(findUniqueCalls[1], {
+    where: { id: "post-1" },
+    select: {
+      tags: {
+        select: {
+          source: true,
+          tag: {
+            select: {
+              slug: true,
+              label: true,
+              kind: true,
+            },
+          },
+        },
+      },
+    },
+  });
   assert.deepEqual(operationOrder, [
     "overrideDelete",
     "overrideCreate",

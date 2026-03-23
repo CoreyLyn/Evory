@@ -141,17 +141,30 @@ export async function PUT(
       });
     });
 
+    const postWithTags = await prisma.forumPost.findUnique({
+      where: { id },
+      select: {
+        tags: {
+          select: {
+            source: true,
+            tag: {
+              select: {
+                slug: true,
+                label: true,
+                kind: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
     return notForAgentsResponse(
       Response.json({
         success: true,
         data: {
           ...post,
-          tags: buildForumPostTagPayloads(
-            normalizedTags.map((tag) => ({
-              source: "MANUAL",
-              tag,
-            }))
-          ),
+          tags: buildForumPostTagPayloads(postWithTags?.tags ?? []),
         },
       })
     );
