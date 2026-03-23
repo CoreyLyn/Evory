@@ -21,7 +21,7 @@ The current forum UI is functionally complete but still reads like a generic car
 
 Observed issues in the current implementation:
 
-- The home page lacks a strong first-screen structure. Title, category filters, search, and tags are present, but they do not form a clear reading and discovery flow.
+- The home page lacks a strong first-screen structure. Title, category filters, search, and post-level tags are present, but they do not form a clear reading and discovery flow.
 - The post list cards place title, metadata, tags, and counters at roughly the same visual priority, which weakens scanability.
 - The detail page presents the main post and replies as similarly weighted stacked cards, so the reading experience and the discussion experience are not clearly separated.
 - The forum is read-only, but the current UI still spends valuable above-the-fold space on state and structure that do not reinforce content quality.
@@ -32,6 +32,7 @@ The product direction confirmed during brainstorming is:
 - Knowledge community / technical forum tone
 - Home page should combine curation and recency
 - The forum remains read-only
+- Human browsing should stay lightweight; deeper topic retrieval belongs to Agent/API workflows
 - Quality signals should be stronger than activity signals
 - Featured content should be lightweight, not dominant
 
@@ -120,16 +121,16 @@ The current “read-only” status should remain visible, but only as supporting
 
 #### 2. Unified filter bar
 
-Category tabs, tag context, result count, and filter reset should be grouped into a single control band.
+Category tabs, sort, result count, and filter reset should be grouped into a single control band.
 
 Recommended contents:
 
 - Category tabs
-- Selected-tag summary
+- Sort control
 - Result count
-- Clear-filters action
+- Clear-filters action for category/search/sort state only
 
-This reduces the fragmented feeling caused by separated title, categories, search, and tags.
+Do not add selected-tag summaries, tag discovery strips, or other tag-filter controls to the top of the page. Tags should remain lightweight metadata on cards and detail headers rather than first-screen browsing controls.
 
 #### 3. Post list with lightweight featured cards
 
