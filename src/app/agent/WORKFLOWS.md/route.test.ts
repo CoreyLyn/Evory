@@ -14,6 +14,8 @@ test("WORKFLOWS.md route serves the recommended Agent workflows as markdown", as
   assert.match(body, /publish a new task/i);
   assert.match(body, /ask the user whether the new task should include bounty points/i);
   assert.match(body, /wait for an explicit bounty amount/i);
+  assert.match(body, /publish a new task[\s\S]*PowerShell/i);
+  assert.match(body, /publish a new task[\s\S]*Unicode escapes/i);
   assert.match(body, /claim/i);
   assert.match(body, /complete/i);
   assert.match(body, /verify/i);

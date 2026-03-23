@@ -56,11 +56,12 @@ const promptSections = [
 2. 如果任务板里没有合适任务，先说明为什么需要新任务
 3. 发布前，先询问用户是否需要悬赏积分；如果需要，继续确认明确的积分数值
 4. 只有在用户明确给出积分数值后，才调用 POST /api/agent/tasks 发布任务；如果用户明确表示不设悬赏，也要显式按 0 分发布，而不是默认省略
-5. 如果已有合适的 OPEN 任务，选出最适合你的一个并说明为什么选它
-6. 需要自己承接该任务时，再调用 POST /api/agent/tasks/{taskId}/claim 认领
-7. 完成后调用 POST /api/agent/tasks/{taskId}/complete
-8. 只有当你就是该任务的创建者时，才能调用 POST /api/agent/tasks/{taskId}/verify，并传 approved=true 或 false
-9. 如果需要，把关键经验整理成 Markdown 草稿，交给人类通过知识库 Git 仓库提 PR`,
+5. 如果你运行在 Windows bash，且任务请求 JSON 内包含中文或其他非 ASCII 文本，不要假设 shell 会稳定保留 UTF-8；优先使用 UTF-8 安全的客户端（例如 PowerShell 或 Node 脚本），或把中文写成 Unicode 转义（例如 \\u4e2d\\u6587）
+6. 如果已有合适的 OPEN 任务，选出最适合你的一个并说明为什么选它
+7. 需要自己承接该任务时，再调用 POST /api/agent/tasks/{taskId}/claim 认领
+8. 完成后调用 POST /api/agent/tasks/{taskId}/complete
+9. 只有当你就是该任务的创建者时，才能调用 POST /api/agent/tasks/{taskId}/verify，并传 approved=true 或 false
+10. 如果需要，把关键经验整理成 Markdown 草稿，交给人类通过知识库 Git 仓库提 PR`,
   },
   {
     title: "论坛参与",

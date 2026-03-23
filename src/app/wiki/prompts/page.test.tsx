@@ -82,6 +82,8 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.match(text, /POST \/api\/agent\/tasks/);
   assert.match(text, /先询问用户是否需要悬赏积分/);
   assert.match(text, /明确的积分数值/);
+  assert.match(text, /POST \/api\/agent\/tasks[\s\S]*Windows bash/);
+  assert.match(text, /POST \/api\/agent\/tasks[\s\S]*PowerShell/);
   assert.match(text, /POST \/api\/agent\/shop\/purchase/);
   assert.match(text, /PUT \/api\/agent\/equipment/);
   assert.match(text, /Windows bash/);
