@@ -235,18 +235,18 @@ test("task creation records TASK_CREATED activity for the creator", async () => 
     name: "Creator",
     points: 100,
   });
-  prismaClient.agentActivity = {
-    create: async ({ data }: { data: Record<string, unknown> }) => {
-      activityCreates.push(data);
-      return { id: "activity-1" };
-    },
-  };
   prismaClient.$transaction = async (input) => {
     if (typeof input !== "function") {
       return input;
     }
 
     return input({
+      agentActivity: {
+        create: async ({ data }: { data: Record<string, unknown> }) => {
+          activityCreates.push(data);
+          return { id: "activity-1" };
+        },
+      },
       task: {
         create: async () =>
           createTaskFixture({
@@ -297,7 +297,7 @@ test("task creation records TASK_CREATED activity for the creator", async () => 
   ]);
 });
 
-test("task creation still succeeds when TASK_CREATED activity write fails", async () => {
+test("task creation fails when TASK_CREATED activity write fails inside the transaction", async () => {
   let transactionSawActivityWrite = false;
 
   mockAgentCredential("creator-key", {
@@ -305,27 +305,16 @@ test("task creation still succeeds when TASK_CREATED activity write fails", asyn
     name: "Creator",
     points: 100,
   });
-  prismaClient.agentActivity = {
-    create: async ({ data }: { data: Record<string, unknown> }) => {
-      if (data.type === "TASK_CREATED") {
-        throw new Error("activity write failed");
-      }
-
-      return { id: "activity-1" };
-    },
-  };
   prismaClient.$transaction = async (input) => {
     if (typeof input !== "function") {
       return input;
     }
 
-    let aborted = false;
-    const result = await input({
+    return input({
       agentActivity: {
         create: async ({ data }: { data: Record<string, unknown> }) => {
           if (data.type === "TASK_CREATED") {
             transactionSawActivityWrite = true;
-            aborted = true;
             throw new Error("transaction activity write failed");
           }
 
@@ -355,12 +344,6 @@ test("task creation still succeeds when TASK_CREATED activity write fails", asyn
           }),
       },
     });
-
-    if (aborted) {
-      throw new Error("transaction aborted after failed activity write");
-    }
-
-    return result;
   };
 
   const response = await createTask(
@@ -376,9 +359,10 @@ test("task creation still succeeds when TASK_CREATED activity write fails", asyn
   );
   const json = await response.json();
 
-  assert.equal(response.status, 200);
-  assert.equal(json.data.id, "task-1");
-  assert.equal(transactionSawActivityWrite, false);
+  assert.equal(response.status, 500);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Internal server error");
+  assert.equal(transactionSawActivityWrite, true);
 });
 
 test("verify rejection returns task to CLAIMED and clears completedAt", async () => {
@@ -390,12 +374,6 @@ test("verify rejection returns task to CLAIMED and clears completedAt", async ()
     id: "creator-1",
     name: "Creator",
   });
-  prismaClient.agentActivity = {
-    create: async ({ data }: { data: Record<string, unknown> }) => {
-      activityCreates.push(data);
-      return { id: "activity-1" };
-    },
-  };
   prismaClient.task.findUnique = async () =>
     createTaskFixture({
       id: "task-1",
@@ -409,6 +387,12 @@ test("verify rejection returns task to CLAIMED and clears completedAt", async ()
     }
 
     return input({
+      agentActivity: {
+        create: async ({ data }: { data: Record<string, unknown> }) => {
+          activityCreates.push(data);
+          return { id: "activity-1" };
+        },
+      },
       task: {
         updateMany: async ({ data }: { data: Record<string, unknown> }) => {
           updateData = data;
@@ -469,22 +453,13 @@ test("verify rejection returns task to CLAIMED and clears completedAt", async ()
   ]);
 });
 
-test("verify rejection still succeeds when TASK_REJECTED activity write fails", async () => {
+test("verify rejection fails when TASK_REJECTED activity write fails inside the transaction", async () => {
   let transactionSawActivityWrite = false;
 
   mockAgentCredential("creator-key", {
     id: "creator-1",
     name: "Creator",
   });
-  prismaClient.agentActivity = {
-    create: async ({ data }: { data: Record<string, unknown> }) => {
-      if (data.type === "TASK_REJECTED") {
-        throw new Error("activity write failed");
-      }
-
-      return { id: "activity-1" };
-    },
-  };
   prismaClient.task.findUnique = async () =>
     createTaskFixture({
       id: "task-1",
@@ -497,8 +472,7 @@ test("verify rejection still succeeds when TASK_REJECTED activity write fails", 
       throw new Error("Expected transaction callback");
     }
 
-    let aborted = false;
-    const result = await input({
+    return input({
       task: {
         updateMany: async () => ({ count: 1 }),
         findUniqueOrThrow: async () =>
@@ -526,7 +500,6 @@ test("verify rejection still succeeds when TASK_REJECTED activity write fails", 
         create: async ({ data }: { data: Record<string, unknown> }) => {
           if (data.type === "TASK_REJECTED") {
             transactionSawActivityWrite = true;
-            aborted = true;
             throw new Error("transaction activity write failed");
           }
 
@@ -534,12 +507,6 @@ test("verify rejection still succeeds when TASK_REJECTED activity write fails", 
         },
       },
     });
-
-    if (aborted) {
-      throw new Error("transaction aborted after failed activity write");
-    }
-
-    return result;
   };
 
   const response = await verifyTask(
@@ -555,9 +522,10 @@ test("verify rejection still succeeds when TASK_REJECTED activity write fails", 
   );
   const json = await response.json();
 
-  assert.equal(response.status, 200);
-  assert.equal(json.data.status, "CLAIMED");
-  assert.equal(transactionSawActivityWrite, false);
+  assert.equal(response.status, 500);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Internal server error");
+  assert.equal(transactionSawActivityWrite, true);
 });
 
 test("verify approval updates status and payouts inside one transaction", async () => {
@@ -682,7 +650,7 @@ test("verify approval updates status and payouts inside one transaction", async 
   );
 });
 
-test("verify approval still succeeds when TASK_VERIFIED activity write fails", async () => {
+test("verify approval fails when TASK_VERIFIED activity write fails inside the transaction", async () => {
   let transactionCalls = 0;
   let transactionSawTaskVerifiedWrite = false;
 
@@ -719,15 +687,6 @@ test("verify approval still succeeds when TASK_VERIFIED activity write fails", a
         name: "Assignee",
       }),
     });
-  prismaClient.agentActivity = {
-    create: async ({ data }: { data: Record<string, unknown> }) => {
-      if (data.type === "TASK_VERIFIED") {
-        throw new Error("activity write failed");
-      }
-
-      return { id: "activity-1" };
-    },
-  };
   mockAwardPointDependencies();
   prismaClient.$transaction = async (input) => {
     transactionCalls += 1;
@@ -740,8 +699,7 @@ test("verify approval still succeeds when TASK_VERIFIED activity write fails", a
       return input;
     }
 
-    let aborted = false;
-    const result = await input({
+    return input({
       pointTransaction: {
         create: async ({ data }: { data: Record<string, unknown> }) => data,
       },
@@ -752,7 +710,6 @@ test("verify approval still succeeds when TASK_VERIFIED activity write fails", a
         create: async ({ data }: { data: Record<string, unknown> }) => {
           if (data.type === "TASK_VERIFIED") {
             transactionSawTaskVerifiedWrite = true;
-            aborted = true;
             throw new Error("transaction activity write failed");
           }
 
@@ -764,12 +721,6 @@ test("verify approval still succeeds when TASK_VERIFIED activity write fails", a
         findUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
       },
     });
-
-    if (aborted) {
-      throw new Error("transaction aborted after failed activity write");
-    }
-
-    return result;
   };
 
   const response = await verifyTask(
@@ -785,8 +736,9 @@ test("verify approval still succeeds when TASK_VERIFIED activity write fails", a
   );
   const json = await response.json();
 
-  assert.equal(response.status, 200);
-  assert.equal(json.data.status, "VERIFIED");
+  assert.equal(response.status, 500);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Internal server error");
   assert.equal(transactionCalls, 1);
-  assert.equal(transactionSawTaskVerifiedWrite, false);
+  assert.equal(transactionSawTaskVerifiedWrite, true);
 });

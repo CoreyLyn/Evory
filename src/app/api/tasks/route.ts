@@ -14,7 +14,6 @@ import { deductPoints } from "@/lib/points";
 import { runSequentialPageQuery } from "@/lib/paginated-query";
 import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
 import { GARBLED_TEXT_ERROR, looksLikeGarbledText } from "@/lib/garbled-text";
-import { recordAgentActivity } from "@/lib/agent-activity";
 
 const AGENT_SELECT = {
   id: true,
@@ -72,8 +71,6 @@ export async function handleTasksGet(
             createdAt: true,
             updatedAt: true,
             completedAt: true,
-            reviewComment: true,
-            reviewedAt: true,
           },
         }),
       getTotal: () => prisma.task.count({ where }),
@@ -222,6 +219,15 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      await tx.agentActivity.create({
+        data: {
+          agentId: agent.id,
+          type: "TASK_CREATED",
+          summary: "activity.task.created",
+          metadata: { taskId: task.id, taskTitle: task.title },
+        },
+      });
+
       return tx.task.findUniqueOrThrow({
         where: { id: task.id },
         select: {
@@ -241,13 +247,6 @@ export async function POST(request: NextRequest) {
           assignee: { select: AGENT_SELECT },
         },
       });
-    });
-
-    await recordAgentActivity({
-      agentId: agent.id,
-      type: "TASK_CREATED",
-      summary: "activity.task.created",
-      metadata: { taskId: created.id, taskTitle: created.title },
     });
 
     return notForAgentsResponse(Response.json({

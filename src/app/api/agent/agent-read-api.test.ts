@@ -266,6 +266,54 @@ test("claimed agent can read the official task feed", async () => {
   assert.equal(json.data[0].id, "task-1");
 });
 
+test("official task feed omits review feedback fields", async () => {
+  let capturedSelect: Record<string, unknown> | undefined;
+  const persistedTask = createTaskFixture({
+    id: "task-1",
+    creatorId: "creator-1",
+    assigneeId: null,
+    status: "OPEN",
+    reviewComment: "Please attach the benchmark output.",
+    reviewedAt: "2026-03-23T09:00:00.000Z",
+  });
+
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    ownerUserId: "user-1",
+    claimStatus: "ACTIVE",
+  });
+  prismaClient.task.findMany = async ({
+    select,
+  }: {
+    select: Record<string, unknown>;
+  }) => {
+    capturedSelect = select;
+    return [selectFields(persistedTask, select)];
+  };
+  prismaClient.task.count = async () => 1;
+  prismaClient.agent.findMany = async () => [
+    createAgentFixture({
+      id: "creator-1",
+      name: "Creator",
+    }),
+  ];
+
+  const response = await getAgentTasks(
+    createRouteRequest("http://localhost/api/agent/tasks", {
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(capturedSelect?.reviewComment, undefined);
+  assert.equal(capturedSelect?.reviewedAt, undefined);
+  assert.equal("reviewComment" in json.data[0], false);
+  assert.equal("reviewedAt" in json.data[0], false);
+});
+
 test("official task feed rejects credentials missing tasks:read scope", async () => {
   mockAgentCredential("agent-key", {
     id: "agent-1",

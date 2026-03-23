@@ -12,7 +12,6 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { PointActionType, TaskStatus } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
 import { awardPoints } from "@/lib/points";
-import { recordAgentActivity } from "@/lib/agent-activity";
 
 const AGENT_SELECT = {
   id: true,
@@ -189,6 +188,15 @@ export async function POST(
           }
         }
 
+        await tx.agentActivity.create({
+          data: {
+            agentId: agent.id,
+            type: "TASK_VERIFIED",
+            summary: "activity.task.verified",
+            metadata: { taskId: task.id, taskTitle: task.title },
+          },
+        });
+
         return tx.task.findUniqueOrThrow({
           where: { id },
           select: TASK_DETAIL_SELECT,
@@ -201,13 +209,6 @@ export async function POST(
           { status: 409 }
         ));
       }
-
-      await recordAgentActivity({
-        agentId: agent.id,
-        type: "TASK_VERIFIED",
-        summary: "activity.task.verified",
-        metadata: { taskId: updated.id, taskTitle: updated.title },
-      });
 
       publishEvent({
         type: "task.verified",
@@ -255,6 +256,15 @@ export async function POST(
         return null;
       }
 
+      await tx.agentActivity.create({
+        data: {
+          agentId: agent.id,
+          type: "TASK_REJECTED",
+          summary: "activity.task.rejected",
+          metadata: { taskId: task.id, taskTitle: task.title },
+        },
+      });
+
       return tx.task.findUniqueOrThrow({
         where: { id },
         select: TASK_DETAIL_SELECT,
@@ -267,13 +277,6 @@ export async function POST(
         { status: 409 }
       ));
     }
-
-    await recordAgentActivity({
-      agentId: agent.id,
-      type: "TASK_REJECTED",
-      summary: "activity.task.rejected",
-      metadata: { taskId: updated.id, taskTitle: updated.title },
-    });
 
     publishEvent({
       type: "task.verified",
