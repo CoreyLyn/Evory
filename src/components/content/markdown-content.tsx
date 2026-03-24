@@ -75,7 +75,12 @@ type MarkdownNode =
   | MarkdownInlineCodeNode
   | MarkdownParentNode;
 
-const quotedStrongPattern = /\*\*("(?:[^"\n]+?)"|“(?:[^”\n]+?)”)\*\*/g;
+const quotedStrongPattern =
+  /\*\*((?:"(?:[^"\n]+?)"[^*\n]*?|“(?:[^”\n]+?)”[^*\n]*?))\*\*/g;
+const quotedStrongStartPattern =
+  /^(.*)\*\*((?:"(?:[^"\n]+?)"|“(?:[^”\n]+?)”))$/;
+const quotedStrongEndPattern =
+  /^((?:"(?:[^"\n]+?)"|“(?:[^”\n]+?)”))\*\*(.*)$/;
 
 const phrasingContainerTypes = new Set([
   "paragraph",
@@ -98,6 +103,26 @@ function isMarkdownParentNode(node: MarkdownNode): node is MarkdownParentNode {
 
 export function removeEmptyMarkdownTextNodes(nodes: MarkdownPhrasingNode[]) {
   return nodes.filter((node) => !isMarkdownTextNode(node) || node.value.length > 0);
+}
+
+function flattenMarkdownNodesToText(nodes: MarkdownPhrasingNode[]) {
+  return nodes
+    .map((node) => {
+      if (isMarkdownTextNode(node)) {
+        return node.value;
+      }
+
+      if (isMarkdownParentNode(node)) {
+        return flattenMarkdownNodesToText(node.children);
+      }
+
+      if ("value" in node && typeof node.value === "string") {
+        return node.value;
+      }
+
+      return "";
+    })
+    .join("");
 }
 
 function repairQuotedStrongText(value: string): MarkdownPhrasingNode[] | null {
@@ -166,7 +191,63 @@ function repairQuotedStrongNodes(node: MarkdownParentNode) {
     nextChildren.push(child);
   }
 
-  node.children = nextChildren;
+  if (!shouldRewriteTextChildren) {
+    node.children = nextChildren;
+    return;
+  }
+
+  const repairedChildren: MarkdownPhrasingNode[] = [];
+
+  for (let index = 0; index < nextChildren.length; index += 1) {
+    const current = nextChildren[index];
+    const middle = nextChildren[index + 1];
+    const next = nextChildren[index + 2];
+
+    if (
+      isMarkdownTextNode(current) &&
+      middle?.type === "strong" &&
+      isMarkdownParentNode(middle) &&
+      isMarkdownTextNode(next)
+    ) {
+      const leftMatch = current.value.match(quotedStrongStartPattern);
+      const rightMatch = next.value.match(quotedStrongEndPattern);
+
+      if (leftMatch && rightMatch) {
+        const [, leftPrefix, leftQuoted] = leftMatch;
+        const [, rightQuoted, rightSuffix] = rightMatch;
+        const middleText = flattenMarkdownNodesToText(middle.children);
+
+        if (leftPrefix) {
+          repairedChildren.push({ type: "text", value: leftPrefix });
+        }
+
+        repairedChildren.push({
+          type: "strong",
+          children: [{ type: "text", value: leftQuoted }],
+        });
+
+        if (middleText) {
+          repairedChildren.push({ type: "text", value: middleText });
+        }
+
+        repairedChildren.push({
+          type: "strong",
+          children: [{ type: "text", value: rightQuoted }],
+        });
+
+        if (rightSuffix) {
+          repairedChildren.push({ type: "text", value: rightSuffix });
+        }
+
+        index += 2;
+        continue;
+      }
+    }
+
+    repairedChildren.push(current as MarkdownPhrasingNode);
+  }
+
+  node.children = removeEmptyMarkdownTextNodes(repairedChildren);
 }
 
 function remarkQuotedStrong() {

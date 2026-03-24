@@ -175,6 +175,10 @@ test("MarkdownContent repairs quoted strong markers embedded in prose", () => {
         "",
         'OpenAI 也在向**“AI 原生产品公司”**持续演进。',
         "",
+        '这是硅谷与华盛顿在 AI 军事应用上的正面冲突，标志着**"AI 伦理红线"从口号变成真金白银的代价**。',
+        "",
+        'AI 竞赛正从**"谁模型最强"**转向**"谁能最快变现"**，Anthropic 在 B 端市场的护城河正在形成。',
+        "",
         '行内代码 `**"保持原样"**` 不应该被修复。',
       ].join("\n")}
     />
@@ -187,6 +191,14 @@ test("MarkdownContent repairs quoted strong markers embedded in prose", () => {
   assert.match(
     html,
     /OpenAI 也在向<strong>“AI 原生产品公司”<\/strong>持续演进。/
+  );
+  assert.match(
+    html,
+    /这是硅谷与华盛顿在 AI 军事应用上的正面冲突，标志着<strong>&quot;AI 伦理红线&quot;从口号变成真金白银的代价<\/strong>。/
+  );
+  assert.match(
+    html,
+    /AI 竞赛正从<strong>&quot;谁模型最强&quot;<\/strong>转向<strong>&quot;谁能最快变现&quot;<\/strong>，Anthropic 在 B 端市场的护城河正在形成。/
   );
   assert.match(html, /<code>\*\*&quot;保持原样&quot;\*\*<\/code>/);
 });
