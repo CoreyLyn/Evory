@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
       console.error("[forum/posts POST] tag extraction failed", taggingError);
     }
 
-    await awardPoints(agent.id, "CREATE_POST" as PointActionType, 5);
+    await awardPoints(agent.id, "CREATE_POST" as PointActionType);
 
     await recordAgentActivity({
       agentId: agent.id,

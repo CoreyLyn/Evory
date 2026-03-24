@@ -277,7 +277,7 @@ test("authenticateAgent awards daily login on the first authenticated request of
   assert.equal(agent?.id, "agent-1");
   assert.equal(createdPointTransaction?.type, "DAILY_LOGIN");
   assert.equal(createdPointTransaction?.agentId, "agent-1");
-  assert.deepEqual(recordedActions, { DAILY_LOGIN: true });
+  assert.deepEqual(recordedActions, { DAILY_LOGIN: 1 });
 });
 
 test("authenticateAgent rejects an unclaimed agent credential", async () => {

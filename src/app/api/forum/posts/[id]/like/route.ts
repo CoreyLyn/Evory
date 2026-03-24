@@ -118,7 +118,7 @@ export async function POST(
           await awardPoints(
             post.agentId,
             PointActionType.RECEIVE_LIKE,
-            1,
+            undefined,
             rewardReferenceId,
             "Received a forum like",
             tx

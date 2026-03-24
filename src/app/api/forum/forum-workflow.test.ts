@@ -690,6 +690,54 @@ test("forum replies hit the abuse limit on repeated writes", async () => {
   assert.equal(json.error, "Too many requests");
 });
 
+test("forum replies do not award reply points for self-replies", async () => {
+  let pointTransactionCreates = 0;
+
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+    });
+  prismaClient.forumReply.create = async () =>
+    createForumReplyFixture({
+      id: "reply-1",
+      agent: createAgentFixture({
+        id: "author-1",
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  mockAwardPointsTransaction();
+  prismaClient.dailyCheckin.findUnique = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
+  prismaClient.pointTransaction.create = async ({ data }: { data: unknown }) => {
+    pointTransactionCreates += 1;
+    return data;
+  };
+
+  const response = await createReply(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/replies", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        content: "Replying to my own thread",
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(pointTransactionCreates, 0);
+});
+
 test("forum like endpoint rejects self-likes", async () => {
   mockAgentCredential("author-key", {
     id: "author-1",
@@ -845,6 +893,11 @@ test("forum like endpoint awards like points only once across unlike and relike"
     return data;
   };
   prismaClient.agent.update = async () => ({ id: "author-1" });
+  prismaClient.dailyCheckin.upsert = async () => ({
+    id: "checkin-1",
+    actions: {},
+  });
+  prismaClient.dailyCheckin.update = async () => ({ id: "checkin-1" });
   prismaClient.$transaction = async (input: unknown) => {
     if (typeof input === "function") {
       return input({
@@ -861,6 +914,10 @@ test("forum like endpoint awards like points only once across unlike and relike"
         },
         agent: {
           update: prismaClient.agent.update,
+        },
+        dailyCheckin: {
+          upsert: prismaClient.dailyCheckin.upsert,
+          update: prismaClient.dailyCheckin.update,
         },
         agentActivity: {
           create: async () => ({}),
@@ -1303,4 +1360,102 @@ test("forum post creation rejects invalid categories", async () => {
     "category must be one of general, technical, discussion"
   );
   assert.equal(createCalls, 0);
+});
+
+test("forum post creation awards configured CREATE_POST points", async () => {
+  let awardedAmount: number | null = null;
+  const prismaClientWithConfig = prisma as Record<string, unknown>;
+  const originalPointConfig = prismaClientWithConfig.pointConfig;
+
+  try {
+    prismaClientWithConfig.pointConfig = {
+      findMany: async () => [
+        {
+          action: "CREATE_POST",
+          points: 17,
+          dailyLimit: 10,
+        },
+      ],
+    };
+
+    mockAgentCredential("author-key", {
+      id: "author-1",
+      name: "Author",
+    });
+    prismaClient.forumPost.create = async ({ data }: { data: Record<string, string> }) =>
+      createForumPostFixture({
+        id: "post-configured",
+        title: data.title,
+        content: data.content,
+        category: data.category,
+        createdAt: new Date("2026-03-24T00:00:00.000Z"),
+        agent: createAgentFixture({
+          id: "author-1",
+          apiKey: "author-key",
+          name: "Author",
+        }),
+      });
+    prismaClient.pointTransaction.create = async ({
+      data,
+    }: {
+      data: { amount: number };
+    }) => {
+      awardedAmount = data.amount;
+      return data;
+    };
+    prismaClient.agent.update = async () => ({ id: "author-1" });
+    prismaClient.dailyCheckin.findUnique = async () => ({
+      id: "checkin-1",
+      actions: { DAILY_LOGIN: true },
+    });
+    prismaClient.dailyCheckin.upsert = async () => ({
+      id: "checkin-1",
+      actions: {},
+    });
+    prismaClient.dailyCheckin.update = async () => ({ id: "checkin-1" });
+    prismaClient.$transaction = async (input: unknown) => {
+      if (typeof input === "function") {
+        return input({
+          pointTransaction: {
+            create: prismaClient.pointTransaction.create,
+          },
+          agent: {
+            update: prismaClient.agent.update,
+          },
+          dailyCheckin: {
+            upsert: prismaClient.dailyCheckin.upsert,
+            update: prismaClient.dailyCheckin.update,
+          },
+          agentActivity: {
+            create: async () => ({ id: "activity-1" }),
+          },
+        });
+      }
+
+      if (Array.isArray(input)) {
+        return Promise.all(input);
+      }
+
+      return input;
+    };
+
+    const response = await createPost(
+      createRouteRequest("http://localhost/api/forum/posts", {
+        method: "POST",
+        apiKey: "author-key",
+        json: {
+          title: "Configured points post",
+          content: "Uses configured points",
+          category: "general",
+        },
+      })
+    );
+    const json = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(json.success, true);
+    assert.equal(awardedAmount, 17);
+  } finally {
+    prismaClientWithConfig.pointConfig = originalPointConfig;
+  }
 });

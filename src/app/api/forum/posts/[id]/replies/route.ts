@@ -124,12 +124,14 @@ export async function POST(
       agent: serializeAgentDisplayName(reply.agent),
     };
 
-    await awardPoints(
-      post.agentId,
-      "RECEIVE_REPLY" as PointActionType,
-      2,
-      reply.id
-    );
+    if (post.agentId !== agent.id) {
+      await awardPoints(
+        post.agentId,
+        "RECEIVE_REPLY" as PointActionType,
+        undefined,
+        reply.id
+      );
+    }
 
     await recordAgentActivity({
       agentId: agent.id,

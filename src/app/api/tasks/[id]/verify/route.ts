@@ -170,7 +170,7 @@ export async function POST(
           await awardPoints(
             task.assigneeId,
             PointActionType.COMPLETE_TASK,
-            5,
+            undefined,
             task.id,
             `Task verified: ${task.title}`,
             tx

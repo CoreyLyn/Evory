@@ -7,5 +7,9 @@ export const POINT_RULES = {
 } as const;
 
 export const DAILY_LIMITS = {
+  DAILY_LOGIN: 1,
   CREATE_POST: 10,
+  RECEIVE_REPLY: 20,
+  RECEIVE_LIKE: 50,
+  COMPLETE_TASK: 10,
 } as const;

@@ -3,7 +3,7 @@ import type { PointActionType, PointTransaction } from "@/generated/prisma/clien
 import { POINT_RULES, DAILY_LIMITS } from "@/types";
 import { recordAgentActivity } from "@/lib/agent-activity";
 
-type DailyActionKey = keyof typeof DAILY_LIMITS | "DAILY_LOGIN";
+type DailyActionKey = PointActionType;
 
 let configCache: Record<string, { points: number; dailyLimit: number | null }> | null = null;
 let configCacheTime = 0;
@@ -37,23 +37,13 @@ function getTodayDate(): Date {
   return today;
 }
 
-function getActionsLimit(actionKey: DailyActionKey): number | null {
-  if (actionKey === "DAILY_LOGIN") return 1;
-  if (actionKey in DAILY_LIMITS)
-    return DAILY_LIMITS[actionKey as keyof typeof DAILY_LIMITS];
-  return null;
-}
-
-function getDefaultAmount(type: PointActionType): number | null {
-  if (type in POINT_RULES)
-    return POINT_RULES[type as keyof typeof POINT_RULES];
-  return null;
+async function getActionLimit(actionKey: DailyActionKey): Promise<number | null> {
+  const { dailyLimit } = await getPointConfig(actionKey);
+  return typeof dailyLimit === "number" ? dailyLimit : null;
 }
 
 function getActionKeyForType(type: PointActionType): DailyActionKey | null {
-  if (type === "DAILY_LOGIN") return "DAILY_LOGIN";
-  if (type === "CREATE_POST") return "CREATE_POST";
-  return null;
+  return type;
 }
 
 export async function awardPoints(
@@ -64,11 +54,19 @@ export async function awardPoints(
   description?: string,
   tx?: PrismaTransactionClient
 ): Promise<PointTransaction | null> {
-  const resolvedAmount = amount ?? getDefaultAmount(type);
-  if (resolvedAmount === null || resolvedAmount <= 0) return null;
-
   const actionKey = getActionKeyForType(type);
-  if (actionKey && (await checkDailyAction(agentId, actionKey))) return null;
+  const config = await getPointConfig(type);
+  const resolvedAmount = amount ?? config.points;
+  if (resolvedAmount <= 0) return null;
+
+  const actionLimit = actionKey ? await getActionLimit(actionKey) : null;
+  if (
+    actionKey &&
+    actionLimit !== null &&
+    (await checkDailyAction(agentId, actionKey, actionLimit))
+  ) {
+    return null;
+  }
 
   const today = getTodayDate();
 
@@ -88,7 +86,7 @@ export async function awardPoints(
       data: { points: { increment: resolvedAmount } },
     });
 
-    if (actionKey) {
+    if (actionKey && actionLimit !== null) {
       await recordDailyActionInternal(client, agentId, actionKey, today);
     }
 
@@ -177,9 +175,10 @@ export async function deductPoints(
 
 export async function checkDailyAction(
   agentId: string,
-  actionKey: DailyActionKey
+  actionKey: DailyActionKey,
+  limitOverride?: number | null
 ): Promise<boolean> {
-  const limit = getActionsLimit(actionKey);
+  const limit = limitOverride ?? (await getActionLimit(actionKey));
   if (limit === null) return false;
 
   const today = getTodayDate();
@@ -191,11 +190,9 @@ export async function checkDailyAction(
 
   const actions = (checkin?.actions ?? {}) as Record<string, number | boolean>;
 
-  if (actionKey === "DAILY_LOGIN") {
-    return actions.DAILY_LOGIN === true;
-  }
-
-  const count = (actions[actionKey] as number) ?? 0;
+  const rawCount = actions[actionKey];
+  const count =
+    typeof rawCount === "number" ? rawCount : rawCount === true ? 1 : 0;
   return count >= limit;
 }
 
@@ -233,11 +230,10 @@ async function recordDailyActionInternal(
 
   const actions = (checkin.actions ?? {}) as Record<string, number | boolean>;
 
-  if (actionKey === "DAILY_LOGIN") {
-    actions.DAILY_LOGIN = true;
-  } else {
-    actions[actionKey] = ((actions[actionKey] as number) ?? 0) + 1;
-  }
+  const rawCount = actions[actionKey];
+  const currentCount =
+    typeof rawCount === "number" ? rawCount : rawCount === true ? 1 : 0;
+  actions[actionKey] = currentCount + 1;
 
   await tx.dailyCheckin.update({
     where: { id: checkin.id },
@@ -267,4 +263,3 @@ export async function getPointsHistory(
 }
 
 export { getPointConfig };
-

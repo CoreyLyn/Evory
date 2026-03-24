@@ -180,7 +180,7 @@ function parseSerializedStrongSequence(value: string): MarkdownPhrasingNode[] | 
   return removeEmptyMarkdownTextNodes(nodes);
 }
 
-function flattenMarkdownNodesToText(nodes: MarkdownPhrasingNode[]) {
+function flattenMarkdownNodesToText(nodes: MarkdownPhrasingNode[]): string {
   return nodes
     .map((node) => {
       if (isMarkdownTextNode(node)) {

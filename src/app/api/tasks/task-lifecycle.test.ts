@@ -1103,6 +1103,10 @@ test("verify approval updates status and payouts inside one transaction", async 
             return {};
           },
         },
+        dailyCheckin: {
+          upsert: prismaClient.dailyCheckin.upsert,
+          update: prismaClient.dailyCheckin.update,
+        },
         task: {
           updateMany: async ({ data }: { data: Record<string, unknown> }) => {
             updateData = data;
@@ -1224,6 +1228,10 @@ test("verify approval fails when TASK_VERIFIED activity write fails inside the t
           return { id: "activity-1" };
         },
       },
+      dailyCheckin: {
+        upsert: prismaClient.dailyCheckin.upsert,
+        update: prismaClient.dailyCheckin.update,
+      },
       task: {
         updateMany: async () => ({ count: 1 }),
         findUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
@@ -1249,4 +1257,120 @@ test("verify approval fails when TASK_VERIFIED activity write fails inside the t
   assert.equal(json.error, "Internal server error");
   assert.equal(transactionCalls, 1);
   assert.equal(transactionSawTaskVerifiedWrite, true);
+});
+
+test("verify approval skips COMPLETE_TASK points when the daily limit is already reached", async () => {
+  const pointTransactions: Array<Record<string, unknown>> = [];
+  const prismaClientWithConfig = prisma as Record<string, unknown>;
+  const originalPointConfig = prismaClientWithConfig.pointConfig;
+
+  try {
+    prismaClientWithConfig.pointConfig = {
+      findMany: async () => [
+        {
+          action: "COMPLETE_TASK",
+          points: 5,
+          dailyLimit: 1,
+        },
+      ],
+    };
+
+    mockAgentCredential("creator-key", {
+      id: "creator-1",
+      name: "Creator",
+    });
+    prismaClient.task.findUnique = async () =>
+      createTaskFixture({
+        id: "task-1",
+        creatorId: "creator-1",
+        assigneeId: "assignee-1",
+        bountyPoints: 25,
+        status: "COMPLETED",
+      });
+    prismaClient.task.findUniqueOrThrow = async () =>
+      createTaskFixture({
+        id: "task-1",
+        creatorId: "creator-1",
+        assigneeId: "assignee-1",
+        bountyPoints: 25,
+        status: "VERIFIED",
+        completedAt: new Date().toISOString(),
+        reviewComment: "Looks good",
+        reviewedAt: "2026-03-23T09:00:00.000Z",
+        creator: createAgentFixture({
+          id: "creator-1",
+          apiKey: "creator-key",
+          name: "Creator",
+        }),
+        assignee: createAgentFixture({
+          id: "assignee-1",
+          apiKey: "assignee-key",
+          name: "Assignee",
+        }),
+      });
+    prismaClient.dailyCheckin.findUnique = async () => ({
+      id: "checkin-1",
+      actions: {
+        DAILY_LOGIN: true,
+        COMPLETE_TASK: 1,
+      },
+    });
+    prismaClient.dailyCheckin.upsert = async () => ({
+      id: "checkin-1",
+      actions: {},
+    });
+    prismaClient.dailyCheckin.update = async () => ({ id: "checkin-1" });
+    prismaClient.$transaction = async (input) => {
+      if (typeof input !== "function") {
+        if (Array.isArray(input)) {
+          return Promise.all(input);
+        }
+
+        return input;
+      }
+
+      return input({
+        pointTransaction: {
+          create: async ({ data }: { data: Record<string, unknown> }) => {
+            pointTransactions.push(data);
+            return data;
+          },
+        },
+        agent: {
+          update: async () => ({ id: "assignee-1" }),
+        },
+        agentActivity: {
+          create: async () => ({ id: "activity-1" }),
+        },
+        dailyCheckin: {
+          upsert: prismaClient.dailyCheckin.upsert,
+          update: prismaClient.dailyCheckin.update,
+        },
+        task: {
+          updateMany: async () => ({ count: 1 }),
+          findUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
+        },
+      });
+    };
+
+    const response = await verifyTask(
+      createRouteRequest("http://localhost/api/tasks/task-1/verify", {
+        method: "POST",
+        apiKey: "creator-key",
+        json: {
+          approved: true,
+          reviewComment: "Looks good",
+        },
+      }),
+      createRouteParams({ id: "task-1" })
+    );
+    const json = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(json.success, true);
+    assert.equal(pointTransactions.length, 1);
+    assert.equal(pointTransactions[0]?.type, "TASK_BOUNTY_EARN");
+  } finally {
+    prismaClientWithConfig.pointConfig = originalPointConfig;
+  }
 });
