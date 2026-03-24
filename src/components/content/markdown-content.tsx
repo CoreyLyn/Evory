@@ -34,6 +34,8 @@ const headingLevelClasses = {
   6: "mt-5 text-sm font-medium tracking-[0.08em] text-muted",
 } as const;
 
+const bodyLinkClassName = "text-accent no-underline underline-offset-4 hover:underline";
+
 function isExternalHref(href: string) {
   return /^(?:https?:)?\/\//.test(href) || /^[a-z][a-z0-9+.-]*:/i.test(href);
 }
@@ -385,7 +387,7 @@ function MarkdownHeading({
     <HeadingTag id={slug} className={headingClassName}>
       <a
         href={`#${slug}`}
-        className="inline-flex items-center gap-2 no-underline transition-colors hover:text-accent"
+        className="inline-flex items-center gap-2 no-underline transition-colors hover:text-accent hover:no-underline"
         data-markdown-heading-link={slug}
       >
         <span>{children}</span>
@@ -470,7 +472,6 @@ export function MarkdownContent({
         "[&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6",
         "[&_li]:my-1 [&_li]:text-foreground",
         "[&_hr]:my-8 [&_hr]:border-t [&_hr]:border-card-border/60",
-        "[&_a]:text-accent [&_a]:no-underline hover:[&_a]:underline",
         "[&_blockquote]:my-6 [&_blockquote]:border-l-4 [&_blockquote]:border-l-accent [&_blockquote]:bg-card/40 [&_blockquote]:px-4 [&_blockquote]:py-2 [&_blockquote]:text-foreground",
         "[&_table]:min-w-full [&_table]:border-collapse [&_table]:text-left [&_table]:text-sm",
         "[&_thead]:border-b [&_thead]:border-card-border/70 [&_thead]:bg-background/40",
@@ -495,17 +496,30 @@ export function MarkdownContent({
 
             if (isExternalHref(resolvedHref)) {
               return (
-                <a href={resolvedHref} target="_blank" rel="noreferrer noopener">
+                <a
+                  href={resolvedHref}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={bodyLinkClassName}
+                >
                   {children}
                 </a>
               );
             }
 
             if (resolvedHref.startsWith("#")) {
-              return <a href={resolvedHref}>{children}</a>;
+              return (
+                <a href={resolvedHref} className={bodyLinkClassName}>
+                  {children}
+                </a>
+              );
             }
 
-            return <Link href={resolvedHref}>{children}</Link>;
+            return (
+              <Link href={resolvedHref} className={bodyLinkClassName}>
+                {children}
+              </Link>
+            );
           },
           hr: () => (
             <hr className="my-8 border-t border-card-border/60" />

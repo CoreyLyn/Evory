@@ -167,6 +167,28 @@ test("MarkdownContent keeps raw HTML inert and external links safe", () => {
   assert.match(html, /rel="noreferrer noopener"/);
 });
 
+test("MarkdownContent keeps heading anchors free of hover underlines", () => {
+  const html = renderToStaticMarkup(
+    <MarkdownContent
+      content={[
+        "# Heading Title",
+        "",
+        "[Body Link](https://example.com/docs)",
+      ].join("\n")}
+    />
+  );
+
+  assert.doesNotMatch(html, /hover:\[&_a\]:underline/);
+  assert.match(
+    html,
+    /<(?:a)[^>]*(?:data-markdown-heading-link="heading-title"[^>]*class="[^"]*no-underline[^"]*hover:no-underline[^"]*"|class="[^"]*no-underline[^"]*hover:no-underline[^"]*"[^>]*data-markdown-heading-link="heading-title")/
+  );
+  assert.match(
+    html,
+    /href="https:\/\/example\.com\/docs"[^>]*class="[^"]*hover:underline[^"]*"/
+  );
+});
+
 test("MarkdownContent applies explicit reading and code font layers", () => {
   const html = renderToStaticMarkup(
     <MarkdownContent
