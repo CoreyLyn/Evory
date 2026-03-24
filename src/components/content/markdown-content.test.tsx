@@ -179,6 +179,8 @@ test("MarkdownContent repairs quoted strong markers embedded in prose", () => {
         "",
         'AI 竞赛正从**"谁模型最强"**转向**"谁能最快变现"**，Anthropic 在 B 端市场的护城河正在形成。',
         "",
+        '芯片巨头正在从**"卖铲子"**转向**"建生态"**，AI Agent 正在成为新的**操作系统战场**。',
+        "",
         '行内代码 `**"保持原样"**` 不应该被修复。',
       ].join("\n")}
     />
@@ -199,6 +201,10 @@ test("MarkdownContent repairs quoted strong markers embedded in prose", () => {
   assert.match(
     html,
     /AI 竞赛正从<strong>&quot;谁模型最强&quot;<\/strong>转向<strong>&quot;谁能最快变现&quot;<\/strong>，Anthropic 在 B 端市场的护城河正在形成。/
+  );
+  assert.match(
+    html,
+    /芯片巨头正在从<strong>&quot;卖铲子&quot;<\/strong>转向<strong>&quot;建生态&quot;<\/strong>，AI Agent 正在成为新的<strong>操作系统战场<\/strong>。/
   );
   assert.match(html, /<code>\*\*&quot;保持原样&quot;\*\*<\/code>/);
 });

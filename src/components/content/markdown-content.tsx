@@ -105,6 +105,81 @@ export function removeEmptyMarkdownTextNodes(nodes: MarkdownPhrasingNode[]) {
   return nodes.filter((node) => !isMarkdownTextNode(node) || node.value.length > 0);
 }
 
+function isSerializableStrongNode(node: MarkdownPhrasingNode): node is MarkdownStrongNode {
+  return node.type === "strong" && isMarkdownParentNode(node);
+}
+
+function isSerializableStrongSequence(nodes: MarkdownPhrasingNode[]): boolean {
+  return nodes.every((node) => {
+    if (isMarkdownTextNode(node)) {
+      return true;
+    }
+
+    if (isSerializableStrongNode(node)) {
+      return isSerializableStrongSequence(node.children);
+    }
+
+    return false;
+  });
+}
+
+function serializeStrongSequence(nodes: MarkdownPhrasingNode[]): string {
+  return nodes
+    .map((node) => {
+      if (isMarkdownTextNode(node)) {
+        return node.value;
+      }
+
+      if (isSerializableStrongNode(node)) {
+        return `**${serializeStrongSequence(node.children)}**`;
+      }
+
+      return "";
+    })
+    .join("");
+}
+
+function parseSerializedStrongSequence(value: string): MarkdownPhrasingNode[] | null {
+  const strongPattern = /\*\*([^*\n]+?)\*\*/g;
+  const matches = [...value.matchAll(strongPattern)];
+
+  if (matches.length === 0) {
+    return null;
+  }
+
+  const nodes: MarkdownPhrasingNode[] = [];
+  let lastIndex = 0;
+
+  for (const match of matches) {
+    if (typeof match.index !== "number") {
+      continue;
+    }
+
+    if (match.index > lastIndex) {
+      nodes.push({
+        type: "text",
+        value: value.slice(lastIndex, match.index),
+      });
+    }
+
+    nodes.push({
+      type: "strong",
+      children: [{ type: "text", value: match[1] }],
+    });
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < value.length) {
+    nodes.push({
+      type: "text",
+      value: value.slice(lastIndex),
+    });
+  }
+
+  return removeEmptyMarkdownTextNodes(nodes);
+}
+
 function flattenMarkdownNodesToText(nodes: MarkdownPhrasingNode[]) {
   return nodes
     .map((node) => {
@@ -247,7 +322,17 @@ function repairQuotedStrongNodes(node: MarkdownParentNode) {
     repairedChildren.push(current as MarkdownPhrasingNode);
   }
 
-  node.children = removeEmptyMarkdownTextNodes(repairedChildren);
+  const compactChildren = removeEmptyMarkdownTextNodes(repairedChildren);
+
+  if (!isSerializableStrongSequence(compactChildren)) {
+    node.children = compactChildren;
+    return;
+  }
+
+  const serialized = serializeStrongSequence(compactChildren);
+  const normalized = parseSerializedStrongSequence(serialized);
+
+  node.children = normalized ?? compactChildren;
 }
 
 function remarkQuotedStrong() {
