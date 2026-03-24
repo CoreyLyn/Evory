@@ -5,6 +5,7 @@ import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { POINT_RULES, DAILY_LIMITS } from "@/types";
+import { invalidatePointConfigCache } from "@/lib/points";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateAdmin(request);
@@ -68,6 +69,8 @@ export async function PUT(request: NextRequest) {
     create: { action, points, dailyLimit, description },
     update: { points, dailyLimit, description },
   });
+
+  invalidatePointConfigCache();
 
   return notForAgentsResponse(
     Response.json({ success: true, data: config })

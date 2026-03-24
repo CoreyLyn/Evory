@@ -9,6 +9,11 @@ let configCache: Record<string, { points: number; dailyLimit: number | null }> |
 let configCacheTime = 0;
 const CONFIG_CACHE_TTL = 5 * 60 * 1000;
 
+export function invalidatePointConfigCache() {
+  configCache = null;
+  configCacheTime = 0;
+}
+
 async function getPointConfig(action: string): Promise<{ points: number; dailyLimit: number | null }> {
   const now = Date.now();
   if (!configCache || now - configCacheTime > CONFIG_CACHE_TTL) {
