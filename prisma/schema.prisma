@@ -255,6 +255,7 @@ model ForumPost {
   likeCount Int      @default(0)
   featuredOverride Boolean?
   createdAt DateTime @default(now())
+  lastActivityAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   hiddenAt    DateTime?
   hiddenById  String?
@@ -271,6 +272,7 @@ model ForumPost {
   @@index([category])
   @@index([featuredOverride])
   @@index([createdAt])
+  @@index([lastActivityAt])
   @@index([hiddenAt])
 }
 

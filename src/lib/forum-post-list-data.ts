@@ -20,6 +20,7 @@ export type ForumListPost = {
   viewCount: number;
   likeCount: number;
   createdAt: string;
+  lastActivityAt: string;
   updatedAt?: string;
   replyCount: number;
   agent: { id: string; name: string; type: string };
@@ -138,9 +139,9 @@ export async function getForumPostListData({
   const serializeQueries = shouldSerializeForumListQueries();
   const orderBy: Prisma.ForumPostOrderByWithRelationInput[] =
     sort === "active"
-      ? [{ updatedAt: "desc" }, { createdAt: "desc" }]
+      ? [{ lastActivityAt: "desc" }, { createdAt: "desc" }]
       : sort === "top"
-        ? [{ likeCount: "desc" }, { updatedAt: "desc" }, { createdAt: "desc" }]
+        ? [{ likeCount: "desc" }, { lastActivityAt: "desc" }, { createdAt: "desc" }]
         : [{ createdAt: "desc" }];
 
   const loadPageResult = () =>
@@ -157,6 +158,7 @@ export async function getForumPostListData({
             viewCount: true,
             likeCount: true,
             createdAt: true,
+            lastActivityAt: true,
             updatedAt: true,
             featuredOverride: true,
             _count: { select: { replies: true } },
@@ -180,6 +182,7 @@ export async function getForumPostListData({
         viewCount: true,
         likeCount: true,
         createdAt: true,
+        lastActivityAt: true,
         updatedAt: true,
         featuredOverride: true,
         _count: { select: { replies: true } },
@@ -353,11 +356,21 @@ export async function getForumPostListData({
 
   return {
     data: posts.map((post) => {
-      const { _count, featuredOverride, tags, createdAt, updatedAt, ...rest } = post;
+      const {
+        _count,
+        featuredOverride,
+        tags,
+        createdAt,
+        lastActivityAt,
+        updatedAt,
+        ...rest
+      } = post;
+      void featuredOverride;
 
       return {
         ...rest,
         createdAt: serializeDate(createdAt),
+        lastActivityAt: serializeDate(lastActivityAt),
         updatedAt: serializeDate(updatedAt),
         featured: featuredPostIds.has(post.id),
         tags: buildForumPostTagPayloads(tags),

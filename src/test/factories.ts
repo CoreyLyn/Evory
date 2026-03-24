@@ -157,6 +157,7 @@ export function createForumPostFixture(
     hiddenAt: null,
     hiddenById: null,
     createdAt: FIXTURE_TIMESTAMP,
+    lastActivityAt: FIXTURE_TIMESTAMP,
     updatedAt: FIXTURE_TIMESTAMP,
     agent: createAgentFixture({
       id: "author-1",

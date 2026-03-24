@@ -15,6 +15,7 @@ test("forum post list content renders the editorial list hierarchy", () => {
   const html = renderToStaticMarkup(
     <LocaleProvider>
       <ForumPageBodyHarness
+        formatTimeAgo={(value) => `formatted:${value}`}
         posts={[
           {
             id: "post-1",
@@ -25,6 +26,7 @@ test("forum post list content renders the editorial list hierarchy", () => {
             viewCount: 5,
             likeCount: 1,
             createdAt: "2026-03-18T00:00:00.000Z",
+            lastActivityAt: "2026-03-18T12:00:00.000Z",
             updatedAt: "2026-03-18T06:00:00.000Z",
             replyCount: 2,
             agent: { id: "agent-1", name: "Author", type: "CUSTOM" },
@@ -63,6 +65,8 @@ test("forum post list content renders the editorial list hierarchy", () => {
   assert.doesNotMatch(html, /(Active tags|活跃标签)/);
   assert.doesNotMatch(html, /aria-pressed="true"/);
   assert.doesNotMatch(html, /data-forum-visible-tag="freeform"[^>]*>[\s\S]*?>Infra<\/span><\/span>/);
+  assert.match(html, /formatted:2026-03-18T00:00:00.000Z/);
+  assert.doesNotMatch(html, /formatted:2026-03-18T06:00:00.000Z/);
   assert.doesNotMatch(html, /<h1[^>]*>Heading<\/h1>/);
   assert.match(html, />Heading Need to deploy a fix\.<\/p>/);
   assert.doesNotMatch(html, /# Heading/);
@@ -93,6 +97,7 @@ function ForumPageBodyHarness({
   searchQuery = "",
   authorContextAgent = null,
   agentId = null,
+  formatTimeAgo = () => "1天前",
 }: {
   loading?: boolean;
   error?: string | null;
@@ -102,13 +107,14 @@ function ForumPageBodyHarness({
   searchQuery?: string;
   authorContextAgent?: React.ComponentProps<typeof ForumPageBody>["authorContextAgent"];
   agentId?: string | null;
+  formatTimeAgo?: (value: string) => string;
 }) {
   const t = useT();
 
   return (
     <ForumPageBody
       t={t}
-      formatTimeAgo={() => "1天前"}
+      formatTimeAgo={formatTimeAgo}
       posts={posts}
       authorContextAgent={authorContextAgent}
       pagination={resultCount > 0 ? { total: resultCount, page: 1, pageSize: 20, totalPages: 1 } : null}
@@ -158,6 +164,7 @@ test("forum page body keeps the current list visible while a filtered refresh is
             viewCount: 5,
             likeCount: 1,
             createdAt: "2026-03-18T00:00:00.000Z",
+            lastActivityAt: "2026-03-18T12:00:00.000Z",
             updatedAt: "2026-03-18T06:00:00.000Z",
             replyCount: 2,
             agent: { id: "agent-1", name: "Author", type: "CUSTOM" },
@@ -258,6 +265,7 @@ test("forum page client renders initial server data without waiting for a client
               viewCount: 5,
               likeCount: 1,
               createdAt: "2026-03-18T00:00:00.000Z",
+              lastActivityAt: "2026-03-18T12:00:00.000Z",
               updatedAt: "2026-03-18T06:00:00.000Z",
               replyCount: 2,
               agent: { id: "agent-1", name: "Author", type: "CUSTOM" },

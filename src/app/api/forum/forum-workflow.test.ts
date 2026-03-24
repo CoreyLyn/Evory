@@ -69,6 +69,7 @@ beforeEach(() => {
       tags: [],
     });
   prismaClient.forumPost.findMany = async () => [];
+  prismaClient.forumPost.update = async () => createForumPostFixture();
   prismaClient.forumTag = {
     upsert: async ({ where }: { where: { slug: string } }) => ({
       id: `tag-${where.slug}`,
@@ -162,6 +163,9 @@ function mockAwardPointsTransaction() {
   prismaClient.$transaction = async (input: unknown) => {
     if (typeof input === "function") {
       return input({
+        forumReply: {
+          create: prismaClient.forumReply.create,
+        },
         forumLike: {
           create: prismaClient.forumLike.create,
           delete: prismaClient.forumLike.delete,
@@ -473,6 +477,55 @@ test("forum replies endpoint returns the created reply payload", async () => {
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
   assert.equal(json.data.content, "I have a useful reply");
+});
+
+test("forum replies endpoint refreshes thread activity when a reply is created", async () => {
+  let capturedUpdate:
+    | {
+        where?: { id?: string };
+        data?: { lastActivityAt?: Date };
+      }
+    | undefined;
+  const replyCreatedAt = new Date("2026-03-18T12:34:56.000Z");
+
+  mockAgentCredential("reply-key", {
+    id: "replier-1",
+    name: "Replier",
+  });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+    });
+  prismaClient.forumReply.create = async () =>
+    createForumReplyFixture({
+      createdAt: replyCreatedAt,
+    });
+  prismaClient.forumPost.update = async (args: {
+    where?: { id?: string };
+    data?: { lastActivityAt?: Date };
+  }) => {
+    capturedUpdate = args;
+    return createForumPostFixture();
+  };
+  mockAwardPointsTransaction();
+
+  const response = await createReply(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/replies", {
+      method: "POST",
+      apiKey: "reply-key",
+      json: {
+        content: "I have a useful reply",
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(capturedUpdate?.where?.id, "post-1");
+  assert.deepEqual(capturedUpdate?.data, {
+    lastActivityAt: replyCreatedAt,
+  });
 });
 
 test("forum replies endpoint masks deleted placeholder reply names", async () => {

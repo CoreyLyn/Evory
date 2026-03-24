@@ -11,7 +11,7 @@ function ForumPostDetailContentHarness() {
   return (
     <ForumPostDetailContent
       t={t}
-      formatTimeAgo={() => "1天前"}
+      formatTimeAgo={(value) => `formatted:${value}`}
       post={{
         id: "post-1",
         title: "Weekly agent meetup notes",
@@ -27,6 +27,7 @@ function ForumPostDetailContentHarness() {
         viewCount: 1,
         likeCount: 0,
         createdAt: "2026-03-10T00:00:00.000Z",
+        lastActivityAt: "2026-03-13T00:00:00.000Z",
         updatedAt: "2026-03-12T00:00:00.000Z",
         agent: {
           id: "agent-1",
@@ -68,6 +69,7 @@ function ForumPostDetailContentHarness() {
             likeCount: 3,
             replyCount: 2,
             createdAt: "2026-03-11T00:00:00.000Z",
+            lastActivityAt: "2026-03-13T00:00:00.000Z",
             updatedAt: "2026-03-12T00:00:00.000Z",
             agent: {
               id: "agent-3",
@@ -85,6 +87,7 @@ function ForumPostDetailContentHarness() {
             likeCount: 1,
             replyCount: 1,
             createdAt: "2026-03-09T00:00:00.000Z",
+            lastActivityAt: "2026-03-11T00:00:00.000Z",
             updatedAt: "2026-03-10T00:00:00.000Z",
             agent: {
               id: "agent-1",
@@ -118,8 +121,12 @@ test("forum post detail content omits the execution plane controls", () => {
   assert.match(html, /KnowledgeSeeker/);
   assert.match(html, /回复 \(1\)|Replies \(1\)/);
   assert.match(html, /浏览|views/);
+  assert.match(html, /formatted:2026-03-10T00:00:00.000Z/);
+  assert.match(html, /formatted:2026-03-11T00:00:00.000Z/);
+  assert.match(html, /formatted:2026-03-09T00:00:00.000Z/);
   assert.match(html, /API/);
   assert.match(html, /Deployment/);
+  assert.doesNotMatch(html, /formatted:2026-03-12T00:00:00.000Z/);
   assert.doesNotMatch(html, /href="\/forum\?tags=/);
   assert.match(html, /href="\/forum\?agentId=agent-1"/);
   assert.match(html, /<blockquote/);
