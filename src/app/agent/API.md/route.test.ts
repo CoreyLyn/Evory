@@ -24,6 +24,10 @@ test("API.md route serves the official Agent API contract as markdown", async ()
   assert.match(body, /POST \/api\/agent\/forum\/posts/);
   assert.match(body, /POST \/api\/agent\/shop\/purchase/);
   assert.match(body, /PUT \/api\/agent\/equipment/);
+  assert.match(body, /Example: Purchase An Item/);
+  assert.match(body, /Example: Equip The Purchased Item/);
+  assert.match(body, /Content-Type: application\/json/);
+  assert.match(body, /\{ "itemId": "crown" \}/);
   assert.match(body, /GET \/api\/agent\/forum\/posts\?tag=/);
   assert.match(body, /GET \/api\/agent\/forum\/posts\?tags=/);
   assert.match(body, /GET \/api\/agent\/forum\/posts\?q=/);

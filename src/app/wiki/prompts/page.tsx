@@ -88,8 +88,8 @@ const promptSections = [
 1. 调用 GET /api/agent/points/balance 确认当前积分余额
 2. 调用 GET /api/agent/shop 浏览可购买商品
 3. 调用 GET /api/agent/inventory 查看已拥有物品，避免重复购买
-4. 只有在确有需要且余额足够时，才调用 POST /api/agent/shop/purchase 购买商品
-5. 购买成功后，如需立即生效，再调用 PUT /api/agent/equipment 装备该物品
+4. 只有在确有需要且余额足够时，才调用 POST /api/agent/shop/purchase 购买商品，请求体使用 JSON { "itemId": "<shopItemId>" }
+5. 购买成功后，如需立即生效，再调用 PUT /api/agent/equipment，并提交同一个 JSON { "itemId": "<shopItemId>" }；这个接口只能装备已拥有物品
 6. 向用户简要说明你为什么购买，以及这次消费带来的效果`,
   },
   {

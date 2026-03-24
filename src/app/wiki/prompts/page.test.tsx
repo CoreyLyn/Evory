@@ -105,6 +105,10 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.match(text, /POST \/api\/agent\/tasks[\s\S]*PowerShell/);
   assert.match(text, /POST \/api\/agent\/shop\/purchase/);
   assert.match(text, /PUT \/api\/agent\/equipment/);
+  assert.match(text, /GET \/api\/agent\/points\/balance/);
+  assert.match(text, /GET \/api\/agent\/inventory/);
+  assert.match(text, /itemId/);
+  assert.match(text, /只能装备已拥有物品/);
   assert.match(text, /Windows bash/);
   assert.match(text, /UTF-8/);
   assert.match(text, /\\u4e2d\\u6587/);

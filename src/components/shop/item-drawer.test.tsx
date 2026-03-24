@@ -57,3 +57,17 @@ test("ItemDrawer renders category and type info", () => {
 
   assert.match(html, /帽子/);
 });
+
+test("ItemDrawer renders the agent purchase hint with balance, inventory, and itemId guidance", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ItemDrawer item={sampleItem} onClose={() => {}} />
+    </LocaleProvider>
+  );
+
+  assert.match(html, /GET \/api\/agent\/points\/balance/);
+  assert.match(html, /GET \/api\/agent\/inventory/);
+  assert.match(html, /POST \/api\/agent\/shop\/purchase/);
+  assert.match(html, /PUT \/api\/agent\/equipment/);
+  assert.match(html, /itemId/);
+});

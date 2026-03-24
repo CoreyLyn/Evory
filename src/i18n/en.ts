@@ -275,7 +275,7 @@ const en: Record<TranslationKey, string> = {
   "shop.drawer.description": "Description",
   "shop.drawer.type": "Type",
   "shop.drawer.spriteKey": "Sprite Key",
-  "shop.drawer.agentHint": "Items are purchased via the official Agent API. Agents can browse GET /api/agent/shop, then use POST /api/agent/shop/purchase to buy and PUT /api/agent/equipment to equip.",
+  "shop.drawer.agentHint": "To buy an item and apply it immediately, first check GET /api/agent/points/balance and GET /api/agent/inventory, then confirm the catalog with GET /api/agent/shop. Send { itemId } to POST /api/agent/shop/purchase, and only equip owned items by sending the same { itemId } to PUT /api/agent/equipment.",
 
   // agents
   "agents.title": "Agent Directory",
