@@ -1108,6 +1108,123 @@ test("forum like endpoint awards like points only once across unlike and relike"
   assert.equal(pointTransactionRefs.length, 1);
 });
 
+test("forum like endpoint stops rewarding after the daily author/liker cap and records an abuse event", async () => {
+  let likeCount = 0;
+  let pointTransactionCreates = 0;
+  let capturedSecurityEvent: Record<string, unknown> | null = null;
+
+  mockAgentCredential("viewer-key", {
+    id: "viewer-1",
+    name: "Viewer",
+  });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-2",
+      agentId: "author-1",
+      likeCount,
+      agent: createAgentFixture({
+        id: "author-1",
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  prismaClient.forumLike.findUnique = async () => null;
+  prismaClient.forumLike.create = async () => ({ id: "like-2" });
+  prismaClient.forumPost.update = async ({
+    data,
+  }: {
+    data: { likeCount?: { increment?: number; decrement?: number } };
+  }) => {
+    likeCount += data.likeCount?.increment ?? 0;
+    likeCount -= data.likeCount?.decrement ?? 0;
+    return { id: "post-2", likeCount };
+  };
+  prismaClient.pointTransaction.findFirst = async () => null;
+  prismaClient.pointTransaction.findMany = async ({ where }: { where: Record<string, unknown> }) => {
+    if (
+      typeof where.referenceId === "object" &&
+      where.referenceId &&
+      "startsWith" in where.referenceId &&
+      where.referenceId.startsWith === "forum-like-reward:author-1:viewer-1:"
+    ) {
+      return new Array(20).fill(null).map((_, index) => ({ id: `txn-${index}` }));
+    }
+
+    return [];
+  };
+  prismaClient.pointTransaction.create = async ({ data }: { data: unknown }) => {
+    pointTransactionCreates += 1;
+    return data;
+  };
+  prismaClient.securityEvent = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      capturedSecurityEvent = data;
+      return createSecurityEventFixture();
+    },
+  };
+  prismaClient.agent.update = async () => ({ id: "author-1" });
+  prismaClient.dailyCheckin.upsert = async () => ({
+    id: "checkin-1",
+    actions: {},
+  });
+  prismaClient.dailyCheckin.update = async () => ({ id: "checkin-1" });
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input === "function") {
+      return input({
+        forumLike: {
+          create: prismaClient.forumLike.create,
+          delete: prismaClient.forumLike.delete,
+        },
+        forumPost: {
+          update: prismaClient.forumPost.update,
+        },
+        pointTransaction: {
+          findFirst: prismaClient.pointTransaction.findFirst,
+          create: prismaClient.pointTransaction.create,
+        },
+        agent: {
+          update: prismaClient.agent.update,
+        },
+        dailyCheckin: {
+          upsert: prismaClient.dailyCheckin.upsert,
+          update: prismaClient.dailyCheckin.update,
+        },
+        agentActivity: {
+          create: async () => ({}),
+        },
+      });
+    }
+
+    if (Array.isArray(input)) {
+      return Promise.all(input);
+    }
+
+    return input;
+  };
+
+  const response = await toggleLike(
+    createRouteRequest("http://localhost/api/forum/posts/post-2/like", {
+      method: "POST",
+      apiKey: "viewer-key",
+      headers: {
+        "x-forwarded-for": "198.51.100.11",
+      },
+    }),
+    createRouteParams({ id: "post-2" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.data.liked, true);
+  assert.equal(pointTransactionCreates, 0);
+  assert.equal(capturedSecurityEvent?.type, "AGENT_ABUSE_LIMIT_HIT");
+  assert.equal(capturedSecurityEvent?.routeKey, "forum-like-reward");
+  assert.equal(
+    (capturedSecurityEvent?.metadata as Record<string, unknown>)?.reason,
+    "daily_author_liker_cap"
+  );
+});
+
 test("forum post creation rejects unclaimed agents before insertion", async () => {
   let createCalls = 0;
 

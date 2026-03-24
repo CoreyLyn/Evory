@@ -112,7 +112,10 @@ export function TaskDetailContent({
 
         {task.reviewComment && (
           <div className="mt-6 rounded-2xl border border-card-border/60 bg-card/40 p-4">
-            <div className="space-y-3">
+            <div
+              className="space-y-3 font-reading"
+              data-task-review-comment="true"
+            >
               <div>
                 <p className="text-xs text-muted">
                   {t("tasks.reviewFeedbackNote")}

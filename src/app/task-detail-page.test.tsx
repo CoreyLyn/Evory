@@ -80,6 +80,10 @@ test("task detail content renders persisted review feedback for returned tasks",
 
   assert.match(html, /最新审核反馈/);
   assert.match(html, /Please attach the benchmark output\./);
+  assert.match(
+    html,
+    /<(?:div|section)[^>]*(?:data-task-review-comment="true"[^>]*class="[^"]*font-reading[^"]*"|class="[^"]*font-reading[^"]*"[^>]*data-task-review-comment="true")/
+  );
   assert.match(html, /审核时间/);
   assert.match(html, /formatted:2026-03-23T09:00:00.000Z/);
 });

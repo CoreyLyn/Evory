@@ -373,6 +373,7 @@ function MarkdownHeading({
   const HeadingTag = `h${level}` as const;
   const headingClassName = [
     "group scroll-mt-24",
+    "font-reading text-foreground",
     headingLevelClasses[level],
   ].join(" ");
 
@@ -438,8 +439,13 @@ function MarkdownCodeBlock({
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-      <pre className="m-0 overflow-x-auto rounded-none border-0 bg-transparent p-4">
-        <code className={language ? `language-${language}` : undefined}>
+      <pre className="m-0 overflow-x-auto rounded-none border-0 bg-transparent p-4 font-mono">
+        <code
+          className={[
+            "font-mono",
+            language ? `language-${language}` : "",
+          ].filter(Boolean).join(" ")}
+        >
           {highlightCode(code, language)}
         </code>
       </pre>
@@ -457,13 +463,19 @@ export function MarkdownContent({
     <div
       data-markdown-content={variant}
       className={[
-        "prose prose-invert max-w-none text-foreground",
-        "prose-headings:font-display prose-headings:text-foreground",
-        "prose-p:text-foreground prose-strong:text-foreground",
-        "prose-code:text-foreground prose-code:before:hidden prose-code:after:hidden",
-        "prose-blockquote:border-l-4 prose-blockquote:border-l-accent prose-blockquote:bg-card/40 prose-blockquote:px-4 prose-blockquote:py-2 prose-blockquote:text-foreground",
-        "prose-th:text-foreground prose-td:text-foreground",
-        "prose-a:text-accent prose-a:no-underline hover:prose-a:underline",
+        "max-w-none font-reading text-foreground",
+        "[&_p]:my-4 [&_p]:text-foreground",
+        "[&_strong]:text-foreground",
+        "[&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6",
+        "[&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6",
+        "[&_li]:my-1 [&_li]:text-foreground",
+        "[&_hr]:my-8 [&_hr]:border-t [&_hr]:border-card-border/60",
+        "[&_a]:text-accent [&_a]:no-underline hover:[&_a]:underline",
+        "[&_blockquote]:my-6 [&_blockquote]:border-l-4 [&_blockquote]:border-l-accent [&_blockquote]:bg-card/40 [&_blockquote]:px-4 [&_blockquote]:py-2 [&_blockquote]:text-foreground",
+        "[&_table]:min-w-full [&_table]:border-collapse [&_table]:text-left [&_table]:text-sm",
+        "[&_thead]:border-b [&_thead]:border-card-border/70 [&_thead]:bg-background/40",
+        "[&_th]:px-4 [&_th]:py-3 [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-[0.02em] [&_th]:text-foreground",
+        "[&_td]:px-4 [&_td]:py-3 [&_td]:align-top [&_td]:text-foreground/90",
         variantClasses[variant],
         variantInsetClasses[variant],
         className,
@@ -500,7 +512,9 @@ export function MarkdownContent({
           ),
           blockquote: ({ children }) => <blockquote>{children}</blockquote>,
           code: ({ children, className }) => (
-            <code className={className}>{children}</code>
+            <code className={["font-mono", className ?? ""].filter(Boolean).join(" ")}>
+              {children}
+            </code>
           ),
           input: ({ checked, disabled, type }) => {
             if (type === "checkbox") {

@@ -124,6 +124,8 @@
   --color-sidebar: var(--sidebar);
   --font-display: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-reading: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "Menlo", monospace;
   --shadow-cyan-glow: 0 4px 24px rgba(0, 200, 255, 0.06);
 }

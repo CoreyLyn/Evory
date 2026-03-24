@@ -29,7 +29,7 @@ test("MarkdownContent renders headings, lists, blockquotes, and code", () => {
   assert.match(html, /<span>Title<\/span>/);
   assert.match(html, /<ul>/);
   assert.match(html, /<blockquote/);
-  assert.match(html, /<code>code<\/code>/);
+  assert.match(html, /<code[^>]*class="[^"]*font-mono[^"]*"[^>]*>code<\/code>/);
   assert.match(html, /<pre/);
   assert.match(html, /console\.log/);
 });
@@ -72,19 +72,19 @@ test("MarkdownContent applies distinct heading tiers", () => {
 
   assert.match(
     html,
-    /<h1[^>]*class="[^"]*group[^"]*first:mt-0[^"]*mt-8[^"]*text-3xl[^"]*font-semibold[^"]*tracking-tight[^"]*sm:text-4xl[^"]*"/
+    /<h1[^>]*class="[^"]*group[^"]*font-reading[^"]*first:mt-0[^"]*mt-8[^"]*text-3xl[^"]*font-semibold[^"]*tracking-tight[^"]*sm:text-4xl[^"]*"/
   );
   assert.match(
     html,
-    /<h2[^>]*class="[^"]*mt-10[^"]*text-2xl[^"]*font-semibold[^"]*tracking-tight[^"]*sm:text-\[1\.75rem\][^"]*"/
+    /<h2[^>]*class="[^"]*font-reading[^"]*mt-10[^"]*text-2xl[^"]*font-semibold[^"]*tracking-tight[^"]*sm:text-\[1\.75rem\][^"]*"/
   );
   assert.match(
     html,
-    /<h3[^>]*class="[^"]*mt-8[^"]*text-lg[^"]*font-semibold[^"]*tracking-tight[^"]*sm:text-xl[^"]*"/
+    /<h3[^>]*class="[^"]*font-reading[^"]*mt-8[^"]*text-lg[^"]*font-semibold[^"]*tracking-tight[^"]*sm:text-xl[^"]*"/
   );
   assert.match(
     html,
-    /<h4[^>]*class="[^"]*mt-6[^"]*text-base[^"]*uppercase[^"]*tracking-\[0\.14em\][^"]*text-muted[^"]*"/
+    /<h4[^>]*class="[^"]*font-reading[^"]*mt-6[^"]*text-base[^"]*uppercase[^"]*tracking-\[0\.14em\][^"]*text-muted[^"]*"/
   );
 });
 
@@ -98,11 +98,11 @@ test("MarkdownContent adds comfortable body insets by variant", () => {
 
   assert.match(
     defaultHtml,
-    /data-markdown-content="default"[^>]*class="[^"]*px-1[^"]*sm:px-2[^"]*"/
+    /data-markdown-content="default"[^>]*class="[^"]*font-reading[^"]*px-1[^"]*sm:px-2[^"]*"/
   );
   assert.match(
     compactHtml,
-    /data-markdown-content="compact"[^>]*class="[^"]*px-0\.5[^"]*sm:px-1[^"]*"/
+    /data-markdown-content="compact"[^>]*class="[^"]*font-reading[^"]*px-0\.5[^"]*sm:px-1[^"]*"/
   );
 });
 
@@ -167,6 +167,39 @@ test("MarkdownContent keeps raw HTML inert and external links safe", () => {
   assert.match(html, /rel="noreferrer noopener"/);
 });
 
+test("MarkdownContent applies explicit reading and code font layers", () => {
+  const html = renderToStaticMarkup(
+    <MarkdownContent
+      content={[
+        "# 标题",
+        "",
+        "含有 `inline code` 的正文。",
+        "",
+        "```ts",
+        "const answer = 42;",
+        "```",
+      ].join("\n")}
+    />
+  );
+
+  assert.match(
+    html,
+    /data-markdown-content="default"[^>]*class="[^"]*font-reading[^"]*"/
+  );
+  assert.match(
+    html,
+    /<h1[^>]*class="[^"]*font-reading[^"]*"/
+  );
+  assert.match(
+    html,
+    /<code[^>]*class="[^"]*font-mono[^"]*"[^>]*>inline code<\/code>/
+  );
+  assert.match(
+    html,
+    /<pre[^>]*class="[^"]*font-mono[^"]*"/
+  );
+});
+
 test("MarkdownContent repairs quoted strong markers embedded in prose", () => {
   const html = renderToStaticMarkup(
     <MarkdownContent
@@ -206,7 +239,10 @@ test("MarkdownContent repairs quoted strong markers embedded in prose", () => {
     html,
     /芯片巨头正在从<strong>&quot;卖铲子&quot;<\/strong>转向<strong>&quot;建生态&quot;<\/strong>，AI Agent 正在成为新的<strong>操作系统战场<\/strong>。/
   );
-  assert.match(html, /<code>\*\*&quot;保持原样&quot;\*\*<\/code>/);
+  assert.match(
+    html,
+    /<code[^>]*class="[^"]*font-mono[^"]*"[^>]*>\*\*&quot;保持原样&quot;\*\*<\/code>/
+  );
 });
 
 test("removeEmptyMarkdownTextNodes drops only empty text nodes", () => {

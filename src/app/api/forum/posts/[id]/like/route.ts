@@ -8,12 +8,77 @@ import {
   unauthorizedResponse,
 } from "@/lib/auth";
 import { PointActionType } from "@/generated/prisma/client";
-import { enforceRateLimit } from "@/lib/rate-limit";
+import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 import { recordAgentActivity } from "@/lib/agent-activity";
 import { awardPoints } from "@/lib/points";
 
-function getLikeRewardReference(postId: string, likingAgentId: string) {
-  return `forum-like:${postId}:${likingAgentId}`;
+const LIKE_REWARD_REFERENCE_PREFIX = "forum-like-reward";
+const LIKE_REWARD_DAILY_AUTHOR_LIKER_LIMIT = 20;
+
+function getLikeRewardReference(
+  authorAgentId: string,
+  postId: string,
+  likingAgentId: string
+) {
+  return `${LIKE_REWARD_REFERENCE_PREFIX}:${authorAgentId}:${likingAgentId}:${postId}`;
+}
+
+function getLikeRewardPairPrefix(authorAgentId: string, likingAgentId: string) {
+  return `${LIKE_REWARD_REFERENCE_PREFIX}:${authorAgentId}:${likingAgentId}:`;
+}
+
+function getTodayDate() {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  return today;
+}
+
+async function shouldBlockLikeReward(
+  authorAgentId: string,
+  likingAgentId: string
+) {
+  const rewards = await prisma.pointTransaction.findMany({
+    where: {
+      agentId: authorAgentId,
+      type: PointActionType.RECEIVE_LIKE,
+      referenceId: {
+        startsWith: getLikeRewardPairPrefix(authorAgentId, likingAgentId),
+      },
+      createdAt: {
+        gte: getTodayDate(),
+      },
+    },
+    select: { id: true },
+    take: LIKE_REWARD_DAILY_AUTHOR_LIKER_LIMIT,
+  });
+
+  return rewards.length >= LIKE_REWARD_DAILY_AUTHOR_LIKER_LIMIT;
+}
+
+async function recordLikeRewardBlockedEvent(args: {
+  request: NextRequest;
+  authorAgentId: string;
+  likingAgentId: string;
+  postId: string;
+}) {
+  await prisma.securityEvent.create({
+    data: {
+      type: "AGENT_ABUSE_LIMIT_HIT",
+      routeKey: "forum-like-reward",
+      ipAddress: getClientIp(args.request),
+      userId: null,
+      metadata: {
+        scope: "agent",
+        severity: "warning",
+        operation: "forum_like_reward",
+        summary: "Like reward skipped because the like reward cap was reached.",
+        agentId: args.likingAgentId,
+        targetAgentId: args.authorAgentId,
+        postId: args.postId,
+        reason: "daily_author_liker_cap",
+      },
+    },
+  });
 }
 
 export async function POST(
@@ -93,6 +158,8 @@ export async function POST(
     }
 
     try {
+      const rewardReferenceId = getLikeRewardReference(post.agentId, postId, agent.id);
+      const rewardBlocked = await shouldBlockLikeReward(post.agentId, agent.id);
       const updated = await prisma.$transaction(async (tx) => {
         await tx.forumLike.create({
           data: { postId, agentId: agent.id },
@@ -104,29 +171,39 @@ export async function POST(
           select: { likeCount: true },
         });
 
-        const rewardReferenceId = getLikeRewardReference(postId, agent.id);
-        const existingReward = await tx.pointTransaction.findFirst({
-          where: {
-            agentId: post.agentId,
-            type: PointActionType.RECEIVE_LIKE,
-            referenceId: rewardReferenceId,
-          },
-          select: { id: true },
-        });
+        if (!rewardBlocked) {
+          const existingReward = await tx.pointTransaction.findFirst({
+            where: {
+              agentId: post.agentId,
+              type: PointActionType.RECEIVE_LIKE,
+              referenceId: rewardReferenceId,
+            },
+            select: { id: true },
+          });
 
-        if (!existingReward) {
-          await awardPoints(
-            post.agentId,
-            PointActionType.RECEIVE_LIKE,
-            undefined,
-            rewardReferenceId,
-            "Received a forum like",
-            tx
-          );
+          if (!existingReward) {
+            await awardPoints(
+              post.agentId,
+              PointActionType.RECEIVE_LIKE,
+              undefined,
+              rewardReferenceId,
+              "Received a forum like",
+              tx
+            );
+          }
         }
 
         return nextPost;
       });
+
+      if (rewardBlocked) {
+        await recordLikeRewardBlockedEvent({
+          request,
+          authorAgentId: post.agentId,
+          likingAgentId: agent.id,
+          postId,
+        });
+      }
 
       await recordAgentActivity({
         agentId: agent.id,
