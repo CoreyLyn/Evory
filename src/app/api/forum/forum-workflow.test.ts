@@ -34,6 +34,7 @@ const originalMethods = {
   forumLikeCreate: prismaClient.forumLike.create,
   forumLikeDelete: prismaClient.forumLike.delete,
   pointTransactionFindFirst: prismaClient.pointTransaction.findFirst,
+  pointTransactionFindMany: prismaClient.pointTransaction.findMany,
   pointTransactionCreate: prismaClient.pointTransaction.create,
   agentUpdate: prismaClient.agent.update,
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
@@ -59,6 +60,7 @@ beforeEach(() => {
   prismaClient.agentActivity = {
     create: async () => ({ id: "activity-1" }),
   };
+  prismaClient.pointTransaction.findMany = async () => [];
   prismaClient.dailyCheckin.findUnique = async () => ({
     id: "checkin-1",
     actions: { DAILY_LOGIN: true },
@@ -105,6 +107,7 @@ afterEach(async () => {
   prismaClient.forumLike.create = originalMethods.forumLikeCreate;
   prismaClient.forumLike.delete = originalMethods.forumLikeDelete;
   prismaClient.pointTransaction.findFirst = originalMethods.pointTransactionFindFirst;
+  prismaClient.pointTransaction.findMany = originalMethods.pointTransactionFindMany;
   prismaClient.pointTransaction.create = originalMethods.pointTransactionCreate;
   prismaClient.agent.update = originalMethods.agentUpdate;
   prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
@@ -730,6 +733,151 @@ test("forum replies do not award reply points for self-replies", async () => {
       },
     }),
     createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(pointTransactionCreates, 0);
+});
+
+test("forum replies stop rewarding after the per-post replier cap and record an abuse event", async () => {
+  let pointTransactionCreates = 0;
+  let capturedSecurityEvent: Record<string, unknown> | null = null;
+
+  mockAgentCredential("reply-key", {
+    id: "replier-1",
+    name: "Replier",
+  });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+    });
+  prismaClient.forumReply.create = async () =>
+    createForumReplyFixture({
+      id: "reply-1",
+      agent: createAgentFixture({
+        id: "replier-1",
+        apiKey: "reply-key",
+        name: "Replier",
+      }),
+    });
+  mockAwardPointsTransaction();
+  prismaClient.dailyCheckin.findUnique = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
+  prismaClient.pointTransaction.findMany = async ({ where }: { where: Record<string, unknown> }) => {
+    if (
+      typeof where.referenceId === "object" &&
+      where.referenceId &&
+      "startsWith" in where.referenceId &&
+      where.referenceId.startsWith === "forum-reply-reward:author-1:replier-1:post-1:"
+    ) {
+      return [{ id: "txn-1" }, { id: "txn-2" }, { id: "txn-3" }];
+    }
+
+    return [];
+  };
+  prismaClient.pointTransaction.create = async ({ data }: { data: unknown }) => {
+    pointTransactionCreates += 1;
+    return data;
+  };
+  prismaClient.securityEvent = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      capturedSecurityEvent = data;
+      return createSecurityEventFixture();
+    },
+  };
+
+  const response = await createReply(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/replies", {
+      method: "POST",
+      apiKey: "reply-key",
+      headers: {
+        "x-forwarded-for": "198.51.100.10",
+      },
+      json: {
+        content: "Reply beyond the reward cap",
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(pointTransactionCreates, 0);
+  assert.equal(capturedSecurityEvent?.type, "AGENT_ABUSE_LIMIT_HIT");
+  assert.equal(capturedSecurityEvent?.routeKey, "forum-reply-reward");
+  assert.equal(
+    (capturedSecurityEvent?.metadata as Record<string, unknown>)?.reason,
+    "per_post_replier_cap"
+  );
+});
+
+test("forum replies stop rewarding after the per-day author/replier cap", async () => {
+  let pointTransactionCreates = 0;
+
+  mockAgentCredential("reply-key", {
+    id: "replier-1",
+    name: "Replier",
+  });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-2",
+      agentId: "author-1",
+    });
+  prismaClient.forumReply.create = async () =>
+    createForumReplyFixture({
+      id: "reply-2",
+      agent: createAgentFixture({
+        id: "replier-1",
+        apiKey: "reply-key",
+        name: "Replier",
+      }),
+    });
+  mockAwardPointsTransaction();
+  prismaClient.dailyCheckin.findUnique = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
+  prismaClient.pointTransaction.findMany = async ({ where }: { where: Record<string, unknown> }) => {
+    if (
+      typeof where.referenceId === "object" &&
+      where.referenceId &&
+      "startsWith" in where.referenceId &&
+      where.referenceId.startsWith === "forum-reply-reward:author-1:replier-1:post-2:"
+    ) {
+      return [];
+    }
+
+    if (
+      typeof where.referenceId === "object" &&
+      where.referenceId &&
+      "startsWith" in where.referenceId &&
+      where.referenceId.startsWith === "forum-reply-reward:author-1:replier-1:"
+    ) {
+      return new Array(10).fill(null).map((_, index) => ({ id: `txn-${index}` }));
+    }
+
+    return [];
+  };
+  prismaClient.pointTransaction.create = async ({ data }: { data: unknown }) => {
+    pointTransactionCreates += 1;
+    return data;
+  };
+
+  const response = await createReply(
+    createRouteRequest("http://localhost/api/forum/posts/post-2/replies", {
+      method: "POST",
+      apiKey: "reply-key",
+      json: {
+        content: "Reply beyond the daily pair cap",
+      },
+    }),
+    createRouteParams({ id: "post-2" })
   );
   const json = await response.json();
 
@@ -1364,6 +1512,7 @@ test("forum post creation rejects invalid categories", async () => {
 
 test("forum post creation awards configured CREATE_POST points", async () => {
   let awardedAmount: number | null = null;
+  let awardedReferenceId: string | null = null;
   const prismaClientWithConfig = prisma as Record<string, unknown>;
   const originalPointConfig = prismaClientWithConfig.pointConfig;
 
@@ -1401,6 +1550,7 @@ test("forum post creation awards configured CREATE_POST points", async () => {
       data: { amount: number };
     }) => {
       awardedAmount = data.amount;
+      awardedReferenceId = (data as { referenceId?: string | null }).referenceId ?? null;
       return data;
     };
     prismaClient.agent.update = async () => ({ id: "author-1" });
@@ -1455,6 +1605,7 @@ test("forum post creation awards configured CREATE_POST points", async () => {
     assert.equal(response.status, 200);
     assert.equal(json.success, true);
     assert.equal(awardedAmount, 17);
+    assert.equal(awardedReferenceId, "post-configured");
   } finally {
     prismaClientWithConfig.pointConfig = originalPointConfig;
   }

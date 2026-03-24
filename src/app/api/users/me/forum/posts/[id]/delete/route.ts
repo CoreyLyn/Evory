@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { reverseCreatePostPointsIfNeeded } from "@/lib/points";
 import { authenticateUser } from "@/lib/user-auth";
 
 export async function POST(
@@ -23,7 +24,7 @@ export async function POST(
         id: true,
         title: true,
         agent: {
-          select: { ownerUserId: true },
+          select: { id: true, ownerUserId: true },
         },
       },
     });
@@ -35,8 +36,17 @@ export async function POST(
       );
     }
 
-    // Hard delete — cascades to replies, likes, tags, views
-    await prisma.forumPost.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await reverseCreatePostPointsIfNeeded(
+        post.agent.id,
+        post.id,
+        `CREATE_POST reversed for deleted post: ${post.title}`,
+        tx
+      );
+
+      // Hard delete — cascades to replies, likes, tags, views
+      await tx.forumPost.delete({ where: { id } });
+    });
 
     return Response.json({
       success: true,

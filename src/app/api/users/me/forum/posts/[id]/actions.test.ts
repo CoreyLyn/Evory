@@ -20,11 +20,19 @@ type UserForumPostActionsPrismaMock = {
     findUnique: AsyncMethod;
     deleteMany: AsyncMethod;
   };
+  agent?: {
+    update: AsyncMethod;
+  };
   forumPost?: {
     findUnique: AsyncMethod;
     update: AsyncMethod;
     delete: AsyncMethod;
   };
+  pointTransaction?: {
+    findFirst: AsyncMethod;
+    create: AsyncMethod;
+  };
+  $transaction?: (input: unknown) => Promise<unknown>;
 };
 
 const prismaClient = prisma as unknown as UserForumPostActionsPrismaMock;
@@ -33,6 +41,10 @@ const originalUserSessionDeleteMany = prismaClient.userSession?.deleteMany;
 const originalForumPostFindUnique = prismaClient.forumPost?.findUnique;
 const originalForumPostUpdate = prismaClient.forumPost?.update;
 const originalForumPostDelete = prismaClient.forumPost?.delete;
+const originalAgentUpdate = prismaClient.agent?.update;
+const originalPointTransactionFindFirst = prismaClient.pointTransaction?.findFirst;
+const originalPointTransactionCreate = prismaClient.pointTransaction?.create;
+const originalTransaction = prismaClient.$transaction;
 
 const USER_TOKEN = "owner-session-token";
 const USER_ID = "user-1";
@@ -51,10 +63,28 @@ function mockAuthenticatedUser() {
 }
 
 beforeEach(() => {
+  prismaClient.agent = {
+    update: async () => ({ id: "agent-1" }),
+  };
   prismaClient.forumPost = {
     findUnique: async () => null,
     update: async () => ({}),
     delete: async () => ({}),
+  };
+  prismaClient.pointTransaction = {
+    findFirst: async () => null,
+    create: async ({ data }: { data: unknown }) => data,
+  };
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input === "function") {
+      return input({
+        agent: prismaClient.agent,
+        forumPost: prismaClient.forumPost,
+        pointTransaction: prismaClient.pointTransaction,
+      });
+    }
+
+    return input;
   };
 });
 
@@ -78,6 +108,23 @@ afterEach(() => {
     if (originalForumPostDelete) {
       prismaClient.forumPost.delete = originalForumPostDelete;
     }
+  }
+
+  if (prismaClient.agent && originalAgentUpdate) {
+    prismaClient.agent.update = originalAgentUpdate;
+  }
+
+  if (prismaClient.pointTransaction) {
+    if (originalPointTransactionFindFirst) {
+      prismaClient.pointTransaction.findFirst = originalPointTransactionFindFirst;
+    }
+    if (originalPointTransactionCreate) {
+      prismaClient.pointTransaction.create = originalPointTransactionCreate;
+    }
+  }
+
+  if (originalTransaction) {
+    prismaClient.$transaction = originalTransaction;
   }
 });
 
@@ -190,6 +237,64 @@ test("POST hide writes hiddenAt and hiddenById for an owned visible post", async
     (capturedUpdateArgs?.data as Record<string, unknown> | undefined)?.hiddenById,
     USER_ID
   );
+});
+
+test("POST hide deducts CREATE_POST points for an owned visible post", async () => {
+  mockAuthenticatedUser();
+
+  const pointTransactions: Array<Record<string, unknown>> = [];
+
+  prismaClient.forumPost = {
+    findUnique: async () =>
+      createForumPostFixture({
+        id: "post-1",
+        agentId: "agent-1",
+        hiddenAt: null,
+        agent: createAgentFixture({ ownerUserId: USER_ID }),
+      }),
+    update: async () =>
+      createForumPostFixture({
+        id: "post-1",
+        agentId: "agent-1",
+        hiddenAt: new Date().toISOString(),
+        hiddenById: USER_ID,
+        agent: createAgentFixture({ ownerUserId: USER_ID }),
+      }),
+    delete: async () => ({}),
+  };
+  prismaClient.pointTransaction = {
+    findFirst: async ({ where }: { where: Record<string, unknown> }) => {
+      if (where.referenceId === "post-1") {
+        return { id: "txn-create", amount: 5 };
+      }
+
+      if (where.referenceId === "create-post-reversal:post-1") {
+        return null;
+      }
+
+      return null;
+    },
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      pointTransactions.push(data);
+      return data;
+    },
+  };
+
+  const POST = await loadHideHandler();
+  const response = await POST(
+    createRouteRequest("http://localhost/api/users/me/forum/posts/post-1/hide", {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${USER_TOKEN}`,
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(pointTransactions.length, 1);
+  assert.equal(pointTransactions[0]?.amount, -5);
+  assert.equal(pointTransactions[0]?.referenceId, "create-post-reversal:post-1");
 });
 
 test("POST restore clears hiddenAt and hiddenById for an owned hidden post", async () => {
@@ -314,4 +419,52 @@ test("POST delete permanently deletes owned post and returns deletedId", async (
   assert.equal(json.success, true);
   assert.equal(json.data.deletedId, "post-1");
   assert.ok(deleteCalled, "prisma.forumPost.delete should have been called");
+});
+
+test("POST delete does not deduct CREATE_POST points twice after a prior hide deduction", async () => {
+  mockAuthenticatedUser();
+
+  let pointTransactionCreates = 0;
+
+  prismaClient.forumPost = {
+    findUnique: async () =>
+      createForumPostFixture({
+        id: "post-1",
+        agentId: "agent-1",
+        agent: createAgentFixture({ ownerUserId: USER_ID }),
+      }),
+    update: async () => ({}),
+    delete: async () => ({}),
+  };
+  prismaClient.pointTransaction = {
+    findFirst: async ({ where }: { where: Record<string, unknown> }) => {
+      if (where.referenceId === "post-1") {
+        return { id: "txn-create", amount: 5 };
+      }
+
+      if (where.referenceId === "create-post-reversal:post-1") {
+        return { id: "txn-reversal", amount: -5 };
+      }
+
+      return null;
+    },
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      pointTransactionCreates += 1;
+      return data;
+    },
+  };
+
+  const POST = await loadDeleteHandler();
+  const response = await POST(
+    createRouteRequest("http://localhost/api/users/me/forum/posts/post-1/delete", {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${USER_TOKEN}`,
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(pointTransactionCreates, 0);
 });

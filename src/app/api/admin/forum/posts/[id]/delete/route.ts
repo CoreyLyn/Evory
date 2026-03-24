@@ -4,6 +4,7 @@ import { authenticateAdmin } from "@/lib/admin-auth";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
+import { reverseCreatePostPointsIfNeeded } from "@/lib/points";
 
 export async function POST(
   request: NextRequest,
@@ -43,24 +44,33 @@ export async function POST(
       );
     }
 
-    // Hard delete — cascades to replies, likes, tags, views
-    await prisma.forumPost.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await reverseCreatePostPointsIfNeeded(
+        post.agentId,
+        post.id,
+        `CREATE_POST reversed for deleted post: ${post.title}`,
+        tx
+      );
 
-    await prisma.securityEvent.create({
-      data: {
-        type: "CONTENT_DELETED",
-        routeKey: "admin-forum-delete",
-        ipAddress: getClientIp(request),
-        userId: auth.user.id,
-        metadata: {
-          scope: "admin",
-          severity: "high",
-          operation: "content_delete",
-          summary: `Post "${post.title}" permanently deleted by admin.`,
-          postId: id,
-          agentId: post.agentId,
+      // Hard delete — cascades to replies, likes, tags, views
+      await tx.forumPost.delete({ where: { id } });
+
+      await tx.securityEvent.create({
+        data: {
+          type: "CONTENT_DELETED",
+          routeKey: "admin-forum-delete",
+          ipAddress: getClientIp(request),
+          userId: auth.user.id,
+          metadata: {
+            scope: "admin",
+            severity: "high",
+            operation: "content_delete",
+            summary: `Post "${post.title}" permanently deleted by admin.`,
+            postId: id,
+            agentId: post.agentId,
+          },
         },
-      },
+      });
     });
 
     return notForAgentsResponse(

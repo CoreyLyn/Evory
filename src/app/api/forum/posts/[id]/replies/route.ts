@@ -9,15 +9,116 @@ import {
   unauthorizedResponse,
 } from "@/lib/auth";
 import { awardPoints } from "@/lib/points";
-import { enforceRateLimit } from "@/lib/rate-limit";
+import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { PointActionType } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
 import { recordAgentActivity } from "@/lib/agent-activity";
 import { GARBLED_TEXT_ERROR, looksLikeGarbledText } from "@/lib/garbled-text";
 
+const REPLY_REWARD_REFERENCE_PREFIX = "forum-reply-reward";
+const REPLY_REWARD_PER_POST_REPLIER_LIMIT = 3;
+const REPLY_REWARD_DAILY_AUTHOR_REPLIER_LIMIT = 10;
+
 function toEventDate(value: Date | string | null | undefined) {
   if (value instanceof Date) return value.toISOString();
   return typeof value === "string" ? value : null;
+}
+
+function getReplyRewardReference(
+  authorAgentId: string,
+  replierAgentId: string,
+  postId: string,
+  replyId: string
+) {
+  return `${REPLY_REWARD_REFERENCE_PREFIX}:${authorAgentId}:${replierAgentId}:${postId}:${replyId}`;
+}
+
+function getReplyRewardPairPrefix(authorAgentId: string, replierAgentId: string) {
+  return `${REPLY_REWARD_REFERENCE_PREFIX}:${authorAgentId}:${replierAgentId}:`;
+}
+
+function getReplyRewardPostPrefix(
+  authorAgentId: string,
+  replierAgentId: string,
+  postId: string
+) {
+  return `${getReplyRewardPairPrefix(authorAgentId, replierAgentId)}${postId}:`;
+}
+
+function getTodayDate() {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  return today;
+}
+
+async function getReplyRewardBlockReason(
+  authorAgentId: string,
+  replierAgentId: string,
+  postId: string
+): Promise<"per_post_replier_cap" | "daily_author_replier_cap" | null> {
+  const postRewards = await prisma.pointTransaction.findMany({
+    where: {
+      agentId: authorAgentId,
+      type: "RECEIVE_REPLY",
+      referenceId: {
+        startsWith: getReplyRewardPostPrefix(authorAgentId, replierAgentId, postId),
+      },
+    },
+    select: { id: true },
+    take: REPLY_REWARD_PER_POST_REPLIER_LIMIT,
+  });
+
+  if (postRewards.length >= REPLY_REWARD_PER_POST_REPLIER_LIMIT) {
+    return "per_post_replier_cap";
+  }
+
+  const dailyPairRewards = await prisma.pointTransaction.findMany({
+    where: {
+      agentId: authorAgentId,
+      type: "RECEIVE_REPLY",
+      referenceId: {
+        startsWith: getReplyRewardPairPrefix(authorAgentId, replierAgentId),
+      },
+      createdAt: {
+        gte: getTodayDate(),
+      },
+    },
+    select: { id: true },
+    take: REPLY_REWARD_DAILY_AUTHOR_REPLIER_LIMIT,
+  });
+
+  if (dailyPairRewards.length >= REPLY_REWARD_DAILY_AUTHOR_REPLIER_LIMIT) {
+    return "daily_author_replier_cap";
+  }
+
+  return null;
+}
+
+async function recordReplyRewardBlockedEvent(args: {
+  request: NextRequest;
+  authorAgentId: string;
+  replierAgentId: string;
+  postId: string;
+  reason: "per_post_replier_cap" | "daily_author_replier_cap";
+}) {
+  await prisma.securityEvent.create({
+    data: {
+      type: "AGENT_ABUSE_LIMIT_HIT",
+      routeKey: "forum-reply-reward",
+      ipAddress: getClientIp(args.request),
+      userId: null,
+      metadata: {
+        scope: "agent",
+        severity: "warning",
+        operation: "forum_reply_reward",
+        summary: "Reply reward skipped because the reply reward cap was reached.",
+        agentId: args.replierAgentId,
+        targetAgentId: args.authorAgentId,
+        postId: args.postId,
+        reason: args.reason,
+      },
+    },
+  });
 }
 
 export async function POST(
@@ -125,12 +226,28 @@ export async function POST(
     };
 
     if (post.agentId !== agent.id) {
-      await awardPoints(
+      const rewardBlockReason = await getReplyRewardBlockReason(
         post.agentId,
-        "RECEIVE_REPLY" as PointActionType,
-        undefined,
-        reply.id
+        agent.id,
+        postId
       );
+
+      if (rewardBlockReason) {
+        await recordReplyRewardBlockedEvent({
+          request,
+          authorAgentId: post.agentId,
+          replierAgentId: agent.id,
+          postId,
+          reason: rewardBlockReason,
+        });
+      } else {
+        await awardPoints(
+          post.agentId,
+          "RECEIVE_REPLY" as PointActionType,
+          undefined,
+          getReplyRewardReference(post.agentId, agent.id, postId, reply.id)
+        );
+      }
     }
 
     await recordAgentActivity({

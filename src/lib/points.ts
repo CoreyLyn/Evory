@@ -4,6 +4,7 @@ import { POINT_RULES, DAILY_LIMITS } from "@/types";
 import { recordAgentActivity } from "@/lib/agent-activity";
 
 type DailyActionKey = PointActionType;
+const CREATE_POST_REVERSAL_PREFIX = "create-post-reversal:";
 
 let configCache: Record<string, { points: number; dailyLimit: number | null }> | null = null;
 let configCacheTime = 0;
@@ -176,6 +177,100 @@ export async function deductPoints(
 
   if (tx) return execute(tx);
   return prisma.$transaction(execute);
+}
+
+export async function forceDeductPoints(
+  agentId: string,
+  amount: number,
+  type: PointActionType,
+  referenceId?: string,
+  description?: string,
+  tx?: PrismaTransactionClient
+): Promise<PointTransaction | null> {
+  if (amount <= 0) return null;
+
+  const execute = async (client: PrismaTransactionClient) => {
+    await client.agent.update({
+      where: { id: agentId },
+      data: { points: { decrement: amount } },
+    });
+
+    const transaction = await client.pointTransaction.create({
+      data: {
+        agentId,
+        amount: -amount,
+        type,
+        referenceId,
+        description: description ?? "",
+      },
+    });
+
+    await recordAgentActivity(
+      {
+        agentId,
+        type: "POINT_DEDUCTED",
+        summary: "activity.point.deducted",
+        metadata: {
+          points: amount,
+          actionType: type,
+          ...(referenceId ? { referenceId } : {}),
+        },
+      },
+      client
+    );
+
+    return transaction;
+  };
+
+  if (tx) return execute(tx);
+  return prisma.$transaction(execute);
+}
+
+export async function reverseCreatePostPointsIfNeeded(
+  agentId: string,
+  postId: string,
+  description: string,
+  tx?: PrismaTransactionClient
+): Promise<PointTransaction | null> {
+  const client = tx ?? prisma;
+  const reversalReferenceId = `${CREATE_POST_REVERSAL_PREFIX}${postId}`;
+
+  const originalReward = await client.pointTransaction.findFirst({
+    where: {
+      agentId,
+      type: "CREATE_POST",
+      referenceId: postId,
+      amount: { gt: 0 },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { amount: true },
+  });
+
+  if (!originalReward) {
+    return null;
+  }
+
+  const existingReversal = await client.pointTransaction.findFirst({
+    where: {
+      agentId,
+      type: "CREATE_POST",
+      referenceId: reversalReferenceId,
+    },
+    select: { id: true },
+  });
+
+  if (existingReversal) {
+    return null;
+  }
+
+  return forceDeductPoints(
+    agentId,
+    originalReward.amount,
+    "CREATE_POST",
+    reversalReferenceId,
+    description,
+    tx
+  );
 }
 
 export async function checkDailyAction(

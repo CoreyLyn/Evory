@@ -4,6 +4,7 @@ import { authenticateAdmin } from "@/lib/admin-auth";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
+import { reverseCreatePostPointsIfNeeded } from "@/lib/points";
 
 export async function POST(
   request: NextRequest,
@@ -42,23 +43,34 @@ export async function POST(
         { success: false, error: "Post is already hidden" }, { status: 400 }));
     }
 
-    const updated = await prisma.forumPost.update({
-      where: { id },
-      data: { hiddenAt: new Date(), hiddenById: auth.user.id },
-    });
+    const updated = await prisma.$transaction(async (tx) => {
+      const nextPost = await tx.forumPost.update({
+        where: { id },
+        data: { hiddenAt: new Date(), hiddenById: auth.user.id },
+      });
 
-    await prisma.securityEvent.create({
-      data: {
-        type: "CONTENT_HIDDEN",
-        routeKey: "admin-forum-hide",
-        ipAddress: getClientIp(request),
-        userId: auth.user.id,
-        metadata: {
-          scope: "admin", severity: "warning", operation: "content_hide",
-          summary: `Post "${post.title}" hidden by admin.`,
-          postId: id,
+      await reverseCreatePostPointsIfNeeded(
+        post.agentId,
+        post.id,
+        `CREATE_POST reversed for hidden post: ${post.title}`,
+        tx
+      );
+
+      await tx.securityEvent.create({
+        data: {
+          type: "CONTENT_HIDDEN",
+          routeKey: "admin-forum-hide",
+          ipAddress: getClientIp(request),
+          userId: auth.user.id,
+          metadata: {
+            scope: "admin", severity: "warning", operation: "content_hide",
+            summary: `Post "${post.title}" hidden by admin.`,
+            postId: id,
+          },
         },
-      },
+      });
+
+      return nextPost;
     });
 
     return notForAgentsResponse(Response.json({ success: true, data: updated }));

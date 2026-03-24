@@ -36,12 +36,22 @@ type AdminPostPrismaMock = {
     findUnique: AsyncMethod;
     deleteMany: AsyncMethod<[], { count: number }>;
   };
+  agent: {
+    update: AsyncMethod;
+  };
   forumPost: {
     findMany: AsyncMethod;
     findUnique: AsyncMethod;
     update: AsyncMethod;
     delete: AsyncMethod;
     count: AsyncMethod;
+  };
+  pointTransaction: {
+    findFirst: AsyncMethod;
+    create: AsyncMethod;
+  };
+  agentActivity?: {
+    create: AsyncMethod;
   };
   forumTag?: {
     upsert: AsyncMethod;
@@ -67,7 +77,10 @@ const prismaClient = prisma as unknown as AdminPostPrismaMock;
 
 const originalMethods = {
   userSession: prismaClient.userSession,
+  agent: prismaClient.agent,
   forumPost: prismaClient.forumPost,
+  pointTransaction: prismaClient.pointTransaction,
+  agentActivity: prismaClient.agentActivity,
   forumTag: prismaClient.forumTag,
   forumPostTag: prismaClient.forumPostTag,
   forumPostTagOverride: prismaClient.forumPostTagOverride,
@@ -117,6 +130,16 @@ beforeEach(() => {
   prismaClient.securityEvent = {
     create: async () => createSecurityEventFixture(),
   };
+  prismaClient.agent = {
+    update: async () => ({ id: "agent-1" }),
+  };
+  prismaClient.pointTransaction = {
+    findFirst: async () => null,
+    create: async ({ data }: { data: unknown }) => data,
+  };
+  prismaClient.agentActivity = {
+    create: async () => ({ id: "activity-1" }),
+  };
   prismaClient.forumTag = {
     upsert: async ({ where }: { where: { slug: string } }) => ({
       id: `tag-${where.slug}`,
@@ -136,7 +159,10 @@ beforeEach(() => {
   prismaClient.$transaction = async (input: unknown) => {
     if (typeof input === "function") {
       return input({
+        agent: prismaClient.agent,
         forumPost: prismaClient.forumPost,
+        pointTransaction: prismaClient.pointTransaction,
+        agentActivity: prismaClient.agentActivity,
         forumTag: prismaClient.forumTag,
         forumPostTag: prismaClient.forumPostTag,
         forumPostTagOverride: prismaClient.forumPostTagOverride,
@@ -151,7 +177,10 @@ beforeEach(() => {
 afterEach(async () => {
   await resetRateLimitStore();
   prismaClient.userSession = originalMethods.userSession;
+  prismaClient.agent = originalMethods.agent;
   prismaClient.forumPost = originalMethods.forumPost;
+  prismaClient.pointTransaction = originalMethods.pointTransaction;
+  prismaClient.agentActivity = originalMethods.agentActivity;
   prismaClient.forumTag = originalMethods.forumTag;
   prismaClient.forumPostTag = originalMethods.forumPostTag;
   prismaClient.forumPostTagOverride = originalMethods.forumPostTagOverride;
@@ -496,6 +525,63 @@ test("POST hide — creates CONTENT_HIDDEN SecurityEvent", async () => {
     (capturedEvent!.metadata as Record<string, unknown>).postId,
     "post-1"
   );
+});
+
+test("POST hide — deducts the original CREATE_POST points once", async () => {
+  mockAdminSession();
+
+  const originalPost = createForumPostFixture({
+    id: "post-1",
+    agentId: "agent-1",
+    hiddenAt: null,
+    hiddenById: null,
+  });
+  const pointTransactions: Array<Record<string, unknown>> = [];
+
+  prismaClient.forumPost = {
+    ...prismaClient.forumPost,
+    findUnique: async () => originalPost,
+    update: async () => ({
+      ...originalPost,
+      hiddenAt: new Date().toISOString(),
+      hiddenById: "admin-1",
+    }),
+  };
+  prismaClient.pointTransaction = {
+    findFirst: async ({ where }: { where: Record<string, unknown> }) => {
+      if (where.referenceId === "post-1") {
+        return { id: "txn-create", amount: 5 };
+      }
+
+      if (where.referenceId === "create-post-reversal:post-1") {
+        return null;
+      }
+
+      return null;
+    },
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      pointTransactions.push(data);
+      return data;
+    },
+  };
+
+  const request = createRouteRequest(
+    "http://localhost/api/admin/forum/posts/post-1/hide",
+    {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+    }
+  );
+  const response = await hidePost(request, createRouteParams({ id: "post-1" }));
+
+  assert.equal(response.status, 200);
+  assert.equal(pointTransactions.length, 1);
+  assert.equal(pointTransactions[0]?.amount, -5);
+  assert.equal(pointTransactions[0]?.type, "CREATE_POST");
+  assert.equal(pointTransactions[0]?.referenceId, "create-post-reversal:post-1");
 });
 
 // ---------------------------------------------------------------------------
@@ -1266,6 +1352,51 @@ test("POST delete — creates CONTENT_DELETED SecurityEvent", async () => {
     (capturedEvent!.metadata as Record<string, unknown>).postId,
     "post-1"
   );
+});
+
+test("POST delete — does not deduct CREATE_POST points twice after a prior hide deduction", async () => {
+  mockAdminSession();
+
+  const post = createForumPostFixture({ id: "post-1", agentId: "agent-1" });
+  let pointTransactionCreates = 0;
+
+  prismaClient.forumPost = {
+    ...prismaClient.forumPost,
+    findUnique: async () => post,
+    delete: async () => post,
+  };
+  prismaClient.pointTransaction = {
+    findFirst: async ({ where }: { where: Record<string, unknown> }) => {
+      if (where.referenceId === "post-1") {
+        return { id: "txn-create", amount: 5 };
+      }
+
+      if (where.referenceId === "create-post-reversal:post-1") {
+        return { id: "txn-reversal", amount: -5 };
+      }
+
+      return null;
+    },
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      pointTransactionCreates += 1;
+      return data;
+    },
+  };
+
+  const request = createRouteRequest(
+    "http://localhost/api/admin/forum/posts/post-1/delete",
+    {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+    }
+  );
+  const response = await deletePost(request, createRouteParams({ id: "post-1" }));
+
+  assert.equal(response.status, 200);
+  assert.equal(pointTransactionCreates, 0);
 });
 
 test("POST delete — returns 403 when origin header is missing", async () => {

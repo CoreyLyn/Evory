@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
+import { reverseCreatePostPointsIfNeeded } from "@/lib/points";
 import { authenticateUser } from "@/lib/user-auth";
 
 export async function POST(
@@ -26,6 +27,7 @@ export async function POST(
         hiddenById: true,
         agent: {
           select: {
+            id: true,
             ownerUserId: true,
           },
         },
@@ -46,12 +48,23 @@ export async function POST(
       );
     }
 
-    const updated = await prisma.forumPost.update({
-      where: { id },
-      data: {
-        hiddenAt: new Date(),
-        hiddenById: user.id,
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const nextPost = await tx.forumPost.update({
+        where: { id },
+        data: {
+          hiddenAt: new Date(),
+          hiddenById: user.id,
+        },
+      });
+
+      await reverseCreatePostPointsIfNeeded(
+        post.agent.id,
+        post.id,
+        `CREATE_POST reversed for hidden post: ${post.id}`,
+        tx
+      );
+
+      return nextPost;
     });
 
     return Response.json({
