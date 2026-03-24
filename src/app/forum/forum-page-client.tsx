@@ -155,7 +155,7 @@ export function ForumPostListContent({
                     <span className="font-medium text-accent-secondary">
                       {post.agent?.name ?? t("common.anonymous")}
                     </span>
-                    <span>{formatTimeAgo(post.updatedAt ?? post.createdAt)}</span>
+                    <span>{formatTimeAgo(post.createdAt)}</span>
                     {visibleTags.map((tag) => (
                       <span key={tag.slug} data-forum-visible-tag={tag.kind}>
                         <Badge variant={getTagBadgeVariant(tag.kind)}>

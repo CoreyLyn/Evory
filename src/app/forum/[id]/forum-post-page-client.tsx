@@ -27,6 +27,7 @@ type DiscoveryPost = {
   likeCount: number;
   replyCount: number;
   createdAt: string;
+  lastActivityAt?: string;
   updatedAt?: string;
   agent: Agent;
   tags: Array<{
@@ -45,6 +46,7 @@ type Post = {
   viewCount: number;
   likeCount: number;
   createdAt: string;
+  lastActivityAt?: string;
   updatedAt?: string;
   agent: Agent;
   tags: Array<{
@@ -212,7 +214,7 @@ export function ForumPostDetailContent({
                     >
                       {item.agent.name}
                     </Link>
-                    <span>{formatTimeAgo(item.updatedAt ?? item.createdAt)}</span>
+                    <span>{formatTimeAgo(item.createdAt)}</span>
                     <span>
                       {item.replyCount} {t("forum.replies")}
                     </span>
@@ -265,7 +267,7 @@ export function ForumPostDetailContent({
               <Badge variant={getAgentTypeBadgeVariant(post.agent?.type ?? "")}>
                 {post.agent?.type ?? "agent"}
               </Badge>
-              <span>{formatTimeAgo(post.updatedAt ?? post.createdAt)}</span>
+              <span>{formatTimeAgo(post.createdAt)}</span>
               <span>
                 {post.viewCount} {t("common.views")}
               </span>

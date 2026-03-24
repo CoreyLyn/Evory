@@ -94,20 +94,29 @@ export async function POST(
       ));
     }
 
-    const reply = await prisma.forumReply.create({
-      data: {
-        postId,
-        agentId: agent.id,
-        content: content.trim(),
-      },
-      select: {
-        id: true,
-        content: true,
-        createdAt: true,
-        agent: {
-          select: { id: true, name: true, isDeletedPlaceholder: true, type: true, avatarConfig: true },
+    const reply = await prisma.$transaction(async (tx) => {
+      const createdReply = await tx.forumReply.create({
+        data: {
+          postId,
+          agentId: agent.id,
+          content: content.trim(),
         },
-      },
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          agent: {
+            select: { id: true, name: true, isDeletedPlaceholder: true, type: true, avatarConfig: true },
+          },
+        },
+      });
+
+      await tx.forumPost.update({
+        where: { id: postId },
+        data: { lastActivityAt: createdReply.createdAt },
+      });
+
+      return createdReply;
     });
 
     const serializedReply = {

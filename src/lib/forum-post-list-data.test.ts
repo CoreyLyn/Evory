@@ -108,6 +108,7 @@ test("getForumPostListData loads tags and agents separately when combined nested
         viewCount: 42,
         likeCount: 12,
         createdAt: new Date("2026-03-18T00:00:00.000Z"),
+        lastActivityAt: new Date("2026-03-19T03:00:00.000Z"),
         updatedAt: new Date("2026-03-18T03:00:00.000Z"),
         featuredOverride: null,
         _count: { replies: 6 },
@@ -154,6 +155,10 @@ test("getForumPostListData loads tags and agents separately when combined nested
     },
   ]);
   assert.equal(result.data[0]?.replyCount, 6);
+  assert.equal(
+    (result.data[0] as { lastActivityAt?: string } | undefined)?.lastActivityAt,
+    "2026-03-19T03:00:00.000Z"
+  );
 });
 
 test("getForumPostListData masks deleted placeholder agent names", async () => {
@@ -167,6 +172,7 @@ test("getForumPostListData masks deleted placeholder agent names", async () => {
       viewCount: 7,
       likeCount: 1,
       createdAt: new Date("2026-03-18T00:00:00.000Z"),
+      lastActivityAt: new Date("2026-03-19T03:00:00.000Z"),
       updatedAt: new Date("2026-03-18T03:00:00.000Z"),
       featuredOverride: null,
       _count: { replies: 2 },
@@ -220,7 +226,7 @@ test("getForumPostListData supports active sort by updatedAt", async () => {
   await getForumPostListData({ page: 1, pageSize: 20, sort: "active" });
 
   assert.deepEqual(capturedOrderBy, [
-    { updatedAt: "desc" },
+    { lastActivityAt: "desc" },
     { createdAt: "desc" },
   ]);
 });
@@ -241,7 +247,7 @@ test("getForumPostListData supports top sort by likes and freshness", async () =
 
   assert.deepEqual(capturedOrderBy, [
     { likeCount: "desc" },
-    { updatedAt: "desc" },
+    { lastActivityAt: "desc" },
     { createdAt: "desc" },
   ]);
 });
@@ -263,6 +269,7 @@ test("getForumPostListData computes featured state from a broader candidate pool
           viewCount: 5,
           likeCount: 1,
           createdAt: new Date("2026-03-18T00:00:00.000Z"),
+          lastActivityAt: new Date("2026-03-18T01:00:00.000Z"),
           updatedAt: new Date("2026-03-18T00:00:00.000Z"),
           featuredOverride: null,
           _count: { replies: 1 },
@@ -282,6 +289,7 @@ test("getForumPostListData computes featured state from a broader candidate pool
         viewCount: 5,
         likeCount: 1,
         createdAt: new Date("2026-03-18T00:00:00.000Z"),
+        lastActivityAt: new Date("2026-03-18T01:00:00.000Z"),
         updatedAt: new Date("2026-03-18T00:00:00.000Z"),
         featuredOverride: null,
         _count: { replies: 1 },
@@ -295,6 +303,7 @@ test("getForumPostListData computes featured state from a broader candidate pool
         viewCount: 50,
         likeCount: 10,
         createdAt: new Date("2026-03-18T01:00:00.000Z"),
+        lastActivityAt: new Date("2026-03-18T02:00:00.000Z"),
         updatedAt: new Date("2026-03-18T01:00:00.000Z"),
         featuredOverride: true,
         _count: { replies: 4 },
@@ -357,6 +366,7 @@ test("getForumPostListData applies author filters and exposes discovery metadata
           viewCount: 42,
           likeCount: 12,
           createdAt: new Date("2026-03-18T00:00:00.000Z"),
+          lastActivityAt: new Date("2026-03-18T06:00:00.000Z"),
           updatedAt: new Date("2026-03-18T03:00:00.000Z"),
           featuredOverride: null,
           _count: { replies: 6 },
@@ -374,6 +384,7 @@ test("getForumPostListData applies author filters and exposes discovery metadata
         viewCount: 42,
         likeCount: 12,
         createdAt: new Date("2026-03-18T00:00:00.000Z"),
+        lastActivityAt: new Date("2026-03-18T06:00:00.000Z"),
         updatedAt: new Date("2026-03-18T03:00:00.000Z"),
         featuredOverride: null,
         _count: { replies: 6 },
