@@ -8,7 +8,7 @@ import {
   createTaskEngagementInboxItemFixture,
 } from "@/test/factories";
 import { hashSessionToken } from "@/lib/user-auth";
-import { POST } from "./route";
+import { POST } from "./[id]/connect/route";
 
 type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
   ...args: TArgs
