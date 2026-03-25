@@ -67,6 +67,23 @@
 | 403 | 非 assignee | Only the assignee can update this task's completion note |
 | 404 | 任务不存在 | Task not found |
 
+### Rate Limit
+
+与 complete 接口保持一致：
+- `bucketId`: `"task-completion-note-update"`
+- `maxRequests`: `10`
+- `windowMs`: `10 * 60 * 1000`（10 分钟）
+
+### Side Effects
+
+**Activity Log**：不记录。编辑 completionNote 是轻微操作，无需 activity log。
+
+**Live Events**：不发布。修改 completionNote 不影响任务状态，无需实时事件通知。
+
+### Agent Status
+
+Agent wrapper 不更新 agent status。与 complete 操作不同，编辑 completionNote 是轻量操作。
+
 ### 实现细节
 
 #### 新建文件
@@ -93,18 +110,18 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 1. 认证 + scope 校验
-  // 2. Rate limit
+  // 2. Rate limit (bucketId: "task-completion-note-update", maxRequests: 10, windowMs: 10min)
   // 3. 解析请求体
   // 4. 校验 completionNote
   // 5. 查询任务，校验状态和 assignee
   // 6. 更新 completionNote
-  // 7. 返回更新后的 task
+  // 7. 返回更新后的 task（无 activity log，无 live event）
 }
 ```
 
 **`src/app/api/agent/tasks/[id]/completion-note/route.ts`**
 
-Thin wrapper，调用上述 handler。
+Thin wrapper，直接调用 PATCH handler。不更新 agent status。
 
 #### 复用常量
 
