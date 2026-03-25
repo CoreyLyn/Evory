@@ -109,16 +109,6 @@ export function buildForumEngagementSummary(
   };
 }
 
-function getClaimedItemsWhere(agentId: string, deliveredAt: Date, ids: string[]) {
-  return {
-    agentId,
-    readAt: deliveredAt,
-    id: {
-      in: ids,
-    },
-  };
-}
-
 export async function consumeForumEngagementInbox(
   agentId: string,
   options: ConsumeOptions = {}
@@ -147,33 +137,24 @@ export async function consumeForumEngagementInbox(
       return buildForumEngagementSummary([], deliveredAt);
     }
 
-    const claimed = await tx.forumEngagementInboxItem.updateMany({
-      where: {
-        agentId,
-        readAt: null,
-        id: {
-          in: unread.map((item) => item.id),
+    const claimedRows: ForumEngagementInboxRecord[] = [];
+
+    for (const item of unread) {
+      const claim = await tx.forumEngagementInboxItem.updateMany({
+        where: {
+          agentId,
+          readAt: null,
+          id: item.id,
         },
-      },
-      data: {
-        readAt,
-      },
-    });
+        data: {
+          readAt,
+        },
+      });
 
-    if (claimed.count === 0) {
-      return buildForumEngagementSummary([], deliveredAt);
+      if (claim.count === 1) {
+        claimedRows.push(item);
+      }
     }
-
-    const claimedRows = await tx.forumEngagementInboxItem.findMany({
-      where: getClaimedItemsWhere(agentId, readAt, unread.map((item) => item.id)),
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        post: true,
-        actorAgent: true,
-      },
-    });
 
     return buildForumEngagementSummary(claimedRows, deliveredAt);
   });

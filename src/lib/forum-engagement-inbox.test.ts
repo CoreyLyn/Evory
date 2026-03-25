@@ -76,8 +76,8 @@ test("consumeForumEngagementInbox uses one timestamp for readAt and deliveredAt"
   assert.equal(updatedReadAt, "2026-03-25T10:00:00.000Z");
 });
 
-test("consumeForumEngagementInbox only returns rows for the caller that claimed them", async () => {
-  const claimedRows = [
+test("consumeForumEngagementInbox only returns rows this caller actually claimed during a same-timestamp overlap", async () => {
+  const unreadRows: Array<ForumEngagementInboxRecord & { readAt?: Date | null }> = [
     createForumEngagementInboxItemFixture({
       id: "eng-newest",
       createdAt: new Date("2026-03-25T09:59:00.000Z"),
@@ -86,26 +86,26 @@ test("consumeForumEngagementInbox only returns rows for the caller that claimed 
       replyPreview: "Newest reply",
     }),
     createForumEngagementInboxItemFixture({
+      id: "eng-middle",
+      createdAt: new Date("2026-03-25T09:55:00.000Z"),
+      type: "LIKE",
+    }),
+    createForumEngagementInboxItemFixture({
       id: "eng-oldest",
       createdAt: new Date("2026-03-25T09:50:00.000Z"),
       type: "LIKE",
     }),
   ];
 
-  let releaseInitialRead: (() => void) | null = null;
-  const initialReadGate = new Promise<void>((resolve) => {
-    releaseInitialRead = resolve;
-  });
-  let initialReadCount = 0;
-  let updateCount = 0;
-  let claimedReadAt: Date | null = null;
+  const claimedByTransaction = new Map<number, string[]>();
+  let transactionCount = 0;
 
   const prismaMock = {
     $transaction: async (
       callback: (tx: {
         forumEngagementInboxItem: {
           findMany: (args: Record<string, unknown>) => Promise<
-            Array<Record<string, unknown>>
+            ForumEngagementInboxRecord[]
           >;
           updateMany: (args: {
             where: Record<string, unknown>;
@@ -113,50 +113,51 @@ test("consumeForumEngagementInbox only returns rows for the caller that claimed 
           }) => Promise<{ count: number }>;
         };
       }) => Promise<unknown>
-    ) =>
-      callback({
+    ) => {
+      transactionCount += 1;
+      const txId = transactionCount;
+      claimedByTransaction.set(txId, []);
+
+      return callback({
         forumEngagementInboxItem: {
           findMany: async (args): Promise<ForumEngagementInboxRecord[]> => {
-            const where = args.where as {
-              readAt?: Date | null;
-              id?: { in?: string[] };
-            };
+            const where = args.where as { readAt?: Date | null };
 
             if (where.readAt === null) {
-              initialReadCount += 1;
-              if (initialReadCount === 2) {
-                releaseInitialRead?.();
-              }
-              await initialReadGate;
-              return claimedRows;
+              return unreadRows.map((item) => ({ ...item }));
             }
 
-            if (where.readAt instanceof Date) {
-              const ids = where.id?.in ?? [];
-              return claimedRows.filter(
-                (item) =>
-                  ids.includes(item.id) &&
-                  item.readAt instanceof Date &&
-                  item.readAt.getTime() === where.readAt.getTime()
-              );
-            }
-
-            return [];
+            return unreadRows.filter(
+              (item) =>
+                item.readAt instanceof Date &&
+                where.readAt instanceof Date &&
+                item.readAt.getTime() === where.readAt.getTime()
+            );
           },
-          updateMany: async ({ data }) => {
-            updateCount += 1;
-            if (updateCount === 1) {
-              claimedReadAt = data.readAt;
-              for (const row of claimedRows) {
-                row.readAt = data.readAt;
-              }
-              return { count: claimedRows.length };
+          updateMany: async ({ where, data }) => {
+            const id = where.id as string;
+            const row = unreadRows.find((entry) => entry.id === id);
+            if (!row || row.readAt) {
+              return { count: 0 };
+            }
+
+            if (txId === 1 && (id === "eng-newest" || id === "eng-middle")) {
+              row.readAt = data.readAt;
+              claimedByTransaction.get(txId)?.push(id);
+              return { count: 1 };
+            }
+
+            if (txId === 2 && id === "eng-oldest") {
+              row.readAt = data.readAt;
+              claimedByTransaction.get(txId)?.push(id);
+              return { count: 1 };
             }
 
             return { count: 0 };
           },
         },
-      }),
+      });
+    },
   };
 
   const [first, second] = await Promise.all([
@@ -170,14 +171,10 @@ test("consumeForumEngagementInbox only returns rows for the caller that claimed 
     }),
   ]);
 
-  const results = [first, second];
-  const nonEmpty = results.filter((result) => result.items.length > 0);
-  const empty = results.filter((result) => result.items.length === 0);
-
-  assert.equal(nonEmpty.length, 1);
-  assert.equal(empty.length, 1);
-  assert.equal(nonEmpty[0]?.deliveredAt, "2026-03-25T10:00:00.000Z");
-  assert.equal(claimedReadAt?.toISOString(), "2026-03-25T10:00:00.000Z");
-  assert.equal(nonEmpty[0]?.items[0]?.id, "eng-newest");
-  assert.equal(nonEmpty[0]?.items[1]?.id, "eng-oldest");
+  assert.equal(first.deliveredAt, "2026-03-25T10:00:00.000Z");
+  assert.equal(second.deliveredAt, "2026-03-25T10:00:00.000Z");
+  assert.deepEqual(first.items.map((item) => item.id), ["eng-newest", "eng-middle"]);
+  assert.deepEqual(second.items.map((item) => item.id), ["eng-oldest"]);
+  assert.deepEqual(claimedByTransaction.get(1), ["eng-newest", "eng-middle"]);
+  assert.deepEqual(claimedByTransaction.get(2), ["eng-oldest"]);
 });
