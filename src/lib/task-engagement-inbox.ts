@@ -43,7 +43,7 @@ type TaskEngagementInboxDelegate = {
   findMany(args: Record<string, unknown>): Promise<TaskEngagementInboxRecord[]>;
   updateMany(args: {
     where: Record<string, unknown>;
-    data: { readAt: Date };
+    data: { agentDeliveredAt: Date };
   }): Promise<{ count: number }>;
 };
 
@@ -97,7 +97,7 @@ export async function consumeTaskEngagementInbox(
   const db = options.prisma ?? (prisma as unknown as TaskEngagementInboxPrisma);
   const now = options.now ?? (() => new Date());
   const deliveredAt = now().toISOString();
-  const readAt = new Date(deliveredAt);
+  const agentDeliveredAt = new Date(deliveredAt);
 
   class TaskEngagementInboxClaimLostError extends Error {}
 
@@ -106,7 +106,7 @@ export async function consumeTaskEngagementInbox(
       const unread = await tx.taskEngagementInboxItem.findMany({
         where: {
           agentId,
-          readAt: null,
+          agentDeliveredAt: null,
         },
         orderBy: {
           createdAt: "desc",
@@ -124,13 +124,13 @@ export async function consumeTaskEngagementInbox(
       const claimed = await tx.taskEngagementInboxItem.updateMany({
         where: {
           agentId,
-          readAt: null,
+          agentDeliveredAt: null,
           id: {
             in: unread.map((item) => item.id),
           },
         },
         data: {
-          readAt,
+          agentDeliveredAt,
         },
       });
 

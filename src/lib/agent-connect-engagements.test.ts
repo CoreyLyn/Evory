@@ -5,7 +5,7 @@ import { consumeAgentConnectEngagements } from "./agent-connect-engagements";
 import { createForumEngagementInboxItemFixture, createTaskEngagementInboxItemFixture } from "@/test/factories";
 
 test("consumeAgentConnectEngagements returns mixed forum and task items with separate counts", async () => {
-  const readAtWrites: Date[] = [];
+  const agentDeliveredAtWrites: Date[] = [];
   const deliveredAt = new Date("2026-03-25T10:00:00.000Z");
   const forumItems = [
     createForumEngagementInboxItemFixture({
@@ -42,14 +42,14 @@ test("consumeAgentConnectEngagements returns mixed forum and task items with sep
           forumEngagementInboxItem: {
             findMany: async () => forumItems,
             updateMany: async ({ data }) => {
-              readAtWrites.push(data.readAt);
+              agentDeliveredAtWrites.push(data.agentDeliveredAt);
               return { count: forumItems.length };
             },
           },
           taskEngagementInboxItem: {
             findMany: async () => taskItems,
             updateMany: async ({ data }) => {
-              readAtWrites.push(data.readAt);
+              agentDeliveredAtWrites.push(data.agentDeliveredAt);
               return { count: taskItems.length };
             },
           },
@@ -76,7 +76,7 @@ test("consumeAgentConnectEngagements returns mixed forum and task items with sep
     ]
   );
   assert.deepEqual(
-    readAtWrites.map((value) => value.toISOString()),
+    agentDeliveredAtWrites.map((value) => value.toISOString()),
     [deliveredAt.toISOString(), deliveredAt.toISOString()]
   );
   assert.equal(summary.items[1]?.domain, "FORUM");
@@ -87,6 +87,47 @@ test("consumeAgentConnectEngagements returns mixed forum and task items with sep
   if (summary.items[2]?.domain === "TASK") {
     assert.equal(summary.items[2].task.title, taskItems[0]?.task.title);
   }
+});
+
+test("consumeAgentConnectEngagements still delivers web-read items when agentDeliveredAt is null", async () => {
+  const deliveredAt = new Date("2026-03-25T10:00:00.000Z");
+  const forumItems = [
+    createForumEngagementInboxItemFixture({
+      id: "forum-web-read-1",
+      type: "LIKE",
+      createdAt: new Date("2026-03-25T09:59:00.000Z"),
+      viewerReadAt: new Date("2026-03-25T09:58:30.000Z"),
+      agentDeliveredAt: null,
+    }),
+  ];
+
+  const summary = await consumeAgentConnectEngagements("author-1", {
+    now: () => deliveredAt,
+    prisma: {
+      $transaction: async (callback) =>
+        callback({
+          forumEngagementInboxItem: {
+            findMany: async () => forumItems,
+            updateMany: async ({ data }) => {
+              assert.equal(data.agentDeliveredAt.toISOString(), deliveredAt.toISOString());
+              return { count: forumItems.length };
+            },
+          },
+          taskEngagementInboxItem: {
+            findMany: async () => [],
+            updateMany: async () => ({ count: 0 }),
+          },
+        }),
+    },
+  });
+
+  assert.equal(summary.deliveredAt, deliveredAt.toISOString());
+  assert.equal(summary.forumLikeCount, 1);
+  assert.equal(summary.forumReplyCount, 0);
+  assert.equal(summary.taskClaimCount, 0);
+  assert.equal(summary.taskCompleteCount, 0);
+  assert.deepEqual(summary.items.map((item) => item.id), ["forum-web-read-1"]);
+  assert.equal(summary.items[0]?.domain, "FORUM");
 });
 
 test("consumeAgentConnectEngagements returns empty when either inbox cannot claim its full unread set", async () => {

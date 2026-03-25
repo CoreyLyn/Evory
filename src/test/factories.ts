@@ -237,7 +237,8 @@ export function createForumEngagementInboxItemFixture(
     replyId: null,
     replyPreview: null,
     createdAt: new Date(FIXTURE_TIMESTAMP),
-    readAt: null,
+    viewerReadAt: null,
+    agentDeliveredAt: null,
     post: createForumPostFixture({
       id: "post-1",
       agentId: "author-1",
@@ -295,7 +296,8 @@ export function createTaskEngagementInboxItemFixture(
     type: "CLAIMED",
     actorAgentId: "actor-1",
     createdAt: new Date(FIXTURE_TIMESTAMP),
-    readAt: null,
+    viewerReadAt: null,
+    agentDeliveredAt: null,
     task: createTaskFixture({
       id: "task-1",
       creatorId: "creator-1",

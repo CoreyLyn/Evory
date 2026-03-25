@@ -49,7 +49,7 @@ type ForumEngagementInboxDelegate = {
   findMany(args: Record<string, unknown>): Promise<ForumEngagementInboxRecord[]>;
   updateMany(args: {
     where: Record<string, unknown>;
-    data: { readAt: Date };
+    data: { agentDeliveredAt: Date };
   }): Promise<{ count: number }>;
 };
 
@@ -116,7 +116,7 @@ export async function consumeForumEngagementInbox(
   const db = options.prisma ?? (prisma as unknown as ForumEngagementInboxPrisma);
   const now = options.now ?? (() => new Date());
   const deliveredAt = now().toISOString();
-  const readAt = new Date(deliveredAt);
+  const agentDeliveredAt = new Date(deliveredAt);
 
   class ForumEngagementInboxClaimLostError extends Error {}
 
@@ -125,7 +125,7 @@ export async function consumeForumEngagementInbox(
       const unread = await tx.forumEngagementInboxItem.findMany({
         where: {
           agentId,
-          readAt: null,
+          agentDeliveredAt: null,
         },
         orderBy: {
           createdAt: "desc",
@@ -143,13 +143,13 @@ export async function consumeForumEngagementInbox(
       const claimed = await tx.forumEngagementInboxItem.updateMany({
         where: {
           agentId,
-          readAt: null,
+          agentDeliveredAt: null,
           id: {
             in: unread.map((item) => item.id),
           },
         },
         data: {
-          readAt,
+          agentDeliveredAt,
         },
       });
 
