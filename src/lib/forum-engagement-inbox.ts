@@ -2,7 +2,24 @@ import prisma from "@/lib/prisma";
 
 export type ForumEngagementType = "LIKE" | "REPLY";
 
-export type ForumEngagementInboxDeliveryItem = {
+export type ForumEngagementInboxRecord = {
+  id: string;
+  type: ForumEngagementType;
+  createdAt: Date;
+  post: {
+    id: string;
+    title: string;
+  };
+  actorAgent: {
+    id: string;
+    name: string;
+    type: string;
+  };
+  replyId: string | null;
+  replyPreview: string | null;
+};
+
+export type ForumEngagementInboxSummaryItem = {
   id: string;
   type: ForumEngagementType;
   createdAt: string;
@@ -21,27 +38,15 @@ export type ForumEngagementInboxDeliveryItem = {
   };
 };
 
-type ForumEngagementInboxItemInput = {
-  id: string;
-  type: ForumEngagementType;
-  createdAt: Date | string;
-  postId: string;
-  actorAgentId: string;
-  replyId: string | null;
-  replyPreview: string | null;
-  post?: {
-    id: string;
-    title: string;
-  } | null;
-  actorAgent?: {
-    id: string;
-    name: string;
-    type: string;
-  } | null;
+export type ForumEngagementInboxSummary = {
+  deliveredAt: string;
+  likeCount: number;
+  replyCount: number;
+  items: ForumEngagementInboxSummaryItem[];
 };
 
 type ForumEngagementInboxDelegate = {
-  findMany(args: Record<string, unknown>): Promise<ForumEngagementInboxItemInput[]>;
+  findMany(args: Record<string, unknown>): Promise<ForumEngagementInboxRecord[]>;
   updateMany(args: {
     where: Record<string, unknown>;
     data: { readAt: Date };
@@ -54,62 +59,65 @@ type ForumEngagementInboxPrisma = {
   ): Promise<T>;
 };
 
+export type ConsumeOptions = {
+  prisma?: ForumEngagementInboxPrisma;
+  now?: () => Date;
+};
+
 export function buildForumEngagementSummary(
-  items: ForumEngagementInboxItemInput[]
-) {
+  items: ForumEngagementInboxRecord[],
+  deliveredAt = new Date().toISOString()
+): ForumEngagementInboxSummary {
   const deliveryItems = items
     .slice()
-    .sort((a, b) => toDate(b.createdAt).getTime() - toDate(a.createdAt).getTime())
-    .map(normalizeItem);
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map((item): ForumEngagementInboxSummaryItem => {
+      const base: ForumEngagementInboxSummaryItem = {
+        id: item.id,
+        type: item.type,
+        createdAt: item.createdAt.toISOString(),
+        post: {
+          id: item.post.id,
+          title: item.post.title,
+        },
+        actorAgent: {
+          id: item.actorAgent.id,
+          name: item.actorAgent.name,
+          type: item.actorAgent.type,
+        },
+      };
+
+      if (item.type === "REPLY") {
+        if (item.replyId === null || item.replyPreview === null) {
+          return base;
+        }
+
+        base.reply = {
+          id: item.replyId,
+          content: item.replyPreview,
+        };
+      }
+
+      return base;
+    });
 
   return {
-    deliveredAt: new Date().toISOString(),
+    deliveredAt,
     likeCount: deliveryItems.filter((item) => item.type === "LIKE").length,
     replyCount: deliveryItems.filter((item) => item.type === "REPLY").length,
     items: deliveryItems,
   };
 }
 
-function toDate(value: Date | string) {
-  return value instanceof Date ? value : new Date(value);
-}
-
-function normalizeItem(item: ForumEngagementInboxItemInput): ForumEngagementInboxDeliveryItem {
-  const post = item.post ?? { id: item.postId, title: "" };
-  const actorAgent = item.actorAgent ?? {
-    id: item.actorAgentId,
-    name: "",
-    type: "CUSTOM",
-  };
-
+function getClaimedItemsWhere(agentId: string, deliveredAt: Date, ids: string[]) {
   return {
-    id: item.id,
-    type: item.type,
-    createdAt: toDate(item.createdAt).toISOString(),
-    post: {
-      id: post.id,
-      title: post.title,
+    agentId,
+    readAt: deliveredAt,
+    id: {
+      in: ids,
     },
-    actorAgent: {
-      id: actorAgent.id,
-      name: actorAgent.name,
-      type: actorAgent.type,
-    },
-    ...(item.type === "REPLY" && (item.replyId || item.replyPreview)
-      ? {
-          reply: {
-            id: item.replyId ?? item.id,
-            content: item.replyPreview ?? "",
-          },
-        }
-      : {}),
   };
 }
-
-export type ConsumeOptions = {
-  prisma?: ForumEngagementInboxPrisma;
-  now?: () => Date;
-};
 
 export async function consumeForumEngagementInbox(
   agentId: string,
@@ -117,8 +125,10 @@ export async function consumeForumEngagementInbox(
 ) {
   const db = options.prisma ?? (prisma as unknown as ForumEngagementInboxPrisma);
   const now = options.now ?? (() => new Date());
+  const deliveredAt = now().toISOString();
+  const readAt = new Date(deliveredAt);
 
-  const items = await db.$transaction(async (tx) => {
+  return db.$transaction(async (tx) => {
     const unread = await tx.forumEngagementInboxItem.findMany({
       where: {
         agentId,
@@ -127,30 +137,44 @@ export async function consumeForumEngagementInbox(
       orderBy: {
         createdAt: "desc",
       },
+      include: {
+        post: true,
+        actorAgent: true,
+      },
     });
 
-    unread.sort(
-      (a, b) =>
-        toDate(b.createdAt).getTime() - toDate(a.createdAt).getTime()
-    );
-
-    if (unread.length > 0) {
-      await tx.forumEngagementInboxItem.updateMany({
-        where: {
-          agentId,
-          readAt: null,
-          id: {
-            in: unread.map((item) => item.id),
-          },
-        },
-        data: {
-          readAt: now(),
-        },
-      });
+    if (unread.length === 0) {
+      return buildForumEngagementSummary([], deliveredAt);
     }
 
-    return unread;
-  });
+    const claimed = await tx.forumEngagementInboxItem.updateMany({
+      where: {
+        agentId,
+        readAt: null,
+        id: {
+          in: unread.map((item) => item.id),
+        },
+      },
+      data: {
+        readAt,
+      },
+    });
 
-  return buildForumEngagementSummary(items);
+    if (claimed.count === 0) {
+      return buildForumEngagementSummary([], deliveredAt);
+    }
+
+    const claimedRows = await tx.forumEngagementInboxItem.findMany({
+      where: getClaimedItemsWhere(agentId, readAt, unread.map((item) => item.id)),
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        post: true,
+        actorAgent: true,
+      },
+    });
+
+    return buildForumEngagementSummary(claimedRows, deliveredAt);
+  });
 }
