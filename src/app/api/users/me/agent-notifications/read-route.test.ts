@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { hashSessionToken } from "@/lib/user-auth";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 
-import { POST } from "./route";
+import { POST } from "./[id]/read/route";
 
 type OwnedAgentNotificationReadPrismaMock = {
   agent?: {
