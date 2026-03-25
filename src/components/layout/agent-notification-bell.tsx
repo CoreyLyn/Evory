@@ -1,7 +1,7 @@
 "use client";
 
 import { Bell, CheckSquare, MessageSquare } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useLocale, useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -71,17 +71,138 @@ function buildNotificationDetail(item: AgentNotificationItem) {
   return item.ownerAgent.name;
 }
 
+export type AgentNotificationBellViewProps = {
+  open: boolean;
+  summary: AgentNotificationSummary;
+  loading: boolean;
+  onToggle: () => void;
+  onRowClick: (item: AgentNotificationItem) => void;
+  t: ReturnType<typeof useT>;
+  formatTimeAgo: (value: string) => string;
+};
+
+export function AgentNotificationBellView({
+  open,
+  summary,
+  loading,
+  onToggle,
+  onRowClick,
+  t,
+  formatTimeAgo: formatTimeAgoFn,
+}: AgentNotificationBellViewProps) {
+  const panelId = "agent-notification-bell-panel";
+  const unreadCount =
+    summary.likeCount + summary.replyCount + summary.claimCount + summary.completeCount;
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        aria-label={t("notificationBell.ariaLabel")}
+        aria-controls={panelId}
+        aria-expanded={open}
+        title={open ? t("notificationBell.close") : t("notificationBell.open")}
+        onClick={onToggle}
+        className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-card-border/50 text-muted transition-all duration-200 hover:border-card-border hover:bg-white/[0.03] hover:text-foreground"
+      >
+        <Bell className="h-4 w-4" aria-hidden />
+        {summary.hasUnread && (
+          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]" />
+        )}
+      </button>
+
+      {open && (
+        <div
+          id={panelId}
+          role="dialog"
+          aria-label={t("notificationBell.title")}
+          className="absolute right-0 top-11 z-50 w-[20rem] rounded-2xl border border-card-border/70 bg-sidebar/95 p-3 shadow-[0_24px_60px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted/70">
+                {t("notificationBell.title")}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-muted">
+                {t("notificationBell.helper")}
+              </p>
+            </div>
+            <div className="shrink-0 rounded-full bg-accent/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">
+              {t("notificationBell.summary", { count: unreadCount })}
+            </div>
+          </div>
+
+          <div className="mt-3 border-t border-card-border/40 pt-3">
+            {loading ? (
+              <p className="text-sm text-muted">{t("common.loading")}</p>
+            ) : summary.items.length === 0 ? (
+              <p className="text-sm text-muted">{t("notificationBell.empty")}</p>
+            ) : (
+              <ul className="space-y-2">
+                {summary.items.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => onRowClick(item)}
+                      className="group flex w-full items-start gap-2 rounded-xl px-2 py-2 text-left transition-colors duration-200 hover:bg-white/[0.03]"
+                    >
+                      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
+                        {getNotificationIcon(item)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted/70">
+                          <span>{t(getNotificationDomainKey(item))}</span>
+                          <span className="text-muted/50">
+                            {formatTimeAgoFn(item.createdAt)}
+                          </span>
+                        </span>
+                        <span className="mt-1 block truncate text-sm font-medium text-foreground">
+                          {buildNotificationHeadline(item, t)}
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-muted">
+                          {buildNotificationDetail(item)}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function createAgentNotificationRowClickHandler(options: {
+  fetchImpl?: typeof fetch;
+  navigate?: (href: string) => void;
+}) {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const navigate =
+    options.navigate ?? ((href: string) => window.location.assign(href));
+
+  return async (item: AgentNotificationItem) => {
+    try {
+      await fetchImpl(`/api/users/me/agent-notifications/${item.id}/read`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+    } catch {
+      // Best effort only.
+    } finally {
+      navigate(item.destinationHref);
+    }
+  };
+}
+
 export function AgentNotificationBell() {
   const t = useT();
   const { locale } = useLocale();
   const [summary, setSummary] = useState<AgentNotificationSummary>(EMPTY_SUMMARY);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  const panelId = "agent-notification-bell-panel";
-  const unreadCount =
-    summary.likeCount + summary.replyCount + summary.claimCount + summary.completeCount;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -125,137 +246,20 @@ export function AgentNotificationBell() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function handlePointerDown(event: MouseEvent | TouchEvent) {
-      const target = event.target;
-
-      if (!(target instanceof Node)) {
-        return;
-      }
-
-      if (
-        panelRef.current?.contains(target) ||
-        triggerRef.current?.contains(target)
-      ) {
-        return;
-      }
-
-      setOpen(false);
-    }
-
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("touchstart", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("touchstart", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [open]);
-
   function handleRowClick(item: AgentNotificationItem) {
     setOpen(false);
-
-    void fetch(`/api/users/me/agent-notifications/${item.id}/read`, {
-      method: "POST",
-      credentials: "same-origin",
-    })
-      .catch(() => undefined)
-      .finally(() => {
-        window.location.assign(item.destinationHref);
-      });
+    void createAgentNotificationRowClickHandler({})(item).catch(() => undefined);
   }
 
   return (
-    <div className="relative shrink-0">
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-label={t("notificationBell.ariaLabel")}
-        aria-controls={panelId}
-        aria-expanded={open}
-        title={open ? t("notificationBell.close") : t("notificationBell.open")}
-        onClick={() => setOpen((value) => !value)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-card-border/50 text-muted transition-all duration-200 hover:border-card-border hover:bg-white/[0.03] hover:text-foreground"
-      >
-        <Bell className="h-4 w-4" aria-hidden />
-        {summary.hasUnread && (
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]" />
-        )}
-      </button>
-
-      {open && (
-        <div
-          ref={panelRef}
-          id={panelId}
-          role="dialog"
-          aria-label={t("notificationBell.title")}
-          className="absolute right-0 top-11 z-50 w-[20rem] rounded-2xl border border-card-border/70 bg-sidebar/95 p-3 shadow-[0_24px_60px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted/70">
-                {t("notificationBell.title")}
-              </p>
-              <p className="mt-1 text-xs leading-5 text-muted">
-                {t("notificationBell.helper")}
-              </p>
-            </div>
-            <div className="shrink-0 rounded-full bg-accent/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">
-              {t("notificationBell.summary", { count: unreadCount })}
-            </div>
-          </div>
-
-          <div className="mt-3 border-t border-card-border/40 pt-3">
-            {status === "loading" ? (
-              <p className="text-sm text-muted">{t("common.loading")}</p>
-            ) : summary.items.length === 0 ? (
-              <p className="text-sm text-muted">{t("notificationBell.empty")}</p>
-            ) : (
-              <ul className="space-y-2">
-                {summary.items.map((item) => (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => handleRowClick(item)}
-                      className="group flex w-full items-start gap-2 rounded-xl px-2 py-2 text-left transition-colors duration-200 hover:bg-white/[0.03]"
-                    >
-                      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
-                        {getNotificationIcon(item)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted/70">
-                          <span>{t(getNotificationDomainKey(item))}</span>
-                          <span className="text-muted/50">
-                            {formatTimeAgo(item.createdAt, locale)}
-                          </span>
-                        </span>
-                        <span className="mt-1 block truncate text-sm font-medium text-foreground">
-                          {buildNotificationHeadline(item, t)}
-                        </span>
-                        <span className="mt-0.5 block truncate text-xs text-muted">
-                          {buildNotificationDetail(item)}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+    <AgentNotificationBellView
+      open={open}
+      summary={summary}
+      loading={status === "loading"}
+      onToggle={() => setOpen((value) => !value)}
+      onRowClick={handleRowClick}
+      t={t}
+      formatTimeAgo={(value) => formatTimeAgo(value, locale)}
+    />
   );
 }

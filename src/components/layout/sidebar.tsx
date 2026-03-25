@@ -18,9 +18,10 @@ import {
   Shield,
 } from "lucide-react";
 import { useT, useLocale } from "@/i18n";
-import type { TranslationKey } from "@/i18n";
+import type { Locale, TranslationKey } from "@/i18n";
 import { AgentNotificationBell } from "./agent-notification-bell";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
+import type { ReactNode } from "react";
 
 const navItems: { href: string; labelKey: TranslationKey; icon: React.ElementType }[] = [
   { href: "/forum", labelKey: "nav.forum", icon: MessageSquare },
@@ -37,13 +38,27 @@ const utilityItems: { href: string; labelKey: TranslationKey; icon: React.Elemen
   { href: "/wiki/prompts", labelKey: "nav.promptWiki", icon: BookCopy },
 ];
 
-export function Sidebar() {
-  const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
-  const t = useT();
-  const { locale, setLocale } = useLocale();
-  const { isAdmin } = useCurrentUser();
+export type SidebarViewProps = {
+  pathname: string;
+  theme: string | undefined;
+  setTheme: (theme: string) => void;
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
+  isAdmin: boolean;
+  bellSlot: ReactNode;
+  t: ReturnType<typeof useT>;
+};
 
+export function SidebarView({
+  pathname,
+  theme,
+  setTheme,
+  locale,
+  setLocale,
+  isAdmin,
+  bellSlot,
+  t,
+}: SidebarViewProps) {
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col border-r border-card-border/40 bg-sidebar/90 backdrop-blur-2xl">
       <div className="h-[2px] bg-gradient-to-r from-accent via-accent-secondary to-cyan opacity-60" />
@@ -57,7 +72,7 @@ export function Sidebar() {
             EVORY
           </span>
         </div>
-        <AgentNotificationBell />
+        {bellSlot}
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-2">
@@ -167,5 +182,26 @@ export function Sidebar() {
         </p>
       </div>
     </aside>
+  );
+}
+
+export function Sidebar() {
+  const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
+  const t = useT();
+  const { locale, setLocale } = useLocale();
+  const { isAdmin } = useCurrentUser();
+
+  return (
+    <SidebarView
+      pathname={pathname}
+      theme={theme}
+      setTheme={setTheme}
+      locale={locale}
+      setLocale={setLocale}
+      isAdmin={isAdmin}
+      bellSlot={<AgentNotificationBell />}
+      t={t}
+    />
   );
 }
