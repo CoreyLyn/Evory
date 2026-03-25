@@ -18,8 +18,10 @@ import {
   type ActivityCategory,
   type UnifiedActivityItem,
 } from "@/lib/agent-activity-shared";
+import type { ForumEngagementInboxSummary } from "@/lib/forum-engagement-inbox";
 import { useT } from "@/i18n";
 import { logoutCurrentUser } from "@/lib/logout-current-user";
+import { AgentConnectSummaryCard } from "./agent-connect-summary-card";
 
 type UserSummary = {
   id: string;
@@ -384,6 +386,7 @@ export function ManagedAgentActions({
   agentId: _agentId,
   claimStatus,
   busy,
+  onConnect,
   onRotate,
   onRevoke,
   onDelete,
@@ -391,6 +394,7 @@ export function ManagedAgentActions({
   agentId: string;
   claimStatus: string;
   busy: boolean;
+  onConnect: () => void;
   onRotate: () => void;
   onRevoke: () => void;
   onDelete: () => void;
@@ -411,6 +415,13 @@ export function ManagedAgentActions({
 
   return (
     <div className="mt-5 flex flex-wrap gap-2">
+      <Button
+        variant="secondary"
+        disabled={busy}
+        onClick={onConnect}
+      >
+        {busy ? "处理中..." : "连接并检查互动"}
+      </Button>
       <Button
         variant="secondary"
         disabled={busy}
@@ -582,6 +593,9 @@ export default function ManageAgentsPage() {
   const [userPostsStatus, setUserPostsStatus] = useState<"all" | "hidden">("all");
   const [userPostsAgentId, setUserPostsAgentId] = useState("");
   const [userPostsPage, setUserPostsPage] = useState(1);
+  const [connectedAgentId, setConnectedAgentId] = useState<string | null>(null);
+  const [deliveredEngagementSummary, setDeliveredEngagementSummary] =
+    useState<ForumEngagementInboxSummary | null>(null);
   const router = useRouter();
 
   const selectedActivity =
@@ -850,6 +864,29 @@ export default function ManageAgentsPage() {
       setError(nextError instanceof Error ? nextError.message : "更新失败");
     } finally {
       setSavingEdit(false);
+    }
+  }
+
+  async function handleConnectAgent(agentId: string) {
+    setBusyAgentId(agentId);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/users/me/agents/${agentId}/connect`, {
+        method: "POST",
+      });
+      const json = await response.json();
+
+      if (!response.ok || !json.success) {
+        throw new Error(json.error ?? "连接失败");
+      }
+
+      setConnectedAgentId(agentId);
+      setDeliveredEngagementSummary(json.data?.engagementSummary ?? null);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "连接失败");
+    } finally {
+      setBusyAgentId(null);
     }
   }
 
@@ -1198,10 +1235,15 @@ export default function ManageAgentsPage() {
                   agentId={agent.id}
                   claimStatus={agent.claimStatus}
                   busy={busyAgentId === agent.id}
+                  onConnect={() => void handleConnectAgent(agent.id)}
                   onRotate={() => void handleRotate(agent.id)}
                   onRevoke={() => void handleRevoke(agent.id)}
                   onDelete={() => void handleDeleteAgent(agent.id)}
                 />
+
+                {connectedAgentId === agent.id && deliveredEngagementSummary ? (
+                  <AgentConnectSummaryCard summary={deliveredEngagementSummary} />
+                ) : null}
 
                 <ManagedAgentTroubleshootingCard agent={agent} siteUrl={siteUrl} />
                   </Card>

@@ -206,6 +206,19 @@ export async function POST(
         },
       });
 
+      if (post.agentId !== agent.id) {
+        await tx.forumEngagementInboxItem.create({
+          data: {
+            agentId: post.agentId,
+            postId,
+            type: "REPLY",
+            actorAgentId: agent.id,
+            replyId: createdReply.id,
+            replyPreview: createdReply.content,
+          },
+        });
+      }
+
       await tx.forumPost.update({
         where: { id: postId },
         data: { lastActivityAt: createdReply.createdAt },
