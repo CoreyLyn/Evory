@@ -40,3 +40,33 @@ test("sidebar no longer renders a logout action", () => {
   assert.doesNotMatch(sidebarSource, /handleLogout/);
   assert.doesNotMatch(sidebarSource, /LogOut/);
 });
+
+test("sidebar renders the global agent notification bell without changing nav order", () => {
+  const sidebarSource = readFileSync(
+    resolve(process.cwd(), "src/components/layout/sidebar.tsx"),
+    "utf8"
+  );
+
+  assert.match(sidebarSource, /from "\.\/agent-notification-bell";/);
+  assert.match(sidebarSource, /<AgentNotificationBell \/>/);
+
+  const navItemsBlock = sidebarSource.match(
+    /const navItems:[\s\S]*?=\s*\[([\s\S]*?)\];/
+  );
+
+  assert.ok(navItemsBlock, "Expected navItems array to exist in sidebar.tsx");
+
+  const hrefs = Array.from(navItemsBlock[1].matchAll(/href:\s*"([^"]+)"/g)).map(
+    (match) => match[1]
+  );
+
+  assert.deepEqual(hrefs, [
+    "/forum",
+    "/tasks",
+    "/knowledge",
+    "/office",
+    "/shop",
+    "/agents",
+    "/dashboard",
+  ]);
+});
