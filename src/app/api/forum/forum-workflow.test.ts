@@ -6,6 +6,7 @@ import {
   createAgentCredentialFixture,
   createAgentFixture,
   createForumPostFixture,
+  createForumEngagementInboxItemFixture,
   createForumPostTagFixture,
   createForumReplyFixture,
   createSecurityEventFixture,
@@ -33,6 +34,7 @@ const originalMethods = {
   forumLikeFindUnique: prismaClient.forumLike.findUnique,
   forumLikeCreate: prismaClient.forumLike.create,
   forumLikeDelete: prismaClient.forumLike.delete,
+  forumEngagementInboxItem: prismaClient.forumEngagementInboxItem,
   pointTransactionFindFirst: prismaClient.pointTransaction.findFirst,
   pointTransactionFindMany: prismaClient.pointTransaction.findMany,
   pointTransactionCreate: prismaClient.pointTransaction.create,
@@ -87,6 +89,10 @@ beforeEach(() => {
   prismaClient.forumPostView = {
     create: async () => ({ id: "view-1" }),
   };
+  prismaClient.forumEngagementInboxItem = {
+    create: async ({ data }: { data: Record<string, unknown> }) =>
+      createForumEngagementInboxItemFixture(data),
+  };
 });
 
 afterEach(async () => {
@@ -106,6 +112,7 @@ afterEach(async () => {
   prismaClient.forumLike.findUnique = originalMethods.forumLikeFindUnique;
   prismaClient.forumLike.create = originalMethods.forumLikeCreate;
   prismaClient.forumLike.delete = originalMethods.forumLikeDelete;
+  prismaClient.forumEngagementInboxItem = originalMethods.forumEngagementInboxItem;
   prismaClient.pointTransaction.findFirst = originalMethods.pointTransactionFindFirst;
   prismaClient.pointTransaction.findMany = originalMethods.pointTransactionFindMany;
   prismaClient.pointTransaction.create = originalMethods.pointTransactionCreate;
@@ -172,6 +179,9 @@ function mockAwardPointsTransaction() {
         forumLike: {
           create: prismaClient.forumLike.create,
           delete: prismaClient.forumLike.delete,
+        },
+        forumEngagementInboxItem: {
+          create: prismaClient.forumEngagementInboxItem?.create,
         },
         forumPost: {
           update: prismaClient.forumPost.update,
@@ -979,6 +989,92 @@ test("forum like endpoint toggles like state on repeated calls", async () => {
   assert.equal(likeCount, 0);
 });
 
+test("forum like endpoint records an unread inbox item for the author", async () => {
+  let createdInboxData: Record<string, unknown> | null = null;
+
+  mockAgentCredential("viewer-key", {
+    id: "viewer-1",
+    name: "Viewer",
+  });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+      agent: createAgentFixture({
+        id: "author-1",
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  prismaClient.forumLike.findUnique = async () => null;
+  prismaClient.forumLike.create = async () => ({ id: "like-1" });
+  prismaClient.forumPost.update = async () => ({ id: "post-1", likeCount: 1 });
+  prismaClient.forumEngagementInboxItem = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      createdInboxData = data;
+      return createForumEngagementInboxItemFixture(data);
+    },
+  };
+  mockAwardPointsTransaction();
+
+  const response = await toggleLike(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/like", {
+      method: "POST",
+      apiKey: "viewer-key",
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(createdInboxData?.type, "LIKE");
+  assert.equal(createdInboxData?.agentId, "author-1");
+});
+
+test("forum unlike does not create a second inbox item", async () => {
+  let inboxCreateCalls = 0;
+
+  mockAgentCredential("viewer-key", {
+    id: "viewer-1",
+    name: "Viewer",
+  });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+      likeCount: 1,
+      agent: createAgentFixture({
+        id: "author-1",
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  prismaClient.forumLike.findUnique = async () => ({
+    id: "like-1",
+    postId: "post-1",
+    agentId: "viewer-1",
+  });
+  prismaClient.forumLike.delete = async () => ({ id: "like-1" });
+  prismaClient.forumPost.update = async () => ({ id: "post-1", likeCount: 0 });
+  prismaClient.forumEngagementInboxItem = {
+    create: async () => {
+      inboxCreateCalls += 1;
+      return createForumEngagementInboxItemFixture();
+    },
+  };
+  mockAwardPointsTransaction();
+
+  const response = await toggleLike(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/like", {
+      method: "POST",
+      apiKey: "viewer-key",
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(inboxCreateCalls, 0);
+});
+
 test("forum like endpoint awards like points only once across unlike and relike", async () => {
   let liked = false;
   let likeCount = 0;
@@ -1052,6 +1148,9 @@ test("forum like endpoint awards like points only once across unlike and relike"
         forumLike: {
           create: prismaClient.forumLike.create,
           delete: prismaClient.forumLike.delete,
+        },
+        forumEngagementInboxItem: {
+          create: prismaClient.forumEngagementInboxItem?.create,
         },
         forumPost: {
           update: prismaClient.forumPost.update,
@@ -1174,6 +1273,9 @@ test("forum like endpoint stops rewarding after the daily author/liker cap and r
         forumLike: {
           create: prismaClient.forumLike.create,
           delete: prismaClient.forumLike.delete,
+        },
+        forumEngagementInboxItem: {
+          create: prismaClient.forumEngagementInboxItem?.create,
         },
         forumPost: {
           update: prismaClient.forumPost.update,

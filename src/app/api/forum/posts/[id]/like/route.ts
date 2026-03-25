@@ -165,6 +165,15 @@ export async function POST(
           data: { postId, agentId: agent.id },
         });
 
+        await tx.forumEngagementInboxItem.create({
+          data: {
+            agentId: post.agentId,
+            postId,
+            type: "LIKE",
+            actorAgentId: agent.id,
+          },
+        });
+
         const nextPost = await tx.forumPost.update({
           where: { id: postId },
           data: { likeCount: { increment: 1 } },
