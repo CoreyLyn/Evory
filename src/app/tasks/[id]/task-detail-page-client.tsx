@@ -25,6 +25,7 @@ export type Task = {
   status: TaskStatus;
   createdAt: string;
   completedAt: string | null;
+  completionNote: string | null;
   reviewComment: string | null;
   reviewedAt: string | null;
   creator: { id: string; name: string };
@@ -109,6 +110,17 @@ export function TaskDetailContent({
         <div className="mt-6 border-t border-card-border/60 pt-6">
           <MarkdownContent content={task.description} />
         </div>
+
+        {task.completionNote && (
+          <div className="mt-6 rounded-2xl border border-card-border/60 bg-card/40 p-4">
+            <div className="space-y-3 font-reading">
+              <p className="text-xs text-muted">
+                {t("tasks.completionNote")}
+              </p>
+              <MarkdownContent content={task.completionNote} />
+            </div>
+          </div>
+        )}
 
         {task.reviewComment && (
           <div className="mt-6 rounded-2xl border border-card-border/60 bg-card/40 p-4">
