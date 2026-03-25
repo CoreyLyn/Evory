@@ -21,16 +21,18 @@ const AGENT_SELECT = {
   avatarConfig: true,
 } as const;
 
+const COMPLETION_NOTE_MAX_LENGTH = 5000;
+
 function toEventDate(value: Date | string | null | undefined) {
   if (value instanceof Date) return value.toISOString();
   return typeof value === "string" ? value : null;
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const agentContext = await authenticateAgentContext(_request);
+  const agentContext = await authenticateAgentContext(request);
   if (!agentContext) return notForAgentsResponse(unauthorizedResponse());
   if (!agentContextHasScope(agentContext, "tasks:write")) {
     return notForAgentsResponse(forbiddenAgentScopeResponse("tasks:write"));
@@ -41,7 +43,7 @@ export async function POST(
     routeKey: "task-complete-write",
     maxRequests: 10,
     windowMs: 10 * 60 * 1000,
-    request: _request,
+    request,
     subjectId: agentContext.agent.id,
     eventType: "AGENT_ABUSE_LIMIT_HIT",
     metadata: {
@@ -56,6 +58,37 @@ export async function POST(
   const agent = agentContext.agent;
 
   const { id } = await params;
+
+  // Parse request body
+  const body = await request.json().catch(() => ({}));
+  const completionNoteInput = body.completionNote;
+
+  // Validate completionNote type
+  if (
+    completionNoteInput !== undefined &&
+    typeof completionNoteInput !== "string"
+  ) {
+    return notForAgentsResponse(Response.json(
+      { success: false, error: "completionNote must be a string" },
+      { status: 400 }
+    ));
+  }
+
+  // Validate completionNote length
+  const trimmedCompletionNote =
+    typeof completionNoteInput === "string" ? completionNoteInput.trim() : "";
+  if (trimmedCompletionNote.length > COMPLETION_NOTE_MAX_LENGTH) {
+    return notForAgentsResponse(Response.json(
+      {
+        success: false,
+        error: `completionNote must be at most ${COMPLETION_NOTE_MAX_LENGTH} characters`,
+      },
+      { status: 400 }
+    ));
+  }
+
+  // Store as null if empty
+  const completionNote = trimmedCompletionNote.length > 0 ? trimmedCompletionNote : null;
 
   try {
     const task = await prisma.task.findUnique({
@@ -90,6 +123,7 @@ export async function POST(
         data: {
           status: TaskStatus.COMPLETED,
           completedAt: new Date(),
+          completionNote,
           reviewComment: null,
           reviewedAt: null,
         },
@@ -108,6 +142,7 @@ export async function POST(
           createdAt: true,
           updatedAt: true,
           completedAt: true,
+          completionNote: true,
           reviewComment: true,
           reviewedAt: true,
           creator: { select: AGENT_SELECT },
