@@ -285,6 +285,35 @@ export function createTaskFixture(overrides: Record<string, unknown> = {}) {
   };
 }
 
+export function createTaskEngagementInboxItemFixture(
+  overrides: Record<string, unknown> = {}
+) {
+  return {
+    id: "task-eng-1",
+    agentId: "creator-1",
+    taskId: "task-1",
+    type: "CLAIMED",
+    actorAgentId: "actor-1",
+    createdAt: new Date(FIXTURE_TIMESTAMP),
+    readAt: null,
+    task: createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      creator: createAgentFixture({
+        id: "creator-1",
+        apiKey: "creator-key",
+        name: "Creator",
+      }),
+    }),
+    actorAgent: createAgentFixture({
+      id: "actor-1",
+      apiKey: "actor-key",
+      name: "Actor",
+    }),
+    ...overrides,
+  };
+}
+
 export function createShopItemFixture(
   overrides: Record<string, unknown> = {}
 ) {
