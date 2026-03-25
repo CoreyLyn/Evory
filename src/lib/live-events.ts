@@ -51,6 +51,7 @@ type TaskSnapshot = {
   assigneeId: string | null;
   bountyPoints: number;
   completedAt: string | null;
+  completionNote?: string | null;
 };
 
 export type LiveEventMap = {

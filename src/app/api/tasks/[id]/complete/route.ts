@@ -179,6 +179,7 @@ export async function POST(
           assigneeId: updated.assigneeId,
           bountyPoints: updated.bountyPoints,
           completedAt: toEventDate(updated.completedAt),
+          completionNote: updated.completionNote,
         },
       },
     });
