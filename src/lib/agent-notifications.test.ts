@@ -84,6 +84,49 @@ test("listAgentNotifications returns unread forum and task items ordered newest 
   assert.equal(result.items[0]?.reply?.content, "Useful reply");
 });
 
+test("listAgentNotifications respects the compact recent limit", async () => {
+  const result = await listAgentNotifications("user-1", {
+    prisma: {
+      agent: {
+        findMany: async () => [{ id: "author-1", name: "Author Agent" }],
+      },
+      forumEngagementInboxItem: {
+        findMany: async () => [
+          createForumEngagementInboxItemFixture({
+            id: "forum-eng-1",
+            type: "LIKE",
+            createdAt: new Date("2026-03-25T10:00:00.000Z"),
+          }),
+          createForumEngagementInboxItemFixture({
+            id: "forum-eng-2",
+            type: "LIKE",
+            createdAt: new Date("2026-03-25T09:59:00.000Z"),
+          }),
+          createForumEngagementInboxItemFixture({
+            id: "forum-eng-3",
+            type: "LIKE",
+            createdAt: new Date("2026-03-25T09:58:00.000Z"),
+          }),
+        ],
+        updateMany: async () => ({ count: 3 }),
+      },
+      taskEngagementInboxItem: {
+        findMany: async () => [],
+        updateMany: async () => ({ count: 0 }),
+      },
+    },
+    limit: 2,
+  });
+
+  assert.equal(result.hasUnread, true);
+  assert.equal(result.likeCount, 2);
+  assert.equal(result.items.length, 2);
+  assert.deepEqual(result.items.map((item) => item.id), [
+    "forum-eng-1",
+    "forum-eng-2",
+  ]);
+});
+
 test("markAgentNotificationRead updates only viewerReadAt", async () => {
   let viewerReadAt: Date | null = null;
   let agentDeliveredAtSeen: unknown = undefined;
@@ -94,7 +137,13 @@ test("markAgentNotificationRead updates only viewerReadAt", async () => {
         findMany: async () => [{ id: "author-1", name: "Author Agent" }],
       },
       forumEngagementInboxItem: {
-        findMany: async () => [],
+        findMany: async () => [
+          createForumEngagementInboxItemFixture({
+            id: "forum-eng-1",
+            viewerReadAt: null,
+            agentDeliveredAt: new Date("2026-03-24T10:00:00.000Z"),
+          }),
+        ],
         updateMany: async ({ data }) => {
           viewerReadAt = data.viewerReadAt;
           agentDeliveredAtSeen = Object.hasOwn(data, "agentDeliveredAt")
@@ -112,7 +161,38 @@ test("markAgentNotificationRead updates only viewerReadAt", async () => {
   });
 
   assert.equal(write?.viewerReadAt, "2026-03-25T10:00:00.000Z");
-  assert.equal(write?.agentDeliveredAt, null);
+  assert.equal(write?.agentDeliveredAt, "2026-03-24T10:00:00.000Z");
   assert.equal(viewerReadAt?.toISOString(), "2026-03-25T10:00:00.000Z");
   assert.equal(agentDeliveredAtSeen, undefined);
+});
+
+test("markAgentNotificationRead returns an already-read owned item instead of 404", async () => {
+  const write = await markAgentNotificationRead("user-1", "forum-eng-1", {
+    prisma: {
+      agent: {
+        findMany: async () => [{ id: "author-1", name: "Author Agent" }],
+      },
+      forumEngagementInboxItem: {
+        findMany: async () => [
+          createForumEngagementInboxItemFixture({
+            id: "forum-eng-1",
+            viewerReadAt: new Date("2026-03-24T09:59:00.000Z"),
+            agentDeliveredAt: new Date("2026-03-24T10:00:00.000Z"),
+          }),
+        ],
+        updateMany: async () => ({ count: 0 }),
+      },
+      taskEngagementInboxItem: {
+        findMany: async () => [],
+        updateMany: async () => ({ count: 0 }),
+      },
+    },
+    now: () => new Date("2026-03-25T10:00:00.000Z"),
+  });
+
+  assert.deepEqual(write, {
+    id: "forum-eng-1",
+    viewerReadAt: "2026-03-24T09:59:00.000Z",
+    agentDeliveredAt: "2026-03-24T10:00:00.000Z",
+  });
 });

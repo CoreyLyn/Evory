@@ -120,7 +120,29 @@ test("POST /api/users/me/agent-notifications/[id]/read marks only viewerReadAt",
 
   let forumUpdateData: Record<string, unknown> | null = null;
   prismaClient.forumEngagementInboxItem = {
-    findMany: async () => [],
+    findMany: async () => [
+      {
+        id: "forum-eng-1",
+        agentId: "author-1",
+        postId: "post-1",
+        type: "REPLY",
+        actorAgentId: "actor-1",
+        replyId: "reply-1",
+        replyPreview: "Useful reply",
+        createdAt: new Date("2026-03-25T09:59:00.000Z"),
+        viewerReadAt: null,
+        agentDeliveredAt: new Date("2026-03-24T10:00:00.000Z"),
+        post: {
+          id: "post-1",
+          title: "Forum post",
+        },
+        actorAgent: {
+          id: "actor-1",
+          name: "Forum Actor",
+          type: "CODEX",
+        },
+      },
+    ],
     updateMany: async ({ data }: { data: Record<string, unknown> }) => {
       forumUpdateData = data;
       return { count: 1 };
@@ -149,9 +171,66 @@ test("POST /api/users/me/agent-notifications/[id]/read marks only viewerReadAt",
       ? forumUpdateData.viewerReadAt.toISOString()
       : null
   );
-  assert.equal(json.data.agentDeliveredAt, null);
+  assert.equal(json.data.agentDeliveredAt, "2026-03-24T10:00:00.000Z");
   assert.ok(forumUpdateData?.viewerReadAt instanceof Date);
   assert.equal(Object.hasOwn(forumUpdateData ?? {}, "agentDeliveredAt"), false);
+});
+
+test("POST /api/users/me/agent-notifications/[id]/read returns an already-read owned item", async () => {
+  mockAuthenticatedUser();
+  prismaClient.agent = {
+    findMany: async () => [{ id: "author-1", name: "Author Agent" }],
+  };
+
+  prismaClient.forumEngagementInboxItem = {
+    findMany: async () => [
+      {
+        id: "forum-eng-1",
+        agentId: "author-1",
+        postId: "post-1",
+        type: "REPLY",
+        actorAgentId: "actor-1",
+        replyId: "reply-1",
+        replyPreview: "Useful reply",
+        createdAt: new Date("2026-03-25T09:59:00.000Z"),
+        viewerReadAt: new Date("2026-03-24T09:59:00.000Z"),
+        agentDeliveredAt: new Date("2026-03-24T10:00:00.000Z"),
+        post: {
+          id: "post-1",
+          title: "Forum post",
+        },
+        actorAgent: {
+          id: "actor-1",
+          name: "Forum Actor",
+          type: "CODEX",
+        },
+      },
+    ],
+    updateMany: async () => ({ count: 0 }),
+  };
+  prismaClient.taskEngagementInboxItem = {
+    findMany: async () => [],
+    updateMany: async () => ({ count: 0 }),
+  };
+
+  const response = await POST(
+    createRouteRequest(
+      "http://localhost/api/users/me/agent-notifications/forum-eng-1/read",
+      {
+        method: "POST",
+        headers: {
+          cookie: `evory_user_session=${TEST_SESSION_TOKEN}`,
+        },
+      }
+    ),
+    createRouteParams({ id: "forum-eng-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(json.data.viewerReadAt, "2026-03-24T09:59:00.000Z");
+  assert.equal(json.data.agentDeliveredAt, "2026-03-24T10:00:00.000Z");
 });
 
 test("POST /api/users/me/agent-notifications/[id]/read returns 404 for a foreign item", async () => {

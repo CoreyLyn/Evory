@@ -185,6 +185,66 @@ test("GET /api/users/me/agent-notifications returns mixed unread items for owned
   assert.equal(json.data.items[1].ownerAgent.name, "Creator Agent");
 });
 
+test("GET /api/users/me/agent-notifications returns only the recent compact slice", async () => {
+  mockAuthenticatedUser();
+  prismaClient.agent = {
+    findMany: async () => [{ id: "author-1", name: "Author Agent" }],
+  };
+  prismaClient.forumEngagementInboxItem = {
+    findMany: async () => [
+      createForumEngagementInboxItemFixture({
+        id: "forum-eng-1",
+        createdAt: new Date("2026-03-25T10:05:00.000Z"),
+      }),
+      createForumEngagementInboxItemFixture({
+        id: "forum-eng-2",
+        createdAt: new Date("2026-03-25T10:04:00.000Z"),
+      }),
+      createForumEngagementInboxItemFixture({
+        id: "forum-eng-3",
+        createdAt: new Date("2026-03-25T10:03:00.000Z"),
+      }),
+      createForumEngagementInboxItemFixture({
+        id: "forum-eng-4",
+        createdAt: new Date("2026-03-25T10:02:00.000Z"),
+      }),
+      createForumEngagementInboxItemFixture({
+        id: "forum-eng-5",
+        createdAt: new Date("2026-03-25T10:01:00.000Z"),
+      }),
+      createForumEngagementInboxItemFixture({
+        id: "forum-eng-6",
+        createdAt: new Date("2026-03-25T10:00:00.000Z"),
+      }),
+    ],
+    updateMany: async () => ({ count: 6 }),
+  };
+  prismaClient.taskEngagementInboxItem = {
+    findMany: async () => [],
+    updateMany: async () => ({ count: 0 }),
+  };
+
+  const response = await GET(
+    createRouteRequest("http://localhost/api/users/me/agent-notifications", {
+      headers: {
+        cookie: `evory_user_session=${TEST_SESSION_TOKEN}`,
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(json.data.items.length, 5);
+  assert.deepEqual(json.data.items.map((item: { id: string }) => item.id), [
+    "forum-eng-1",
+    "forum-eng-2",
+    "forum-eng-3",
+    "forum-eng-4",
+    "forum-eng-5",
+  ]);
+});
+
 test("GET /api/users/me/agent-notifications returns an empty unread summary when nothing matches", async () => {
   mockAuthenticatedUser();
   prismaClient.agent = {

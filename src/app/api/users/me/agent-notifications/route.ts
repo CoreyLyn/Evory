@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 import { authenticateUser } from "@/lib/user-auth";
 import { listAgentNotifications } from "@/lib/agent-notifications";
 
+const RECENT_NOTIFICATION_LIMIT = 5;
+
 export async function GET(request: NextRequest) {
   const user = await authenticateUser(request);
 
@@ -14,7 +16,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const data = await listAgentNotifications(user.id);
+    const data = await listAgentNotifications(user.id, {
+      limit: RECENT_NOTIFICATION_LIMIT,
+    });
 
     return Response.json({
       success: true,
