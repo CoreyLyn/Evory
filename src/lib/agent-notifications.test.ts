@@ -235,6 +235,8 @@ test("listAgentNotifications respects the compact recent limit without truncatin
 });
 
 test("markAgentNotificationRead updates task notifications through the task branch", async () => {
+  const taskFindManyArgs: Record<string, unknown>[] = [];
+  const taskUpdateWhereArgs: Record<string, unknown>[] = [];
   let taskUpdateData: Record<string, unknown> | null = null;
 
   const write = await markAgentNotificationRead("user-1", "task-eng-1", {
@@ -247,8 +249,10 @@ test("markAgentNotificationRead updates task notifications through the task bran
         updateMany: async () => ({ count: 0 }),
       },
       taskEngagementInboxItem: {
-        findMany: async () => [
-          {
+        findMany: async (args: Record<string, unknown>) => {
+          taskFindManyArgs.push(args);
+          return [
+            {
             id: "task-eng-1",
             agentId: "creator-1",
             taskId: "task-1",
@@ -267,8 +271,10 @@ test("markAgentNotificationRead updates task notifications through the task bran
               type: "CUSTOM",
             },
           },
-        ],
-        updateMany: async ({ data }) => {
+        ];
+        },
+        updateMany: async ({ where, data }) => {
+          taskUpdateWhereArgs.push(where);
           taskUpdateData = data;
           return { count: 1 };
         },
@@ -280,11 +286,32 @@ test("markAgentNotificationRead updates task notifications through the task bran
   assert.equal(write?.id, "task-eng-1");
   assert.equal(write?.viewerReadAt, "2026-03-25T10:00:00.000Z");
   assert.equal(write?.agentDeliveredAt, "2026-03-24T10:00:00.000Z");
+  assert.deepEqual(taskFindManyArgs, [
+    {
+      where: {
+        id: "task-eng-1",
+        agentId: { in: ["creator-1"] },
+      },
+      include: {
+        task: true,
+        actorAgent: true,
+      },
+    },
+  ]);
+  assert.deepEqual(taskUpdateWhereArgs, [
+    {
+      id: "task-eng-1",
+      agentId: { in: ["creator-1"] },
+      viewerReadAt: null,
+    },
+  ]);
   assert.ok(taskUpdateData?.viewerReadAt instanceof Date);
   assert.equal(Object.hasOwn(taskUpdateData ?? {}, "agentDeliveredAt"), false);
 });
 
 test("markAgentNotificationRead updates only viewerReadAt", async () => {
+  const forumFindManyArgs: Record<string, unknown>[] = [];
+  const forumUpdateWhereArgs: Record<string, unknown>[] = [];
   let viewerReadAt: Date | null = null;
   let agentDeliveredAtSeen: unknown = undefined;
 
@@ -294,16 +321,20 @@ test("markAgentNotificationRead updates only viewerReadAt", async () => {
         findMany: async () => [{ id: "author-1", name: "Author Agent" }],
       },
       forumEngagementInboxItem: {
-        findMany: async () => [
+        findMany: async (args: Record<string, unknown>) => {
+          forumFindManyArgs.push(args);
+          return [
           createForumEngagementInboxItemFixture({
             id: "forum-eng-1",
             viewerReadAt: null,
             agentDeliveredAt: new Date("2026-03-24T10:00:00.000Z"),
           }),
-        ],
+        ];
+        },
         count: async ({ where }: { where: Record<string, unknown> }) =>
           where.type === "LIKE" ? 0 : 1,
-        updateMany: async ({ data }) => {
+        updateMany: async ({ where, data }) => {
+          forumUpdateWhereArgs.push(where);
           viewerReadAt = data.viewerReadAt;
           agentDeliveredAtSeen = Object.hasOwn(data, "agentDeliveredAt")
             ? (data as Record<string, unknown>).agentDeliveredAt
@@ -321,6 +352,25 @@ test("markAgentNotificationRead updates only viewerReadAt", async () => {
 
   assert.equal(write?.viewerReadAt, "2026-03-25T10:00:00.000Z");
   assert.equal(write?.agentDeliveredAt, "2026-03-24T10:00:00.000Z");
+  assert.deepEqual(forumFindManyArgs, [
+    {
+      where: {
+        id: "forum-eng-1",
+        agentId: { in: ["author-1"] },
+      },
+      include: {
+        post: true,
+        actorAgent: true,
+      },
+    },
+  ]);
+  assert.deepEqual(forumUpdateWhereArgs, [
+    {
+      id: "forum-eng-1",
+      agentId: { in: ["author-1"] },
+      viewerReadAt: null,
+    },
+  ]);
   assert.equal(viewerReadAt?.toISOString(), "2026-03-25T10:00:00.000Z");
   assert.equal(agentDeliveredAtSeen, undefined);
 });

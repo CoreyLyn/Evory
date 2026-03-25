@@ -119,32 +119,44 @@ test("POST /api/users/me/agent-notifications/[id]/read marks a forum item and pr
     findMany: async () => [{ id: "author-1", name: "Author Agent" }],
   };
 
+  const forumFindManyArgs: Record<string, unknown>[] = [];
+  const forumUpdateWhereArgs: Record<string, unknown>[] = [];
   let forumUpdateData: Record<string, unknown> | null = null;
   prismaClient.forumEngagementInboxItem = {
-    findMany: async () => [
-      {
-        id: "forum-eng-1",
-        agentId: "author-1",
-        postId: "post-1",
-        type: "REPLY",
-        actorAgentId: "actor-1",
-        replyId: "reply-1",
-        replyPreview: "Useful reply",
-        createdAt: new Date("2026-03-25T09:59:00.000Z"),
-        viewerReadAt: null,
-        agentDeliveredAt: new Date("2026-03-24T10:00:00.000Z"),
-        post: {
-          id: "post-1",
-          title: "Forum post",
+    findMany: async (args: Record<string, unknown>) => {
+      forumFindManyArgs.push(args);
+      return [
+        {
+          id: "forum-eng-1",
+          agentId: "author-1",
+          postId: "post-1",
+          type: "REPLY",
+          actorAgentId: "actor-1",
+          replyId: "reply-1",
+          replyPreview: "Useful reply",
+          createdAt: new Date("2026-03-25T09:59:00.000Z"),
+          viewerReadAt: null,
+          agentDeliveredAt: new Date("2026-03-24T10:00:00.000Z"),
+          post: {
+            id: "post-1",
+            title: "Forum post",
+          },
+          actorAgent: {
+            id: "actor-1",
+            name: "Forum Actor",
+            type: "CODEX",
+          },
         },
-        actorAgent: {
-          id: "actor-1",
-          name: "Forum Actor",
-          type: "CODEX",
-        },
-      },
-    ],
-    updateMany: async ({ data }: { data: Record<string, unknown> }) => {
+      ];
+    },
+    updateMany: async ({
+      where,
+      data,
+    }: {
+      where: Record<string, unknown>;
+      data: Record<string, unknown>;
+    }) => {
+      forumUpdateWhereArgs.push(where);
       forumUpdateData = data;
       return { count: 1 };
     },
@@ -173,6 +185,25 @@ test("POST /api/users/me/agent-notifications/[id]/read marks a forum item and pr
       : null
   );
   assert.equal(json.data.agentDeliveredAt, "2026-03-24T10:00:00.000Z");
+  assert.deepEqual(forumFindManyArgs, [
+    {
+      where: {
+        id: "forum-eng-1",
+        agentId: { in: ["author-1"] },
+      },
+      include: {
+        post: true,
+        actorAgent: true,
+      },
+    },
+  ]);
+  assert.deepEqual(forumUpdateWhereArgs, [
+    {
+      id: "forum-eng-1",
+      agentId: { in: ["author-1"] },
+      viewerReadAt: null,
+    },
+  ]);
   assert.ok(forumUpdateData?.viewerReadAt instanceof Date);
   assert.equal(Object.hasOwn(forumUpdateData ?? {}, "agentDeliveredAt"), false);
 });
@@ -183,28 +214,40 @@ test("POST /api/users/me/agent-notifications/[id]/read marks a task item through
     findMany: async () => [{ id: "creator-1", name: "Creator Agent" }],
   };
 
+  const taskFindManyArgs: Record<string, unknown>[] = [];
+  const taskUpdateWhereArgs: Record<string, unknown>[] = [];
   let taskUpdateData: Record<string, unknown> | null = null;
   prismaClient.taskEngagementInboxItem = {
-    findMany: async () => [
-      createTaskEngagementInboxItemFixture({
-        id: "task-eng-1",
-        agentId: "creator-1",
-        type: "CLAIMED",
-        createdAt: new Date("2026-03-25T09:58:00.000Z"),
-        viewerReadAt: null,
-        agentDeliveredAt: new Date("2026-03-24T10:00:00.000Z"),
-        task: {
-          id: "task-1",
-          title: "Task title",
-        },
-        actorAgent: {
-          id: "actor-1",
-          name: "Task Actor",
-          type: "CUSTOM",
-        },
-      }),
-    ],
-    updateMany: async ({ data }: { data: Record<string, unknown> }) => {
+    findMany: async (args: Record<string, unknown>) => {
+      taskFindManyArgs.push(args);
+      return [
+        createTaskEngagementInboxItemFixture({
+          id: "task-eng-1",
+          agentId: "creator-1",
+          type: "CLAIMED",
+          createdAt: new Date("2026-03-25T09:58:00.000Z"),
+          viewerReadAt: null,
+          agentDeliveredAt: new Date("2026-03-24T10:00:00.000Z"),
+          task: {
+            id: "task-1",
+            title: "Task title",
+          },
+          actorAgent: {
+            id: "actor-1",
+            name: "Task Actor",
+            type: "CUSTOM",
+          },
+        }),
+      ];
+    },
+    updateMany: async ({
+      where,
+      data,
+    }: {
+      where: Record<string, unknown>;
+      data: Record<string, unknown>;
+    }) => {
+      taskUpdateWhereArgs.push(where);
       taskUpdateData = data;
       return { count: 1 };
     },
@@ -233,6 +276,25 @@ test("POST /api/users/me/agent-notifications/[id]/read marks a task item through
       : null
   );
   assert.equal(json.data.agentDeliveredAt, "2026-03-24T10:00:00.000Z");
+  assert.deepEqual(taskFindManyArgs, [
+    {
+      where: {
+        id: "task-eng-1",
+        agentId: { in: ["creator-1"] },
+      },
+      include: {
+        task: true,
+        actorAgent: true,
+      },
+    },
+  ]);
+  assert.deepEqual(taskUpdateWhereArgs, [
+    {
+      id: "task-eng-1",
+      agentId: { in: ["creator-1"] },
+      viewerReadAt: null,
+    },
+  ]);
   assert.ok(taskUpdateData?.viewerReadAt instanceof Date);
   assert.equal(Object.hasOwn(taskUpdateData ?? {}, "agentDeliveredAt"), false);
 });
