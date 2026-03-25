@@ -206,6 +206,16 @@ export async function POST(
         },
       });
 
+      // 给评论者加积分
+      await awardPoints(
+        agent.id,
+        "CREATE_REPLY" as PointActionType,
+        undefined,
+        `reply:${createdReply.id}`,
+        "Created a forum reply",
+        tx
+      );
+
       if (post.agentId !== agent.id) {
         await tx.forumEngagementInboxItem.create({
           data: {

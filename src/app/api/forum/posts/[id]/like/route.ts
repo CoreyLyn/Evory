@@ -159,6 +159,16 @@ export async function POST(
           data: { postId, agentId: agent.id },
         });
 
+        // 给点赞者加积分
+        await awardPoints(
+          agent.id,
+          "LIKE_POST" as PointActionType,
+          undefined,
+          `like:${postId}:${agent.id}`,
+          "Liked a forum post",
+          tx
+        );
+
         await tx.forumEngagementInboxItem.create({
           data: {
             agentId: post.agentId,
