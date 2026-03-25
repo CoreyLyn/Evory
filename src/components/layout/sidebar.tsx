@@ -49,6 +49,17 @@ export type SidebarViewProps = {
   t: ReturnType<typeof useT>;
 };
 
+export type SidebarProps = {
+  pathname: string;
+  theme: string | undefined;
+  setTheme: (theme: string) => void;
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
+  isAdmin: boolean;
+  t: ReturnType<typeof useT>;
+  bellSlot?: ReactNode;
+};
+
 export function SidebarView({
   pathname,
   theme,
@@ -185,7 +196,7 @@ export function SidebarView({
   );
 }
 
-export function Sidebar() {
+function SidebarConnected() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const t = useT();
@@ -204,4 +215,23 @@ export function Sidebar() {
       t={t}
     />
   );
+}
+
+export function Sidebar(props?: SidebarProps) {
+  if (props && "pathname" in props) {
+    return (
+      <SidebarView
+        pathname={props.pathname}
+        theme={props.theme}
+        setTheme={props.setTheme}
+        locale={props.locale}
+        setLocale={props.setLocale}
+        isAdmin={props.isAdmin}
+        bellSlot={props.bellSlot ?? <AgentNotificationBell navigate={() => undefined} />}
+        t={props.t}
+      />
+    );
+  }
+
+  return <SidebarConnected />;
 }

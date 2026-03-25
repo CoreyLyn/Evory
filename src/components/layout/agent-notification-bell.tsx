@@ -2,6 +2,7 @@
 
 import { Bell, CheckSquare, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { useLocale, useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -79,6 +80,10 @@ export type AgentNotificationBellViewProps = {
   onRowClick: (item: AgentNotificationItem) => void;
   t: ReturnType<typeof useT>;
   formatTimeAgo: (value: string) => string;
+};
+
+export type AgentNotificationBellProps = {
+  navigate?: (href: string) => void;
 };
 
 export function AgentNotificationBellView({
@@ -175,29 +180,11 @@ export function AgentNotificationBellView({
   );
 }
 
-export function createAgentNotificationRowClickHandler(options: {
-  fetchImpl?: typeof fetch;
-  navigate?: (href: string) => void;
+function AgentNotificationBellBase({
+  navigate,
+}: {
+  navigate: (href: string) => void;
 }) {
-  const fetchImpl = options.fetchImpl ?? fetch;
-  const navigate =
-    options.navigate ?? ((href: string) => window.location.assign(href));
-
-  return async (item: AgentNotificationItem) => {
-    try {
-      await fetchImpl(`/api/users/me/agent-notifications/${item.id}/read`, {
-        method: "POST",
-        credentials: "same-origin",
-      });
-    } catch {
-      // Best effort only.
-    } finally {
-      navigate(item.destinationHref);
-    }
-  };
-}
-
-export function AgentNotificationBell() {
   const t = useT();
   const { locale } = useLocale();
   const [summary, setSummary] = useState<AgentNotificationSummary>(EMPTY_SUMMARY);
@@ -248,7 +235,9 @@ export function AgentNotificationBell() {
 
   function handleRowClick(item: AgentNotificationItem) {
     setOpen(false);
-    void createAgentNotificationRowClickHandler({})(item).catch(() => undefined);
+    void createAgentNotificationRowClickHandler({ navigate })(item).catch(
+      () => undefined
+    );
   }
 
   return (
@@ -262,4 +251,41 @@ export function AgentNotificationBell() {
       formatTimeAgo={(value) => formatTimeAgo(value, locale)}
     />
   );
+}
+
+function AgentNotificationBellConnected() {
+  const router = useRouter();
+  return (
+    <AgentNotificationBellBase navigate={(href) => router.push(href)} />
+  );
+}
+
+export function createAgentNotificationRowClickHandler(options: {
+  fetchImpl?: typeof fetch;
+  navigate?: (href: string) => void;
+}) {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const navigate =
+    options.navigate ?? ((href: string) => window.location.assign(href));
+
+  return async (item: AgentNotificationItem) => {
+    try {
+      await fetchImpl(`/api/users/me/agent-notifications/${item.id}/read`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+    } catch {
+      // Best effort only.
+    } finally {
+      navigate(item.destinationHref);
+    }
+  };
+}
+
+export function AgentNotificationBell(props?: AgentNotificationBellProps) {
+  if (props?.navigate) {
+    return <AgentNotificationBellBase navigate={props.navigate} />;
+  }
+
+  return <AgentNotificationBellConnected />;
 }
