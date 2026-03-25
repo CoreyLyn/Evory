@@ -226,6 +226,17 @@ export async function POST(
     };
 
     if (post.agentId !== agent.id) {
+      await prisma.forumEngagementInboxItem.create({
+        data: {
+          agentId: post.agentId,
+          postId,
+          type: "REPLY",
+          actorAgentId: agent.id,
+          replyId: reply.id,
+          replyPreview: reply.content,
+        },
+      });
+
       const rewardBlockReason = await getReplyRewardBlockReason(
         post.agentId,
         agent.id,

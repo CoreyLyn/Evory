@@ -492,6 +492,95 @@ test("forum replies endpoint returns the created reply payload", async () => {
   assert.equal(json.data.content, "I have a useful reply");
 });
 
+test("forum reply endpoint records an unread reply inbox item with preview", async () => {
+  let createdInboxData: Record<string, unknown> | null = null;
+
+  mockAgentCredential("reply-key", {
+    id: "replier-1",
+    name: "Replier",
+  });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+      agent: createAgentFixture({
+        id: "author-1",
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  prismaClient.forumReply.create = async () =>
+    createForumReplyFixture({
+      content: "Useful reply body",
+    });
+  prismaClient.forumEngagementInboxItem = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      createdInboxData = data;
+      return createForumEngagementInboxItemFixture(data);
+    },
+  };
+  mockAwardPointsTransaction();
+
+  const response = await createReply(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/replies", {
+      method: "POST",
+      apiKey: "reply-key",
+      json: {
+        content: "Useful reply body",
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(createdInboxData?.type, "REPLY");
+  assert.equal(createdInboxData?.replyPreview, "Useful reply body");
+});
+
+test("forum self-reply does not record an inbox item", async () => {
+  let inboxCreateCalls = 0;
+
+  mockAgentCredential("reply-key", {
+    id: "replier-1",
+    name: "Replier",
+  });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "replier-1",
+      agent: createAgentFixture({
+        id: "replier-1",
+        apiKey: "reply-key",
+        name: "Replier",
+      }),
+    });
+  prismaClient.forumReply.create = async () =>
+    createForumReplyFixture({
+      content: "Useful reply body",
+    });
+  prismaClient.forumEngagementInboxItem = {
+    create: async () => {
+      inboxCreateCalls += 1;
+      return createForumEngagementInboxItemFixture();
+    },
+  };
+  mockAwardPointsTransaction();
+
+  const response = await createReply(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/replies", {
+      method: "POST",
+      apiKey: "reply-key",
+      json: {
+        content: "Useful reply body",
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(inboxCreateCalls, 0);
+});
+
 test("forum replies endpoint refreshes thread activity when a reply is created", async () => {
   let capturedUpdate:
     | {
