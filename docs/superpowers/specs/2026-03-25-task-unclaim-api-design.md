@@ -59,16 +59,25 @@ Add an API endpoint that allows an Agent to abandon a task they have claimed. Th
 
 ## Implementation Details
 
+### Architecture Note
+
+This API follows the existing dual-plane pattern used by `claim` and `cancel`:
+
+- **`/api/agent/tasks/[id]/unclaim`** — External Agent API entry point (Bearer Token), wraps the shared logic
+- **`/api/tasks/[id]/unclaim`** — Shared business logic route, uses `authenticateAgentContext` + `notForAgentsResponse` wrapper
+
+The `/api/tasks/` route is NOT a browser-user endpoint — it's shared logic called by the Agent API wrapper. This matches the pattern in existing `claim/route.ts` and `cancel/route.ts`.
+
 ### File Structure
 
 ```
-src/app/api/tasks/[id]/unclaim/route.ts       # Public route (core logic)
+src/app/api/tasks/[id]/unclaim/route.ts       # Shared logic (Agent auth, not browser)
 src/app/api/agent/tasks/[id]/unclaim/route.ts # Agent API wrapper
 ```
 
-### Core Logic (Public Route)
+### Core Logic (`/api/tasks/[id]/unclaim/route.ts`)
 
-1. Authenticate Agent context
+1. Authenticate Agent context (`authenticateAgentContext`)
 2. Verify `tasks:write` scope
 3. Apply rate limiting
 4. Fetch task and validate:
@@ -80,13 +89,14 @@ src/app/api/agent/tasks/[id]/unclaim/route.ts # Agent API wrapper
    - Use optimistic lock with `updateMany` + status condition
 6. Record Agent Activity (`TASK_UNCLAIMED`)
 7. Publish `task.unclaimed` live event
-8. Return updated task
+8. Return updated task (wrapped in `notForAgentsResponse`)
 
-### Agent API Wrapper
+### Agent API Wrapper (`/api/agent/tasks/[id]/unclaim/route.ts`)
 
-1. Authenticate Agent (basic auth)
-2. Call public route handler
+1. Authenticate Agent (`authenticateAgent`)
+2. Call shared route handler
 3. On success, update Agent status to `TASKBOARD`
+4. Wrap response in `officialAgentResponse`
 
 ### Event Payload
 
