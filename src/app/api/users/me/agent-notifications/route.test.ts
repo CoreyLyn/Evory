@@ -114,6 +114,11 @@ test("GET /api/users/me/agent-notifications returns 401 without auth", async () 
 
 test("GET /api/users/me/agent-notifications returns mixed unread items for owned agents", async () => {
   mockAuthenticatedUser();
+  const forumFindManyArgs: Record<string, unknown>[] = [];
+  const taskFindManyArgs: Record<string, unknown>[] = [];
+  const forumCountArgs: Record<string, unknown>[] = [];
+  const taskCountArgs: Record<string, unknown>[] = [];
+
   prismaClient.agent = {
     findMany: async () => [
       { id: "author-1", name: "Author Agent" },
@@ -121,47 +126,57 @@ test("GET /api/users/me/agent-notifications returns mixed unread items for owned
     ],
   };
   prismaClient.forumEngagementInboxItem = {
-    findMany: async () => [
-      createForumEngagementInboxItemFixture({
-        id: "forum-eng-1",
-        type: "REPLY",
-        createdAt: new Date("2026-03-25T09:59:00.000Z"),
-        replyId: "reply-1",
-        replyPreview: "Useful reply",
-        post: {
-          id: "post-1",
-          title: "Forum post",
-        },
-        actorAgent: {
-          id: "actor-1",
-          name: "Forum Actor",
-          type: "CODEX",
-        },
-      }),
-    ],
-    count: async ({ where }: { where: Record<string, unknown> }) =>
-      where.type === "REPLY" ? 1 : 0,
+    findMany: async (args: Record<string, unknown>) => {
+      forumFindManyArgs.push(args);
+      return [
+        createForumEngagementInboxItemFixture({
+          id: "forum-eng-1",
+          type: "REPLY",
+          createdAt: new Date("2026-03-25T09:59:00.000Z"),
+          replyId: "reply-1",
+          replyPreview: "Useful reply",
+          post: {
+            id: "post-1",
+            title: "Forum post",
+          },
+          actorAgent: {
+            id: "actor-1",
+            name: "Forum Actor",
+            type: "CODEX",
+          },
+        }),
+      ];
+    },
+    count: async (args: { where: Record<string, unknown> }) => {
+      forumCountArgs.push(args.where);
+      return args.where.type === "REPLY" ? 1 : 0;
+    },
     updateMany: async () => ({ count: 1 }),
   };
   prismaClient.taskEngagementInboxItem = {
-    findMany: async () => [
-      createTaskEngagementInboxItemFixture({
-        id: "task-eng-1",
-        type: "CLAIMED",
-        createdAt: new Date("2026-03-25T09:58:00.000Z"),
-        task: {
-          id: "task-1",
-          title: "Task title",
-        },
-        actorAgent: {
-          id: "actor-2",
-          name: "Task Actor",
-          type: "CUSTOM",
-        },
-      }),
-    ],
-    count: async ({ where }: { where: Record<string, unknown> }) =>
-      where.type === "CLAIMED" ? 1 : 0,
+    findMany: async (args: Record<string, unknown>) => {
+      taskFindManyArgs.push(args);
+      return [
+        createTaskEngagementInboxItemFixture({
+          id: "task-eng-1",
+          type: "CLAIMED",
+          createdAt: new Date("2026-03-25T09:58:00.000Z"),
+          task: {
+            id: "task-1",
+            title: "Task title",
+          },
+          actorAgent: {
+            id: "actor-2",
+            name: "Task Actor",
+            type: "CUSTOM",
+          },
+        }),
+      ];
+    },
+    count: async (args: { where: Record<string, unknown> }) => {
+      taskCountArgs.push(args.where);
+      return args.where.type === "CLAIMED" ? 1 : 0;
+    },
     updateMany: async () => ({ count: 1 }),
   };
 
@@ -181,6 +196,58 @@ test("GET /api/users/me/agent-notifications returns mixed unread items for owned
   assert.equal(json.data.claimCount, 1);
   assert.equal(json.data.likeCount, 0);
   assert.equal(json.data.completeCount, 0);
+  assert.deepEqual(forumFindManyArgs, [
+    {
+      where: {
+        agentId: { in: ["author-1", "creator-1"] },
+        viewerReadAt: null,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: {
+        post: true,
+        actorAgent: true,
+      },
+    },
+  ]);
+  assert.deepEqual(taskFindManyArgs, [
+    {
+      where: {
+        agentId: { in: ["author-1", "creator-1"] },
+        viewerReadAt: null,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: {
+        task: true,
+        actorAgent: true,
+      },
+    },
+  ]);
+  assert.deepEqual(forumCountArgs, [
+    {
+      agentId: { in: ["author-1", "creator-1"] },
+      viewerReadAt: null,
+      type: "LIKE",
+    },
+    {
+      agentId: { in: ["author-1", "creator-1"] },
+      viewerReadAt: null,
+      type: "REPLY",
+    },
+  ]);
+  assert.deepEqual(taskCountArgs, [
+    {
+      agentId: { in: ["author-1", "creator-1"] },
+      viewerReadAt: null,
+      type: "CLAIMED",
+    },
+    {
+      agentId: { in: ["author-1", "creator-1"] },
+      viewerReadAt: null,
+      type: "COMPLETED",
+    },
+  ]);
   assert.deepEqual(
     json.data.items.map((item: { domain: string }) => item.domain),
     ["FORUM", "TASK"]
@@ -193,38 +260,46 @@ test("GET /api/users/me/agent-notifications returns mixed unread items for owned
 
 test("GET /api/users/me/agent-notifications returns only the recent compact slice", async () => {
   mockAuthenticatedUser();
+  const findManyArgs: Record<string, unknown>[] = [];
+  const countArgs: Record<string, unknown>[] = [];
+
   prismaClient.agent = {
     findMany: async () => [{ id: "author-1", name: "Author Agent" }],
   };
   prismaClient.forumEngagementInboxItem = {
-    findMany: async () => [
-      createForumEngagementInboxItemFixture({
-        id: "forum-eng-1",
-        createdAt: new Date("2026-03-25T10:05:00.000Z"),
-      }),
-      createForumEngagementInboxItemFixture({
-        id: "forum-eng-2",
-        createdAt: new Date("2026-03-25T10:04:00.000Z"),
-      }),
-      createForumEngagementInboxItemFixture({
-        id: "forum-eng-3",
-        createdAt: new Date("2026-03-25T10:03:00.000Z"),
-      }),
-      createForumEngagementInboxItemFixture({
-        id: "forum-eng-4",
-        createdAt: new Date("2026-03-25T10:02:00.000Z"),
-      }),
-      createForumEngagementInboxItemFixture({
-        id: "forum-eng-5",
-        createdAt: new Date("2026-03-25T10:01:00.000Z"),
-      }),
-      createForumEngagementInboxItemFixture({
-        id: "forum-eng-6",
-        createdAt: new Date("2026-03-25T10:00:00.000Z"),
-      }),
-    ],
-    count: async ({ where }: { where: Record<string, unknown> }) =>
-      where.type === "LIKE" ? 6 : 0,
+    findMany: async (args: Record<string, unknown>) => {
+      findManyArgs.push(args);
+      return [
+        createForumEngagementInboxItemFixture({
+          id: "forum-eng-1",
+          createdAt: new Date("2026-03-25T10:05:00.000Z"),
+        }),
+        createForumEngagementInboxItemFixture({
+          id: "forum-eng-2",
+          createdAt: new Date("2026-03-25T10:04:00.000Z"),
+        }),
+        createForumEngagementInboxItemFixture({
+          id: "forum-eng-3",
+          createdAt: new Date("2026-03-25T10:03:00.000Z"),
+        }),
+        createForumEngagementInboxItemFixture({
+          id: "forum-eng-4",
+          createdAt: new Date("2026-03-25T10:02:00.000Z"),
+        }),
+        createForumEngagementInboxItemFixture({
+          id: "forum-eng-5",
+          createdAt: new Date("2026-03-25T10:01:00.000Z"),
+        }),
+        createForumEngagementInboxItemFixture({
+          id: "forum-eng-6",
+          createdAt: new Date("2026-03-25T10:00:00.000Z"),
+        }),
+      ];
+    },
+    count: async (args: { where: Record<string, unknown> }) => {
+      countArgs.push(args.where);
+      return args.where.type === "LIKE" ? 6 : 0;
+    },
     updateMany: async () => ({ count: 6 }),
   };
   prismaClient.taskEngagementInboxItem = {
@@ -249,6 +324,32 @@ test("GET /api/users/me/agent-notifications returns only the recent compact slic
   assert.equal(json.data.replyCount, 0);
   assert.equal(json.data.claimCount, 0);
   assert.equal(json.data.completeCount, 0);
+  assert.deepEqual(findManyArgs, [
+    {
+      where: {
+        agentId: { in: ["author-1"] },
+        viewerReadAt: null,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: {
+        post: true,
+        actorAgent: true,
+      },
+    },
+  ]);
+  assert.deepEqual(countArgs, [
+    {
+      agentId: { in: ["author-1"] },
+      viewerReadAt: null,
+      type: "LIKE",
+    },
+    {
+      agentId: { in: ["author-1"] },
+      viewerReadAt: null,
+      type: "REPLY",
+    },
+  ]);
   assert.deepEqual(json.data.items.map((item: { id: string }) => item.id), [
     "forum-eng-1",
     "forum-eng-2",

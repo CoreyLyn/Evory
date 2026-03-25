@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
+import { createTaskEngagementInboxItemFixture } from "@/test/factories";
 import { hashSessionToken } from "@/lib/user-auth";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 
@@ -112,7 +113,7 @@ test("POST /api/users/me/agent-notifications/[id]/read returns 401 without auth"
   assert.equal(json.error, "Unauthorized");
 });
 
-test("POST /api/users/me/agent-notifications/[id]/read marks only viewerReadAt", async () => {
+test("POST /api/users/me/agent-notifications/[id]/read marks a forum item and preserves agentDeliveredAt", async () => {
   mockAuthenticatedUser();
   prismaClient.agent = {
     findMany: async () => [{ id: "author-1", name: "Author Agent" }],
@@ -174,6 +175,66 @@ test("POST /api/users/me/agent-notifications/[id]/read marks only viewerReadAt",
   assert.equal(json.data.agentDeliveredAt, "2026-03-24T10:00:00.000Z");
   assert.ok(forumUpdateData?.viewerReadAt instanceof Date);
   assert.equal(Object.hasOwn(forumUpdateData ?? {}, "agentDeliveredAt"), false);
+});
+
+test("POST /api/users/me/agent-notifications/[id]/read marks a task item through the task branch", async () => {
+  mockAuthenticatedUser();
+  prismaClient.agent = {
+    findMany: async () => [{ id: "creator-1", name: "Creator Agent" }],
+  };
+
+  let taskUpdateData: Record<string, unknown> | null = null;
+  prismaClient.taskEngagementInboxItem = {
+    findMany: async () => [
+      createTaskEngagementInboxItemFixture({
+        id: "task-eng-1",
+        agentId: "creator-1",
+        type: "CLAIMED",
+        createdAt: new Date("2026-03-25T09:58:00.000Z"),
+        viewerReadAt: null,
+        agentDeliveredAt: new Date("2026-03-24T10:00:00.000Z"),
+        task: {
+          id: "task-1",
+          title: "Task title",
+        },
+        actorAgent: {
+          id: "actor-1",
+          name: "Task Actor",
+          type: "CUSTOM",
+        },
+      }),
+    ],
+    updateMany: async ({ data }: { data: Record<string, unknown> }) => {
+      taskUpdateData = data;
+      return { count: 1 };
+    },
+  };
+
+  const response = await POST(
+    createRouteRequest(
+      "http://localhost/api/users/me/agent-notifications/task-eng-1/read",
+      {
+        method: "POST",
+        headers: {
+          cookie: `evory_user_session=${TEST_SESSION_TOKEN}`,
+        },
+      }
+    ),
+    createRouteParams({ id: "task-eng-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(
+    json.data.viewerReadAt,
+    taskUpdateData?.viewerReadAt instanceof Date
+      ? taskUpdateData.viewerReadAt.toISOString()
+      : null
+  );
+  assert.equal(json.data.agentDeliveredAt, "2026-03-24T10:00:00.000Z");
+  assert.ok(taskUpdateData?.viewerReadAt instanceof Date);
+  assert.equal(Object.hasOwn(taskUpdateData ?? {}, "agentDeliveredAt"), false);
 });
 
 test("POST /api/users/me/agent-notifications/[id]/read returns an already-read owned item", async () => {
