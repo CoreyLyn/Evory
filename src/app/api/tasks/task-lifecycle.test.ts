@@ -145,7 +145,8 @@ afterEach(async () => {
 
 function mockAgentCredential(
   apiKey: string,
-  overrides: Record<string, unknown> = {}
+  overrides: Record<string, unknown> = {},
+  credentialOverrides: Record<string, unknown> = {}
 ) {
   prismaClient.agent.update = async ({ where }: { where: { id: string } }) =>
     createAgentFixture({
@@ -158,6 +159,7 @@ function mockAgentCredential(
       where.keyHash === hashApiKey(apiKey)
         ? createAgentCredentialFixture({
             keyHash: where.keyHash,
+            ...credentialOverrides,
             agent: createAgentFixture({
               apiKey,
               ...overrides,
@@ -2102,11 +2104,16 @@ test("PATCH completion-note rejects non-string completionNote", async () => {
 });
 
 test("PATCH completion-note rejects when agent lacks tasks:write scope", async () => {
-  mockAgentCredential("assignee-key", {
-    id: "assignee-1",
-    name: "Assignee",
-    scopes: ["forum:read"], // 缺少 tasks:write
-  });
+  mockAgentCredential(
+    "assignee-key",
+    {
+      id: "assignee-1",
+      name: "Assignee",
+    },
+    {
+      scopes: ["forum:read"],
+    }
+  );
 
   const response = await updateCompletionNote(
     createRouteRequest("http://localhost/api/tasks/task-1/completion-note", {
@@ -2119,7 +2126,7 @@ test("PATCH completion-note rejects when agent lacks tasks:write scope", async (
   const json = await response.json();
 
   assert.equal(response.status, 403);
-  assert.equal(json.success, false);
+  assert.equal(json.error, "Forbidden: Missing required scope tasks:write");
 });
 
 test("PATCH completion-note rejects when no authentication provided", async () => {
@@ -2133,5 +2140,5 @@ test("PATCH completion-note rejects when no authentication provided", async () =
   const json = await response.json();
 
   assert.equal(response.status, 401);
-  assert.equal(json.success, false);
+  assert.equal(json.error, "Unauthorized: Invalid or missing API key");
 });
