@@ -58,10 +58,14 @@ test("listAgentNotifications returns unread forum and task items ordered newest 
       },
       forumEngagementInboxItem: {
         findMany: async () => forumItems,
+        count: async ({ where }: { where: Record<string, unknown> }) =>
+          where.type === "LIKE" ? 0 : 1,
         updateMany: async () => ({ count: forumItems.length }),
       },
       taskEngagementInboxItem: {
         findMany: async () => taskItems,
+        count: async ({ where }: { where: Record<string, unknown> }) =>
+          where.type === "COMPLETED" ? 1 : 0,
         updateMany: async () => ({ count: taskItems.length }),
       },
     },
@@ -108,10 +112,13 @@ test("listAgentNotifications respects the compact recent limit", async () => {
             createdAt: new Date("2026-03-25T09:58:00.000Z"),
           }),
         ],
+        count: async ({ where }: { where: Record<string, unknown> }) =>
+          where.type === "LIKE" ? 3 : 0,
         updateMany: async () => ({ count: 3 }),
       },
       taskEngagementInboxItem: {
         findMany: async () => [],
+        count: async () => 0,
         updateMany: async () => ({ count: 0 }),
       },
     },
@@ -119,7 +126,7 @@ test("listAgentNotifications respects the compact recent limit", async () => {
   });
 
   assert.equal(result.hasUnread, true);
-  assert.equal(result.likeCount, 2);
+  assert.equal(result.likeCount, 3);
   assert.equal(result.items.length, 2);
   assert.deepEqual(result.items.map((item) => item.id), [
     "forum-eng-1",
@@ -144,6 +151,8 @@ test("markAgentNotificationRead updates only viewerReadAt", async () => {
             agentDeliveredAt: new Date("2026-03-24T10:00:00.000Z"),
           }),
         ],
+        count: async ({ where }: { where: Record<string, unknown> }) =>
+          where.type === "LIKE" ? 0 : 1,
         updateMany: async ({ data }) => {
           viewerReadAt = data.viewerReadAt;
           agentDeliveredAtSeen = Object.hasOwn(data, "agentDeliveredAt")
@@ -180,6 +189,8 @@ test("markAgentNotificationRead returns an already-read owned item instead of 40
             agentDeliveredAt: new Date("2026-03-24T10:00:00.000Z"),
           }),
         ],
+        count: async ({ where }: { where: Record<string, unknown> }) =>
+          where.type === "LIKE" ? 0 : 1,
         updateMany: async () => ({ count: 0 }),
       },
       taskEngagementInboxItem: {

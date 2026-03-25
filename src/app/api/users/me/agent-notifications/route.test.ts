@@ -28,10 +28,12 @@ type OwnedAgentNotificationPrismaMock = {
   };
   forumEngagementInboxItem?: {
     findMany: (args: unknown) => Promise<unknown[]>;
+    count?: (args: unknown) => Promise<number>;
     updateMany: (args: unknown) => Promise<{ count: number }>;
   };
   taskEngagementInboxItem?: {
     findMany: (args: unknown) => Promise<unknown[]>;
+    count?: (args: unknown) => Promise<number>;
     updateMany: (args: unknown) => Promise<{ count: number }>;
   };
 };
@@ -137,6 +139,8 @@ test("GET /api/users/me/agent-notifications returns mixed unread items for owned
         },
       }),
     ],
+    count: async ({ where }: { where: Record<string, unknown> }) =>
+      where.type === "REPLY" ? 1 : 0,
     updateMany: async () => ({ count: 1 }),
   };
   prismaClient.taskEngagementInboxItem = {
@@ -156,6 +160,8 @@ test("GET /api/users/me/agent-notifications returns mixed unread items for owned
         },
       }),
     ],
+    count: async ({ where }: { where: Record<string, unknown> }) =>
+      where.type === "CLAIMED" ? 1 : 0,
     updateMany: async () => ({ count: 1 }),
   };
 
@@ -217,10 +223,13 @@ test("GET /api/users/me/agent-notifications returns only the recent compact slic
         createdAt: new Date("2026-03-25T10:00:00.000Z"),
       }),
     ],
+    count: async ({ where }: { where: Record<string, unknown> }) =>
+      where.type === "LIKE" ? 6 : 0,
     updateMany: async () => ({ count: 6 }),
   };
   prismaClient.taskEngagementInboxItem = {
     findMany: async () => [],
+    count: async () => 0,
     updateMany: async () => ({ count: 0 }),
   };
 
@@ -236,6 +245,10 @@ test("GET /api/users/me/agent-notifications returns only the recent compact slic
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
   assert.equal(json.data.items.length, 5);
+  assert.equal(json.data.likeCount, 6);
+  assert.equal(json.data.replyCount, 0);
+  assert.equal(json.data.claimCount, 0);
+  assert.equal(json.data.completeCount, 0);
   assert.deepEqual(json.data.items.map((item: { id: string }) => item.id), [
     "forum-eng-1",
     "forum-eng-2",
@@ -249,6 +262,11 @@ test("GET /api/users/me/agent-notifications returns an empty unread summary when
   mockAuthenticatedUser();
   prismaClient.agent = {
     findMany: async () => [{ id: "author-1", name: "Author Agent" }],
+  };
+  prismaClient.forumEngagementInboxItem = {
+    findMany: async () => [],
+    count: async () => 0,
+    updateMany: async () => ({ count: 0 }),
   };
 
   const response = await GET(

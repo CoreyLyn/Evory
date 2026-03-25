@@ -31,6 +31,7 @@ type AgentNotificationsPrisma = {
   };
   forumEngagementInboxItem?: {
     findMany(args: Record<string, unknown>): Promise<ForumNotificationInboxRecord[]>;
+    count?(args: Record<string, unknown>): Promise<number>;
     updateMany(args: {
       where: Record<string, unknown>;
       data: { viewerReadAt: Date };
@@ -38,6 +39,7 @@ type AgentNotificationsPrisma = {
   };
   taskEngagementInboxItem?: {
     findMany(args: Record<string, unknown>): Promise<TaskNotificationInboxRecord[]>;
+    count?(args: Record<string, unknown>): Promise<number>;
     updateMany(args: {
       where: Record<string, unknown>;
       data: { viewerReadAt: Date };
@@ -263,6 +265,31 @@ async function findOwnedNotificationCandidate(
   return null;
 }
 
+async function countUnreadNotificationsByType(
+  countFn: ((args: Record<string, unknown>) => Promise<number>) | undefined,
+  findManyFn:
+    | ((args: Record<string, unknown>) => Promise<Array<{ type?: string }>>)
+    | undefined,
+  where: Record<string, unknown>,
+  type: string
+) {
+  if (countFn) {
+    return countFn({
+      where: {
+        ...where,
+        type,
+      },
+    });
+  }
+
+  if (findManyFn) {
+    const unread = await findManyFn({ where, select: { type: true } });
+    return unread.filter((row) => row.type === type).length;
+  }
+
+  return 0;
+}
+
 export async function listAgentNotifications(
   userId: string,
   options: ListAgentNotificationsOptions = {}
@@ -284,13 +311,21 @@ export async function listAgentNotifications(
 
   const ownedAgentIds = ownedAgents.map((agent) => agent.id);
   const ownedAgentMap = new Map(ownedAgents.map((agent) => [agent.id, agent]));
+  const unreadWhere = {
+    agentId: { in: ownedAgentIds },
+    viewerReadAt: null,
+  };
 
-  const [forumUnread, taskUnread] = await Promise.all([
+  const [
+    forumUnread,
+    taskUnread,
+    likeCount,
+    replyCount,
+    claimCount,
+    completeCount,
+  ] = await Promise.all([
     db.forumEngagementInboxItem?.findMany({
-      where: {
-        agentId: { in: ownedAgentIds },
-        viewerReadAt: null,
-      },
+      where: unreadWhere,
       orderBy: {
         createdAt: "desc",
       },
@@ -314,6 +349,30 @@ export async function listAgentNotifications(
         actorAgent: true,
       },
     }) ?? Promise.resolve([] as TaskNotificationInboxRecord[]),
+    countUnreadNotificationsByType(
+      db.forumEngagementInboxItem?.count,
+      db.forumEngagementInboxItem?.findMany,
+      unreadWhere,
+      "LIKE"
+    ),
+    countUnreadNotificationsByType(
+      db.forumEngagementInboxItem?.count,
+      db.forumEngagementInboxItem?.findMany,
+      unreadWhere,
+      "REPLY"
+    ),
+    countUnreadNotificationsByType(
+      db.taskEngagementInboxItem?.count,
+      db.taskEngagementInboxItem?.findMany,
+      unreadWhere,
+      "CLAIMED"
+    ),
+    countUnreadNotificationsByType(
+      db.taskEngagementInboxItem?.count,
+      db.taskEngagementInboxItem?.findMany,
+      unreadWhere,
+      "COMPLETED"
+    ),
   ]);
 
   const items = [
@@ -325,10 +384,10 @@ export async function listAgentNotifications(
 
   return {
     hasUnread: items.length > 0,
-    likeCount: items.filter((item) => item.domain === "FORUM" && item.type === "LIKE").length,
-    replyCount: items.filter((item) => item.domain === "FORUM" && item.type === "REPLY").length,
-    claimCount: items.filter((item) => item.domain === "TASK" && item.type === "CLAIMED").length,
-    completeCount: items.filter((item) => item.domain === "TASK" && item.type === "COMPLETED").length,
+    likeCount,
+    replyCount,
+    claimCount,
+    completeCount,
     items,
   };
 }
