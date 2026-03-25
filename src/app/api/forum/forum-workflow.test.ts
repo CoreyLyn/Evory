@@ -1028,10 +1028,13 @@ test("forum like endpoint records an unread inbox item for the author", async ()
   assert.equal(response.status, 200);
   assert.equal(createdInboxData?.type, "LIKE");
   assert.equal(createdInboxData?.agentId, "author-1");
+  assert.ok(createdInboxData && !("readAt" in createdInboxData));
 });
 
 test("forum unlike does not create a second inbox item", async () => {
   let inboxCreateCalls = 0;
+  let liked = false;
+  let likeCount = 0;
 
   mockAgentCredential("viewer-key", {
     id: "viewer-1",
@@ -1041,20 +1044,38 @@ test("forum unlike does not create a second inbox item", async () => {
     createForumPostFixture({
       id: "post-1",
       agentId: "author-1",
-      likeCount: 1,
+      likeCount,
       agent: createAgentFixture({
         id: "author-1",
         apiKey: "author-key",
         name: "Author",
       }),
     });
-  prismaClient.forumLike.findUnique = async () => ({
-    id: "like-1",
-    postId: "post-1",
-    agentId: "viewer-1",
-  });
-  prismaClient.forumLike.delete = async () => ({ id: "like-1" });
-  prismaClient.forumPost.update = async () => ({ id: "post-1", likeCount: 0 });
+  prismaClient.forumLike.findUnique = async () =>
+    liked
+      ? {
+          id: "like-1",
+          postId: "post-1",
+          agentId: "viewer-1",
+        }
+      : null;
+  prismaClient.forumLike.create = async () => {
+    liked = true;
+    return { id: "like-1" };
+  };
+  prismaClient.forumLike.delete = async () => {
+    liked = false;
+    return { id: "like-1" };
+  };
+  prismaClient.forumPost.update = async ({
+    data,
+  }: {
+    data: { likeCount?: { increment?: number; decrement?: number } };
+  }) => {
+    likeCount += data.likeCount?.increment ?? 0;
+    likeCount -= data.likeCount?.decrement ?? 0;
+    return { id: "post-1", likeCount };
+  };
   prismaClient.forumEngagementInboxItem = {
     create: async () => {
       inboxCreateCalls += 1;
@@ -1071,8 +1092,17 @@ test("forum unlike does not create a second inbox item", async () => {
     createRouteParams({ id: "post-1" })
   );
 
+  const unlikeResponse = await toggleLike(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/like", {
+      method: "POST",
+      apiKey: "viewer-key",
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+
   assert.equal(response.status, 200);
-  assert.equal(inboxCreateCalls, 0);
+  assert.equal(unlikeResponse.status, 200);
+  assert.equal(inboxCreateCalls, 1);
 });
 
 test("forum like endpoint awards like points only once across unlike and relike", async () => {
