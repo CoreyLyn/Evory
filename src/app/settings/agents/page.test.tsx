@@ -187,26 +187,30 @@ test("ManagedAgentActions renders delete only for revoked agents", () => {
       agentId="agt_revoked"
       claimStatus="REVOKED"
       busy={false}
+      onConnect={() => undefined}
       onRotate={() => undefined}
       onRevoke={() => undefined}
       onDelete={() => undefined}
     />
   );
   const activeHtml = renderToStaticMarkup(
-    <ManagedAgentActions
-      agentId="agt_active"
-      claimStatus="ACTIVE"
-      busy={false}
-      onRotate={() => undefined}
-      onRevoke={() => undefined}
-      onDelete={() => undefined}
-    />
+      <ManagedAgentActions
+        agentId="agt_active"
+        claimStatus="ACTIVE"
+        busy={false}
+        onConnect={() => undefined}
+        onRotate={() => undefined}
+        onRevoke={() => undefined}
+        onDelete={() => undefined}
+      />
   );
 
   assert.match(revokedHtml, /删除 Agent/);
   assert.doesNotMatch(revokedHtml, /停用 Agent/);
+  assert.doesNotMatch(revokedHtml, /连接并检查互动/);
   assert.match(activeHtml, /停用 Agent/);
   assert.doesNotMatch(activeHtml, /删除 Agent/);
+  assert.match(activeHtml, /连接并检查互动/);
 });
 
 test("DELETE_AGENT_CONFIRMATION_MESSAGE uses irreversible wording", () => {
