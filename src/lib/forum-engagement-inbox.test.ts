@@ -76,28 +76,41 @@ test("consumeForumEngagementInbox uses one timestamp for readAt and deliveredAt"
   assert.equal(updatedReadAt, "2026-03-25T10:00:00.000Z");
 });
 
-test("consumeForumEngagementInbox only returns rows this caller actually claimed during a same-timestamp overlap", async () => {
-  const unreadRows: Array<ForumEngagementInboxRecord & { readAt?: Date | null }> = [
-    createForumEngagementInboxItemFixture({
-      id: "eng-newest",
-      createdAt: new Date("2026-03-25T09:59:00.000Z"),
-      type: "REPLY",
-      replyId: "reply-1",
-      replyPreview: "Newest reply",
-    }),
-    createForumEngagementInboxItemFixture({
-      id: "eng-middle",
-      createdAt: new Date("2026-03-25T09:55:00.000Z"),
-      type: "LIKE",
-    }),
-    createForumEngagementInboxItemFixture({
-      id: "eng-oldest",
-      createdAt: new Date("2026-03-25T09:50:00.000Z"),
-      type: "LIKE",
-    }),
+test("consumeForumEngagementInbox returns empty for the loser when a same-timestamp overlap cannot claim the full unread set", async () => {
+  const unreadRowsByTransaction: ForumEngagementInboxRecord[][] = [
+    [
+      createForumEngagementInboxItemFixture({
+        id: "eng-newest",
+        createdAt: new Date("2026-03-25T09:59:00.000Z"),
+        type: "REPLY",
+        replyId: "reply-1",
+        replyPreview: "Newest reply",
+      }),
+      createForumEngagementInboxItemFixture({
+        id: "eng-middle",
+        createdAt: new Date("2026-03-25T09:55:00.000Z"),
+        type: "LIKE",
+      }),
+      createForumEngagementInboxItemFixture({
+        id: "eng-oldest",
+        createdAt: new Date("2026-03-25T09:50:00.000Z"),
+        type: "LIKE",
+      }),
+    ],
+    [
+      createForumEngagementInboxItemFixture({
+        id: "eng-middle",
+        createdAt: new Date("2026-03-25T09:55:00.000Z"),
+        type: "LIKE",
+      }),
+      createForumEngagementInboxItemFixture({
+        id: "eng-oldest",
+        createdAt: new Date("2026-03-25T09:50:00.000Z"),
+        type: "LIKE",
+      }),
+    ],
   ];
 
-  const claimedByTransaction = new Map<number, string[]>();
   let transactionCount = 0;
 
   const prismaMock = {
@@ -114,53 +127,21 @@ test("consumeForumEngagementInbox only returns rows this caller actually claimed
         };
       }) => Promise<unknown>
     ) => {
-      transactionCount += 1;
       const txId = transactionCount;
-      claimedByTransaction.set(txId, []);
+      transactionCount += 1;
 
       return callback({
         forumEngagementInboxItem: {
-          findMany: async (args): Promise<ForumEngagementInboxRecord[]> => {
-            const where = args.where as { readAt?: Date | null };
-
-            if (where.readAt === null) {
-              return unreadRows.map((item) => ({ ...item }));
-            }
-
-            return unreadRows.filter(
-              (item) =>
-                item.readAt instanceof Date &&
-                where.readAt instanceof Date &&
-                item.readAt.getTime() === where.readAt.getTime()
-            );
-          },
-          updateMany: async ({ where, data }) => {
-            const id = where.id as string;
-            const row = unreadRows.find((entry) => entry.id === id);
-            if (!row || row.readAt) {
-              return { count: 0 };
-            }
-
-            if (txId === 1 && (id === "eng-newest" || id === "eng-middle")) {
-              row.readAt = data.readAt;
-              claimedByTransaction.get(txId)?.push(id);
-              return { count: 1 };
-            }
-
-            if (txId === 2 && id === "eng-oldest") {
-              row.readAt = data.readAt;
-              claimedByTransaction.get(txId)?.push(id);
-              return { count: 1 };
-            }
-
-            return { count: 0 };
-          },
+          findMany: async () => unreadRowsByTransaction[txId] ?? [],
+          updateMany: async () => ({
+            count: txId === 0 ? 3 : 1,
+          }),
         },
       });
     },
   };
 
-  const [first, second] = await Promise.all([
+  const [winner, loser] = await Promise.all([
     consumeForumEngagementInbox("author-1", {
       prisma: prismaMock,
       now: () => new Date("2026-03-25T10:00:00.000Z"),
@@ -171,10 +152,12 @@ test("consumeForumEngagementInbox only returns rows this caller actually claimed
     }),
   ]);
 
-  assert.equal(first.deliveredAt, "2026-03-25T10:00:00.000Z");
-  assert.equal(second.deliveredAt, "2026-03-25T10:00:00.000Z");
-  assert.deepEqual(first.items.map((item) => item.id), ["eng-newest", "eng-middle"]);
-  assert.deepEqual(second.items.map((item) => item.id), ["eng-oldest"]);
-  assert.deepEqual(claimedByTransaction.get(1), ["eng-newest", "eng-middle"]);
-  assert.deepEqual(claimedByTransaction.get(2), ["eng-oldest"]);
+  assert.equal(winner.deliveredAt, "2026-03-25T10:00:00.000Z");
+  assert.deepEqual(winner.items.map((item) => item.id), [
+    "eng-newest",
+    "eng-middle",
+    "eng-oldest",
+  ]);
+  assert.equal(loser.deliveredAt, "2026-03-25T10:00:00.000Z");
+  assert.deepEqual(loser.items, []);
 });

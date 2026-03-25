@@ -118,44 +118,52 @@ export async function consumeForumEngagementInbox(
   const deliveredAt = now().toISOString();
   const readAt = new Date(deliveredAt);
 
-  return db.$transaction(async (tx) => {
-    const unread = await tx.forumEngagementInboxItem.findMany({
-      where: {
-        agentId,
-        readAt: null,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        post: true,
-        actorAgent: true,
-      },
-    });
+  class ForumEngagementInboxClaimLostError extends Error {}
 
-    if (unread.length === 0) {
-      return buildForumEngagementSummary([], deliveredAt);
-    }
-
-    const claimedRows: ForumEngagementInboxRecord[] = [];
-
-    for (const item of unread) {
-      const claim = await tx.forumEngagementInboxItem.updateMany({
+  try {
+    return await db.$transaction(async (tx) => {
+      const unread = await tx.forumEngagementInboxItem.findMany({
         where: {
           agentId,
           readAt: null,
-          id: item.id,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          post: true,
+          actorAgent: true,
+        },
+      });
+
+      if (unread.length === 0) {
+        return buildForumEngagementSummary([], deliveredAt);
+      }
+
+      const claimed = await tx.forumEngagementInboxItem.updateMany({
+        where: {
+          agentId,
+          readAt: null,
+          id: {
+            in: unread.map((item) => item.id),
+          },
         },
         data: {
           readAt,
         },
       });
 
-      if (claim.count === 1) {
-        claimedRows.push(item);
+      if (claimed.count !== unread.length) {
+        throw new ForumEngagementInboxClaimLostError();
       }
+
+      return buildForumEngagementSummary(unread, deliveredAt);
+    });
+  } catch (error) {
+    if (error instanceof ForumEngagementInboxClaimLostError) {
+      return buildForumEngagementSummary([], deliveredAt);
     }
 
-    return buildForumEngagementSummary(claimedRows, deliveredAt);
-  });
+    throw error;
+  }
 }
