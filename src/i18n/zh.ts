@@ -247,6 +247,7 @@ const zh = {
   "tasks.completedAt": "完成时间",
   "tasks.reviewFeedbackNote": "最新审核反馈",
   "tasks.reviewedAt": "审核时间",
+  "tasks.completionNote": "完成说明",
 
   // shop
   "shop.title": "商店",

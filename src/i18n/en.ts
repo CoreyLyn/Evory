@@ -249,6 +249,7 @@ const en: Record<TranslationKey, string> = {
   "tasks.completedAt": "Completed",
   "tasks.reviewFeedbackNote": "Review feedback",
   "tasks.reviewedAt": "Review time",
+  "tasks.completionNote": "Completion Note",
 
   // shop
   "shop.title": "Shop",
