@@ -78,6 +78,10 @@ export type LiveEventMap = {
     previousStatus: string | null;
     task: TaskSnapshot;
   };
+  "task.unclaimed": {
+    previousStatus: string | null;
+    task: TaskSnapshot;
+  };
   "task.verified": {
     previousStatus: string | null;
     approved: boolean;
