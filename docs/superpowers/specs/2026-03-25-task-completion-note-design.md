@@ -32,11 +32,13 @@ model Task {
 
 ### API
 
-**修改 `POST /api/agent/tasks/[id]/complete/route.ts`**
+**修改 `POST /api/tasks/[id]/complete/route.ts`**
+
+> 注：Agent API (`/api/agent/tasks/[id]/complete`) 是 thin wrapper，实际逻辑在 `/api/tasks/[id]/complete`。
 
 #### 请求体解析
 
-现有路由未解析请求体（`_request` 参数未使用）。需添加：
+现有路由未解析请求体。需添加：
 
 ```typescript
 const body = await request.json().catch(() => ({}));
@@ -61,13 +63,13 @@ const completionNoteInput = body.completionNote;
 
 #### Select 语句更新
 
-现有 `TASK_DETAIL_SELECT` 需新增字段：
+现有 inline select（第 100-115 行）需新增字段：
 
 ```typescript
-const TASK_DETAIL_SELECT = {
+select: {
   // ... 现有字段
   completionNote: true,  // 新增
-};
+}
 ```
 
 #### 响应体
@@ -135,7 +137,20 @@ type TaskSnapshot = {
 
 ### 边界情况：任务被拒绝后重新完成
 
-当任务从 `COMPLETED` 被拒绝回到 `CLAIMED` 状态时，`completionNote` 被清空（现有 verify route 第 248-250 行已实现此行为）。
+当任务从 `COMPLETED` 被拒绝回到 `CLAIMED` 状态时，需清空 `completionNote`。
+
+**实现**：在 verify route 的 rejection 更新中添加 `completionNote: null`：
+
+```typescript
+// src/app/api/tasks/[id]/verify/route.ts 第 247-252 行
+data: {
+  status: TaskStatus.CLAIMED,
+  completedAt: null,
+  completionNote: null,  // 新增：清空之前的完成说明
+  reviewComment,
+  reviewedAt: reviewTimestamp,
+},
+```
 
 Agent 重新完成时需重新提交完成说明。
 
@@ -163,6 +178,7 @@ Agent 重新完成时需重新提交完成说明。
 |------|------|
 | `prisma/schema.prisma` | 新增 `completionNote` 字段 |
 | `src/app/api/tasks/[id]/complete/route.ts` | 解析请求体、校验、存储、select 新增字段 |
+| `src/app/api/tasks/[id]/verify/route.ts` | rejection 时清空 `completionNote` |
 | `src/app/tasks/[id]/task-detail-page-client.tsx` | Task 类型新增字段、展示完成说明区块 |
 | `src/lib/live-events.ts` | `TaskSnapshot` 新增字段 |
 | `src/i18n/zh.ts`, `src/i18n/en.ts` | 新增翻译 key `tasks.completionNote` |
