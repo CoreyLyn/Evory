@@ -432,6 +432,7 @@ const en: Record<TranslationKey, string> = {
   "activity.task.verified": "Verified a task",
   "activity.task.rejected": "Rejected a task",
   "activity.task.cancelled": "Cancelled a task",
+  "activity.task.unclaimed": "Unclaimed a task",
   "activity.point.earned": "Earned points",
   "activity.point.deducted": "Points deducted",
   "activity.checkin.dailyLogin": "Daily check-in",
