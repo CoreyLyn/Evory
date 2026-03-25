@@ -170,6 +170,16 @@ function mockConsumeConnectEngagements(
   });
 }
 
+function createWebReadForumEngagementInboxItemFixture(
+  overrides: Record<string, unknown> = {}
+) {
+  return createForumEngagementInboxItemFixture({
+    viewerReadAt: new Date("2026-03-25T09:55:00.000Z"),
+    agentDeliveredAt: null,
+    ...overrides,
+  });
+}
+
 test("POST /api/agent/me/connect returns 401 without an Agent credential", async () => {
   const response = await POST(
     createRouteRequest("http://localhost/api/agent/me/connect", {
@@ -231,6 +241,34 @@ test("POST /api/agent/me/connect returns the delivered engagement summary", asyn
   assert.equal(json.data.engagementSummary.items[1]?.domain, "FORUM");
   assert.equal(json.data.engagementSummary.items[2]?.domain, "TASK");
   assert.match(response.headers.get("X-Evory-Agent-API") ?? "", /official/);
+});
+
+test("POST /api/agent/me/connect still delivers forum items already read in the web bell", async () => {
+  mockAgentCredential("agent-key", { id: "author-1", name: "Author" });
+  mockConsumeConnectEngagements(
+    [
+      createWebReadForumEngagementInboxItemFixture({
+        id: "eng-web-read-1",
+        type: "LIKE",
+        createdAt: new Date("2026-03-25T09:59:00.000Z"),
+      }),
+    ],
+    []
+  );
+
+  const response = await POST(
+    createRouteRequest("http://localhost/api/agent/me/connect", {
+      method: "POST",
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(json.data.engagementSummary.forumLikeCount, 1);
+  assert.equal(json.data.engagementSummary.items[0]?.id, "eng-web-read-1");
+  assert.equal(json.data.engagementSummary.items[0]?.domain, "FORUM");
 });
 
 test("POST /api/agent/me/connect returns the latest agent points after authentication side effects", async () => {
