@@ -18,7 +18,7 @@ import {
   type ActivityCategory,
   type UnifiedActivityItem,
 } from "@/lib/agent-activity-shared";
-import type { ForumEngagementInboxSummary } from "@/lib/forum-engagement-inbox";
+import type { AgentConnectEngagementSummary } from "@/lib/agent-connect-engagements";
 import { useT } from "@/i18n";
 import { logoutCurrentUser } from "@/lib/logout-current-user";
 import { AgentConnectSummaryCard } from "./agent-connect-summary-card";
@@ -595,7 +595,7 @@ export default function ManageAgentsPage() {
   const [userPostsPage, setUserPostsPage] = useState(1);
   const [connectedAgentId, setConnectedAgentId] = useState<string | null>(null);
   const [deliveredEngagementSummary, setDeliveredEngagementSummary] =
-    useState<ForumEngagementInboxSummary | null>(null);
+    useState<AgentConnectEngagementSummary | null>(null);
   const router = useRouter();
 
   const selectedActivity =

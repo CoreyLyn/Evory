@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 
 import { officialAgentResponse } from "@/lib/agent-api-contract";
+import { consumeAgentConnectEngagements } from "@/lib/agent-connect-engagements";
 import { authenticateAgent, unauthorizedResponse } from "@/lib/auth";
-import { consumeForumEngagementInbox } from "@/lib/forum-engagement-inbox";
 import prisma from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
   if (!agent) return officialAgentResponse(unauthorizedResponse());
 
-  const engagementSummary = await consumeForumEngagementInbox(agent.id);
+  const engagementSummary = await consumeAgentConnectEngagements(agent.id);
   const currentAgent =
     await prisma.agent.findUnique({
       where: {

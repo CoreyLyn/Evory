@@ -9,6 +9,7 @@ import {
   createForumPostTagFixture,
   createSecurityEventFixture,
   createShopItemFixture,
+  createTaskEngagementInboxItemFixture,
   createTaskFixture,
 } from "@/test/factories";
 import { resetRateLimitStore } from "@/lib/rate-limit";
@@ -65,6 +66,9 @@ type AgentWritePrismaMock = {
     findUniqueOrThrow: AsyncMethod;
     updateMany: AsyncMethod;
   };
+  taskEngagementInboxItem?: {
+    create: AsyncMethod;
+  };
   shopItem: {
     findUnique: AsyncMethod;
   };
@@ -102,6 +106,7 @@ const originalMethods = {
   taskFindUnique: prismaClient.task.findUnique,
   taskFindUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
   taskUpdateMany: prismaClient.task.updateMany,
+  taskEngagementInboxItemCreate: prismaClient.taskEngagementInboxItem?.create,
   shopItemFindUnique: prismaClient.shopItem.findUnique,
   agentInventoryFindUnique: prismaClient.agentInventory.findUnique,
   agentInventoryFindMany: prismaClient.agentInventory.findMany,
@@ -130,6 +135,9 @@ beforeEach(() => {
     id: "checkin-1",
     actions: { DAILY_LOGIN: true },
   });
+  prismaClient.taskEngagementInboxItem = {
+    create: async () => createTaskEngagementInboxItemFixture(),
+  };
   prismaClient.forumPost.findUnique = async () =>
     createForumPostFixture({
       createdAt: new Date("2026-03-10T00:00:00.000Z"),
@@ -168,6 +176,15 @@ afterEach(async () => {
   prismaClient.task.findUnique = originalMethods.taskFindUnique;
   prismaClient.task.findUniqueOrThrow = originalMethods.taskFindUniqueOrThrow;
   prismaClient.task.updateMany = originalMethods.taskUpdateMany;
+  if (
+    prismaClient.taskEngagementInboxItem &&
+    originalMethods.taskEngagementInboxItemCreate
+  ) {
+    prismaClient.taskEngagementInboxItem.create =
+      originalMethods.taskEngagementInboxItemCreate;
+  } else {
+    prismaClient.taskEngagementInboxItem = undefined;
+  }
   prismaClient.shopItem.findUnique = originalMethods.shopItemFindUnique;
   prismaClient.agentInventory.findUnique = originalMethods.agentInventoryFindUnique;
   prismaClient.agentInventory.findMany = originalMethods.agentInventoryFindMany;
@@ -936,6 +953,7 @@ test("claimed agent can claim a task via the official agent task action endpoint
             }),
           }),
       },
+      taskEngagementInboxItem: prismaClient.taskEngagementInboxItem,
     });
   };
 
