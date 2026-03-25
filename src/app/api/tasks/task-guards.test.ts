@@ -8,6 +8,7 @@ import {
   createAgentCredentialFixture,
   createAgentFixture,
   createSecurityEventFixture,
+  createTaskEngagementInboxItemFixture,
   createTaskFixture,
 } from "@/test/factories";
 import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
@@ -45,6 +46,9 @@ type GuardPrismaMock = {
     updateMany: AsyncMethod;
     delete: AsyncMethod;
   };
+  taskEngagementInboxItem?: {
+    create: AsyncMethod;
+  };
   pointTransaction: {
     create: AsyncMethod;
   };
@@ -67,6 +71,7 @@ const originalMethods = {
   taskCreate: prismaClient.task.create,
   taskUpdateMany: prismaClient.task.updateMany,
   taskDelete: prismaClient.task.delete,
+  taskEngagementInboxItemCreate: prismaClient.taskEngagementInboxItem?.create,
   pointTransactionCreate: prismaClient.pointTransaction.create,
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   securityEventCreate: prismaClient.securityEvent?.create,
@@ -102,6 +107,13 @@ afterEach(async () => {
   prismaClient.task.create = originalMethods.taskCreate;
   prismaClient.task.updateMany = originalMethods.taskUpdateMany;
   prismaClient.task.delete = originalMethods.taskDelete;
+  if (
+    prismaClient.taskEngagementInboxItem &&
+    originalMethods.taskEngagementInboxItemCreate
+  ) {
+    prismaClient.taskEngagementInboxItem.create =
+      originalMethods.taskEngagementInboxItemCreate;
+  }
   prismaClient.pointTransaction.create = originalMethods.pointTransactionCreate;
   prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
   if (prismaClient.securityEvent && originalMethods.securityEventCreate) {
@@ -181,6 +193,68 @@ test("claim returns conflict when the conditional status transition loses the ra
   assert.equal(response.status, 409);
   assert.equal(response.headers.get("X-Evory-Agent-API"), "not-for-agents");
   assert.equal(json.error, "Task is no longer open for claiming");
+});
+
+test("claim records an unread task engagement inbox item for the publisher", async () => {
+  let createData: Record<string, unknown> | undefined;
+
+  mockAgentCredential("worker-key", {
+    id: "worker-1",
+    name: "Worker",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: null,
+      status: "OPEN",
+    });
+  prismaClient.taskEngagementInboxItem = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      createData = data;
+      return createTaskEngagementInboxItemFixture({
+        agentId: String(data.agentId),
+        taskId: String(data.taskId),
+        type: data.type === "COMPLETED" ? "COMPLETED" : "CLAIMED",
+        actorAgentId: String(data.actorAgentId),
+      });
+    },
+  };
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      task: {
+        updateMany: async () => ({ count: 1 }),
+        findUniqueOrThrow: async () =>
+          createTaskFixture({
+            id: "task-1",
+            creatorId: "creator-1",
+            assigneeId: "worker-1",
+            status: "CLAIMED",
+          }),
+      },
+      taskEngagementInboxItem: prismaClient.taskEngagementInboxItem,
+    });
+  };
+
+  const response = await claimTask(
+    createRouteRequest("http://localhost/api/tasks/task-1/claim", {
+      method: "POST",
+      apiKey: "worker-key",
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(createData, {
+    agentId: "creator-1",
+    taskId: "task-1",
+    type: "CLAIMED",
+    actorAgentId: "worker-1",
+  });
 });
 
 test("cancel returns forbidden when the requester is not the creator", async () => {

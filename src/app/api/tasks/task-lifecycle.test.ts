@@ -9,6 +9,7 @@ import {
   createAgentCredentialFixture,
   createAgentFixture,
   createSecurityEventFixture,
+  createTaskEngagementInboxItemFixture,
   createTaskFixture,
 } from "@/test/factories";
 import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
@@ -48,6 +49,9 @@ type TaskPrismaMock = {
     update: AsyncMethod;
     updateMany: AsyncMethod;
   };
+  taskEngagementInboxItem?: {
+    create: AsyncMethod;
+  };
   pointTransaction: {
     create: AsyncMethod;
   };
@@ -73,6 +77,7 @@ const originalMethods = {
   taskFindUniqueOrThrow: prismaClient.task.findUniqueOrThrow,
   taskUpdate: prismaClient.task.update,
   taskUpdateMany: prismaClient.task.updateMany,
+  taskEngagementInboxItemCreate: prismaClient.taskEngagementInboxItem?.create,
   pointTransactionCreate: prismaClient.pointTransaction.create,
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   dailyCheckinUpsert: prismaClient.dailyCheckin.upsert,
@@ -88,6 +93,9 @@ beforeEach(() => {
   };
   prismaClient.agentActivity = {
     create: async () => ({ id: "activity-1" }),
+  };
+  prismaClient.taskEngagementInboxItem = {
+    create: async () => createTaskEngagementInboxItemFixture(),
   };
   prismaClient.dailyCheckin.findUnique = async () => ({
     id: "checkin-1",
@@ -118,6 +126,15 @@ afterEach(async () => {
   prismaClient.task.findUniqueOrThrow = originalMethods.taskFindUniqueOrThrow;
   prismaClient.task.update = originalMethods.taskUpdate;
   prismaClient.task.updateMany = originalMethods.taskUpdateMany;
+  if (
+    prismaClient.taskEngagementInboxItem &&
+    originalMethods.taskEngagementInboxItemCreate
+  ) {
+    prismaClient.taskEngagementInboxItem.create =
+      originalMethods.taskEngagementInboxItemCreate;
+  } else {
+    prismaClient.taskEngagementInboxItem = undefined;
+  }
   prismaClient.pointTransaction.create = originalMethods.pointTransactionCreate;
   prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
   prismaClient.dailyCheckin.upsert = originalMethods.dailyCheckinUpsert;
@@ -296,6 +313,110 @@ test("complete accepts optional completionNote and stores it", async () => {
     json.data.completionNote,
     "### Summary\n- Implemented feature X\n- Added tests"
   );
+});
+
+test("complete records an unread task engagement inbox item for the publisher", async () => {
+  let createData: Record<string, unknown> | undefined;
+
+  mockAgentCredential("assignee-key", {
+    id: "assignee-1",
+    name: "Assignee",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      status: "CLAIMED",
+    });
+
+  prismaClient.task.updateMany = async () => ({ count: 1 });
+  prismaClient.task.findUniqueOrThrow = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      status: "COMPLETED",
+    });
+  prismaClient.taskEngagementInboxItem = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      createData = data;
+      return createTaskEngagementInboxItemFixture({
+        agentId: String(data.agentId),
+        taskId: String(data.taskId),
+        type: data.type === "CLAIMED" ? "CLAIMED" : "COMPLETED",
+        actorAgentId: String(data.actorAgentId),
+      });
+    },
+  };
+  prismaClient.$transaction = async (callback: (tx: unknown) => Promise<unknown>) =>
+    callback({
+      ...prismaClient,
+      taskEngagementInboxItem: prismaClient.taskEngagementInboxItem,
+    });
+
+  const response = await completeTask(
+    createRouteRequest("http://localhost/api/tasks/task-1/complete", {
+      method: "POST",
+      apiKey: "assignee-key",
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(createData, {
+    agentId: "creator-1",
+    taskId: "task-1",
+    type: "COMPLETED",
+    actorAgentId: "assignee-1",
+  });
+});
+
+test("complete does not create a task engagement inbox item for self-completed tasks", async () => {
+  let createCalls = 0;
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "creator-1",
+      status: "CLAIMED",
+    });
+
+  prismaClient.task.updateMany = async () => ({ count: 1 });
+  prismaClient.task.findUniqueOrThrow = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "creator-1",
+      status: "COMPLETED",
+    });
+  prismaClient.taskEngagementInboxItem = {
+    create: async () => {
+      createCalls += 1;
+      return createTaskEngagementInboxItemFixture();
+    },
+  };
+  prismaClient.$transaction = async (callback: (tx: unknown) => Promise<unknown>) =>
+    callback({
+      ...prismaClient,
+      taskEngagementInboxItem: prismaClient.taskEngagementInboxItem,
+    });
+
+  const response = await completeTask(
+    createRouteRequest("http://localhost/api/tasks/task-1/complete", {
+      method: "POST",
+      apiKey: "creator-key",
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(createCalls, 0);
 });
 
 test("complete succeeds without completionNote field", async () => {
