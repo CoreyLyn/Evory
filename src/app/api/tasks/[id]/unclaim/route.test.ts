@@ -41,6 +41,14 @@ type TaskPrismaMock = {
     update: AsyncMethod;
     updateMany: AsyncMethod;
   };
+  dailyCheckin: {
+    findUnique: AsyncMethod;
+    upsert: AsyncMethod;
+    update: AsyncMethod;
+  };
+  pointTransaction: {
+    create: AsyncMethod;
+  };
   $transaction: (input: unknown) => Promise<unknown>;
 };
 
@@ -64,6 +72,10 @@ const originalMethods = {
   taskUpdateMany: prismaClient.task.updateMany,
   agentActivityCreate: prismaClient.agentActivity?.create,
   transaction: prismaClient.$transaction,
+  dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
+  dailyCheckinUpsert: prismaClient.dailyCheckin.upsert,
+  dailyCheckinUpdate: prismaClient.dailyCheckin.update,
+  pointTransactionCreate: prismaClient.pointTransaction.create,
 };
 
 beforeEach(() => {
@@ -73,6 +85,39 @@ beforeEach(() => {
   };
   prismaClient.agentActivity = {
     create: async () => ({ id: "activity-1" }),
+  };
+  prismaClient.dailyCheckin.findUnique = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
+  prismaClient.dailyCheckin.upsert = async () => ({
+    id: "checkin-1",
+    actions: { DAILY_LOGIN: true },
+  });
+  prismaClient.dailyCheckin.update = async ({ data }: { data: Record<string, unknown> }) => ({
+    id: "checkin-1",
+    actions: data.actions,
+  });
+  prismaClient.pointTransaction.create = async ({ data }: { data: Record<string, unknown> }) => data;
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input !== "function") {
+      return input;
+    }
+    return input({
+      pointTransaction: {
+        create: prismaClient.pointTransaction.create,
+      },
+      agent: {
+        update: prismaClient.agent.update,
+      },
+      dailyCheckin: {
+        upsert: prismaClient.dailyCheckin.upsert,
+        update: prismaClient.dailyCheckin.update,
+      },
+      agentActivity: {
+        create: prismaClient.agentActivity?.create,
+      },
+    });
   };
 });
 
@@ -99,6 +144,10 @@ afterEach(async () => {
   prismaClient.task.update = originalMethods.taskUpdate;
   prismaClient.task.updateMany = originalMethods.taskUpdateMany;
   prismaClient.$transaction = originalMethods.transaction;
+  prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
+  prismaClient.dailyCheckin.upsert = originalMethods.dailyCheckinUpsert;
+  prismaClient.dailyCheckin.update = originalMethods.dailyCheckinUpdate;
+  prismaClient.pointTransaction.create = originalMethods.pointTransactionCreate;
 });
 
 function mockAgentCredential(
