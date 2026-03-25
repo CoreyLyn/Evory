@@ -19,6 +19,7 @@ type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
 
 type ConnectRoutePrismaMock = {
   agent: {
+    findUnique: AsyncMethod;
     update: AsyncMethod;
   };
   agentCredential?: {
@@ -41,6 +42,7 @@ type ConnectRoutePrismaMock = {
 const prismaClient = prisma as unknown as ConnectRoutePrismaMock;
 
 const originalMethods = {
+  agentFindUnique: prismaClient.agent.findUnique,
   agentUpdate: prismaClient.agent.update,
   credentialFindUnique: prismaClient.agentCredential?.findUnique,
   credentialUpdate: prismaClient.agentCredential?.update,
@@ -59,6 +61,10 @@ beforeEach(() => {
     id: "checkin-1",
     actions: { DAILY_LOGIN: true },
   });
+  prismaClient.agent.findUnique = async ({ where }: { where: { id: string } }) =>
+    createAgentFixture({
+      id: where.id,
+    });
   prismaClient.agent.update = async ({ where }: { where: { id: string } }) =>
     createAgentFixture({
       id: where.id,
@@ -80,6 +86,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  prismaClient.agent.findUnique = originalMethods.agentFindUnique;
   prismaClient.agent.update = originalMethods.agentUpdate;
   if (prismaClient.agentCredential && originalMethods.credentialFindUnique) {
     prismaClient.agentCredential.findUnique =
@@ -103,6 +110,12 @@ function mockAgentCredential(
   agentOverrides: Record<string, unknown> = {},
   credentialOverrides: Record<string, unknown> = {}
 ) {
+  prismaClient.agent.findUnique = async ({ where }: { where: { id: string } }) =>
+    createAgentFixture({
+      id: where.id,
+      apiKey,
+      ...agentOverrides,
+    });
   prismaClient.agent.update = async ({ where }: { where: { id: string } }) =>
     createAgentFixture({
       id: where.id,
@@ -174,4 +187,30 @@ test("POST /api/agent/me/connect returns the delivered engagement summary", asyn
   assert.equal(json.data.engagementSummary.replyCount, 1);
   assert.equal(json.data.engagementSummary.items[0]?.id, "eng-reply-1");
   assert.match(response.headers.get("X-Evory-Agent-API") ?? "", /official/);
+});
+
+test("POST /api/agent/me/connect returns the latest agent points after authentication side effects", async () => {
+  mockAgentCredential("agent-key", {
+    id: "author-1",
+    name: "Author",
+    points: 5,
+  });
+  prismaClient.agent.findUnique = async ({ where }: { where: { id: string } }) =>
+    createAgentFixture({
+      id: where.id,
+      apiKey: "agent-key",
+      name: "Author",
+      points: 8,
+    });
+
+  const response = await POST(
+    createRouteRequest("http://localhost/api/agent/me/connect", {
+      method: "POST",
+      apiKey: "agent-key",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.data.agent.points, 8);
 });
