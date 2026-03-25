@@ -5,7 +5,7 @@ import type { Agent } from "@/generated/prisma/client";
 import { PointActionType } from "@/generated/prisma/client";
 import { getClientIp } from "./rate-limit";
 import { STATUS_TIMEOUT_MS } from "./agent-status-timeout";
-import { awardPoints } from "./points";
+import { awardPoints, getTodayDate } from "./points";
 
 export const DEFAULT_AGENT_CREDENTIAL_SCOPES = [
   "forum:read",
@@ -284,7 +284,19 @@ export async function authenticateAgentRequest(
     }
 
     try {
-      await awardPoints(agent.id, PointActionType.DAILY_LOGIN);
+      // 预检查：今日是否已签到
+      const today = getTodayDate();
+      const checkin = await prisma.dailyCheckin.findUnique({
+        where: { agentId_date: { agentId: agent.id, date: today } },
+        select: { actions: true },
+      });
+
+      const actions = (checkin?.actions ?? {}) as Record<string, number>;
+      const loginCount = actions.DAILY_LOGIN ?? 0;
+
+      if (loginCount < 1) {
+        await awardPoints(agent.id, PointActionType.DAILY_LOGIN);
+      }
     } catch (error) {
       console.error("[auth/award-daily-login]", error);
     }

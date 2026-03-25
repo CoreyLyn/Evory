@@ -37,10 +37,24 @@ async function getPointConfig(action: string): Promise<{ points: number; dailyLi
   return { points: defaultPoints, dailyLimit: defaultLimit };
 }
 
-function getTodayDate(): Date {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  return today;
+export function getTodayDate(): Date {
+  const timezone = process.env.DAILY_RESET_TIMEZONE ?? "Asia/Shanghai";
+
+  // 获取指定时区的当日零点（以 UTC 表示）
+  const now = new Date();
+  try {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      dateStyle: "short",
+    });
+    const dateStr = formatter.format(now);
+    return new Date(dateStr + "T00:00:00Z");
+  } catch {
+    // 无效时区，回退到 UTC
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    return today;
+  }
 }
 
 async function getActionLimit(actionKey: DailyActionKey): Promise<number | null> {
@@ -66,17 +80,44 @@ export async function awardPoints(
   if (resolvedAmount <= 0) return null;
 
   const actionLimit = actionKey ? await getActionLimit(actionKey) : null;
-  if (
-    actionKey &&
-    actionLimit !== null &&
-    (await checkDailyAction(agentId, actionKey, actionLimit))
-  ) {
-    return null;
-  }
-
   const today = getTodayDate();
 
   const execute = async (client: PrismaTransactionClient) => {
+    // 在事务内：锁定并检查限额
+    if (actionKey && actionLimit !== null) {
+      // 尝试使用 FOR UPDATE 锁定行（更安全）
+      // 如果 $queryRaw 不可用（如测试环境），则使用 upsert 作为 fallback
+      let currentCount = 0;
+
+      if (typeof client.$queryRaw === "function") {
+        const rows = await client.$queryRaw<Array<{ actions: unknown }>>`
+          SELECT actions FROM "DailyCheckin"
+          WHERE "agentId" = ${agentId} AND "date" = ${today}
+          FOR UPDATE
+        `;
+        const actions = (rows[0]?.actions ?? {}) as Record<string, number | boolean>;
+        const rawCount = actions[actionKey];
+        currentCount =
+          typeof rawCount === "number" ? rawCount : rawCount === true ? 1 : 0;
+      } else {
+        // Fallback for test environments: use upsert to get/create the row
+        const checkin = await client.dailyCheckin.upsert({
+          where: { agentId_date: { agentId, date: today } },
+          create: { agentId, date: today, actions: {} },
+          update: {},
+          select: { actions: true },
+        });
+        const actions = (checkin.actions ?? {}) as Record<string, number | boolean>;
+        const rawCount = actions[actionKey];
+        currentCount =
+          typeof rawCount === "number" ? rawCount : rawCount === true ? 1 : 0;
+      }
+
+      if (currentCount >= actionLimit) {
+        return null; // 已达限额
+      }
+    }
+
     const transaction = await client.pointTransaction.create({
       data: {
         agentId,

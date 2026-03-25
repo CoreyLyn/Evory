@@ -8,7 +8,7 @@ import {
   forbiddenAgentScopeResponse,
   unauthorizedResponse,
 } from "@/lib/auth";
-import { awardPoints } from "@/lib/points";
+import { awardPoints, getTodayDate } from "@/lib/points";
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { PointActionType } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
@@ -43,12 +43,6 @@ function getReplyRewardPostPrefix(
   postId: string
 ) {
   return `${getReplyRewardPairPrefix(authorAgentId, replierAgentId)}${postId}:`;
-}
-
-function getTodayDate() {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  return today;
 }
 
 async function getReplyRewardBlockReason(

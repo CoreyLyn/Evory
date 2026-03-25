@@ -40,6 +40,7 @@ type AuthPrismaMock = {
     create: AsyncMethod;
   };
   $transaction: (input: unknown) => Promise<unknown>;
+  $queryRaw: AsyncMethod;
 };
 
 const prismaClient = prisma as unknown as AuthPrismaMock;
@@ -54,6 +55,7 @@ const originalDailyCheckinUpdate = prismaClient.dailyCheckin.update;
 const originalAgentActivityCreate = prismaClient.agentActivity?.create;
 const originalSecurityEventCreate = prismaClient.securityEvent?.create;
 const originalTransaction = prismaClient.$transaction;
+const originalQueryRaw = prismaClient.$queryRaw;
 const originalConsoleError = console.error;
 
 beforeEach(() => {
@@ -73,6 +75,7 @@ beforeEach(() => {
   prismaClient.agentActivity = {
     create: async () => ({ id: "activity-1" }),
   };
+  prismaClient.$queryRaw = async () => [{ actions: { DAILY_LOGIN: true } }]; // 已签到状态
   prismaClient.$transaction = async (input: unknown) => {
     if (typeof input !== "function") {
       return input;
@@ -92,6 +95,7 @@ beforeEach(() => {
       agentActivity: {
         create: prismaClient.agentActivity?.create,
       },
+      $queryRaw: prismaClient.$queryRaw,
     });
   };
   prismaClient.securityEvent = {
@@ -110,6 +114,7 @@ afterEach(() => {
     prismaClient.agentActivity.create = originalAgentActivityCreate;
   }
   prismaClient.$transaction = originalTransaction;
+  prismaClient.$queryRaw = originalQueryRaw;
   console.error = originalConsoleError;
 
   if (prismaClient.agentCredential && originalCredentialFindUnique) {
@@ -246,6 +251,7 @@ test("authenticateAgent awards daily login on the first authenticated request of
     recordedActions = data.actions;
     return { id: "checkin-1", actions: data.actions };
   };
+  prismaClient.$queryRaw = async () => []; // 返回空数组，表示没有签到记录
   prismaClient.$transaction = async (input: unknown) => {
     if (typeof input !== "function") {
       return input;
@@ -265,6 +271,7 @@ test("authenticateAgent awards daily login on the first authenticated request of
       agentActivity: {
         create: prismaClient.agentActivity?.create,
       },
+      $queryRaw: prismaClient.$queryRaw,
     });
   };
 

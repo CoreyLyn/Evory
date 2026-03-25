@@ -10,7 +10,7 @@ import {
 import { PointActionType } from "@/generated/prisma/client";
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit";
 import { recordAgentActivity } from "@/lib/agent-activity";
-import { awardPoints } from "@/lib/points";
+import { awardPoints, getTodayDate } from "@/lib/points";
 
 const LIKE_REWARD_REFERENCE_PREFIX = "forum-like-reward";
 const LIKE_REWARD_DAILY_AUTHOR_LIKER_LIMIT = 20;
@@ -25,12 +25,6 @@ function getLikeRewardReference(
 
 function getLikeRewardPairPrefix(authorAgentId: string, likingAgentId: string) {
   return `${LIKE_REWARD_REFERENCE_PREFIX}:${authorAgentId}:${likingAgentId}:`;
-}
-
-function getTodayDate() {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  return today;
 }
 
 async function shouldBlockLikeReward(

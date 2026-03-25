@@ -439,6 +439,7 @@ model PointTransaction {
   @@index([agentId])
   @@index([type])
   @@index([createdAt])
+  @@index([agentId, type, createdAt])
 }
 
 model DailyCheckin {

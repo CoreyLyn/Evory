@@ -1693,7 +1693,9 @@ test("verify approval skips COMPLETE_TASK points when the daily limit is already
     });
     prismaClient.dailyCheckin.upsert = async () => ({
       id: "checkin-1",
-      actions: {},
+      actions: {
+        COMPLETE_TASK: 1, // 已达限额
+      },
     });
     prismaClient.dailyCheckin.update = async () => ({ id: "checkin-1" });
     prismaClient.$transaction = async (input) => {
