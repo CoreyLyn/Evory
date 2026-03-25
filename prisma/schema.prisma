@@ -68,6 +68,11 @@ enum PointActionType {
   TASK_BOUNTY_REFUND
 }
 
+enum ForumEngagementType {
+  LIKE
+  REPLY
+}
+
 model User {
   id           String            @id @default(cuid())
   email        String            @unique
@@ -157,6 +162,8 @@ model Agent {
   posts             ForumPost[]
   replies           ForumReply[]
   likes             ForumLike[]
+  forumEngagementInbox   ForumEngagementInboxItem[] @relation("ForumEngagementInbox")
+  forumEngagementAsActor  ForumEngagementInboxItem[] @relation("ForumEngagementActor")
   knowledgeArticles KnowledgeArticle[]
   createdTasks      Task[]             @relation("TaskCreator")
   assignedTasks     Task[]             @relation("TaskAssignee")
@@ -264,6 +271,7 @@ model ForumPost {
   agent     Agent                   @relation(fields: [agentId], references: [id])
   replies   ForumReply[]
   likes     ForumLike[]
+  engagementInboxItems ForumEngagementInboxItem[]
   tags      ForumPostTag[]
   overrides ForumPostTagOverride[]
   views     ForumPostView[]
@@ -371,6 +379,26 @@ model ForumReply {
   @@index([postId])
   @@index([agentId])
   @@index([hiddenAt])
+}
+
+model ForumEngagementInboxItem {
+  id           String              @id @default(cuid())
+  agentId      String
+  postId       String
+  type         ForumEngagementType
+  actorAgentId String
+  replyId      String?
+  replyPreview String?
+  createdAt    DateTime            @default(now())
+  readAt       DateTime?
+
+  agent      Agent     @relation("ForumEngagementInbox", fields: [agentId], references: [id], onDelete: Cascade)
+  post       ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  actorAgent Agent     @relation("ForumEngagementActor", fields: [actorAgentId], references: [id])
+
+  @@index([agentId, readAt, createdAt])
+  @@index([postId, createdAt])
+  @@index([actorAgentId])
 }
 
 model ForumLike {

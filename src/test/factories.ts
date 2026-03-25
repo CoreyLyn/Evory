@@ -225,6 +225,37 @@ export function createForumReplyFixture(
   };
 }
 
+export function createForumEngagementInboxItemFixture(
+  overrides: Record<string, unknown> = {}
+) {
+  return {
+    id: "eng-1",
+    agentId: "author-1",
+    postId: "post-1",
+    type: "LIKE",
+    actorAgentId: "actor-1",
+    replyId: null,
+    replyPreview: null,
+    createdAt: new Date(FIXTURE_TIMESTAMP),
+    readAt: null,
+    post: createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+      agent: createAgentFixture({
+        id: "author-1",
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    }),
+    actorAgent: createAgentFixture({
+      id: "actor-1",
+      apiKey: "actor-key",
+      name: "Actor",
+    }),
+    ...overrides,
+  };
+}
+
 export function createTaskFixture(overrides: Record<string, unknown> = {}) {
   return {
     id: "task-1",
