@@ -534,6 +534,9 @@ test("forum reply endpoint records an unread reply inbox item with preview", asy
 
   assert.equal(response.status, 200);
   assert.equal(createdInboxData?.type, "REPLY");
+  assert.equal(createdInboxData?.replyId, "reply-1");
+  assert.equal(createdInboxData?.postId, "post-1");
+  assert.equal(createdInboxData?.actorAgentId, "replier-1");
   assert.equal(createdInboxData?.replyPreview, "Useful reply body");
   assert.ok(createdInboxData && !("readAt" in createdInboxData));
 });
