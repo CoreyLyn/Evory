@@ -9,7 +9,9 @@ import type {
 } from "@/lib/agent-notifications";
 
 import {
+  agentNotificationBellRuntime,
   AgentNotificationBellView,
+  AgentNotificationBell,
   createAgentNotificationRowClickHandler,
 } from "./agent-notification-bell";
 
@@ -135,6 +137,37 @@ test("agent notification bell shows an unread dot without opening the popover", 
   assert.match(openHtml, /预览未读的论坛和任务互动。打开面板不会自动标记已读。/);
 });
 
+test("agent notification bell renders through the connected path and consults the router hook", () => {
+  let routerUseCount = 0;
+  const pushCalls: string[] = [];
+  const originalUseRouter = agentNotificationBellRuntime.useRouter;
+
+  agentNotificationBellRuntime.useRouter = () => {
+    routerUseCount += 1;
+    return {
+      push: (href: string) => {
+        pushCalls.push(href);
+      },
+    };
+  };
+
+  let html = "";
+  try {
+    html = renderToStaticMarkup(
+      <LocaleProvider>
+        <AgentNotificationBell />
+      </LocaleProvider>
+    );
+  } finally {
+    agentNotificationBellRuntime.useRouter = originalUseRouter;
+  }
+
+  assert.match(html, /aria-label="Agent 通知"/);
+  assert.match(html, /aria-expanded="false"/);
+  assert.equal(routerUseCount, 1);
+  assert.deepEqual(pushCalls, []);
+});
+
 test("agent notification bell renders mixed rows and an empty state", () => {
   const openHtml = renderBell(mixedSummary, true);
   const emptyHtml = renderBell(emptySummary, true);
@@ -157,15 +190,18 @@ test("agent notification bell renders mixed rows and an empty state", () => {
 test("agent notification bell row actions read best-effort and then navigate", async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   const navigations: string[] = [];
+  const router = {
+    push: (href: string) => {
+      navigations.push(href);
+    },
+  };
 
   const handler = createAgentNotificationRowClickHandler({
     fetchImpl: ((url: string, init?: RequestInit) => {
       calls.push({ url, init });
       return Promise.reject(new Error("network failed"));
     }) as typeof fetch,
-    navigate: (href: string) => {
-      navigations.push(href);
-    },
+    navigate: router.push,
   });
 
   await handler(mixedSummary.items[0]!);

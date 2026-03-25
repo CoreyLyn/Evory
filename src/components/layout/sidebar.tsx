@@ -60,6 +60,13 @@ export type SidebarProps = {
   bellSlot?: ReactNode;
 };
 
+export const sidebarRuntime = {
+  usePathname: () => usePathname(),
+  useTheme: () => useTheme(),
+  useLocale: () => useLocale(),
+  useCurrentUser: () => useCurrentUser(),
+};
+
 export function SidebarView({
   pathname,
   theme,
@@ -197,11 +204,11 @@ export function SidebarView({
 }
 
 function SidebarConnected() {
-  const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
+  const pathname = sidebarRuntime.usePathname();
+  const { theme, setTheme } = sidebarRuntime.useTheme();
   const t = useT();
-  const { locale, setLocale } = useLocale();
-  const { isAdmin } = useCurrentUser();
+  const { locale, setLocale } = sidebarRuntime.useLocale();
+  const { isAdmin } = sidebarRuntime.useCurrentUser();
 
   return (
     <SidebarView
@@ -227,7 +234,7 @@ export function Sidebar(props?: SidebarProps) {
         locale={props.locale}
         setLocale={props.setLocale}
         isAdmin={props.isAdmin}
-        bellSlot={props.bellSlot ?? <AgentNotificationBell navigate={() => undefined} />}
+        bellSlot={props.bellSlot ?? <AgentNotificationBell />}
         t={props.t}
       />
     );

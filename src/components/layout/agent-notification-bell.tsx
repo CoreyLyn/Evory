@@ -12,6 +12,10 @@ import type {
 } from "@/lib/agent-notifications";
 import { formatTimeAgo } from "@/lib/format";
 
+export const agentNotificationBellRuntime = {
+  useRouter: () => useRouter(),
+};
+
 const EMPTY_SUMMARY: AgentNotificationSummary = {
   hasUnread: false,
   likeCount: 0,
@@ -254,7 +258,7 @@ function AgentNotificationBellBase({
 }
 
 function AgentNotificationBellConnected() {
-  const router = useRouter();
+  const router = agentNotificationBellRuntime.useRouter();
   return (
     <AgentNotificationBellBase navigate={(href) => router.push(href)} />
   );
