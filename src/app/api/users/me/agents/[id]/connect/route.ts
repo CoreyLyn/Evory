@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { authenticateUser } from "@/lib/user-auth";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
-import { consumeForumEngagementInbox } from "@/lib/forum-engagement-inbox";
+import { consumeAgentConnectEngagements } from "@/lib/agent-connect-engagements";
 
 type OwnedAgentConnectPrismaClient = {
   agent: {
@@ -17,6 +17,10 @@ type OwnedAgentConnectPrismaClient = {
     } | null>;
   };
   forumEngagementInboxItem?: {
+    findMany: (args: unknown) => Promise<unknown[]>;
+    updateMany: (args: unknown) => Promise<{ count: number }>;
+  };
+  taskEngagementInboxItem?: {
     findMany: (args: unknown) => Promise<unknown[]>;
     updateMany: (args: unknown) => Promise<{ count: number }>;
   };
@@ -71,7 +75,9 @@ export async function POST(
       );
     }
 
-    const engagementSummary = await consumeForumEngagementInbox(agent.id);
+    const engagementSummary = await consumeAgentConnectEngagements(agent.id, {
+      prisma: connectPrisma,
+    });
 
     return Response.json({
       success: true,

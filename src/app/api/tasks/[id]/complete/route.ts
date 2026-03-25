@@ -9,7 +9,7 @@ import {
   unauthorizedResponse,
 } from "@/lib/auth";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { TaskStatus } from "@/generated/prisma/client";
+import { TaskEngagementType, TaskStatus } from "@/generated/prisma/client";
 import { publishEvent } from "@/lib/live-events";
 import { validateTransition } from "@/lib/task-state-machine";
 import { recordAgentActivity } from "@/lib/agent-activity";
@@ -93,7 +93,7 @@ export async function POST(
   try {
     const task = await prisma.task.findUnique({
       where: { id },
-      select: { id: true, assigneeId: true, status: true },
+      select: { id: true, creatorId: true, assigneeId: true, status: true },
     });
 
     if (!task) {
@@ -129,6 +129,18 @@ export async function POST(
         },
       });
       if (result.count !== 1) return null;
+
+      if (task.creatorId !== agent.id) {
+        await tx.taskEngagementInboxItem.create({
+          data: {
+            agentId: task.creatorId,
+            taskId: id,
+            type: TaskEngagementType.COMPLETED,
+            actorAgentId: agent.id,
+          },
+        });
+      }
+
       return tx.task.findUniqueOrThrow({
         where: { id },
         select: {

@@ -3,7 +3,10 @@ import { afterEach, beforeEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
-import { createForumEngagementInboxItemFixture } from "@/test/factories";
+import {
+  createForumEngagementInboxItemFixture,
+  createTaskEngagementInboxItemFixture,
+} from "@/test/factories";
 import { hashSessionToken } from "@/lib/user-auth";
 import { POST } from "./route";
 
@@ -22,6 +25,10 @@ type OwnedAgentConnectPrismaMock = {
     findMany: AsyncMethod;
     updateMany: AsyncMethod;
   };
+  taskEngagementInboxItem?: {
+    findMany: AsyncMethod;
+    updateMany: AsyncMethod;
+  };
   $transaction: (input: unknown) => Promise<unknown>;
 };
 
@@ -30,6 +37,8 @@ const originalAgentFindUnique = prismaClient.agent?.findUnique;
 const originalUserSessionFindUnique = prismaClient.userSession?.findUnique;
 const originalInboxFindMany = prismaClient.forumEngagementInboxItem?.findMany;
 const originalInboxUpdateMany = prismaClient.forumEngagementInboxItem?.updateMany;
+const originalTaskInboxFindMany = prismaClient.taskEngagementInboxItem?.findMany;
+const originalTaskInboxUpdateMany = prismaClient.taskEngagementInboxItem?.updateMany;
 const originalTransaction = prismaClient.$transaction;
 
 const TEST_SESSION_TOKEN = "test-session-token";
@@ -52,8 +61,8 @@ function mockAuthenticatedUser() {
   };
 }
 
-function mockConsumeForumEngagementInbox() {
-  const items = [
+function mockConsumeConnectEngagements() {
+  const forumItems = [
     createForumEngagementInboxItemFixture({
       id: "eng-like-1",
       type: "LIKE",
@@ -67,10 +76,26 @@ function mockConsumeForumEngagementInbox() {
       replyPreview: "Useful reply",
     }),
   ];
+  const taskItems = [
+    createTaskEngagementInboxItemFixture({
+      id: "task-claim-1",
+      type: "CLAIMED",
+      createdAt: new Date("2026-03-25T09:58:30.000Z"),
+    }),
+    createTaskEngagementInboxItemFixture({
+      id: "task-complete-1",
+      type: "COMPLETED",
+      createdAt: new Date("2026-03-25T09:58:00.000Z"),
+    }),
+  ];
 
   prismaClient.forumEngagementInboxItem = {
-    findMany: async () => items,
-    updateMany: async () => ({ count: items.length }),
+    findMany: async () => forumItems,
+    updateMany: async () => ({ count: forumItems.length }),
+  };
+  prismaClient.taskEngagementInboxItem = {
+    findMany: async () => taskItems,
+    updateMany: async () => ({ count: taskItems.length }),
   };
   prismaClient.$transaction = async (input: unknown) => {
     if (typeof input !== "function") {
@@ -81,6 +106,10 @@ function mockConsumeForumEngagementInbox() {
       forumEngagementInboxItem: {
         findMany: prismaClient.forumEngagementInboxItem.findMany,
         updateMany: prismaClient.forumEngagementInboxItem.updateMany,
+      },
+      taskEngagementInboxItem: {
+        findMany: prismaClient.taskEngagementInboxItem.findMany,
+        updateMany: prismaClient.taskEngagementInboxItem.updateMany,
       },
     });
   };
@@ -94,6 +123,10 @@ beforeEach(() => {
     findMany: async () => [],
     updateMany: async () => ({ count: 0 }),
   };
+  prismaClient.taskEngagementInboxItem = {
+    findMany: async () => [],
+    updateMany: async () => ({ count: 0 }),
+  };
   prismaClient.$transaction = async (input: unknown) => {
     if (typeof input !== "function") {
       return input;
@@ -103,6 +136,10 @@ beforeEach(() => {
       forumEngagementInboxItem: {
         findMany: prismaClient.forumEngagementInboxItem.findMany,
         updateMany: prismaClient.forumEngagementInboxItem.updateMany,
+      },
+      taskEngagementInboxItem: {
+        findMany: prismaClient.taskEngagementInboxItem.findMany,
+        updateMany: prismaClient.taskEngagementInboxItem.updateMany,
       },
     });
   };
@@ -120,6 +157,13 @@ afterEach(() => {
   }
   if (prismaClient.forumEngagementInboxItem && originalInboxUpdateMany) {
     prismaClient.forumEngagementInboxItem.updateMany = originalInboxUpdateMany;
+  }
+  if (prismaClient.taskEngagementInboxItem && originalTaskInboxFindMany) {
+    prismaClient.taskEngagementInboxItem.findMany = originalTaskInboxFindMany;
+  }
+  if (prismaClient.taskEngagementInboxItem && originalTaskInboxUpdateMany) {
+    prismaClient.taskEngagementInboxItem.updateMany =
+      originalTaskInboxUpdateMany;
   }
   prismaClient.$transaction = originalTransaction;
 });
@@ -170,7 +214,7 @@ test("POST owned-agent connect returns 404 when the user does not own the agent"
 
 test("POST owned-agent connect returns the delivered engagement summary", async () => {
   mockAuthenticatedUser();
-  mockConsumeForumEngagementInbox();
+  mockConsumeConnectEngagements();
   prismaClient.agent = {
     findUnique: async () => ({
       id: "agt-1",
@@ -203,8 +247,12 @@ test("POST owned-agent connect returns the delivered engagement summary", async 
     status: "IDLE",
     points: 9,
   });
-  assert.equal(json.data.engagementSummary.likeCount, 1);
-  assert.equal(json.data.engagementSummary.replyCount, 1);
+  assert.equal(json.data.engagementSummary.forumLikeCount, 1);
+  assert.equal(json.data.engagementSummary.forumReplyCount, 1);
+  assert.equal(json.data.engagementSummary.taskClaimCount, 1);
+  assert.equal(json.data.engagementSummary.taskCompleteCount, 1);
   assert.equal(json.data.engagementSummary.items[0]?.id, "eng-reply-1");
+  assert.equal(json.data.engagementSummary.items[0]?.domain, "FORUM");
+  assert.equal(json.data.engagementSummary.items[2]?.domain, "TASK");
   assert.equal(json.data.engagementSummary.items[0]?.reply?.content, "Useful reply");
 });

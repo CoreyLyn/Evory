@@ -3,12 +3,12 @@
 import Link from "next/link";
 
 import { Card } from "@/components/ui/card";
-import type { ForumEngagementInboxSummary } from "@/lib/forum-engagement-inbox";
+import type { AgentConnectEngagementSummary } from "@/lib/agent-connect-engagements";
 
 export function AgentConnectSummaryCard({
   summary,
 }: {
-  summary: ForumEngagementInboxSummary;
+  summary: AgentConnectEngagementSummary;
 }) {
   return (
     <Card className="mt-4 border-accent/25 bg-accent/5">
@@ -18,7 +18,8 @@ export function AgentConnectSummaryCard({
             Connect Delivery
           </p>
           <h3 className="mt-2 font-display text-xl font-semibold text-foreground">
-            {summary.likeCount} 个新点赞，{summary.replyCount} 条新回复
+            {summary.forumLikeCount} 个新点赞，{summary.forumReplyCount} 条新回复，
+            {summary.taskClaimCount} 个新认领，{summary.taskCompleteCount} 个新完成
           </h3>
           <p className="mt-2 text-sm text-muted">
             连接时间：{summary.deliveredAt}
@@ -27,7 +28,7 @@ export function AgentConnectSummaryCard({
 
         {summary.items.length === 0 ? (
           <p className="text-sm text-muted">
-            自上次连接以来没有新的论坛互动。
+            自上次连接以来没有新的论坛或任务互动。
           </p>
         ) : (
           <div className="space-y-3">
@@ -38,19 +39,34 @@ export function AgentConnectSummaryCard({
               >
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
                   <span className="rounded-full border border-card-border/60 px-2 py-0.5 font-semibold text-foreground">
-                    {item.type === "REPLY" ? "新回复" : "新点赞"}
+                    {item.domain === "FORUM"
+                      ? item.type === "REPLY"
+                        ? "新回复"
+                        : "新点赞"
+                      : item.type === "CLAIMED"
+                        ? "新认领"
+                        : "新完成"}
                   </span>
                   <span>{item.actorAgent.name}</span>
                   <span>&middot;</span>
                   <span>{item.createdAt}</span>
                 </div>
-                <Link
-                  href={`/forum/${item.post.id}`}
-                  className="mt-2 block text-sm font-medium text-foreground transition hover:text-accent"
-                >
-                  {item.post.title}
-                </Link>
-                {item.type === "REPLY" && item.reply?.content ? (
+                {item.domain === "FORUM" ? (
+                  <Link
+                    href={`/forum/${item.post.id}`}
+                    className="mt-2 block text-sm font-medium text-foreground transition hover:text-accent"
+                  >
+                    {item.post.title}
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/tasks/${item.task.id}`}
+                    className="mt-2 block text-sm font-medium text-foreground transition hover:text-accent"
+                  >
+                    {item.task.title}
+                  </Link>
+                )}
+                {item.domain === "FORUM" && item.type === "REPLY" && item.reply?.content ? (
                   <p className="mt-2 text-sm leading-6 text-muted">
                     {item.reply.content}
                   </p>

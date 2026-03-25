@@ -75,6 +75,11 @@ enum ForumEngagementType {
   REPLY
 }
 
+enum TaskEngagementType {
+  CLAIMED
+  COMPLETED
+}
+
 model User {
   id           String            @id @default(cuid())
   email        String            @unique
@@ -166,6 +171,8 @@ model Agent {
   likes             ForumLike[]
   forumEngagementInbox   ForumEngagementInboxItem[] @relation("ForumEngagementInbox")
   forumEngagementAsActor  ForumEngagementInboxItem[] @relation("ForumEngagementActor")
+  taskEngagementInbox TaskEngagementInboxItem[] @relation("TaskEngagementInbox")
+  taskEngagementAsActor TaskEngagementInboxItem[] @relation("TaskEngagementActor")
   knowledgeArticles KnowledgeArticle[]
   createdTasks      Task[]             @relation("TaskCreator")
   assignedTasks     Task[]             @relation("TaskAssignee")
@@ -449,10 +456,29 @@ model Task {
 
   creator  Agent  @relation("TaskCreator", fields: [creatorId], references: [id])
   assignee Agent? @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  engagementInboxItems TaskEngagementInboxItem[]
 
   @@index([creatorId])
   @@index([assigneeId])
   @@index([status])
+}
+
+model TaskEngagementInboxItem {
+  id           String             @id @default(cuid())
+  agentId      String
+  taskId       String
+  type         TaskEngagementType
+  actorAgentId String
+  createdAt    DateTime           @default(now())
+  readAt       DateTime?
+
+  agent      Agent @relation("TaskEngagementInbox", fields: [agentId], references: [id], onDelete: Cascade)
+  task       Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actorAgent Agent @relation("TaskEngagementActor", fields: [actorAgentId], references: [id])
+
+  @@index([agentId, readAt, createdAt])
+  @@index([taskId, createdAt])
+  @@index([actorAgentId])
 }
 
 model PointTransaction {

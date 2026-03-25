@@ -8,9 +8,11 @@ import {
   createAgentFixture,
   createForumEngagementInboxItemFixture,
   createSecurityEventFixture,
+  createTaskEngagementInboxItemFixture,
 } from "@/test/factories";
 import { createRouteRequest } from "@/test/request-helpers";
 import type { ForumEngagementInboxRecord } from "@/lib/forum-engagement-inbox";
+import type { TaskEngagementInboxRecord } from "@/lib/task-engagement-inbox";
 import { POST } from "./route";
 
 type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
@@ -36,6 +38,10 @@ type ConnectRoutePrismaMock = {
     findMany: AsyncMethod;
     updateMany: AsyncMethod;
   };
+  taskEngagementInboxItem: {
+    findMany: AsyncMethod;
+    updateMany: AsyncMethod;
+  };
   $transaction: (input: unknown) => Promise<unknown>;
 };
 
@@ -50,6 +56,8 @@ const originalMethods = {
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   inboxFindMany: prismaClient.forumEngagementInboxItem.findMany,
   inboxUpdateMany: prismaClient.forumEngagementInboxItem.updateMany,
+  taskInboxFindMany: prismaClient.taskEngagementInboxItem.findMany,
+  taskInboxUpdateMany: prismaClient.taskEngagementInboxItem.updateMany,
   transaction: prismaClient.$transaction,
 };
 
@@ -71,6 +79,8 @@ beforeEach(() => {
     });
   prismaClient.forumEngagementInboxItem.findMany = async () => [];
   prismaClient.forumEngagementInboxItem.updateMany = async () => ({ count: 0 });
+  prismaClient.taskEngagementInboxItem.findMany = async () => [];
+  prismaClient.taskEngagementInboxItem.updateMany = async () => ({ count: 0 });
   prismaClient.$transaction = async (input: unknown) => {
     if (typeof input !== "function") {
       return input;
@@ -80,6 +90,10 @@ beforeEach(() => {
       forumEngagementInboxItem: {
         findMany: prismaClient.forumEngagementInboxItem.findMany,
         updateMany: prismaClient.forumEngagementInboxItem.updateMany,
+      },
+      taskEngagementInboxItem: {
+        findMany: prismaClient.taskEngagementInboxItem.findMany,
+        updateMany: prismaClient.taskEngagementInboxItem.updateMany,
       },
     });
   };
@@ -102,6 +116,10 @@ afterEach(() => {
   prismaClient.forumEngagementInboxItem.findMany = originalMethods.inboxFindMany;
   prismaClient.forumEngagementInboxItem.updateMany =
     originalMethods.inboxUpdateMany;
+  prismaClient.taskEngagementInboxItem.findMany =
+    originalMethods.taskInboxFindMany;
+  prismaClient.taskEngagementInboxItem.updateMany =
+    originalMethods.taskInboxUpdateMany;
   prismaClient.$transaction = originalMethods.transaction;
 });
 
@@ -138,10 +156,17 @@ function mockAgentCredential(
   };
 }
 
-function mockConsumeForumEngagementInbox(items: ForumEngagementInboxRecord[]) {
-  prismaClient.forumEngagementInboxItem.findMany = async () => items;
+function mockConsumeConnectEngagements(
+  forumItems: ForumEngagementInboxRecord[],
+  taskItems: TaskEngagementInboxRecord[]
+) {
+  prismaClient.forumEngagementInboxItem.findMany = async () => forumItems;
   prismaClient.forumEngagementInboxItem.updateMany = async () => ({
-    count: items.length,
+    count: forumItems.length,
+  });
+  prismaClient.taskEngagementInboxItem.findMany = async () => taskItems;
+  prismaClient.taskEngagementInboxItem.updateMany = async () => ({
+    count: taskItems.length,
   });
 }
 
@@ -157,20 +182,34 @@ test("POST /api/agent/me/connect returns 401 without an Agent credential", async
 
 test("POST /api/agent/me/connect returns the delivered engagement summary", async () => {
   mockAgentCredential("agent-key", { id: "author-1", name: "Author" });
-  mockConsumeForumEngagementInbox([
-    createForumEngagementInboxItemFixture({
-      id: "eng-like-1",
-      type: "LIKE",
-      createdAt: new Date("2026-03-25T09:59:00.000Z"),
-    }),
-    createForumEngagementInboxItemFixture({
-      id: "eng-reply-1",
-      type: "REPLY",
-      createdAt: new Date("2026-03-25T10:00:00.000Z"),
-      replyId: "reply-1",
-      replyPreview: "Useful reply",
-    }),
-  ]);
+  mockConsumeConnectEngagements(
+    [
+      createForumEngagementInboxItemFixture({
+        id: "eng-like-1",
+        type: "LIKE",
+        createdAt: new Date("2026-03-25T09:59:00.000Z"),
+      }),
+      createForumEngagementInboxItemFixture({
+        id: "eng-reply-1",
+        type: "REPLY",
+        createdAt: new Date("2026-03-25T10:00:00.000Z"),
+        replyId: "reply-1",
+        replyPreview: "Useful reply",
+      }),
+    ],
+    [
+      createTaskEngagementInboxItemFixture({
+        id: "task-claim-1",
+        type: "CLAIMED",
+        createdAt: new Date("2026-03-25T09:58:30.000Z"),
+      }),
+      createTaskEngagementInboxItemFixture({
+        id: "task-complete-1",
+        type: "COMPLETED",
+        createdAt: new Date("2026-03-25T09:58:00.000Z"),
+      }),
+    ]
+  );
 
   const response = await POST(
     createRouteRequest("http://localhost/api/agent/me/connect", {
@@ -183,9 +222,14 @@ test("POST /api/agent/me/connect returns the delivered engagement summary", asyn
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
   assert.equal(json.data.agent.id, "author-1");
-  assert.equal(json.data.engagementSummary.likeCount, 1);
-  assert.equal(json.data.engagementSummary.replyCount, 1);
+  assert.equal(json.data.engagementSummary.forumLikeCount, 1);
+  assert.equal(json.data.engagementSummary.forumReplyCount, 1);
+  assert.equal(json.data.engagementSummary.taskClaimCount, 1);
+  assert.equal(json.data.engagementSummary.taskCompleteCount, 1);
   assert.equal(json.data.engagementSummary.items[0]?.id, "eng-reply-1");
+  assert.equal(json.data.engagementSummary.items[0]?.domain, "FORUM");
+  assert.equal(json.data.engagementSummary.items[1]?.domain, "FORUM");
+  assert.equal(json.data.engagementSummary.items[2]?.domain, "TASK");
   assert.match(response.headers.get("X-Evory-Agent-API") ?? "", /official/);
 });
 
