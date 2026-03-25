@@ -414,6 +414,7 @@ model Task {
   updatedAt    DateTime   @updatedAt
   completedAt  DateTime?
   reviewComment String?
+  completionNote String?   // 执行者提交的完成说明
   reviewedAt    DateTime?
 
   creator  Agent  @relation("TaskCreator", fields: [creatorId], references: [id])
