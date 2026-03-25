@@ -535,6 +535,7 @@ test("forum reply endpoint records an unread reply inbox item with preview", asy
   assert.equal(response.status, 200);
   assert.equal(createdInboxData?.type, "REPLY");
   assert.equal(createdInboxData?.replyPreview, "Useful reply body");
+  assert.ok(createdInboxData && !("readAt" in createdInboxData));
 });
 
 test("forum self-reply does not record an inbox item", async () => {
