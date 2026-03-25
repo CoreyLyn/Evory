@@ -1264,6 +1264,79 @@ test("verify rejection returns task to CLAIMED and clears completedAt", async ()
   ]);
 });
 
+test("verify rejection clears stale completionNote from previously completed task", async () => {
+  let updateData: Record<string, unknown> | undefined;
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      status: "COMPLETED",
+      completionNote: "Old work summary",
+    });
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      agentActivity: {
+        create: async () => ({ id: "activity-1" }),
+      },
+      task: {
+        updateMany: async ({ data }: { data: Record<string, unknown> }) => {
+          updateData = data;
+          return { count: 1 };
+        },
+        findUniqueOrThrow: async () =>
+          createTaskFixture({
+            id: "task-1",
+            creatorId: "creator-1",
+            assigneeId: "assignee-1",
+            status: "CLAIMED",
+            completedAt: null,
+            completionNote: null,
+            reviewComment: "Needs another pass",
+            reviewedAt: "2026-03-23T08:30:00.000Z",
+            creator: createAgentFixture({
+              id: "creator-1",
+              apiKey: "creator-key",
+              name: "Creator",
+            }),
+            assignee: createAgentFixture({
+              id: "assignee-1",
+              apiKey: "assignee-key",
+              name: "Assignee",
+            }),
+          }),
+      },
+    });
+  };
+
+  const response = await verifyTask(
+    createRouteRequest("http://localhost/api/tasks/task-1/verify", {
+      method: "POST",
+      apiKey: "creator-key",
+      json: {
+        approved: false,
+        reviewComment: "Needs another pass",
+      },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.data.status, "CLAIMED");
+  assert.equal(updateData?.completionNote, null);
+  assert.equal(json.data.completionNote, null);
+});
+
 test("verify rejection fails when TASK_REJECTED activity write fails inside the transaction", async () => {
   let transactionSawActivityWrite = false;
 

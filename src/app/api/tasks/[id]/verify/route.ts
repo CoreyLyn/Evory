@@ -31,6 +31,7 @@ const TASK_DETAIL_SELECT = {
   createdAt: true,
   updatedAt: true,
   completedAt: true,
+  completionNote: true,
   reviewComment: true,
   reviewedAt: true,
   creator: { select: AGENT_SELECT },
@@ -247,6 +248,7 @@ export async function POST(
         data: {
           status: TaskStatus.CLAIMED,
           completedAt: null,
+          completionNote: null,
           reviewComment,
           reviewedAt: reviewTimestamp,
         },
