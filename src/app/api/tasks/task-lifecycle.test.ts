@@ -15,6 +15,7 @@ import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { POST as cancelTask } from "./[id]/cancel/route";
 import { POST as completeTask } from "./[id]/complete/route";
+import { PATCH as updateCompletionNote } from "./[id]/completion-note/route";
 import { POST as verifyTask } from "./[id]/verify/route";
 import { POST as createTask } from "./route";
 
@@ -1751,4 +1752,265 @@ test("verify approval skips COMPLETE_TASK points when the daily limit is already
   } finally {
     prismaClientWithConfig.pointConfig = originalPointConfig;
   }
+});
+
+test("PATCH completion-note updates completionNote when assignee requests it on COMPLETED task", async () => {
+  let updateData: Record<string, unknown> | undefined;
+
+  mockAgentCredential("assignee-key", {
+    id: "assignee-1",
+    name: "Assignee",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      assigneeId: "assignee-1",
+      status: "COMPLETED",
+      completionNote: "Old note",
+    });
+
+  const taskFixture = createTaskFixture({
+    id: "task-1",
+    assigneeId: "assignee-1",
+    status: "COMPLETED",
+    completionNote: "Updated note",
+    creator: createAgentFixture({
+      id: "creator-1",
+      apiKey: "creator-key",
+      name: "Creator",
+    }),
+    assignee: createAgentFixture({
+      id: "assignee-1",
+      apiKey: "assignee-key",
+      name: "Assignee",
+    }),
+  });
+
+  prismaClient.task.update = async ({ data }) => {
+    updateData = data as Record<string, unknown>;
+    return taskFixture;
+  };
+
+  const response = await updateCompletionNote(
+    createRouteRequest("http://localhost/api/tasks/task-1/completion-note", {
+      method: "PATCH",
+      apiKey: "assignee-key",
+      json: { completionNote: "Updated note" },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(updateData?.completionNote, "Updated note");
+  assert.equal(json.data.completionNote, "Updated note");
+});
+
+test("PATCH completion-note rejects when task is not COMPLETED", async () => {
+  mockAgentCredential("assignee-key", {
+    id: "assignee-1",
+    name: "Assignee",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      assigneeId: "assignee-1",
+      status: "CLAIMED",
+    });
+
+  const response = await updateCompletionNote(
+    createRouteRequest("http://localhost/api/tasks/task-1/completion-note", {
+      method: "PATCH",
+      apiKey: "assignee-key",
+      json: { completionNote: "Updated note" },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.success, false);
+  assert.ok(json.error.includes("COMPLETED"));
+});
+
+test("PATCH completion-note rejects when caller is not assignee", async () => {
+  mockAgentCredential("other-key", {
+    id: "other-1",
+    name: "Other",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      assigneeId: "assignee-1",
+      status: "COMPLETED",
+    });
+
+  const response = await updateCompletionNote(
+    createRouteRequest("http://localhost/api/tasks/task-1/completion-note", {
+      method: "PATCH",
+      apiKey: "other-key",
+      json: { completionNote: "Updated note" },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(json.success, false);
+  assert.ok(json.error.includes("assignee"));
+});
+
+test("PATCH completion-note returns 404 when task not found", async () => {
+  mockAgentCredential("assignee-key", {
+    id: "assignee-1",
+    name: "Assignee",
+  });
+  prismaClient.task.findUnique = async () => null;
+
+  const response = await updateCompletionNote(
+    createRouteRequest("http://localhost/api/tasks/task-1/completion-note", {
+      method: "PATCH",
+      apiKey: "assignee-key",
+      json: { completionNote: "Updated note" },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 404);
+  assert.equal(json.success, false);
+  assert.ok(json.error.includes("not found"));
+});
+
+test("PATCH completion-note stores empty string as null", async () => {
+  let updateData: Record<string, unknown> | undefined;
+
+  mockAgentCredential("assignee-key", {
+    id: "assignee-1",
+    name: "Assignee",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      assigneeId: "assignee-1",
+      status: "COMPLETED",
+      completionNote: "Old note",
+    });
+
+  const taskFixture = createTaskFixture({
+    id: "task-1",
+    assigneeId: "assignee-1",
+    status: "COMPLETED",
+    completionNote: null,
+  });
+
+  prismaClient.task.update = async ({ data }) => {
+    updateData = data as Record<string, unknown>;
+    return taskFixture;
+  };
+
+  const response = await updateCompletionNote(
+    createRouteRequest("http://localhost/api/tasks/task-1/completion-note", {
+      method: "PATCH",
+      apiKey: "assignee-key",
+      json: { completionNote: "" },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(updateData?.completionNote, null);
+});
+
+test("PATCH completion-note rejects over 5000 characters", async () => {
+  mockAgentCredential("assignee-key", {
+    id: "assignee-1",
+    name: "Assignee",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      assigneeId: "assignee-1",
+      status: "COMPLETED",
+    });
+
+  const longNote = "x".repeat(5001);
+
+  const response = await updateCompletionNote(
+    createRouteRequest("http://localhost/api/tasks/task-1/completion-note", {
+      method: "PATCH",
+      apiKey: "assignee-key",
+      json: { completionNote: longNote },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.success, false);
+  assert.ok(json.error.includes("5000"));
+});
+
+test("PATCH completion-note rejects non-string completionNote", async () => {
+  mockAgentCredential("assignee-key", {
+    id: "assignee-1",
+    name: "Assignee",
+  });
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      assigneeId: "assignee-1",
+      status: "COMPLETED",
+    });
+
+  const response = await updateCompletionNote(
+    createRouteRequest("http://localhost/api/tasks/task-1/completion-note", {
+      method: "PATCH",
+      apiKey: "assignee-key",
+      json: { completionNote: { invalid: "object" } },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.success, false);
+  assert.ok(json.error.includes("string"));
+});
+
+test("PATCH completion-note rejects when agent lacks tasks:write scope", async () => {
+  mockAgentCredential("assignee-key", {
+    id: "assignee-1",
+    name: "Assignee",
+    scopes: ["forum:read"], // 缺少 tasks:write
+  });
+
+  const response = await updateCompletionNote(
+    createRouteRequest("http://localhost/api/tasks/task-1/completion-note", {
+      method: "PATCH",
+      apiKey: "assignee-key",
+      json: { completionNote: "Updated note" },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(json.success, false);
+});
+
+test("PATCH completion-note rejects when no authentication provided", async () => {
+  const response = await updateCompletionNote(
+    createRouteRequest("http://localhost/api/tasks/task-1/completion-note", {
+      method: "PATCH",
+      json: { completionNote: "Updated note" },
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.equal(json.success, false);
 });
