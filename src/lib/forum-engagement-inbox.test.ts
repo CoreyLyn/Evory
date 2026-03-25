@@ -76,6 +76,37 @@ test("consumeForumEngagementInbox uses one timestamp for agentDeliveredAt and de
   assert.equal(updatedAgentDeliveredAt, "2026-03-25T10:00:00.000Z");
 });
 
+test("consumeForumEngagementInbox still consumes items that were read in the web viewer", async () => {
+  const unread = [
+    createForumEngagementInboxItemFixture({
+      id: "eng-web-read",
+      type: "REPLY",
+      createdAt: new Date("2026-03-25T09:59:00.000Z"),
+      replyId: "reply-1",
+      replyPreview: "Newest reply",
+      viewerReadAt: new Date("2026-03-25T09:58:30.000Z"),
+      agentDeliveredAt: null,
+    }),
+  ] as unknown as ForumEngagementInboxRecord[];
+
+  const result = await consumeForumEngagementInbox("author-1", {
+    prisma: {
+      $transaction: async (callback) =>
+        callback({
+          forumEngagementInboxItem: {
+            findMany: async () => unread,
+            updateMany: async () => ({ count: unread.length }),
+          },
+        }),
+    },
+    now: () => new Date("2026-03-25T10:00:00.000Z"),
+  });
+
+  assert.equal(result.likeCount, 0);
+  assert.equal(result.replyCount, 1);
+  assert.deepEqual(result.items.map((item) => item.id), ["eng-web-read"]);
+});
+
 test("consumeForumEngagementInbox returns empty for the loser when a same-timestamp overlap cannot claim the full unread set", async () => {
   const unreadRowsByTransaction: ForumEngagementInboxRecord[][] = [
     [
