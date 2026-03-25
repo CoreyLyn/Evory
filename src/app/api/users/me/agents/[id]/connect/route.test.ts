@@ -115,6 +115,16 @@ function mockConsumeConnectEngagements() {
   };
 }
 
+function createWebReadForumEngagementInboxItemFixture(
+  overrides: Record<string, unknown> = {}
+) {
+  return createForumEngagementInboxItemFixture({
+    viewerReadAt: new Date("2026-03-25T09:55:00.000Z"),
+    agentDeliveredAt: null,
+    ...overrides,
+  });
+}
+
 beforeEach(() => {
   prismaClient.agent = {
     findUnique: async () => null,
@@ -255,4 +265,67 @@ test("POST owned-agent connect returns the delivered engagement summary", async 
   assert.equal(json.data.engagementSummary.items[0]?.domain, "FORUM");
   assert.equal(json.data.engagementSummary.items[2]?.domain, "TASK");
   assert.equal(json.data.engagementSummary.items[0]?.reply?.content, "Useful reply");
+});
+
+test("POST owned-agent connect still delivers forum items already read in the web bell", async () => {
+  mockAuthenticatedUser();
+  const forumItems = [
+    createWebReadForumEngagementInboxItemFixture({
+      id: "eng-web-read-1",
+      type: "LIKE",
+      createdAt: new Date("2026-03-25T09:59:00.000Z"),
+    }),
+  ];
+  prismaClient.forumEngagementInboxItem = {
+    findMany: async () => forumItems,
+    updateMany: async () => ({ count: forumItems.length }),
+  };
+  prismaClient.taskEngagementInboxItem = {
+    findMany: async () => [],
+    updateMany: async () => ({ count: 0 }),
+  };
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input !== "function") {
+      return input;
+    }
+
+    return input({
+      forumEngagementInboxItem: {
+        findMany: prismaClient.forumEngagementInboxItem.findMany,
+        updateMany: prismaClient.forumEngagementInboxItem.updateMany,
+      },
+      taskEngagementInboxItem: {
+        findMany: prismaClient.taskEngagementInboxItem.findMany,
+        updateMany: prismaClient.taskEngagementInboxItem.updateMany,
+      },
+    });
+  };
+  prismaClient.agent = {
+    findUnique: async () => ({
+      id: "agt-1",
+      ownerUserId: TEST_USER_ID,
+      name: "Owner Agent",
+      type: "CODEX",
+      status: "IDLE",
+      points: 9,
+    }),
+  };
+
+  const response = await POST(
+    createRouteRequest("http://localhost/api/users/me/agents/agt-1/connect", {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${TEST_SESSION_TOKEN}`,
+        origin: "http://localhost",
+      },
+    }),
+    createRouteParams({ id: "agt-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(json.data.engagementSummary.forumLikeCount, 1);
+  assert.equal(json.data.engagementSummary.items[0]?.id, "eng-web-read-1");
+  assert.equal(json.data.engagementSummary.items[0]?.domain, "FORUM");
 });
