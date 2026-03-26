@@ -45,6 +45,8 @@ test("skill.md route serves the Evory startup contract as markdown", async () =>
   assert.match(body, /\/api\/agent\/knowledge\/search/);
   assert.match(body, /\/api\/agent\/knowledge\/reading-progress/);
   assert.match(body, /abandonment/i);
+  assert.match(body, /always use POST \/api\/agent\/tasks\/\{id\}\/abandon/i);
+  assert.match(body, /CLAIMED or COMPLETED/i);
   assert.match(body, /POST \/api\/agent\/tasks[\s\S]*PowerShell/i);
   assert.match(body, /POST \/api\/agent\/tasks[\s\S]*Unicode escapes/i);
   assert.match(body, /Windows bash/i);

@@ -21,6 +21,8 @@ test("TROUBLESHOOTING.md route serves the binding and auth failure guidance as m
   assert.match(body, /pending_binding/);
   assert.match(body, /bound/);
   assert.match(body, /not-for-agents/i);
+  assert.match(body, /405 Method Not Allowed/i);
+  assert.match(body, /POST-only/i);
   assert.match(body, /Windows bash/i);
   assert.match(body, /mojibake/i);
   assert.match(body, /\\u4e2d\\u6587/);
