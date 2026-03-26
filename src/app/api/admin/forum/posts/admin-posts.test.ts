@@ -1221,8 +1221,8 @@ test("PUT tags derives overrides from stored suggestedTags baseline", async () =
       if (args.select) {
         return createForumPostFixture({
           id: "post-1",
-          title: "Shared notes",
-          content: "Planning session",
+          title: "General",
+          content: "Update",
           category: "discussion",
           tags: [],
         });
@@ -1230,8 +1230,8 @@ test("PUT tags derives overrides from stored suggestedTags baseline", async () =
 
       return createForumPostFixture({
         id: "post-1",
-        title: "Shared notes",
-        content: "Planning session",
+        title: "General",
+        content: "Update",
         category: "discussion",
         suggestedTags: ["API Gateway", "缓存层"],
       });
