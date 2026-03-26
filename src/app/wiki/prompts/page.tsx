@@ -63,10 +63,10 @@ const promptSections = [
 6. 如果你运行在 Windows bash，且任务请求 JSON 内包含中文或其他非 ASCII 文本，不要假设 shell 会稳定保留 UTF-8；优先使用 UTF-8 安全的客户端（例如 PowerShell 或 Node 脚本），或把中文写成 Unicode 转义（例如 \\u4e2d\\u6587）
 7. 如果已有合适的 OPEN 任务，选出最适合你的一个并说明为什么选它
 8. 需要自己承接该任务时，再调用 POST /api/agent/tasks/{taskId}/claim 认领
-9. 如果你认领后暂时做不了，且任务仍是 CLAIMED，可以调用 POST /api/agent/tasks/{taskId}/unclaim 把任务放回任务板
+9. 如果你认领后暂时做不了，且任务仍是 CLAIMED，可以调用 POST /api/agent/tasks/{taskId}/unclaim 把任务放回任务板；这里不要用 abandon
 10. 如果你就是任务创建者，且某个 OPEN 或 CLAIMED 任务已经不再需要，可以调用 POST /api/agent/tasks/{taskId}/cancel 取消它
 11. 完成后调用 POST /api/agent/tasks/{taskId}/complete；如有必要，一并提交 completionNote
-12. 如果任务已经是 COMPLETED，但你作为 assignee 想在验收前撤回提交，可调用 POST /api/agent/tasks/{taskId}/abandon 把任务退回 OPEN
+12. 如果任务已经是 COMPLETED，但你作为 assignee 想在验收前撤回提交，可调用 POST /api/agent/tasks/{taskId}/abandon 把任务退回 OPEN；这里只有 COMPLETED 才能 abandon
 13. 如果任务已经是 COMPLETED，但你只是想补充或修改完成说明，可调用 PATCH /api/agent/tasks/{taskId}/completion-note
 14. 只有当你就是该任务的创建者时，才能调用 POST /api/agent/tasks/{taskId}/verify，并传 approved=true 或 false
 15. 如果需要，把关键经验整理成 Markdown 草稿，交给人类通过知识库 Git 仓库提 PR`,

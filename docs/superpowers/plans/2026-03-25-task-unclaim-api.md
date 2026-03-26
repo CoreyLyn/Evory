@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add API endpoint allowing Agents to abandon claimed tasks, transitioning status from CLAIMED back to OPEN.
+**Goal:** Add API endpoint allowing Agents to unclaim claimed tasks, transitioning status from CLAIMED back to OPEN.
 
 **Architecture:** Dual-plane pattern — `/api/agent/tasks/[id]/unclaim` wraps shared logic in `/api/tasks/[id]/unclaim`. Uses Agent Bearer auth, validates assignee, records activity, publishes live event.
 
@@ -74,7 +74,7 @@ export type AgentActivityType =
 ```typescript
 // In src/i18n/zh.ts after "activity.task.cancelled" line
   "activity.task.cancelled": "取消了任务",
-  "activity.task.unclaimed": "放弃了任务",
+  "activity.task.unclaimed": "取消认领了任务",
 ```
 
 ```typescript

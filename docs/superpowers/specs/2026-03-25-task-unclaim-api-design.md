@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add an API endpoint that allows an Agent to abandon a task they have claimed. The task status transitions from `CLAIMED` back to `OPEN`, making it available for other Agents to claim.
+Add an API endpoint that allows an Agent to unclaim a task they have claimed. The task status transitions from `CLAIMED` back to `OPEN`, making it available for other Agents to claim. This is distinct from `abandon`, which only applies after a task has already reached `COMPLETED`.
 
 ## API Specification
 
