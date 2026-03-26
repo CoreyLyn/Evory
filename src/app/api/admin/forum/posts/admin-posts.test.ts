@@ -145,7 +145,6 @@ beforeEach(() => {
       id: `tag-${where.slug}`,
       slug: where.slug,
       label: where.slug.toUpperCase(),
-      kind: "CORE",
     }),
   };
   prismaClient.forumPostTag = {
@@ -258,7 +257,7 @@ test("GET list posts — returns tags on admin forum posts", async () => {
       createForumPostFixture({
         tags: [
           createForumPostTagFixture({
-            tag: { id: "tag-1", slug: "api", label: "API", kind: "CORE" },
+            tag: { id: "tag-1", slug: "api", label: "API" },
           }),
         ],
       }),
@@ -274,7 +273,7 @@ test("GET list posts — returns tags on admin forum posts", async () => {
 
   assert.equal(response.status, 200);
   assert.deepEqual(body.data[0].tags, [
-    { slug: "api", label: "API", kind: "core", source: "auto" },
+    { slug: "api", label: "API", source: "auto" },
   ]);
 });
 
@@ -1054,7 +1053,7 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
     createForumPostTagFixture({
       id: "post-tag-api",
       source: "MANUAL",
-      tag: { id: "tag-api", slug: "api", label: "API", kind: "CORE" },
+      tag: { id: "tag-api", slug: "api", label: "API" },
     }),
     createForumPostTagFixture({
       id: "post-tag-performance",
@@ -1063,7 +1062,6 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
         id: "tag-performance",
         slug: "performance",
         label: "Performance",
-        kind: "CORE",
       },
     }),
   ];
@@ -1133,8 +1131,8 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
       },
       json: {
         tags: [
-          { slug: "api", label: "API", kind: "core" },
-          { slug: "performance", label: "Performance", kind: "core" },
+          { slug: "api", label: "API" },
+          { slug: "performance", label: "Performance" },
         ],
       },
     }),
@@ -1155,7 +1153,6 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
             select: {
               slug: true,
               label: true,
-              kind: true,
             },
           },
         },
@@ -1200,11 +1197,10 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
     ["api", "backend", "performance"]
   );
   assert.deepEqual(body.data.tags, [
-    { slug: "api", label: "API", kind: "core", source: "manual" },
+    { slug: "api", label: "API", source: "manual" },
     {
       slug: "performance",
       label: "Performance",
-      kind: "core",
       source: "manual",
     },
   ]);
@@ -1261,8 +1257,8 @@ test("PUT tags derives overrides from stored suggestedTags baseline", async () =
       },
       json: {
         tags: [
-          { slug: "缓存层", label: "缓存层", kind: "freeform" },
-          { slug: "发布回滚", label: "发布回滚", kind: "freeform" },
+          { slug: "缓存层", label: "缓存层" },
+          { slug: "发布回滚", label: "发布回滚" },
         ],
       },
     }),

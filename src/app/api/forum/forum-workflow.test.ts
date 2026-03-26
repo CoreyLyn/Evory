@@ -90,7 +90,6 @@ beforeEach(() => {
       id: `tag-${where.slug}`,
       slug: where.slug,
       label: where.slug.toUpperCase(),
-      kind: "CORE",
     }),
   };
   prismaClient.forumPostTag = {
@@ -367,7 +366,7 @@ test("forum detail includes related posts and more from the same author", async 
       viewCount: 7,
       tags: [
         createForumPostTagFixture({
-          tag: { id: "tag-1", slug: "api", label: "API", kind: "CORE" },
+          tag: { id: "tag-1", slug: "api", label: "API" },
         }),
       ],
       agent: createAgentFixture({
@@ -384,7 +383,7 @@ test("forum detail includes related posts and more from the same author", async 
       createdAt: "2026-03-18T01:00:00.000Z",
       tags: [
         createForumPostTagFixture({
-          tag: { id: "tag-1", slug: "api", label: "API", kind: "CORE" },
+          tag: { id: "tag-1", slug: "api", label: "API" },
         }),
       ],
       _count: { replies: 2 },
@@ -1526,7 +1525,6 @@ test("forum post creation returns normalized tags for the created post", async (
       id: `tag-${where.slug}`,
       slug: where.slug,
       label: where.slug.toUpperCase(),
-      kind: "CORE",
     }),
   };
   prismaClient.forumPostTag = {
@@ -1542,7 +1540,7 @@ test("forum post creation returns normalized tags for the created post", async (
       createdAt: new Date("2026-03-10T00:00:00.000Z"),
       tags: [
         createForumPostTagFixture({
-          tag: { id: "tag-api", slug: "api", label: "API", kind: "CORE" },
+          tag: { id: "tag-api", slug: "api", label: "API" },
         }),
         createForumPostTagFixture({
           id: "post-tag-2",
@@ -1550,7 +1548,6 @@ test("forum post creation returns normalized tags for the created post", async (
             id: "tag-deployment",
             slug: "deployment",
             label: "Deployment",
-            kind: "CORE",
           },
         }),
       ],
@@ -1578,7 +1575,7 @@ test("forum post creation returns normalized tags for the created post", async (
 
 test("forum post creation returns normalized core tags for Chinese content through materialized tags", async () => {
   const materializedTags: Array<{ tagId: string; source: "AUTO" | "MANUAL" }> = [];
-  const tagsById = new Map<string, { id: string; slug: string; label: string; kind: "CORE" | "FREEFORM" }>();
+  const tagsById = new Map<string, { id: string; slug: string; label: string }>();
   let materializationStarted = false;
 
   mockAgentCredential("author-key", {
@@ -1606,14 +1603,13 @@ test("forum post creation returns normalized core tags for Chinese content throu
       update,
     }: {
       where: { slug: string };
-      create: { label: string; kind: "CORE" | "FREEFORM" };
-      update: { label: string; kind: "CORE" | "FREEFORM" };
+      create: { label: string };
+      update: { label: string };
     }) => {
       const record = {
         id: `tag-${where.slug}`,
         slug: where.slug,
         label: create.label ?? update.label,
-        kind: create.kind ?? update.kind,
       };
 
       tagsById.set(record.id, record);
@@ -1672,10 +1668,10 @@ test("forum post creation returns normalized core tags for Chinese content throu
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
   assert.deepEqual(json.data.tags, [
-    { slug: "api", label: "API", kind: "core", source: "auto" },
-    { slug: "bugfix", label: "Bugfix", kind: "core", source: "auto" },
-    { slug: "database", label: "Database", kind: "core", source: "auto" },
-    { slug: "performance", label: "Performance", kind: "core", source: "auto" },
+    { slug: "api", label: "API", source: "auto" },
+    { slug: "bugfix", label: "Bugfix", source: "auto" },
+    { slug: "database", label: "Database", source: "auto" },
+    { slug: "performance", label: "Performance", source: "auto" },
   ]);
 });
 
@@ -1711,10 +1707,7 @@ test("forum post creation rejects obviously garbled text before insertion", asyn
 
 test("forum post creation omits automatic tags when suggestedTags is not provided", async () => {
   const materializedTags: Array<{ tagId: string; source: "AUTO" | "MANUAL" }> = [];
-  const tagsById = new Map<
-    string,
-    { id: string; slug: string; label: string; kind: "CORE" | "FREEFORM" }
-  >();
+  const tagsById = new Map<string, { id: string; slug: string; label: string }>();
 
   mockAgentCredential("author-key", {
     id: "author-1",
@@ -1741,14 +1734,13 @@ test("forum post creation omits automatic tags when suggestedTags is not provide
       update,
     }: {
       where: { slug: string };
-      create: { label: string; kind: "CORE" | "FREEFORM" };
-      update: { label: string; kind: "CORE" | "FREEFORM" };
+      create: { label: string };
+      update: { label: string };
     }) => {
       const record = {
         id: `tag-${where.slug}`,
         slug: where.slug,
         label: create.label ?? update.label,
-        kind: create.kind ?? update.kind,
       };
 
       tagsById.set(record.id, record);
@@ -1825,11 +1817,10 @@ test("forum post creation accepts suggestedTags and still returns normalized tag
       }),
     });
   prismaClient.forumTag = {
-    upsert: async ({ where, create, update }: { where: { slug: string }; create: { label: string; kind: string }; update: { label: string; kind: string } }) => ({
+    upsert: async ({ where, create, update }: { where: { slug: string }; create: { label: string }; update: { label: string } }) => ({
       id: `tag-${where.slug}`,
       slug: where.slug,
       label: create.label ?? update.label,
-      kind: create.kind ?? update.kind,
     }),
   };
   prismaClient.forumPostTag = {
@@ -1845,7 +1836,7 @@ test("forum post creation accepts suggestedTags and still returns normalized tag
       createdAt: new Date("2026-03-10T00:00:00.000Z"),
       tags: [
         createForumPostTagFixture({
-          tag: { id: "tag-api", slug: "api", label: "API", kind: "CORE" },
+          tag: { id: "tag-api", slug: "api", label: "API" },
         }),
         createForumPostTagFixture({
           id: "post-tag-2",
@@ -1853,7 +1844,6 @@ test("forum post creation accepts suggestedTags and still returns normalized tag
             id: "tag-release-prep",
             slug: "release-prep",
             label: "release prep",
-            kind: "FREEFORM",
           },
         }),
       ],
@@ -1887,10 +1877,7 @@ test("forum post creation accepts suggestedTags and still returns normalized tag
 
 test("forum post creation persists only normalized suggestedTags", async () => {
   const materializedTags: Array<{ tagId: string; source: "AUTO" | "MANUAL" }> = [];
-  const tagsById = new Map<
-    string,
-    { id: string; slug: string; label: string; kind: "CORE" | "FREEFORM" }
-  >();
+  const tagsById = new Map<string, { id: string; slug: string; label: string }>();
 
   mockAgentCredential("author-key", {
     id: "author-1",
@@ -1917,14 +1904,13 @@ test("forum post creation persists only normalized suggestedTags", async () => {
       update,
     }: {
       where: { slug: string };
-      create: { label: string; kind: "CORE" | "FREEFORM" };
-      update: { label: string; kind: "CORE" | "FREEFORM" };
+      create: { label: string };
+      update: { label: string };
     }) => {
       const record = {
         id: `tag-${where.slug}`,
         slug: where.slug,
         label: create.label ?? update.label,
-        kind: create.kind ?? update.kind,
       };
 
       tagsById.set(record.id, record);
@@ -2047,11 +2033,10 @@ test("forum post creation stores normalized suggestedTags as automatic tag basel
     });
   };
   prismaClient.forumTag = {
-    upsert: async ({ where, create, update }: { where: { slug: string }; create: { label: string; kind: string }; update: { label: string; kind: string } }) => ({
+    upsert: async ({ where, create, update }: { where: { slug: string }; create: { label: string }; update: { label: string } }) => ({
       id: `tag-${where.slug}`,
       slug: where.slug,
       label: create.label ?? update.label,
-      kind: create.kind ?? update.kind,
     }),
   };
   prismaClient.forumPostTag = {

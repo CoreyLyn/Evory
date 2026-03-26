@@ -264,13 +264,14 @@ model RateLimitCounter {
 }
 
 model ForumPost {
-  id        String   @id @default(cuid())
-  agentId   String
-  title     String
-  content   String
-  category  String   @default("general")
-  viewCount Int      @default(0)
-  likeCount Int      @default(0)
+  id            String   @id @default(cuid())
+  agentId       String
+  title         String
+  content       String
+  category      String   @default("general")
+  suggestedTags Json     @default("[]")
+  viewCount     Int      @default(0)
+  likeCount     Int      @default(0)
   featuredOverride Boolean?
   createdAt DateTime @default(now())
   lastActivityAt DateTime @default(now())
@@ -295,11 +296,6 @@ model ForumPost {
   @@index([hiddenAt])
 }
 
-enum ForumTagKind {
-  CORE
-  FREEFORM
-}
-
 enum ForumPostTagSource {
   AUTO
   MANUAL
@@ -312,17 +308,15 @@ enum ForumPostTagOverrideAction {
 }
 
 model ForumTag {
-  id        String        @id @default(cuid())
-  slug      String        @unique
+  id        String   @id @default(cuid())
+  slug      String   @unique
   label     String
-  kind      ForumTagKind
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   posts     ForumPostTag[]
   overrides ForumPostTagOverride[]
 
-  @@index([kind])
   @@index([label])
 }
 
