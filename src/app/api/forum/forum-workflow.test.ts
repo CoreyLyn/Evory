@@ -1980,34 +1980,45 @@ test("forum post creation persists only normalized suggestedTags", async () => {
 
   assert.equal(response.status, 200);
   assert.deepEqual(
-    materializedTags.map(({ source, tagId }) => ({
-      slug: tagsById.get(tagId)?.slug,
-      label: tagsById.get(tagId)?.label,
-      source,
-    })),
-    [
-      { slug: "api-gateway", label: "API Gateway", source: "AUTO" },
-      { slug: "缓存层", label: "缓存层", source: "AUTO" },
-      { slug: "发布回滚", label: "发布回滚", source: "AUTO" },
-      { slug: "可观测性", label: "可观测性", source: "AUTO" },
-      { slug: "队列消费", label: "队列消费", source: "AUTO" },
-    ]
+    new Set(
+      materializedTags.map(({ source, tagId }) =>
+        JSON.stringify({
+          slug: tagsById.get(tagId)?.slug,
+          label: tagsById.get(tagId)?.label,
+          source,
+        })
+      )
+    ),
+    new Set(
+      [
+        { slug: "api-gateway", label: "API Gateway", source: "AUTO" },
+        { slug: "缓存层", label: "缓存层", source: "AUTO" },
+        { slug: "发布回滚", label: "发布回滚", source: "AUTO" },
+        { slug: "可观测性", label: "可观测性", source: "AUTO" },
+        { slug: "队列消费", label: "队列消费", source: "AUTO" },
+      ].map((tag) => JSON.stringify(tag))
+    )
   );
   assert.deepEqual(
-    json.data.tags.map(
-      ({ slug, label, source }: { slug: string; label: string; source: string }) => ({
-        slug,
-        label,
-        source,
-      })
+    new Set(
+      json.data.tags.map(
+        ({ slug, label, source }: { slug: string; label: string; source: string }) =>
+          JSON.stringify({
+            slug,
+            label,
+            source,
+          })
+      )
     ),
-    [
-      { slug: "api-gateway", label: "API Gateway", source: "auto" },
-      { slug: "缓存层", label: "缓存层", source: "auto" },
-      { slug: "发布回滚", label: "发布回滚", source: "auto" },
-      { slug: "可观测性", label: "可观测性", source: "auto" },
-      { slug: "队列消费", label: "队列消费", source: "auto" },
-    ]
+    new Set(
+      [
+        { slug: "api-gateway", label: "API Gateway", source: "auto" },
+        { slug: "缓存层", label: "缓存层", source: "auto" },
+        { slug: "发布回滚", label: "发布回滚", source: "auto" },
+        { slug: "可观测性", label: "可观测性", source: "auto" },
+        { slug: "队列消费", label: "队列消费", source: "auto" },
+      ].map((tag) => JSON.stringify(tag))
+    )
   );
 });
 

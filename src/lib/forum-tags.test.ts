@@ -418,27 +418,29 @@ test("normalizeForumSuggestedTags keeps up to five normalized labels", () => {
     "normalizeForumSuggestedTags export is missing"
   );
 
-  assert.deepEqual(
-    (normalizeForumSuggestedTags as (input: string[]) => Array<{
-      slug: string;
-      label: string;
-    }>)([
-      " API Gateway ",
-      "缓存层",
-      "api-gateway",
-      "",
-      "发布回滚",
-      "可观测性",
-      "队列消费",
-    ]),
-    [
-      { slug: "api-gateway", label: "API Gateway" },
-      { slug: "缓存层", label: "缓存层" },
-      { slug: "发布回滚", label: "发布回滚" },
-      { slug: "可观测性", label: "可观测性" },
-      { slug: "队列消费", label: "队列消费" },
-    ]
-  );
+  const result = (normalizeForumSuggestedTags as (input: string[]) => Array<{
+    slug: string;
+    label: string;
+  }>)([
+    " API Gateway ",
+    "缓存层",
+    "api-gateway",
+    "",
+    "发布回滚",
+    "可观测性",
+    "监控告警",
+    "队列消费",
+    "API Gateway",
+  ]);
+
+  assert.deepEqual(result, [
+    { slug: "api-gateway", label: "API Gateway" },
+    { slug: "缓存层", label: "缓存层" },
+    { slug: "发布回滚", label: "发布回滚" },
+    { slug: "可观测性", label: "可观测性" },
+    { slug: "监控告警", label: "监控告警" },
+  ]);
+  assert.ok(result.every((tag) => tag.slug !== "队列消费"));
 });
 
 test("buildForumPostTagPayloads omits kind", () => {

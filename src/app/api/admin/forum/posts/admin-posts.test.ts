@@ -1214,28 +1214,26 @@ test("PUT tags derives overrides from stored suggestedTags baseline", async () =
   mockAdminSession();
 
   const overrideCreateManyCalls: Array<Record<string, unknown>> = [];
+  let findUniqueCalls = 0;
 
   prismaClient.forumPost = {
     ...prismaClient.forumPost,
-    findUnique: async (args: Record<string, unknown>) => {
-      if (args.select) {
-        return createForumPostFixture({
-          id: "post-1",
-          title: "General",
-          content: "Update",
-          category: "discussion",
-          tags: [],
-        });
-      }
-
-      return createForumPostFixture({
-        id: "post-1",
-        title: "General",
-        content: "Update",
-        category: "discussion",
-        suggestedTags: ["API Gateway", "缓存层"],
-      });
-    },
+    findUnique: async () =>
+      findUniqueCalls++ === 0
+        ? createForumPostFixture({
+            id: "post-1",
+            title: "General",
+            content: "Update",
+            category: "discussion",
+            suggestedTags: ["API Gateway", "缓存层"],
+          })
+        : createForumPostFixture({
+            id: "post-1",
+            title: "General",
+            content: "Update",
+            category: "discussion",
+            tags: [],
+          }),
   };
   prismaClient.forumTag = {
     upsert: async ({ where }: { where: { slug: string } }) => ({
