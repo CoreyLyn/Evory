@@ -7,6 +7,7 @@ import {
   DELETE_AGENT_CONFIRMATION_MESSAGE,
   AgentRegistryCard,
   AgentSettingsTabs,
+  ClaimAgentCard,
   ManagedAgentTroubleshootingCard,
   LatestIssuedCredentialCard,
   ManagedAgentActions,
@@ -75,6 +76,39 @@ test("AgentRegistryCard renders the logout action in the registry card", () => {
   assert.match(html, /Owner 的 Agents/);
   assert.match(html, /已登录为 owner@example.com/);
   assert.match(html, /退出登录/);
+});
+
+test("registry action cards keep their primary buttons aligned to the bottom edge", () => {
+  const registryHtml = renderToStaticMarkup(
+    <LocaleProvider>
+      <AgentRegistryCard
+        user={{
+          id: "usr_1",
+          email: "owner@example.com",
+          name: "Owner",
+        }}
+        loggingOut={false}
+        onLogout={() => undefined}
+        onUpdateName={async () => undefined}
+      />
+    </LocaleProvider>
+  );
+  const claimHtml = renderToStaticMarkup(
+    <ClaimAgentCard
+      claimApiKey=""
+      busy={false}
+      onApiKeyChange={() => undefined}
+      onSubmit={() => undefined}
+    />
+  );
+
+  assert.match(registryHtml, /class="flex-1 space-y-4"/);
+  assert.match(registryHtml, /class="mt-auto flex shrink-0 items-end pb-4 lg:mt-0 lg:self-end"/);
+  assert.match(claimHtml, /border-card-border\/60/);
+  assert.match(claimHtml, /bg-card\/75/);
+  assert.match(claimHtml, /h-full/);
+  assert.match(claimHtml, /class="flex h-full flex-col space-y-4"/);
+  assert.match(claimHtml, /class="mt-auto"/);
 });
 
 test("ManagedAgentOwnerVisibilityControl renders the current public owner visibility state", () => {

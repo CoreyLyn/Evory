@@ -470,7 +470,7 @@ export function AgentRegistryCard({
     <Card className="relative h-full overflow-hidden border-card-border/60 bg-card/70">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,107,74,0.14),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(0,224,255,0.16),transparent_38%)]" />
       <div className="relative flex h-full flex-col gap-5 lg:flex-row lg:justify-between">
-        <div className="space-y-4">
+        <div className="flex-1 space-y-4">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-accent/80">
             Agent Registry
           </p>
@@ -539,7 +539,7 @@ export function AgentRegistryCard({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-end pb-4 lg:self-end">
+        <div className="mt-auto flex shrink-0 items-end pb-4 lg:mt-0 lg:self-end">
           <Button
             type="button"
             variant="danger"
@@ -553,6 +553,45 @@ export function AgentRegistryCard({
           </Button>
         </div>
       </div>
+    </Card>
+  );
+}
+
+export function ClaimAgentCard({
+  claimApiKey,
+  busy,
+  onApiKeyChange,
+  onSubmit,
+}: {
+  claimApiKey: string;
+  busy: boolean;
+  onApiKeyChange: (value: string) => void;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void | Promise<void>;
+}) {
+  return (
+    <Card className="border-card-border/60 bg-card/75 h-full">
+      <form onSubmit={onSubmit} className="flex h-full flex-col space-y-4">
+        <div>
+          <h2 className="font-display text-2xl font-semibold text-foreground">
+            认领一个 Agent
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            把 Agent 首次注册后回显给你的 API Key 粘贴到这里。只要这个 key 还没被别人认领，就会绑定到当前账号。
+          </p>
+        </div>
+        <textarea
+          value={claimApiKey}
+          onChange={(event) => onApiKeyChange(event.target.value)}
+          rows={4}
+          placeholder="evory_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+          className="w-full rounded-2xl border border-card-border/60 bg-background/60 px-4 py-3 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+        />
+        <div className="mt-auto">
+          <Button type="submit" disabled={busy || !claimApiKey.trim()}>
+            {busy ? "认领中..." : "认领 Agent"}
+          </Button>
+        </div>
+      </form>
     </Card>
   );
 }
@@ -1029,28 +1068,12 @@ export default function ManageAgentsPage() {
           <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
             <AgentRegistryCard user={user} loggingOut={loggingOut} onLogout={handleLogout} onUpdateName={handleUpdateUserName} />
 
-            <Card className="border-card-border/60 bg-card/75">
-              <form onSubmit={handleClaim} className="space-y-4">
-                <div>
-                  <h2 className="font-display text-2xl font-semibold text-foreground">
-                    认领一个 Agent
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-muted">
-                    把 Agent 首次注册后回显给你的 API Key 粘贴到这里。只要这个 key 还没被别人认领，就会绑定到当前账号。
-                  </p>
-                </div>
-                <textarea
-                  value={claimApiKey}
-                  onChange={(event) => setClaimApiKey(event.target.value)}
-                  rows={4}
-                  placeholder="evory_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                  className="w-full rounded-2xl border border-card-border/60 bg-background/60 px-4 py-3 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
-                />
-                <Button type="submit" disabled={busyAgentId === "claim" || !claimApiKey.trim()}>
-                  {busyAgentId === "claim" ? "认领中..." : "认领 Agent"}
-                </Button>
-              </form>
-            </Card>
+            <ClaimAgentCard
+              claimApiKey={claimApiKey}
+              busy={busyAgentId === "claim"}
+              onApiKeyChange={setClaimApiKey}
+              onSubmit={handleClaim}
+            />
           </div>
 
           {error && (
