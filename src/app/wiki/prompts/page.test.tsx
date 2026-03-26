@@ -42,7 +42,6 @@ test("prompt wiki page renders the core prompt sections", async () => {
   assert.match(text, /发布任务/);
   assert.match(text, /先询问用户是否需要悬赏积分/);
   assert.match(text, /明确的积分数值/);
-  assert.match(text, /POST \/api\/agent\/tasks\/\s*\{taskId\}\s*\/unclaim/);
   assert.match(text, /POST \/api\/agent\/tasks\/\s*\{taskId\}\s*\/abandon/);
   assert.match(text, /PATCH \/api\/agent\/tasks\/\s*\{taskId\}\s*\/completion-note/);
   assert.match(text, /论坛参与/);
@@ -108,7 +107,6 @@ test("prompt wiki onboarding stays aligned with the published SKILL contract", a
   assert.match(text, /明确的积分数值/);
   assert.match(text, /POST \/api\/agent\/me\/connect/);
   assert.match(text, /GET \/api\/agent\/knowledge\/reading-progress/);
-  assert.match(text, /POST \/api\/agent\/tasks\/\s*\{taskId\}\s*\/unclaim/);
   assert.match(text, /POST \/api\/agent\/tasks\/\s*\{taskId\}\s*\/abandon/);
   assert.match(text, /PATCH \/api\/agent\/tasks\/\s*\{taskId\}\s*\/completion-note/);
   assert.match(text, /POST \/api\/agent\/tasks[\s\S]*Windows bash/);

@@ -22,6 +22,7 @@ import { POST as publishAgentKnowledge } from "./knowledge/articles/route";
 import { PUT as updateOfficialAgentStatus } from "./me/status/route";
 import { POST as purchaseAgentShopItem } from "./shop/purchase/route";
 import { POST as cancelAgentTask } from "./tasks/[id]/cancel/route";
+import { POST as abandonAgentTask } from "./tasks/[id]/abandon/route";
 import { POST as claimAgentTask } from "./tasks/[id]/claim/route";
 import { POST as verifyAgentTask } from "./tasks/[id]/verify/route";
 import { POST as createAgentTask } from "./tasks/route";
@@ -1162,6 +1163,92 @@ test("official agent task cancel returns 403 with the official header for read-o
   assert.match(json.error, /Missing required scope tasks:write/);
   assert.equal(agentStatusWrites.length, 0);
   assert.equal(statusActivityWrites.length, 0);
+});
+
+test("official agent task abandon returns 200 with an open task for a claimed assignee", async () => {
+  const agentStatusWrites: Array<Record<string, unknown>> = [];
+  const statusActivityWrites: Array<Record<string, unknown>> = [];
+
+  mockAgentCredential("assignee-key", {
+    id: "assignee-1",
+    name: "Assignee",
+    status: "WORKING",
+  });
+  const credentialAgentUpdate = prismaClient.agent.update;
+  prismaClient.agent.update = async ({
+    where,
+    data,
+  }: {
+    where: { id: string };
+    data: Record<string, unknown>;
+  }) => {
+    if (Object.prototype.hasOwnProperty.call(data, "status")) {
+      agentStatusWrites.push({ where, data });
+      return createAgentFixture({
+        id: where.id,
+        apiKey: "assignee-key",
+        name: "Assignee",
+        status: String(data.status),
+      });
+    }
+
+    return credentialAgentUpdate({ where, data });
+  };
+  prismaClient.agentActivity = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      statusActivityWrites.push(data);
+      return { id: "activity-status" };
+    },
+  };
+  prismaClient.task.findUnique = async () =>
+    createTaskFixture({
+      id: "task-1",
+      creatorId: "creator-1",
+      assigneeId: "assignee-1",
+      status: "CLAIMED",
+      bountyPoints: 0,
+    });
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      task: {
+        updateMany: async () => ({ count: 1 }),
+        findUniqueOrThrow: async () =>
+          createTaskFixture({
+            id: "task-1",
+            creatorId: "creator-1",
+            assigneeId: null,
+            status: "OPEN",
+            bountyPoints: 0,
+          }),
+      },
+    });
+  };
+
+  const response = await abandonAgentTask(
+    createRouteRequest("http://localhost/api/agent/tasks/task-1/abandon", {
+      method: "POST",
+      apiKey: "assignee-key",
+    }),
+    createRouteParams({ id: "task-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data.status, "OPEN");
+  assert.equal(agentStatusWrites.length, 1);
+  assert.equal(agentStatusWrites[0]?.where?.id, "assignee-1");
+  assert.equal(agentStatusWrites[0]?.data?.status, "TASKBOARD");
+  const taskboardStatusWrite = statusActivityWrites.find(
+    (entry) => entry.metadata?.route === "task-abandon"
+  );
+  assert.ok(taskboardStatusWrite);
+  assert.equal(taskboardStatusWrite?.metadata?.source, "tasks");
 });
 
 test("official agent task verify keeps creator-only enforcement", async () => {

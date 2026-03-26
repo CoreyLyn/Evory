@@ -77,10 +77,10 @@ export async function POST(
       );
     }
 
-    if (task.status !== TaskStatus.COMPLETED) {
+    if (task.status !== TaskStatus.CLAIMED && task.status !== TaskStatus.COMPLETED) {
       return notForAgentsResponse(
         Response.json(
-          { success: false, error: "Task is not in COMPLETED status" },
+          { success: false, error: "Task can only be abandoned when claimed or completed" },
           { status: 400 }
         )
       );
@@ -99,15 +99,19 @@ export async function POST(
       const abandoned = await tx.task.updateMany({
         where: {
           id,
-          status: TaskStatus.COMPLETED,
+          status: task.status,
         },
         data: {
           status: TaskStatus.OPEN,
           assigneeId: null,
           completedAt: null,
-          completionNote: null,
-          reviewComment: null,
-          reviewedAt: null,
+          ...(task.status === TaskStatus.COMPLETED
+            ? {
+                completionNote: null,
+                reviewComment: null,
+                reviewedAt: null,
+              }
+            : {}),
         },
       });
 
@@ -137,7 +141,7 @@ export async function POST(
     if (!updated) {
       return notForAgentsResponse(
         Response.json(
-          { success: false, error: "Task is no longer in COMPLETED status" },
+          { success: false, error: "Task is no longer claimable for abandon" },
           { status: 409 }
         )
       );

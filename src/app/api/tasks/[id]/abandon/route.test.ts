@@ -304,6 +304,135 @@ test("assignee can abandon a completed task", async () => {
   }
 });
 
+test("assignee can abandon a claimed task", async () => {
+  const activityCreates: Array<Record<string, unknown>> = [];
+  const publishedEvents: Array<{
+    type: string;
+    payload: {
+      previousStatus: string | null;
+      task: {
+        id: string;
+        title: string;
+        status: string;
+        creatorId: string;
+        assigneeId: string | null;
+        bountyPoints: number;
+        completedAt: string | null;
+      };
+    };
+  }> = [];
+  const unsubscribe = subscribeToLiveEvents((event) => {
+    if (event.type !== "task.abandoned") return;
+
+    publishedEvents.push({
+      type: event.type,
+      payload: {
+        previousStatus: event.payload.previousStatus,
+        task: {
+          id: event.payload.task.id,
+          title: event.payload.task.title,
+          status: event.payload.task.status,
+          creatorId: event.payload.task.creatorId,
+          assigneeId: event.payload.task.assigneeId,
+          bountyPoints: event.payload.task.bountyPoints,
+          completedAt: event.payload.task.completedAt,
+        },
+      },
+    });
+  });
+
+  try {
+    mockAgentCredential("assignee-key", {
+      id: "assignee-1",
+      name: "Assignee",
+    });
+    prismaClient.task.findUnique = async () =>
+      createTaskFixture({
+        id: "task-claimed",
+        creatorId: "creator-1",
+        assigneeId: "assignee-1",
+        title: "Claimed task",
+        bountyPoints: 25,
+        status: "CLAIMED",
+        completedAt: null,
+      });
+    prismaClient.$transaction = async (input) => {
+      if (typeof input !== "function") {
+        throw new Error("Expected transaction callback");
+      }
+
+      return input({
+        task: {
+          updateMany: async () => ({ count: 1 }),
+          findUniqueOrThrow: async () =>
+            createTaskFixture({
+              id: "task-claimed",
+              creatorId: "creator-1",
+              assigneeId: null,
+              title: "Claimed task",
+              bountyPoints: 25,
+              status: "OPEN",
+              completedAt: null,
+              creator: createAgentFixture({
+                id: "creator-1",
+                apiKey: "creator-key",
+                name: "Creator",
+              }),
+              assignee: null,
+            }),
+        },
+      });
+    };
+    prismaClient.agentActivity = {
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        activityCreates.push(data);
+        return { id: `activity-${activityCreates.length}` };
+      },
+    };
+
+    const response = await abandonTask(
+      createRouteRequest("http://localhost/api/tasks/task-claimed/abandon", {
+        method: "POST",
+        apiKey: "assignee-key",
+      }),
+      createRouteParams({ id: "task-claimed" })
+    );
+    const json = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(json.success, true);
+    assert.equal(json.data.status, "OPEN");
+    assert.equal(json.data.assigneeId, null);
+    assert.deepEqual(activityCreates, [
+      {
+        agentId: "assignee-1",
+        type: "TASK_ABANDONED",
+        summary: "activity.task.abandoned",
+        metadata: { taskId: "task-claimed", taskTitle: "Claimed task" },
+      },
+    ]);
+    assert.deepEqual(publishedEvents, [
+      {
+        type: "task.abandoned",
+        payload: {
+          previousStatus: "CLAIMED",
+          task: {
+            id: "task-claimed",
+            title: "Claimed task",
+            status: "OPEN",
+            creatorId: "creator-1",
+            assigneeId: null,
+            bountyPoints: 25,
+            completedAt: null,
+          },
+        },
+      },
+    ]);
+  } finally {
+    unsubscribe();
+  }
+});
+
 test("non-assignee cannot abandon task (403)", async () => {
   mockAgentCredential("other-key", {
     id: "other-1",
@@ -331,31 +460,33 @@ test("non-assignee cannot abandon task (403)", async () => {
   assert.equal(json.error, "Only the assignee can abandon this task");
 });
 
-test("cannot abandon task not in COMPLETED status (400)", async () => {
+test("cannot abandon task outside CLAIMED or COMPLETED status (400)", async () => {
   mockAgentCredential("assignee-key", {
     id: "assignee-1",
     name: "Assignee",
   });
-  prismaClient.task.findUnique = async () =>
-    createTaskFixture({
-      id: "task-1",
-      creatorId: "creator-1",
-      assigneeId: "assignee-1",
-      status: "OPEN",
-    });
+  for (const status of ["OPEN", "VERIFIED", "CANCELLED"] as const) {
+    prismaClient.task.findUnique = async () =>
+      createTaskFixture({
+        id: `task-${status.toLowerCase()}`,
+        creatorId: "creator-1",
+        assigneeId: "assignee-1",
+        status,
+      });
 
-  const response = await abandonTask(
-    createRouteRequest("http://localhost/api/tasks/task-1/abandon", {
-      method: "POST",
-      apiKey: "assignee-key",
-    }),
-    createRouteParams({ id: "task-1" })
-  );
-  const json = await response.json();
+    const response = await abandonTask(
+      createRouteRequest(`http://localhost/api/tasks/task-${status.toLowerCase()}/abandon`, {
+        method: "POST",
+        apiKey: "assignee-key",
+      }),
+      createRouteParams({ id: `task-${status.toLowerCase()}` })
+    );
+    const json = await response.json();
 
-  assert.equal(response.status, 400);
-  assert.equal(json.success, false);
-  assert.equal(json.error, "Task is not in COMPLETED status");
+    assert.equal(response.status, 400);
+    assert.equal(json.success, false);
+    assert.equal(json.error, "Task can only be abandoned when claimed or completed");
+  }
 });
 
 test("abandon non-existent task returns 404", async () => {
@@ -417,5 +548,5 @@ test("abandon handles concurrent modification (409)", async () => {
 
   assert.equal(response.status, 409);
   assert.equal(json.success, false);
-  assert.equal(json.error, "Task is no longer in COMPLETED status");
+  assert.equal(json.error, "Task is no longer claimable for abandon");
 });

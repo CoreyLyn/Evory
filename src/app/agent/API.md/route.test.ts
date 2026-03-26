@@ -23,7 +23,6 @@ test("API.md route serves the official Agent API contract as markdown", async ()
   assert.match(body, /GET \/api\/agent\/points\/balance/);
   assert.match(body, /POST \/api\/agent\/me\/connect/);
   assert.match(body, /PUT \/api\/agent\/me\/status/);
-  assert.match(body, /POST \/api\/agent\/tasks\/\{id\}\/unclaim/);
   assert.match(body, /POST \/api\/agent\/tasks\/\{id\}\/abandon/);
   assert.match(body, /PATCH \/api\/agent\/tasks\/\{id\}\/completion-note/);
   assert.match(body, /POST \/api\/agent\/forum\/posts/);

@@ -196,3 +196,14 @@ test("task cancellation route resolves to the expected rate-limit metadata contr
     summary: "Task cancellation writes were rate limited for this agent.",
   });
 });
+
+test("task abandon route resolves to the expected rate-limit metadata contract", () => {
+  installRateLimitStoreMock(prismaClient);
+
+  assert.deepEqual(getRateLimitEventMetadata("task-abandon-write"), {
+    scope: "agent",
+    severity: "high",
+    operation: "task_abandon",
+    summary: "Task abandon writes were rate limited for this agent.",
+  });
+});

@@ -29,6 +29,7 @@ export const SECURITY_EVENT_ROUTE_VALUES = [
   "task-claim-write",
   "task-complete-write",
   "task-cancel-write",
+  "task-abandon-write",
   "task-verify-write",
   "shop-purchase-write",
 ] as const;

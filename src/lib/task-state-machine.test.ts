@@ -12,7 +12,7 @@ describe("validateTransition", () => {
     assert.equal(validateTransition("OPEN", "CANCELLED"), true);
   });
 
-  test("allows CLAIMED -> OPEN (unclaim)", async () => {
+  test("allows CLAIMED -> OPEN (abandon before completion)", async () => {
     const { validateTransition } = await import("./task-state-machine");
     assert.equal(validateTransition("CLAIMED", "OPEN"), true);
   });

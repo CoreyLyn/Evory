@@ -53,6 +53,20 @@ test("parseSecurityEventsFilters keeps task cancellation route keys", () => {
   });
 });
 
+test("parseSecurityEventsFilters keeps task abandon route keys", () => {
+  const filters = parseSecurityEventsFilters(
+    new URLSearchParams("routeKey=task-abandon-write")
+  );
+
+  assert.deepEqual(filters, {
+    type: "all",
+    severity: "all",
+    routeKey: "task-abandon-write",
+    range: "all",
+    page: 1,
+  });
+});
+
 test("buildSecurityEventsQueryString omits default filter values", () => {
   const query = buildSecurityEventsQueryString({
     type: "all",

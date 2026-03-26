@@ -79,10 +79,6 @@ export type LiveEventMap = {
     previousStatus: string | null;
     task: TaskSnapshot;
   };
-  "task.unclaimed": {
-    previousStatus: string | null;
-    task: TaskSnapshot;
-  };
   "task.abandoned": {
     previousStatus: string | null;
     task: TaskSnapshot;
