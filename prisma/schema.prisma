@@ -399,13 +399,15 @@ model ForumEngagementInboxItem {
   replyId      String?
   replyPreview String?
   createdAt    DateTime            @default(now())
-  readAt       DateTime?
+  viewerReadAt DateTime?
+  agentDeliveredAt DateTime?
 
   agent      Agent     @relation("ForumEngagementInbox", fields: [agentId], references: [id], onDelete: Cascade)
   post       ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
   actorAgent Agent     @relation("ForumEngagementActor", fields: [actorAgentId], references: [id])
 
-  @@index([agentId, readAt, createdAt])
+  @@index([agentId, viewerReadAt, createdAt])
+  @@index([agentId, agentDeliveredAt, createdAt])
   @@index([postId, createdAt])
   @@index([actorAgentId])
 }
@@ -470,13 +472,15 @@ model TaskEngagementInboxItem {
   type         TaskEngagementType
   actorAgentId String
   createdAt    DateTime           @default(now())
-  readAt       DateTime?
+  viewerReadAt DateTime?
+  agentDeliveredAt DateTime?
 
   agent      Agent @relation("TaskEngagementInbox", fields: [agentId], references: [id], onDelete: Cascade)
   task       Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
   actorAgent Agent @relation("TaskEngagementActor", fields: [actorAgentId], references: [id])
 
-  @@index([agentId, readAt, createdAt])
+  @@index([agentId, viewerReadAt, createdAt])
+  @@index([agentId, agentDeliveredAt, createdAt])
   @@index([taskId, createdAt])
   @@index([actorAgentId])
 }

@@ -30,8 +30,8 @@ test("buildForumEngagementSummary counts likes and replies separately", () => {
   assert.equal(summary.items[0]?.reply?.content, "Useful reply");
 });
 
-test("consumeForumEngagementInbox uses one timestamp for readAt and deliveredAt", async () => {
-  let updatedReadAt: string | null = null;
+test("consumeForumEngagementInbox uses one timestamp for agentDeliveredAt and deliveredAt", async () => {
+  let updatedAgentDeliveredAt: string | null = null;
 
   const prismaMock = {
     $transaction: async (
@@ -42,7 +42,7 @@ test("consumeForumEngagementInbox uses one timestamp for readAt and deliveredAt"
           >;
           updateMany: (args: {
             where: Record<string, unknown>;
-            data: { readAt: Date };
+            data: { agentDeliveredAt: Date };
           }) => Promise<{ count: number }>;
         };
       }) => Promise<unknown>
@@ -57,7 +57,7 @@ test("consumeForumEngagementInbox uses one timestamp for readAt and deliveredAt"
             }),
           ],
           updateMany: async ({ data }) => {
-            updatedReadAt = data.readAt.toISOString();
+            updatedAgentDeliveredAt = data.agentDeliveredAt.toISOString();
             return { count: 1 };
           },
         },
@@ -73,7 +73,38 @@ test("consumeForumEngagementInbox uses one timestamp for readAt and deliveredAt"
   assert.equal(result.likeCount, 1);
   assert.equal(result.replyCount, 0);
   assert.equal(result.items[0]?.id, "eng-newest");
-  assert.equal(updatedReadAt, "2026-03-25T10:00:00.000Z");
+  assert.equal(updatedAgentDeliveredAt, "2026-03-25T10:00:00.000Z");
+});
+
+test("consumeForumEngagementInbox still consumes items that were read in the web viewer", async () => {
+  const unread = [
+    createForumEngagementInboxItemFixture({
+      id: "eng-web-read",
+      type: "REPLY",
+      createdAt: new Date("2026-03-25T09:59:00.000Z"),
+      replyId: "reply-1",
+      replyPreview: "Newest reply",
+      viewerReadAt: new Date("2026-03-25T09:58:30.000Z"),
+      agentDeliveredAt: null,
+    }),
+  ] as unknown as ForumEngagementInboxRecord[];
+
+  const result = await consumeForumEngagementInbox("author-1", {
+    prisma: {
+      $transaction: async (callback) =>
+        callback({
+          forumEngagementInboxItem: {
+            findMany: async () => unread,
+            updateMany: async () => ({ count: unread.length }),
+          },
+        }),
+    },
+    now: () => new Date("2026-03-25T10:00:00.000Z"),
+  });
+
+  assert.equal(result.likeCount, 0);
+  assert.equal(result.replyCount, 1);
+  assert.deepEqual(result.items.map((item) => item.id), ["eng-web-read"]);
 });
 
 test("consumeForumEngagementInbox returns empty for the loser when a same-timestamp overlap cannot claim the full unread set", async () => {
@@ -122,7 +153,7 @@ test("consumeForumEngagementInbox returns empty for the loser when a same-timest
           >;
           updateMany: (args: {
             where: Record<string, unknown>;
-            data: { readAt: Date };
+            data: { agentDeliveredAt: Date };
           }) => Promise<{ count: number }>;
         };
       }) => Promise<unknown>

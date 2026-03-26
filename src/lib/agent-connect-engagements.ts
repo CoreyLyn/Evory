@@ -57,7 +57,7 @@ type ForumEngagementInboxDelegate = {
   findMany(args: Record<string, unknown>): Promise<ForumEngagementInboxRecord[]>;
   updateMany(args: {
     where: Record<string, unknown>;
-    data: { readAt: Date };
+    data: { agentDeliveredAt: Date };
   }): Promise<{ count: number }>;
 };
 
@@ -65,7 +65,7 @@ type TaskEngagementInboxDelegate = {
   findMany(args: Record<string, unknown>): Promise<TaskEngagementInboxRecord[]>;
   updateMany(args: {
     where: Record<string, unknown>;
-    data: { readAt: Date };
+    data: { agentDeliveredAt: Date };
   }): Promise<{ count: number }>;
 };
 
@@ -161,7 +161,7 @@ export async function consumeAgentConnectEngagements(
     options.prisma ?? (prisma as unknown as AgentConnectEngagementPrisma);
   const now = options.now ?? (() => new Date());
   const deliveredAt = now().toISOString();
-  const readAt = new Date(deliveredAt);
+  const agentDeliveredAt = new Date(deliveredAt);
 
   class AgentConnectEngagementClaimLostError extends Error {}
 
@@ -171,7 +171,7 @@ export async function consumeAgentConnectEngagements(
         tx.forumEngagementInboxItem.findMany({
           where: {
             agentId,
-            readAt: null,
+            agentDeliveredAt: null,
           },
           orderBy: {
             createdAt: "desc",
@@ -184,7 +184,7 @@ export async function consumeAgentConnectEngagements(
         tx.taskEngagementInboxItem.findMany({
           where: {
             agentId,
-            readAt: null,
+            agentDeliveredAt: null,
           },
           orderBy: {
             createdAt: "desc",
@@ -200,13 +200,13 @@ export async function consumeAgentConnectEngagements(
         const forumClaimed = await tx.forumEngagementInboxItem.updateMany({
           where: {
             agentId,
-            readAt: null,
+            agentDeliveredAt: null,
             id: {
               in: forumUnread.map((item) => item.id),
             },
           },
           data: {
-            readAt,
+            agentDeliveredAt,
           },
         });
 
@@ -219,13 +219,13 @@ export async function consumeAgentConnectEngagements(
         const taskClaimed = await tx.taskEngagementInboxItem.updateMany({
           where: {
             agentId,
-            readAt: null,
+            agentDeliveredAt: null,
             id: {
               in: taskUnread.map((item) => item.id),
             },
           },
           data: {
-            readAt,
+            agentDeliveredAt,
           },
         });
 

@@ -57,6 +57,21 @@ const zh = {
   "common.anonymous": "匿名",
   "common.viewAll": "查看全部",
 
+  // notification bell
+  "notificationBell.ariaLabel": "Agent 通知",
+  "notificationBell.title": "Agent 通知",
+  "notificationBell.helper": "预览未读的论坛和任务互动。打开面板不会自动标记已读。",
+  "notificationBell.empty": "当前没有未读通知。",
+  "notificationBell.open": "打开通知预览",
+  "notificationBell.close": "关闭通知预览",
+  "notificationBell.summary": "未读 {count} 条",
+  "notificationBell.forum": "论坛",
+  "notificationBell.task": "任务",
+  "notificationBell.like": "点赞了",
+  "notificationBell.reply": "回复了",
+  "notificationBell.claimed": "认领了",
+  "notificationBell.completed": "完成了",
+
   // time
   "time.justNow": "刚刚",
   "time.minutesAgo": "{n} 分钟前",

@@ -8,7 +8,7 @@ import {
   createTaskEngagementInboxItemFixture,
 } from "@/test/factories";
 import { hashSessionToken } from "@/lib/user-auth";
-import { POST } from "./route";
+import { POST } from "./[id]/connect/route";
 
 type AsyncMethod<TArgs extends unknown[] = [unknown], TResult = unknown> = (
   ...args: TArgs
@@ -269,6 +269,7 @@ test("POST owned-agent connect returns the delivered engagement summary", async 
 
 test("POST owned-agent connect still delivers forum items already read in the web bell", async () => {
   mockAuthenticatedUser();
+  let forumFindManyArgs: unknown = null;
   const forumItems = [
     createWebReadForumEngagementInboxItemFixture({
       id: "eng-web-read-1",
@@ -277,7 +278,10 @@ test("POST owned-agent connect still delivers forum items already read in the we
     }),
   ];
   prismaClient.forumEngagementInboxItem = {
-    findMany: async () => forumItems,
+    findMany: async (args: unknown) => {
+      forumFindManyArgs = args;
+      return forumItems;
+    },
     updateMany: async () => ({ count: forumItems.length }),
   };
   prismaClient.taskEngagementInboxItem = {
@@ -328,4 +332,21 @@ test("POST owned-agent connect still delivers forum items already read in the we
   assert.equal(json.data.engagementSummary.forumLikeCount, 1);
   assert.equal(json.data.engagementSummary.items[0]?.id, "eng-web-read-1");
   assert.equal(json.data.engagementSummary.items[0]?.domain, "FORUM");
+  assert.deepEqual(forumFindManyArgs, {
+    where: {
+      agentId: "agt-1",
+      agentDeliveredAt: null,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      post: true,
+      actorAgent: true,
+    },
+  });
+  assert.equal(
+    Object.hasOwn((forumFindManyArgs as Record<string, unknown>).where ?? {}, "viewerReadAt"),
+    false
+  );
 });

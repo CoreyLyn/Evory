@@ -18,8 +18,10 @@ import {
   Shield,
 } from "lucide-react";
 import { useT, useLocale } from "@/i18n";
-import type { TranslationKey } from "@/i18n";
+import type { Locale, TranslationKey } from "@/i18n";
+import { AgentNotificationBell } from "./agent-notification-bell";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
+import type { ReactNode } from "react";
 
 const navItems: { href: string; labelKey: TranslationKey; icon: React.ElementType }[] = [
   { href: "/forum", labelKey: "nav.forum", icon: MessageSquare },
@@ -36,24 +38,59 @@ const utilityItems: { href: string; labelKey: TranslationKey; icon: React.Elemen
   { href: "/wiki/prompts", labelKey: "nav.promptWiki", icon: BookCopy },
 ];
 
-export function Sidebar() {
-  const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
-  const t = useT();
-  const { locale, setLocale } = useLocale();
-  const { isAdmin } = useCurrentUser();
+export type SidebarViewProps = {
+  pathname: string;
+  theme: string | undefined;
+  setTheme: (theme: string) => void;
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
+  isAdmin: boolean;
+  bellSlot: ReactNode;
+  t: ReturnType<typeof useT>;
+};
 
+export type SidebarProps = {
+  pathname?: string;
+  theme?: string | undefined;
+  setTheme?: (theme: string) => void;
+  locale?: Locale;
+  setLocale?: (locale: Locale) => void;
+  isAdmin?: boolean;
+  t?: ReturnType<typeof useT>;
+  bellSlot?: ReactNode;
+};
+
+export const sidebarRuntime = {
+  usePathname: () => usePathname(),
+  useTheme: () => useTheme(),
+  useLocale: () => useLocale(),
+  useCurrentUser: () => useCurrentUser(),
+};
+
+export function SidebarView({
+  pathname,
+  theme,
+  setTheme,
+  locale,
+  setLocale,
+  isAdmin,
+  bellSlot,
+  t,
+}: SidebarViewProps) {
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col border-r border-card-border/40 bg-sidebar/90 backdrop-blur-2xl">
       <div className="h-[2px] bg-gradient-to-r from-accent via-accent-secondary to-cyan opacity-60" />
 
-      <div className="flex h-16 items-center gap-3 px-6">
-        <span className="animate-float text-accent" aria-hidden>
-          <Bot className="h-7 w-7" />
-        </span>
-        <span className="font-display text-lg font-bold tracking-tight text-foreground">
-          EVORY
-        </span>
+      <div className="flex h-16 items-center justify-between gap-3 px-6">
+        <div className="flex items-center gap-3">
+          <span className="animate-float text-accent" aria-hidden>
+            <Bot className="h-7 w-7" />
+          </span>
+          <span className="font-display text-lg font-bold tracking-tight text-foreground">
+            EVORY
+          </span>
+        </div>
+        {bellSlot}
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-2">
@@ -164,4 +201,51 @@ export function Sidebar() {
       </div>
     </aside>
   );
+}
+
+function SidebarConnected() {
+  const pathname = sidebarRuntime.usePathname();
+  const { theme, setTheme } = sidebarRuntime.useTheme();
+  const t = useT();
+  const { locale, setLocale } = sidebarRuntime.useLocale();
+  const { isAdmin } = sidebarRuntime.useCurrentUser();
+
+  return (
+    <SidebarView
+      pathname={pathname}
+      theme={theme}
+      setTheme={setTheme}
+      locale={locale}
+      setLocale={setLocale}
+      isAdmin={isAdmin}
+      bellSlot={<AgentNotificationBell />}
+      t={t}
+    />
+  );
+}
+
+export function Sidebar(props?: SidebarProps) {
+  if (
+    props?.pathname !== undefined &&
+    props.setTheme !== undefined &&
+    props.locale !== undefined &&
+    props.setLocale !== undefined &&
+    props.isAdmin !== undefined &&
+    props.t !== undefined
+  ) {
+    return (
+      <SidebarView
+        pathname={props.pathname}
+        theme={props.theme}
+        setTheme={props.setTheme}
+        locale={props.locale}
+        setLocale={props.setLocale}
+        isAdmin={props.isAdmin}
+        bellSlot={props.bellSlot ?? <AgentNotificationBell />}
+        t={props.t}
+      />
+    );
+  }
+
+  return <SidebarConnected />;
 }

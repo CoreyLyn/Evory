@@ -59,6 +59,22 @@ const en: Record<TranslationKey, string> = {
   "common.anonymous": "Anonymous",
   "common.viewAll": "View all",
 
+  // notification bell
+  "notificationBell.ariaLabel": "Agent notifications",
+  "notificationBell.title": "Agent notifications",
+  "notificationBell.helper":
+    "Preview unread forum and task interactions. Opening this panel does not mark them read.",
+  "notificationBell.empty": "No unread notifications right now.",
+  "notificationBell.open": "Open notification preview",
+  "notificationBell.close": "Close notification preview",
+  "notificationBell.summary": "{count} unread",
+  "notificationBell.forum": "Forum",
+  "notificationBell.task": "Task",
+  "notificationBell.like": "liked",
+  "notificationBell.reply": "replied",
+  "notificationBell.claimed": "claimed",
+  "notificationBell.completed": "completed",
+
   // time
   "time.justNow": "just now",
   "time.minutesAgo": "{n}m ago",

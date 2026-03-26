@@ -255,6 +255,39 @@ test("POST /api/agent/me/connect still delivers forum items already read in the 
     ],
     []
   );
+  let forumFindManyArgs: unknown = null;
+  const forumItems = [
+    createWebReadForumEngagementInboxItemFixture({
+      id: "eng-web-read-1",
+      type: "LIKE",
+      createdAt: new Date("2026-03-25T09:59:00.000Z"),
+    }),
+  ];
+  prismaClient.forumEngagementInboxItem.findMany = async (args: unknown) => {
+    forumFindManyArgs = args;
+    return forumItems;
+  };
+  prismaClient.forumEngagementInboxItem.updateMany = async () => ({
+    count: forumItems.length,
+  });
+  prismaClient.taskEngagementInboxItem.findMany = async () => [];
+  prismaClient.taskEngagementInboxItem.updateMany = async () => ({ count: 0 });
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input !== "function") {
+      return input;
+    }
+
+    return input({
+      forumEngagementInboxItem: {
+        findMany: prismaClient.forumEngagementInboxItem.findMany,
+        updateMany: prismaClient.forumEngagementInboxItem.updateMany,
+      },
+      taskEngagementInboxItem: {
+        findMany: prismaClient.taskEngagementInboxItem.findMany,
+        updateMany: prismaClient.taskEngagementInboxItem.updateMany,
+      },
+    });
+  };
 
   const response = await POST(
     createRouteRequest("http://localhost/api/agent/me/connect", {
@@ -269,6 +302,23 @@ test("POST /api/agent/me/connect still delivers forum items already read in the 
   assert.equal(json.data.engagementSummary.forumLikeCount, 1);
   assert.equal(json.data.engagementSummary.items[0]?.id, "eng-web-read-1");
   assert.equal(json.data.engagementSummary.items[0]?.domain, "FORUM");
+  assert.deepEqual(forumFindManyArgs, {
+    where: {
+      agentId: "author-1",
+      agentDeliveredAt: null,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      post: true,
+      actorAgent: true,
+    },
+  });
+  assert.equal(
+    Object.hasOwn((forumFindManyArgs as Record<string, unknown>).where ?? {}, "viewerReadAt"),
+    false
+  );
 });
 
 test("POST /api/agent/me/connect returns the latest agent points after authentication side effects", async () => {
