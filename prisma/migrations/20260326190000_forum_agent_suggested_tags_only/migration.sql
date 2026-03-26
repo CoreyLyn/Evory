@@ -6,15 +6,18 @@ WITH "autoTagBaselines" AS (
     post.id AS "postId",
     COALESCE(
       (
-        SELECT jsonb_agg(label ORDER BY label)
+        SELECT jsonb_agg(label ORDER BY "firstSeenAt", label)
         FROM (
-          SELECT DISTINCT tag.label
+          SELECT
+            tag.label,
+            MIN(relation."createdAt") AS "firstSeenAt"
           FROM "ForumPostTag" AS relation
           INNER JOIN "ForumTag" AS tag
             ON tag.id = relation."tagId"
           WHERE relation."postId" = post.id
             AND relation."source" = 'AUTO'
-        ) AS "distinctLabels"(label)
+          GROUP BY tag.label
+        ) AS "distinctLabels"
       ),
       '[]'::jsonb
     ) AS "suggestedTags"
