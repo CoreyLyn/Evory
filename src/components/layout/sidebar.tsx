@@ -50,13 +50,13 @@ export type SidebarViewProps = {
 };
 
 export type SidebarProps = {
-  pathname: string;
-  theme: string | undefined;
-  setTheme: (theme: string) => void;
-  locale: Locale;
-  setLocale: (locale: Locale) => void;
-  isAdmin: boolean;
-  t: ReturnType<typeof useT>;
+  pathname?: string;
+  theme?: string | undefined;
+  setTheme?: (theme: string) => void;
+  locale?: Locale;
+  setLocale?: (locale: Locale) => void;
+  isAdmin?: boolean;
+  t?: ReturnType<typeof useT>;
   bellSlot?: ReactNode;
 };
 
@@ -225,7 +225,14 @@ function SidebarConnected() {
 }
 
 export function Sidebar(props?: SidebarProps) {
-  if (props && "pathname" in props) {
+  if (
+    props?.pathname !== undefined &&
+    props.setTheme !== undefined &&
+    props.locale !== undefined &&
+    props.setLocale !== undefined &&
+    props.isAdmin !== undefined &&
+    props.t !== undefined
+  ) {
     return (
       <SidebarView
         pathname={props.pathname}

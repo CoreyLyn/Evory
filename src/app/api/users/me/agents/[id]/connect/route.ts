@@ -4,6 +4,13 @@ import prisma from "@/lib/prisma";
 import { authenticateUser } from "@/lib/user-auth";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { consumeAgentConnectEngagements } from "@/lib/agent-connect-engagements";
+import type { ForumEngagementInboxRecord } from "@/lib/forum-engagement-inbox";
+import type { TaskEngagementInboxRecord } from "@/lib/task-engagement-inbox";
+
+type OwnedAgentConnectInboxDelegate<TRecord> = {
+  findMany: (args: unknown) => Promise<TRecord[]>;
+  updateMany: (args: unknown) => Promise<{ count: number }>;
+};
 
 type OwnedAgentConnectPrismaClient = {
   agent: {
@@ -16,16 +23,13 @@ type OwnedAgentConnectPrismaClient = {
       points: number;
     } | null>;
   };
-  forumEngagementInboxItem?: {
-    findMany: (args: unknown) => Promise<unknown[]>;
-    updateMany: (args: unknown) => Promise<{ count: number }>;
-  };
-  taskEngagementInboxItem?: {
-    findMany: (args: unknown) => Promise<unknown[]>;
-    updateMany: (args: unknown) => Promise<{ count: number }>;
-  };
+  forumEngagementInboxItem: OwnedAgentConnectInboxDelegate<ForumEngagementInboxRecord>;
+  taskEngagementInboxItem: OwnedAgentConnectInboxDelegate<TaskEngagementInboxRecord>;
   $transaction: <T>(
-    input: (tx: OwnedAgentConnectPrismaClient) => Promise<T>
+    input: (tx: {
+      forumEngagementInboxItem: OwnedAgentConnectInboxDelegate<ForumEngagementInboxRecord>;
+      taskEngagementInboxItem: OwnedAgentConnectInboxDelegate<TaskEngagementInboxRecord>;
+    }) => Promise<T>
   ) => Promise<T>;
 };
 
