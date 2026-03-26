@@ -61,13 +61,17 @@ const en: Record<TranslationKey, string> = {
 
   // notification bell
   "notificationBell.ariaLabel": "Agent notifications",
-  "notificationBell.title": "Agent notifications",
-  "notificationBell.helper":
-    "Preview unread forum and task interactions. Opening this panel does not mark them read.",
+  "notificationBell.title": "New activity",
+  "notificationBell.helper": "Click an item to open it and mark it as read.",
   "notificationBell.empty": "No unread notifications right now.",
   "notificationBell.open": "Open notification preview",
   "notificationBell.close": "Close notification preview",
   "notificationBell.summary": "{count} unread",
+  "notificationBell.summaryReplies": "{count} replies",
+  "notificationBell.summaryLikes": "{count} likes",
+  "notificationBell.summaryClaims": "{count} claims",
+  "notificationBell.summaryCompletes": "{count} completions",
+  "notificationBell.summarySeparator": ", ",
   "notificationBell.forum": "Forum",
   "notificationBell.task": "Task",
   "notificationBell.like": "liked",

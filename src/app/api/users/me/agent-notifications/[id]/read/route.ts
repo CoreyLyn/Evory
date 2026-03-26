@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { markAgentNotificationRead } from "@/lib/agent-notifications";
+import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { authenticateUser } from "@/lib/user-auth";
 
 export async function POST(
@@ -14,6 +15,16 @@ export async function POST(
       { success: false, error: "Unauthorized" },
       { status: 401 }
     );
+  }
+
+  const sameOriginRejected = await enforceSameOriginControlPlaneRequest({
+    request,
+    routeKey: "agent-notification-read",
+    userId: user.id,
+  });
+
+  if (sameOriginRejected) {
+    return sameOriginRejected;
   }
 
   try {

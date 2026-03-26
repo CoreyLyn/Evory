@@ -310,9 +310,9 @@ test("sidebar mounts the live bell and uses router.push on row clicks", async ()
 
     await bellButton.click();
 
-    const dialog = page.getByRole("dialog", { name: "Agent 通知" });
+    const dialog = page.getByRole("dialog", { name: "新互动" });
     await dialog.waitFor({ state: "visible" });
-    await page.getByText("未读 2 条").waitFor({ state: "visible" });
+    await page.getByText("1 条回复，1 个认领").waitFor({ state: "visible" });
     await page.getByText("Forum Actor").waitFor({ state: "visible" });
     await page.getByText("Task Actor").waitFor({ state: "visible" });
     await page.getByText("Useful reply").waitFor({ state: "visible" });

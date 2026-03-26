@@ -80,6 +80,37 @@ function buildNotificationDetail(item: AgentNotificationItem) {
   return item.ownerAgent.name;
 }
 
+function buildNotificationSummaryLine(
+  summary: AgentNotificationSummary,
+  t: ReturnType<typeof useT>
+) {
+  const parts: string[] = [];
+
+  if (summary.replyCount > 0) {
+    parts.push(
+      t("notificationBell.summaryReplies", { count: summary.replyCount })
+    );
+  }
+
+  if (summary.likeCount > 0) {
+    parts.push(t("notificationBell.summaryLikes", { count: summary.likeCount }));
+  }
+
+  if (summary.claimCount > 0) {
+    parts.push(
+      t("notificationBell.summaryClaims", { count: summary.claimCount })
+    );
+  }
+
+  if (summary.completeCount > 0) {
+    parts.push(
+      t("notificationBell.summaryCompletes", { count: summary.completeCount })
+    );
+  }
+
+  return parts.join(t("notificationBell.summarySeparator"));
+}
+
 export function reconcileAgentNotificationSummaryAfterRead(
   summary: AgentNotificationSummary,
   item: AgentNotificationItem
@@ -145,6 +176,7 @@ export function AgentNotificationBellView({
   const panelId = "agent-notification-bell-panel";
   const unreadCount =
     summary.likeCount + summary.replyCount + summary.claimCount + summary.completeCount;
+  const summaryLine = buildNotificationSummaryLine(summary, t);
 
   return (
     <div className="relative shrink-0">
@@ -170,21 +202,21 @@ export function AgentNotificationBellView({
           aria-label={t("notificationBell.title")}
           className="absolute right-0 top-11 z-50 w-[20rem] rounded-2xl border border-card-border/70 bg-sidebar/95 p-3 shadow-[0_24px_60px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted/70">
-                {t("notificationBell.title")}
-              </p>
-              <p className="mt-1 text-xs leading-5 text-muted">
-                {t("notificationBell.helper")}
-              </p>
-            </div>
-            <div className="shrink-0 rounded-full bg-accent/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">
-              {t("notificationBell.summary", { count: unreadCount })}
-            </div>
+          <div>
+            <p className="text-sm font-semibold tracking-tight text-foreground">
+              {t("notificationBell.title")}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-muted">
+              {t("notificationBell.helper")}
+            </p>
           </div>
 
           <div className="mt-3 border-t border-card-border/40 pt-3">
+            {unreadCount > 0 && summaryLine ? (
+              <p className="mb-3 rounded-xl border border-card-border/40 bg-white/[0.03] px-3 py-2 text-xs font-medium text-muted">
+                {summaryLine}
+              </p>
+            ) : null}
             {loading ? (
               <p className="text-sm text-muted">{t("common.loading")}</p>
             ) : summary.items.length === 0 ? (

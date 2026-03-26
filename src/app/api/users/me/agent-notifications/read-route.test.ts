@@ -12,6 +12,9 @@ type OwnedAgentNotificationReadPrismaMock = {
   agent?: {
     findMany: (args: unknown) => Promise<Array<{ id: string; name: string }>>;
   };
+  securityEvent?: {
+    create: (args: unknown) => Promise<unknown>;
+  };
   userSession?: {
     findUnique: (args: unknown) => Promise<{
       expiresAt: Date;
@@ -35,6 +38,7 @@ type OwnedAgentNotificationReadPrismaMock = {
 
 const prismaClient = prisma as unknown as OwnedAgentNotificationReadPrismaMock;
 const originalAgentFindMany = prismaClient.agent?.findMany;
+const originalSecurityEventCreate = prismaClient.securityEvent?.create;
 const originalUserSessionFindUnique = prismaClient.userSession?.findUnique;
 const originalForumFindMany = prismaClient.forumEngagementInboxItem?.findMany;
 const originalForumUpdateMany = prismaClient.forumEngagementInboxItem?.updateMany;
@@ -65,6 +69,9 @@ beforeEach(() => {
   prismaClient.agent = {
     findMany: async () => [],
   };
+  prismaClient.securityEvent = {
+    create: async () => ({}),
+  };
   prismaClient.forumEngagementInboxItem = {
     findMany: async () => [],
     updateMany: async () => ({ count: 0 }),
@@ -78,6 +85,9 @@ beforeEach(() => {
 afterEach(() => {
   if (prismaClient.agent && originalAgentFindMany) {
     prismaClient.agent.findMany = originalAgentFindMany;
+  }
+  if (prismaClient.securityEvent && originalSecurityEventCreate) {
+    prismaClient.securityEvent.create = originalSecurityEventCreate;
   }
   if (prismaClient.userSession && originalUserSessionFindUnique) {
     prismaClient.userSession.findUnique = originalUserSessionFindUnique;
@@ -111,6 +121,51 @@ test("POST /api/users/me/agent-notifications/[id]/read returns 401 without auth"
   assert.equal(response.status, 401);
   assert.equal(json.success, false);
   assert.equal(json.error, "Unauthorized");
+});
+
+test("POST /api/users/me/agent-notifications/[id]/read returns 403 when origin header is missing", async () => {
+  mockAuthenticatedUser();
+
+  const response = await POST(
+    createRouteRequest(
+      "http://localhost/api/users/me/agent-notifications/forum-eng-1/read",
+      {
+        method: "POST",
+        headers: {
+          cookie: `evory_user_session=${TEST_SESSION_TOKEN}`,
+        },
+      }
+    ),
+    createRouteParams({ id: "forum-eng-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Invalid request origin");
+});
+
+test("POST /api/users/me/agent-notifications/[id]/read returns 403 when origin is cross-origin", async () => {
+  mockAuthenticatedUser();
+
+  const response = await POST(
+    createRouteRequest(
+      "http://localhost/api/users/me/agent-notifications/forum-eng-1/read",
+      {
+        method: "POST",
+        headers: {
+          cookie: `evory_user_session=${TEST_SESSION_TOKEN}`,
+          origin: "https://evil.example",
+        },
+      }
+    ),
+    createRouteParams({ id: "forum-eng-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Invalid request origin");
 });
 
 test("POST /api/users/me/agent-notifications/[id]/read marks a forum item and preserves agentDeliveredAt", async () => {
@@ -169,6 +224,7 @@ test("POST /api/users/me/agent-notifications/[id]/read marks a forum item and pr
         method: "POST",
         headers: {
           cookie: `evory_user_session=${TEST_SESSION_TOKEN}`,
+          origin: "http://localhost",
         },
       }
     ),
@@ -260,6 +316,7 @@ test("POST /api/users/me/agent-notifications/[id]/read marks a task item through
         method: "POST",
         headers: {
           cookie: `evory_user_session=${TEST_SESSION_TOKEN}`,
+          origin: "http://localhost",
         },
       }
     ),
@@ -343,6 +400,7 @@ test("POST /api/users/me/agent-notifications/[id]/read returns an already-read o
         method: "POST",
         headers: {
           cookie: `evory_user_session=${TEST_SESSION_TOKEN}`,
+          origin: "http://localhost",
         },
       }
     ),
@@ -378,6 +436,7 @@ test("POST /api/users/me/agent-notifications/[id]/read returns 404 for a foreign
         method: "POST",
         headers: {
           cookie: `evory_user_session=${TEST_SESSION_TOKEN}`,
+          origin: "http://localhost",
         },
       }
     ),

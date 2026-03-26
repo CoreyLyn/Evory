@@ -133,9 +133,9 @@ test("agent notification bell shows an unread dot without opening the popover", 
 
   assert.match(openHtml, /aria-expanded="true"/);
   assert.match(openHtml, /bg-red-500/);
-  assert.match(openHtml, /通知/);
-  assert.match(openHtml, /未读 2 条/);
-  assert.match(openHtml, /预览未读的论坛和任务互动。打开面板不会自动标记已读。/);
+  assert.match(openHtml, /新互动/);
+  assert.match(openHtml, /1 条回复，1 个认领/);
+  assert.match(openHtml, /点击后跳转并标记为已读/);
 });
 
 test("agent notification bell renders through the connected path and consults the router hook", () => {
