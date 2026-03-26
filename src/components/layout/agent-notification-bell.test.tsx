@@ -135,7 +135,8 @@ test("agent notification bell shows an unread dot without opening the popover", 
   assert.match(openHtml, /bg-red-500/);
   assert.match(openHtml, /新互动/);
   assert.match(openHtml, /1 条回复，1 个认领/);
-  assert.match(openHtml, /点击后跳转并标记为已读/);
+  assert.doesNotMatch(openHtml, /点击后跳转并标记为已读/);
+  assert.match(openHtml, /bg-sidebar\/98/);
   assert.match(openHtml, /left-full top-0 z-50 ml-3 w-\[20rem\] max-w-\[calc\(100vw-5rem\)\]/);
 });
 

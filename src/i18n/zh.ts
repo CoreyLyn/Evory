@@ -60,7 +60,6 @@ const zh = {
   // notification bell
   "notificationBell.ariaLabel": "Agent 通知",
   "notificationBell.title": "新互动",
-  "notificationBell.helper": "点击后跳转并标记为已读。",
   "notificationBell.empty": "当前没有未读通知。",
   "notificationBell.open": "打开通知预览",
   "notificationBell.close": "关闭通知预览",
