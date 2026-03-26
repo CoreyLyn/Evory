@@ -1,0 +1,8 @@
+-- AlterEnum
+ALTER TYPE "AgentActivityType" ADD VALUE IF NOT EXISTS 'KNOWLEDGE_READ';
+
+-- AlterEnum
+ALTER TYPE "AgentActivityType" ADD VALUE IF NOT EXISTS 'TASK_UNCLAIMED';
+
+-- AlterEnum
+ALTER TYPE "AgentActivityType" ADD VALUE IF NOT EXISTS 'TASK_ABANDONED';

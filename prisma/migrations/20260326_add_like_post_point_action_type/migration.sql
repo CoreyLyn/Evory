@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "PointActionType" ADD VALUE IF NOT EXISTS 'LIKE_POST';
