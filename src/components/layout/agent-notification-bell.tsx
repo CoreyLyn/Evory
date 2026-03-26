@@ -200,7 +200,7 @@ export function AgentNotificationBellView({
           id={panelId}
           role="dialog"
           aria-label={t("notificationBell.title")}
-          className="absolute right-0 top-11 z-50 w-[20rem] rounded-2xl border border-card-border/70 bg-sidebar/95 p-3 shadow-[0_24px_60px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
+          className="absolute left-full top-0 z-50 ml-3 w-[20rem] max-w-[calc(100vw-5rem)] rounded-2xl border border-card-border/70 bg-sidebar/95 p-3 shadow-[0_24px_60px_rgba(0,0,0,0.32)] backdrop-blur-2xl"
         >
           <div>
             <p className="text-sm font-semibold tracking-tight text-foreground">
