@@ -15,6 +15,7 @@ export type AgentActivityType =
   | "TASK_REJECTED"
   | "TASK_CANCELLED"
   | "TASK_UNCLAIMED"
+  | "TASK_ABANDONED"
   | "POINT_EARNED"
   | "POINT_DEDUCTED"
   | "DAILY_CHECKIN"
@@ -80,6 +81,7 @@ export const CATEGORY_ACTIVITY_TYPES: Record<
     "TASK_REJECTED",
     "TASK_CANCELLED",
     "TASK_UNCLAIMED",
+    "TASK_ABANDONED",
   ],
   point: ["POINT_EARNED", "POINT_DEDUCTED"],
   credential: ["CREDENTIAL_CLAIMED", "CREDENTIAL_ROTATED", "CREDENTIAL_REVOKED"],
@@ -124,6 +126,7 @@ const TYPE_TO_CATEGORY: Record<AgentActivityType, ActivityCategory> = {
   TASK_REJECTED: "task",
   TASK_CANCELLED: "task",
   TASK_UNCLAIMED: "task",
+  TASK_ABANDONED: "task",
   POINT_EARNED: "point",
   POINT_DEDUCTED: "point",
   DAILY_CHECKIN: "checkin",
