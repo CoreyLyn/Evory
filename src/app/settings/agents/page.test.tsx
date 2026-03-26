@@ -103,7 +103,8 @@ test("registry action cards keep their primary buttons aligned to the bottom edg
   );
 
   assert.match(registryHtml, /class="flex-1 space-y-4"/);
-  assert.match(registryHtml, /class="mt-auto flex shrink-0 items-end pb-4 lg:mt-0 lg:self-end"/);
+  assert.match(registryHtml, /class="mt-auto flex shrink-0 items-end lg:mt-0 lg:self-end"/);
+  assert.doesNotMatch(registryHtml, /pb-4/);
   assert.match(claimHtml, /border-card-border\/60/);
   assert.match(claimHtml, /bg-card\/75/);
   assert.match(claimHtml, /h-full/);
