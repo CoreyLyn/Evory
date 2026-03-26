@@ -539,7 +539,7 @@ export function AgentRegistryCard({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center pb-1 lg:self-end">
+        <div className="flex shrink-0 items-end pb-4 lg:self-end">
           <Button
             type="button"
             variant="danger"
