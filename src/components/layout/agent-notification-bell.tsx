@@ -1,8 +1,9 @@
 "use client";
 
 import { Bell, CheckSquare, MessageSquare } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { RefObject } from "react";
 
 import { useLocale, useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -158,6 +159,8 @@ export type AgentNotificationBellViewProps = {
   onRowClick: (item: AgentNotificationItem) => void;
   t: ReturnType<typeof useT>;
   formatTimeAgo: (value: string) => string;
+  buttonRef?: RefObject<HTMLButtonElement | null>;
+  panelRef?: RefObject<HTMLDivElement | null>;
 };
 
 export type AgentNotificationBellProps = {
@@ -172,6 +175,8 @@ export function AgentNotificationBellView({
   onRowClick,
   t,
   formatTimeAgo: formatTimeAgoFn,
+  buttonRef,
+  panelRef,
 }: AgentNotificationBellViewProps) {
   const panelId = "agent-notification-bell-panel";
   const unreadCount =
@@ -181,6 +186,7 @@ export function AgentNotificationBellView({
   return (
     <div className="relative shrink-0">
       <button
+        ref={buttonRef}
         type="button"
         aria-label={t("notificationBell.ariaLabel")}
         aria-controls={panelId}
@@ -197,6 +203,7 @@ export function AgentNotificationBellView({
 
       {open && (
         <div
+          ref={panelRef}
           id={panelId}
           role="dialog"
           aria-label={t("notificationBell.title")}
@@ -269,6 +276,8 @@ function AgentNotificationBellBase({
   const [summary, setSummary] = useState<AgentNotificationSummary>(EMPTY_SUMMARY);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -312,6 +321,42 @@ function AgentNotificationBellBase({
     };
   }, []);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (
+        panelRef.current?.contains(target) ||
+        buttonRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      setOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
   function handleRowClick(item: AgentNotificationItem) {
     setSummary((current) =>
       reconcileAgentNotificationSummaryAfterRead(current, item)
@@ -329,6 +374,8 @@ function AgentNotificationBellBase({
       onRowClick={handleRowClick}
       t={t}
       formatTimeAgo={(value) => formatTimeAgo(value, locale)}
+      buttonRef={buttonRef}
+      panelRef={panelRef}
     />
   );
 }

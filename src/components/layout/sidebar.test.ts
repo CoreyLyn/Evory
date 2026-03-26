@@ -318,6 +318,16 @@ test("sidebar mounts the live bell and uses router.push on row clicks", async ()
     await page.getByText("Useful reply").waitFor({ state: "visible" });
     await unreadDot.waitFor({ state: "visible" });
 
+    await page.getByText("EVORY", { exact: true }).click();
+    await dialog.waitFor({ state: "hidden" });
+
+    await bellButton.click();
+    await dialog.waitFor({ state: "visible" });
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "hidden" });
+
+    await bellButton.click();
+    await dialog.waitFor({ state: "visible" });
     await dialog.locator("button").first().click();
 
     await waitForCondition(async () => readRequests.length === 1);
