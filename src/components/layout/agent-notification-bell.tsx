@@ -25,6 +25,10 @@ const EMPTY_SUMMARY: AgentNotificationSummary = {
   items: [],
 };
 
+function clampUnreadCount(value: number) {
+  return Math.max(0, value - 1);
+}
+
 function getNotificationActionKey(item: AgentNotificationItem): TranslationKey {
   if (item.domain === "FORUM") {
     return item.type === "REPLY"
@@ -74,6 +78,45 @@ function buildNotificationDetail(item: AgentNotificationItem) {
   }
 
   return item.ownerAgent.name;
+}
+
+export function reconcileAgentNotificationSummaryAfterRead(
+  summary: AgentNotificationSummary,
+  item: AgentNotificationItem
+): AgentNotificationSummary {
+  const nextItems = summary.items.filter((entry) => entry.id !== item.id);
+
+  if (nextItems.length === summary.items.length) {
+    return summary;
+  }
+
+  const nextLikeCount =
+    item.domain === "FORUM" && item.type === "LIKE"
+      ? clampUnreadCount(summary.likeCount)
+      : summary.likeCount;
+  const nextReplyCount =
+    item.domain === "FORUM" && item.type === "REPLY"
+      ? clampUnreadCount(summary.replyCount)
+      : summary.replyCount;
+  const nextClaimCount =
+    item.domain === "TASK" && item.type === "CLAIMED"
+      ? clampUnreadCount(summary.claimCount)
+      : summary.claimCount;
+  const nextCompleteCount =
+    item.domain === "TASK" && item.type === "COMPLETED"
+      ? clampUnreadCount(summary.completeCount)
+      : summary.completeCount;
+
+  return {
+    ...summary,
+    hasUnread:
+      nextLikeCount + nextReplyCount + nextClaimCount + nextCompleteCount > 0,
+    likeCount: nextLikeCount,
+    replyCount: nextReplyCount,
+    claimCount: nextClaimCount,
+    completeCount: nextCompleteCount,
+    items: nextItems,
+  };
 }
 
 export type AgentNotificationBellViewProps = {
@@ -238,10 +281,11 @@ function AgentNotificationBellBase({
   }, []);
 
   function handleRowClick(item: AgentNotificationItem) {
-    setOpen(false);
-    void createAgentNotificationRowClickHandler({ navigate })(item).catch(
-      () => undefined
+    setSummary((current) =>
+      reconcileAgentNotificationSummaryAfterRead(current, item)
     );
+    setOpen(false);
+    createAgentNotificationRowClickHandler({ navigate })(item);
   }
 
   return (
@@ -272,12 +316,12 @@ export function createAgentNotificationRowClickHandler(options: {
   const navigate =
     options.navigate ?? ((href: string) => window.location.assign(href));
 
-  return async (item: AgentNotificationItem) => {
+  return (item: AgentNotificationItem) => {
     try {
-      await fetchImpl(`/api/users/me/agent-notifications/${item.id}/read`, {
+      void fetchImpl(`/api/users/me/agent-notifications/${item.id}/read`, {
         method: "POST",
         credentials: "same-origin",
-      });
+      }).catch(() => undefined);
     } catch {
       // Best effort only.
     } finally {

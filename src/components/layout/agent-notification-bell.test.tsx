@@ -13,6 +13,7 @@ import {
   AgentNotificationBellView,
   AgentNotificationBell,
   createAgentNotificationRowClickHandler,
+  reconcileAgentNotificationSummaryAfterRead,
 } from "./agent-notification-bell";
 
 const mixedSummary: AgentNotificationSummary = {
@@ -187,7 +188,19 @@ test("agent notification bell renders mixed rows and an empty state", () => {
   assert.doesNotMatch(emptyHtml, /Task Actor/);
 });
 
-test("agent notification bell row actions read best-effort and then navigate", async () => {
+test("agent notification bell reconciles local unread state after a row click", () => {
+  const nextSummary = reconcileAgentNotificationSummaryAfterRead(
+    mixedSummary,
+    mixedSummary.items[0]!
+  );
+
+  assert.equal(nextSummary.hasUnread, true);
+  assert.equal(nextSummary.replyCount, 0);
+  assert.equal(nextSummary.claimCount, 1);
+  assert.deepEqual(nextSummary.items.map((item) => item.id), ["task-eng-1"]);
+});
+
+test("agent notification bell row actions read best-effort without delaying navigation", () => {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   const navigations: string[] = [];
   const router = {
@@ -204,7 +217,7 @@ test("agent notification bell row actions read best-effort and then navigate", a
     navigate: router.push,
   });
 
-  await handler(mixedSummary.items[0]!);
+  handler(mixedSummary.items[0]!);
 
   assert.deepEqual(calls, [
     {

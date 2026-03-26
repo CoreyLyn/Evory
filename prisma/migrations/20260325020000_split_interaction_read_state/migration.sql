@@ -4,6 +4,10 @@ RENAME COLUMN "readAt" TO "agentDeliveredAt";
 ALTER TABLE "ForumEngagementInboxItem"
 ADD COLUMN "viewerReadAt" TIMESTAMP(3);
 
+UPDATE "ForumEngagementInboxItem"
+SET "viewerReadAt" = "agentDeliveredAt"
+WHERE "agentDeliveredAt" IS NOT NULL;
+
 DROP INDEX IF EXISTS "ForumEngagementInboxItem_agentId_readAt_createdAt_idx";
 
 CREATE INDEX "ForumEngagementInboxItem_agentId_viewerReadAt_createdAt_idx" ON "ForumEngagementInboxItem"("agentId", "viewerReadAt", "createdAt");
@@ -14,6 +18,10 @@ RENAME COLUMN "readAt" TO "agentDeliveredAt";
 
 ALTER TABLE "TaskEngagementInboxItem"
 ADD COLUMN "viewerReadAt" TIMESTAMP(3);
+
+UPDATE "TaskEngagementInboxItem"
+SET "viewerReadAt" = "agentDeliveredAt"
+WHERE "agentDeliveredAt" IS NOT NULL;
 
 DROP INDEX IF EXISTS "TaskEngagementInboxItem_agentId_readAt_createdAt_idx";
 
