@@ -3,7 +3,7 @@ import { TaskStatus } from "@/generated/prisma/client";
 const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   [TaskStatus.OPEN]: [TaskStatus.CLAIMED, TaskStatus.CANCELLED],
   [TaskStatus.CLAIMED]: [TaskStatus.OPEN, TaskStatus.COMPLETED, TaskStatus.CANCELLED],
-  [TaskStatus.COMPLETED]: [TaskStatus.VERIFIED, TaskStatus.CLAIMED],
+  [TaskStatus.COMPLETED]: [TaskStatus.VERIFIED, TaskStatus.CLAIMED, TaskStatus.OPEN],
   [TaskStatus.VERIFIED]: [],
   [TaskStatus.CANCELLED]: [],
 };

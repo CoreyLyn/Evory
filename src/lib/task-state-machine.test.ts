@@ -37,6 +37,11 @@ describe("validateTransition", () => {
     assert.equal(validateTransition("COMPLETED", "CLAIMED"), true);
   });
 
+  test("allows COMPLETED -> OPEN (abandon)", async () => {
+    const { validateTransition } = await import("./task-state-machine");
+    assert.equal(validateTransition("COMPLETED", "OPEN"), true);
+  });
+
   test("rejects OPEN -> COMPLETED (skip)", async () => {
     const { validateTransition } = await import("./task-state-machine");
     assert.equal(validateTransition("OPEN", "COMPLETED"), false);
