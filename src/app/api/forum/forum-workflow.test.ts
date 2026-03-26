@@ -1842,10 +1842,19 @@ test("forum post creation persists only normalized suggestedTags", async () => {
   prismaClient.forumPost.findUnique = async () =>
     createForumPostFixture({
       id: "post-suggested-tags-only",
-      title: "API gateway notes",
-      content: "Cache layer changes",
+      title: "API deployment bugfix",
+      content: "Need to deploy a fix for the public API timeout.",
       category: "discussion",
-      suggestedTags: ["API Gateway", "缓存层", "发布回滚"],
+      suggestedTags: [
+        " API Gateway ",
+        "缓存层",
+        "api-gateway",
+        "",
+        "发布回滚",
+        "可观测性",
+        "队列消费",
+        "API Gateway",
+      ],
       createdAt: new Date("2026-03-10T00:00:00.000Z"),
       tags: materializedTags.map((relation, index) =>
         createForumPostTagFixture({
@@ -1862,16 +1871,55 @@ test("forum post creation persists only normalized suggestedTags", async () => {
       method: "POST",
       apiKey: "author-key",
       json: {
-        title: "API gateway notes",
-        content: "Cache layer changes",
+        title: "API deployment bugfix",
+        content: "Need to deploy a fix for the public API timeout.",
         category: "discussion",
+        suggestedTags: [
+          " API Gateway ",
+          "缓存层",
+          "api-gateway",
+          "",
+          "发布回滚",
+          "可观测性",
+          "队列消费",
+          "API Gateway",
+        ],
       },
     })
   );
   const json = await response.json();
 
   assert.equal(response.status, 200);
-  assert.deepEqual(json.data.tags, []);
+  assert.deepEqual(
+    materializedTags.map(({ source, tagId }) => ({
+      slug: tagsById.get(tagId)?.slug,
+      label: tagsById.get(tagId)?.label,
+      source,
+    })),
+    [
+      { slug: "api-gateway", label: "API Gateway", source: "AUTO" },
+      { slug: "缓存层", label: "缓存层", source: "AUTO" },
+      { slug: "发布回滚", label: "发布回滚", source: "AUTO" },
+      { slug: "可观测性", label: "可观测性", source: "AUTO" },
+      { slug: "队列消费", label: "队列消费", source: "AUTO" },
+    ]
+  );
+  assert.deepEqual(
+    json.data.tags.map(
+      ({ slug, label, source }: { slug: string; label: string; source: string }) => ({
+        slug,
+        label,
+        source,
+      })
+    ),
+    [
+      { slug: "api-gateway", label: "API Gateway", source: "auto" },
+      { slug: "缓存层", label: "缓存层", source: "auto" },
+      { slug: "发布回滚", label: "发布回滚", source: "auto" },
+      { slug: "可观测性", label: "可观测性", source: "auto" },
+      { slug: "队列消费", label: "队列消费", source: "auto" },
+    ]
+  );
 });
 
 test("forum post creation stores normalized suggestedTags as automatic tag baseline", async () => {
@@ -1929,7 +1977,16 @@ test("forum post creation stores normalized suggestedTags as automatic tag basel
         title: "API gateway notes",
         content: "Cache layer changes",
         category: "discussion",
-        suggestedTags: ["API Gateway", "缓存层", "发布回滚"],
+        suggestedTags: [
+          " API Gateway ",
+          "缓存层",
+          "api-gateway",
+          "",
+          "发布回滚",
+          "可观测性",
+          "队列消费",
+          "API Gateway",
+        ],
       },
     })
   );
@@ -1939,6 +1996,8 @@ test("forum post creation stores normalized suggestedTags as automatic tag basel
     "API Gateway",
     "缓存层",
     "发布回滚",
+    "可观测性",
+    "队列消费",
   ]);
 });
 

@@ -1280,7 +1280,6 @@ test("PUT tags derives overrides from stored suggestedTags baseline", async () =
     ),
     [
       { action: "REMOVE", tagId: "tag-api-gateway" },
-      { action: "LOCK", tagId: "tag-缓存层" },
       { action: "ADD", tagId: "tag-发布回滚" },
     ]
   );
