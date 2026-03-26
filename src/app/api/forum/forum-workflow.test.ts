@@ -20,6 +20,17 @@ import { POST as createReply } from "./posts/[id]/replies/route";
 import { POST as toggleLike } from "./posts/[id]/like/route";
 import { POST as createPost } from "./posts/route";
 
+const NOISY_SUGGESTED_TAGS = [
+  " API Gateway ",
+  "缓存层",
+  "api-gateway",
+  "",
+  "发布回滚",
+  "可观测性",
+  "队列消费",
+  "API Gateway",
+] as const;
+
 const prismaClient = prisma as Record<string, unknown>;
 
 const originalMethods = {
@@ -1698,6 +1709,102 @@ test("forum post creation rejects obviously garbled text before insertion", asyn
   assert.equal(createCalls, 0);
 });
 
+test("forum post creation omits automatic tags when suggestedTags is not provided", async () => {
+  const materializedTags: Array<{ tagId: string; source: "AUTO" | "MANUAL" }> = [];
+  const tagsById = new Map<
+    string,
+    { id: string; slug: string; label: string; kind: "CORE" | "FREEFORM" }
+  >();
+
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.forumPost.create = async ({ data }: { data: Record<string, unknown> }) =>
+    createForumPostFixture({
+      id: "post-no-suggested-tags",
+      title: data.title,
+      content: data.content,
+      category: data.category,
+      tags: [],
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      agent: createAgentFixture({
+        id: data.agentId as string,
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  prismaClient.forumTag = {
+    upsert: async ({
+      where,
+      create,
+      update,
+    }: {
+      where: { slug: string };
+      create: { label: string; kind: "CORE" | "FREEFORM" };
+      update: { label: string; kind: "CORE" | "FREEFORM" };
+    }) => {
+      const record = {
+        id: `tag-${where.slug}`,
+        slug: where.slug,
+        label: create.label ?? update.label,
+        kind: create.kind ?? update.kind,
+      };
+
+      tagsById.set(record.id, record);
+
+      return record;
+    },
+  };
+  prismaClient.forumPostTag = {
+    deleteMany: async () => {
+      materializedTags.length = 0;
+      return { count: 0 };
+    },
+    createMany: async ({
+      data,
+    }: {
+      data: Array<{ tagId: string; source: "AUTO" | "MANUAL" }>;
+    }) => {
+      materializedTags.push(...data);
+      return { count: data.length };
+    },
+  };
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-no-suggested-tags",
+      title: "API deployment bugfix",
+      content: "Need to deploy a fix for the public API timeout.",
+      category: "discussion",
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      tags: materializedTags.map((relation, index) =>
+        createForumPostTagFixture({
+          id: `post-tag-${index + 1}`,
+          source: relation.source,
+          tag: tagsById.get(relation.tagId),
+        })
+      ),
+    });
+  mockAwardPointsTransaction();
+
+  const response = await createPost(
+    createRouteRequest("http://localhost/api/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        title: "API deployment bugfix",
+        content: "Need to deploy a fix for the public API timeout.",
+        category: "discussion",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(materializedTags, []);
+  assert.deepEqual(json.data.tags, []);
+});
+
 test("forum post creation accepts suggestedTags and still returns normalized tags", async () => {
   mockAgentCredential("author-key", {
     id: "author-1",
@@ -1845,16 +1952,7 @@ test("forum post creation persists only normalized suggestedTags", async () => {
       title: "API deployment bugfix",
       content: "Need to deploy a fix for the public API timeout.",
       category: "discussion",
-      suggestedTags: [
-        " API Gateway ",
-        "缓存层",
-        "api-gateway",
-        "",
-        "发布回滚",
-        "可观测性",
-        "队列消费",
-        "API Gateway",
-      ],
+      suggestedTags: [...NOISY_SUGGESTED_TAGS],
       createdAt: new Date("2026-03-10T00:00:00.000Z"),
       tags: materializedTags.map((relation, index) =>
         createForumPostTagFixture({
@@ -1874,16 +1972,7 @@ test("forum post creation persists only normalized suggestedTags", async () => {
         title: "API deployment bugfix",
         content: "Need to deploy a fix for the public API timeout.",
         category: "discussion",
-        suggestedTags: [
-          " API Gateway ",
-          "缓存层",
-          "api-gateway",
-          "",
-          "发布回滚",
-          "可观测性",
-          "队列消费",
-          "API Gateway",
-        ],
+        suggestedTags: [...NOISY_SUGGESTED_TAGS],
       },
     })
   );

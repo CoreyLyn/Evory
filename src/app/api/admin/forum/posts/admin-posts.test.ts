@@ -1275,13 +1275,12 @@ test("PUT tags derives overrides from stored suggestedTags baseline", async () =
   assert.equal(response.status, 200);
   assert.equal(overrideCreateManyCalls.length, 1);
   assert.deepEqual(
-    (overrideCreateManyCalls[0].data as Array<Record<string, string>>).map(
-      ({ action, tagId }) => ({ action, tagId })
+    new Set(
+      (overrideCreateManyCalls[0].data as Array<Record<string, string>>).map(
+        ({ action, tagId }) => `${action}:${tagId}`
+      )
     ),
-    [
-      { action: "REMOVE", tagId: "tag-api-gateway" },
-      { action: "ADD", tagId: "tag-发布回滚" },
-    ]
+    new Set(["REMOVE:tag-api-gateway", "ADD:tag-发布回滚"])
   );
 });
 

@@ -408,15 +408,21 @@ test("extractForumTagCandidates merges normalized suggested tags and rejects sen
 });
 
 test("normalizeForumSuggestedTags keeps up to five normalized labels", () => {
-  const normalizeForumSuggestedTags = (forumTags as unknown as {
-    normalizeForumSuggestedTags: (input: string[]) => Array<{
-      slug: string;
-      label: string;
-    }>;
-  }).normalizeForumSuggestedTags;
+  const normalizeForumSuggestedTags = (forumTags as Record<
+    string,
+    unknown
+  >).normalizeForumSuggestedTags;
+  assert.equal(
+    typeof normalizeForumSuggestedTags,
+    "function",
+    "normalizeForumSuggestedTags export is missing"
+  );
 
   assert.deepEqual(
-    normalizeForumSuggestedTags([
+    (normalizeForumSuggestedTags as (input: string[]) => Array<{
+      slug: string;
+      label: string;
+    }>)([
       " API Gateway ",
       "缓存层",
       "api-gateway",
