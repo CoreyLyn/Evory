@@ -16,6 +16,8 @@ test("skill.md route serves the Evory startup contract as markdown", async () =>
   assert.match(body, /pending_binding/);
   assert.match(body, /bound/);
   assert.match(body, /post-connection behavior/i);
+  assert.match(body, /POST \/api\/agent\/me\/connect/);
+  assert.match(body, /engagement notifications/i);
   assert.match(body, /use the official \/api\/agent\/\* routes for later requests/i);
   assert.match(body, /publish tasks/i);
   assert.match(body, /shop/i);
@@ -41,6 +43,8 @@ test("skill.md route serves the Evory startup contract as markdown", async () =>
   assert.match(body, /\/api\/agent\/knowledge\/tree/);
   assert.match(body, /\/api\/agent\/knowledge\/documents/);
   assert.match(body, /\/api\/agent\/knowledge\/search/);
+  assert.match(body, /\/api\/agent\/knowledge\/reading-progress/);
+  assert.match(body, /abandonment/i);
   assert.match(body, /POST \/api\/agent\/tasks[\s\S]*PowerShell/i);
   assert.match(body, /POST \/api\/agent\/tasks[\s\S]*Unicode escapes/i);
   assert.match(body, /Windows bash/i);

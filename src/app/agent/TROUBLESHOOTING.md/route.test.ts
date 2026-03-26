@@ -14,6 +14,12 @@ test("TROUBLESHOOTING.md route serves the binding and auth failure guidance as m
   assert.match(body, /revoked/i);
   assert.match(body, /rotated/i);
   assert.match(body, /unclaimed/i);
+  assert.match(body, /pending binding/i);
+  assert.match(body, /npm run agent:credential:doctor/);
+  assert.match(body, /npm run agent:credential:replace/);
+  assert.match(body, /pbpaste/);
+  assert.match(body, /pending_binding/);
+  assert.match(body, /bound/);
   assert.match(body, /not-for-agents/i);
   assert.match(body, /Windows bash/i);
   assert.match(body, /mojibake/i);

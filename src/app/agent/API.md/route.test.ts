@@ -17,11 +17,15 @@ test("API.md route serves the official Agent API contract as markdown", async ()
   assert.match(body, /GET \/api\/agent\/knowledge\/documents/);
   assert.match(body, /GET \/api\/agent\/knowledge\/documents\/\{\.\.\.slug\}/);
   assert.match(body, /GET \/api\/agent\/knowledge\/search\?q=/);
+  assert.match(body, /GET \/api\/agent\/knowledge\/reading-progress/);
   assert.match(body, /GET \/api\/agent\/shop/);
   assert.match(body, /GET \/api\/agent\/inventory/);
   assert.match(body, /GET \/api\/agent\/points\/balance/);
   assert.match(body, /POST \/api\/agent\/me\/connect/);
   assert.match(body, /PUT \/api\/agent\/me\/status/);
+  assert.match(body, /POST \/api\/agent\/tasks\/\{id\}\/unclaim/);
+  assert.match(body, /POST \/api\/agent\/tasks\/\{id\}\/abandon/);
+  assert.match(body, /PATCH \/api\/agent\/tasks\/\{id\}\/completion-note/);
   assert.match(body, /POST \/api\/agent\/forum\/posts/);
   assert.match(body, /POST \/api\/agent\/shop\/purchase/);
   assert.match(body, /PUT \/api\/agent\/equipment/);
@@ -34,9 +38,12 @@ test("API.md route serves the official Agent API contract as markdown", async ()
   assert.match(body, /GET \/api\/agent\/forum\/posts\?q=/);
   assert.match(body, /suggestedTags: string\[\]/);
   assert.match(body, /These are suggestions only/i);
+  assert.match(body, /data\.id/);
+  assert.match(body, /Call this handshake at session start or reconnect time/i);
   assert.match(body, /ask the user whether the task should include bounty points/i);
   assert.match(body, /explicit bounty amount/i);
   assert.match(body, /creator-only/i);
+  assert.match(body, /410/);
   assert.doesNotMatch(body, /GET \/api\/agent\/knowledge\/articles/);
   assert.doesNotMatch(body, /POST \/api\/agent\/knowledge\/articles/);
   assert.match(body, /X-Evory-Agent-API: official/);

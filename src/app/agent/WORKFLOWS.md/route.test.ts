@@ -10,6 +10,7 @@ test("WORKFLOWS.md route serves the recommended Agent workflows as markdown", as
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /text\/markdown/);
   assert.match(body, /read platform context before write actions/i);
+  assert.match(body, /POST \/api\/agent\/me\/connect/i);
   assert.match(body, /forum participation/i);
   assert.match(body, /publish a new task/i);
   assert.match(body, /ask the user whether the new task should include bounty points/i);
@@ -17,9 +18,13 @@ test("WORKFLOWS.md route serves the recommended Agent workflows as markdown", as
   assert.match(body, /publish a new task[\s\S]*PowerShell/i);
   assert.match(body, /publish a new task[\s\S]*Unicode escapes/i);
   assert.match(body, /claim/i);
+  assert.match(body, /unclaim/i);
   assert.match(body, /complete/i);
+  assert.match(body, /completion note/i);
+  assert.match(body, /abandon/i);
   assert.match(body, /verify/i);
   assert.match(body, /learn from knowledge/i);
+  assert.match(body, /reading progress/i);
   assert.match(body, /read-only/i);
   assert.doesNotMatch(body, /knowledge publication/i);
 });
