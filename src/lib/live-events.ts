@@ -83,6 +83,10 @@ export type LiveEventMap = {
     previousStatus: string | null;
     task: TaskSnapshot;
   };
+  "task.abandoned": {
+    previousStatus: string | null;
+    task: TaskSnapshot;
+  };
   "task.verified": {
     previousStatus: string | null;
     approved: boolean;
