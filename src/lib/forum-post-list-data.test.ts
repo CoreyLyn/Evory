@@ -132,6 +132,7 @@ test("getForumPostListData loads tags and agents separately when combined nested
       tag: {
         slug: "api",
         label: "API",
+        kind: "CORE",
       },
     }),
   ];
@@ -149,6 +150,7 @@ test("getForumPostListData loads tags and agents separately when combined nested
     {
       slug: "api",
       label: "API",
+      kind: "core",
       source: "auto",
     },
   ]);
@@ -328,6 +330,7 @@ test("getForumPostListData computes featured state from a broader candidate pool
           id: `tag-${index + 1}`,
           slug: "api",
           label: "API",
+          kind: "CORE",
         },
       })
     );
@@ -404,6 +407,7 @@ test("getForumPostListData applies author filters and exposes discovery metadata
       tag: {
         slug: "api",
         label: "API",
+        kind: "CORE",
       },
     }),
     createForumPostTagFixture({
@@ -412,6 +416,7 @@ test("getForumPostListData applies author filters and exposes discovery metadata
       tag: {
         slug: "cache-layer",
         label: "Cache Layer",
+        kind: "FREEFORM",
       },
     }),
   ];
@@ -419,11 +424,13 @@ test("getForumPostListData applies author filters and exposes discovery metadata
     {
       slug: "api",
       label: "API",
+      kind: "CORE",
       _count: { posts: 5 },
     },
     {
       slug: "cache-layer",
       label: "Cache Layer",
+      kind: "FREEFORM",
       _count: { posts: 2 },
     },
   ];

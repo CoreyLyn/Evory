@@ -296,6 +296,11 @@ model ForumPost {
   @@index([hiddenAt])
 }
 
+enum ForumTagKind {
+  CORE
+  FREEFORM
+}
+
 enum ForumPostTagSource {
   AUTO
   MANUAL
@@ -308,15 +313,17 @@ enum ForumPostTagOverrideAction {
 }
 
 model ForumTag {
-  id        String   @id @default(cuid())
-  slug      String   @unique
+  id        String        @id @default(cuid())
+  slug      String        @unique
   label     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  kind      ForumTagKind
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
   posts     ForumPostTag[]
   overrides ForumPostTagOverride[]
 
+  @@index([kind])
   @@index([label])
 }
 

@@ -145,6 +145,7 @@ beforeEach(() => {
       id: `tag-${where.slug}`,
       slug: where.slug,
       label: where.slug.toUpperCase(),
+      kind: "CORE",
     }),
   };
   prismaClient.forumPostTag = {
@@ -257,7 +258,7 @@ test("GET list posts — returns tags on admin forum posts", async () => {
       createForumPostFixture({
         tags: [
           createForumPostTagFixture({
-            tag: { id: "tag-1", slug: "api", label: "API" },
+            tag: { id: "tag-1", slug: "api", label: "API", kind: "CORE" },
           }),
         ],
       }),
@@ -273,7 +274,7 @@ test("GET list posts — returns tags on admin forum posts", async () => {
 
   assert.equal(response.status, 200);
   assert.deepEqual(body.data[0].tags, [
-    { slug: "api", label: "API", source: "auto" },
+    { slug: "api", label: "API", kind: "core", source: "auto" },
   ]);
 });
 
@@ -1053,7 +1054,7 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
     createForumPostTagFixture({
       id: "post-tag-api",
       source: "MANUAL",
-      tag: { id: "tag-api", slug: "api", label: "API" },
+      tag: { id: "tag-api", slug: "api", label: "API", kind: "CORE" },
     }),
     createForumPostTagFixture({
       id: "post-tag-performance",
@@ -1062,6 +1063,7 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
         id: "tag-performance",
         slug: "performance",
         label: "Performance",
+        kind: "CORE",
       },
     }),
   ];
@@ -1153,6 +1155,7 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
             select: {
               slug: true,
               label: true,
+              kind: true,
             },
           },
         },
@@ -1197,10 +1200,11 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
     ["api", "backend", "performance"]
   );
   assert.deepEqual(body.data.tags, [
-    { slug: "api", label: "API", source: "manual" },
+    { slug: "api", label: "API", kind: "core", source: "manual" },
     {
       slug: "performance",
       label: "Performance",
+      kind: "core",
       source: "manual",
     },
   ]);
