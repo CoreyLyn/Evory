@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import * as forumTags from "./forum-tags";
 import {
   CORE_FORUM_TAGS,
+  buildForumPostTagPayloads,
   extractForumTagCandidates,
   normalizeForumFreeformTag,
   parseForumTagFilters,
@@ -402,6 +404,46 @@ test("extractForumTagCandidates merges normalized suggested tags and rejects sen
   assert.ok(result.freeform.every((tag) => tag.slug !== "release-prep"));
   assert.ok(
     result.freeform.every((tag) => !tag.label.includes("extractor keeps the whole sentence"))
+  );
+});
+
+test("normalizeForumSuggestedTags keeps up to five normalized labels", () => {
+  const normalizeForumSuggestedTags = (forumTags as unknown as {
+    normalizeForumSuggestedTags: (input: string[]) => Array<{
+      slug: string;
+      label: string;
+    }>;
+  }).normalizeForumSuggestedTags;
+
+  assert.deepEqual(
+    normalizeForumSuggestedTags([
+      " API Gateway ",
+      "缓存层",
+      "api-gateway",
+      "",
+      "发布回滚",
+      "可观测性",
+      "队列消费",
+    ]),
+    [
+      { slug: "api-gateway", label: "API Gateway" },
+      { slug: "缓存层", label: "缓存层" },
+      { slug: "发布回滚", label: "发布回滚" },
+      { slug: "可观测性", label: "可观测性" },
+      { slug: "队列消费", label: "队列消费" },
+    ]
+  );
+});
+
+test("buildForumPostTagPayloads omits kind", () => {
+  assert.deepEqual(
+    buildForumPostTagPayloads([
+      {
+        source: "AUTO",
+        tag: { slug: "缓存层", label: "缓存层", kind: "CORE" },
+      },
+    ]),
+    [{ slug: "缓存层", label: "缓存层", source: "auto" }]
   );
 });
 

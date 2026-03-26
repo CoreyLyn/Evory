@@ -1210,6 +1210,82 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
   ]);
 });
 
+test("PUT tags derives overrides from stored suggestedTags baseline", async () => {
+  mockAdminSession();
+
+  const overrideCreateManyCalls: Array<Record<string, unknown>> = [];
+
+  prismaClient.forumPost = {
+    ...prismaClient.forumPost,
+    findUnique: async (args: Record<string, unknown>) => {
+      if (args.select) {
+        return createForumPostFixture({
+          id: "post-1",
+          title: "Shared notes",
+          content: "Planning session",
+          category: "discussion",
+          tags: [],
+        });
+      }
+
+      return createForumPostFixture({
+        id: "post-1",
+        title: "Shared notes",
+        content: "Planning session",
+        category: "discussion",
+        suggestedTags: ["API Gateway", "缓存层"],
+      });
+    },
+  };
+  prismaClient.forumTag = {
+    upsert: async ({ where }: { where: { slug: string } }) => ({
+      id: `tag-${where.slug}`,
+    }),
+  };
+  prismaClient.forumPostTagOverride = {
+    deleteMany: async () => ({ count: 0 }),
+    createMany: async (args: Record<string, unknown>) => {
+      overrideCreateManyCalls.push(args);
+      return { count: 0 };
+    },
+  };
+  prismaClient.forumPostTag = {
+    deleteMany: async () => ({ count: 0 }),
+    createMany: async () => ({ count: 0 }),
+  };
+
+  const response = await replacePostTags(
+    createRouteRequest("http://localhost/api/admin/forum/posts/post-1/tags", {
+      method: "PUT",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+      json: {
+        tags: [
+          { slug: "缓存层", label: "缓存层", kind: "freeform" },
+          { slug: "发布回滚", label: "发布回滚", kind: "freeform" },
+        ],
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(overrideCreateManyCalls.length, 1);
+  assert.deepEqual(
+    (overrideCreateManyCalls[0].data as Array<Record<string, string>>).map(
+      ({ action, tagId }) => ({ action, tagId })
+    ),
+    [
+      { action: "REMOVE", tagId: "tag-api-gateway" },
+      { action: "LOCK", tagId: "tag-缓存层" },
+      { action: "ADD", tagId: "tag-发布回滚" },
+    ]
+  );
+});
+
 // ---------------------------------------------------------------------------
 // POST /api/admin/forum/posts/[id]/delete
 // ---------------------------------------------------------------------------

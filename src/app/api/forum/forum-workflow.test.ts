@@ -1778,6 +1778,170 @@ test("forum post creation accepts suggestedTags and still returns normalized tag
   assert.ok(json.data.tags.some((tag: { slug: string }) => tag.slug === "release-prep"));
 });
 
+test("forum post creation persists only normalized suggestedTags", async () => {
+  const materializedTags: Array<{ tagId: string; source: "AUTO" | "MANUAL" }> = [];
+  const tagsById = new Map<
+    string,
+    { id: string; slug: string; label: string; kind: "CORE" | "FREEFORM" }
+  >();
+
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.forumPost.create = async ({ data }: { data: Record<string, unknown> }) =>
+    createForumPostFixture({
+      id: "post-suggested-tags-only",
+      title: data.title,
+      content: data.content,
+      category: data.category,
+      tags: [],
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      agent: createAgentFixture({
+        id: data.agentId as string,
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  prismaClient.forumTag = {
+    upsert: async ({
+      where,
+      create,
+      update,
+    }: {
+      where: { slug: string };
+      create: { label: string; kind: "CORE" | "FREEFORM" };
+      update: { label: string; kind: "CORE" | "FREEFORM" };
+    }) => {
+      const record = {
+        id: `tag-${where.slug}`,
+        slug: where.slug,
+        label: create.label ?? update.label,
+        kind: create.kind ?? update.kind,
+      };
+
+      tagsById.set(record.id, record);
+
+      return record;
+    },
+  };
+  prismaClient.forumPostTag = {
+    deleteMany: async () => {
+      materializedTags.length = 0;
+      return { count: 0 };
+    },
+    createMany: async ({
+      data,
+    }: {
+      data: Array<{ tagId: string; source: "AUTO" | "MANUAL" }>;
+    }) => {
+      materializedTags.push(...data);
+      return { count: data.length };
+    },
+  };
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-suggested-tags-only",
+      title: "API gateway notes",
+      content: "Cache layer changes",
+      category: "discussion",
+      suggestedTags: ["API Gateway", "缓存层", "发布回滚"],
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      tags: materializedTags.map((relation, index) =>
+        createForumPostTagFixture({
+          id: `post-tag-${index + 1}`,
+          source: relation.source,
+          tag: tagsById.get(relation.tagId),
+        })
+      ),
+    });
+  mockAwardPointsTransaction();
+
+  const response = await createPost(
+    createRouteRequest("http://localhost/api/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        title: "API gateway notes",
+        content: "Cache layer changes",
+        category: "discussion",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(json.data.tags, []);
+});
+
+test("forum post creation stores normalized suggestedTags as automatic tag baseline", async () => {
+  let capturedCreateData: Record<string, unknown> | null = null;
+
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.forumPost.create = async ({ data }: { data: Record<string, unknown> }) => {
+    capturedCreateData = data;
+
+    return createForumPostFixture({
+      id: "post-suggested-baseline",
+      title: data.title,
+      content: data.content,
+      category: data.category,
+      tags: [],
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+      agent: createAgentFixture({
+        id: data.agentId as string,
+        apiKey: "author-key",
+        name: "Author",
+      }),
+    });
+  };
+  prismaClient.forumTag = {
+    upsert: async ({ where, create, update }: { where: { slug: string }; create: { label: string; kind: string }; update: { label: string; kind: string } }) => ({
+      id: `tag-${where.slug}`,
+      slug: where.slug,
+      label: create.label ?? update.label,
+      kind: create.kind ?? update.kind,
+    }),
+  };
+  prismaClient.forumPostTag = {
+    deleteMany: async () => ({ count: 0 }),
+    createMany: async () => ({ count: 0 }),
+  };
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-suggested-baseline",
+      title: "API gateway notes",
+      content: "Cache layer changes",
+      category: "discussion",
+      tags: [],
+      createdAt: new Date("2026-03-10T00:00:00.000Z"),
+    });
+  mockAwardPointsTransaction();
+
+  const response = await createPost(
+    createRouteRequest("http://localhost/api/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        title: "API gateway notes",
+        content: "Cache layer changes",
+        category: "discussion",
+        suggestedTags: ["API Gateway", "缓存层", "发布回滚"],
+      },
+    })
+  );
+  await response.json();
+
+  assert.deepEqual(capturedCreateData?.suggestedTags, [
+    "API Gateway",
+    "缓存层",
+    "发布回滚",
+  ]);
+});
+
 test("forum post creation defaults category to general when omitted", async () => {
   let capturedCategory = "";
 
