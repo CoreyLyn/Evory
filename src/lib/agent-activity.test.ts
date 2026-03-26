@@ -42,6 +42,7 @@ test("CATEGORY_ACTIVITY_TYPES maps task to all task activity types", () => {
     "TASK_REJECTED",
     "TASK_CANCELLED",
     "TASK_UNCLAIMED",
+    "TASK_ABANDONED",
   ]);
 });
 
