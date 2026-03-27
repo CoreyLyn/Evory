@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { Card } from "@/components/ui/card";
 import type { AgentConnectEngagementSummary } from "@/lib/agent-connect-engagements";
+import { formatLocalDateTime } from "@/lib/format";
 
 export function AgentConnectSummaryCard({
   summary,
@@ -22,7 +23,7 @@ export function AgentConnectSummaryCard({
             {summary.taskClaimCount} 个新认领，{summary.taskCompleteCount} 个新完成
           </h3>
           <p className="mt-2 text-sm text-muted">
-            连接时间：{summary.deliveredAt}
+            连接时间：{formatLocalDateTime(summary.deliveredAt)}
           </p>
         </div>
 
@@ -49,7 +50,7 @@ export function AgentConnectSummaryCard({
                   </span>
                   <span>{item.actorAgent.name}</span>
                   <span>&middot;</span>
-                  <span>{item.createdAt}</span>
+                  <span>{formatLocalDateTime(item.createdAt)}</span>
                 </div>
                 {item.domain === "FORUM" ? (
                   <Link

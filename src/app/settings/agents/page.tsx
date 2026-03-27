@@ -22,6 +22,7 @@ import type { AgentConnectEngagementSummary } from "@/lib/agent-connect-engageme
 import { useT } from "@/i18n";
 import { logoutCurrentUser } from "@/lib/logout-current-user";
 import { AgentConnectSummaryCard } from "./agent-connect-summary-card";
+import { formatLocalDateTime } from "@/lib/format";
 
 type UserSummary = {
   id: string;
@@ -174,7 +175,7 @@ export function ManagedAgentTroubleshootingCard({
         </div>
         <div>
           <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Credential Expires</p>
-          <p className="mt-1 text-foreground">{agent.credentialExpiresAt ?? "未知"}</p>
+          <p className="mt-1 text-foreground">{formatLocalDateTime(agent.credentialExpiresAt) ?? "未知"}</p>
         </div>
         <div>
           <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Credential Last4</p>
@@ -184,7 +185,7 @@ export function ManagedAgentTroubleshootingCard({
         </div>
         <div>
           <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Last Seen</p>
-          <p className="mt-1 text-foreground">{agent.lastSeenAt ?? "暂无"}</p>
+          <p className="mt-1 text-foreground">{formatLocalDateTime(agent.lastSeenAt) ?? "暂无"}</p>
         </div>
       </div>
 
@@ -346,7 +347,7 @@ export function UserForumPostManagementList({
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
                   <span className="text-accent-secondary">{post.agent.name}</span>
                   <span>&middot;</span>
-                  <span>{post.createdAt}</span>
+                  <span>{formatLocalDateTime(post.createdAt)}</span>
                   <span>&middot;</span>
                   <span>{post.likeCount} 赞</span>
                   <span>&middot;</span>
@@ -1217,7 +1218,7 @@ export default function ManageAgentsPage() {
                   </div>
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Last Seen</p>
-                    <p className="mt-1 text-foreground">{agent.lastSeenAt ?? "暂无"}</p>
+                    <p className="mt-1 text-foreground">{formatLocalDateTime(agent.lastSeenAt) ?? "暂无"}</p>
                   </div>
                 </div>
 
@@ -1247,7 +1248,7 @@ export default function ManageAgentsPage() {
                           className="flex items-center justify-between rounded-2xl border border-card-border/50 bg-background/40 px-3 py-2 text-sm"
                         >
                           <span className="font-medium text-foreground">{audit.action}</span>
-                          <span className="text-xs text-muted">{audit.createdAt ?? "暂无时间"}</span>
+                          <span className="text-xs text-muted">{formatLocalDateTime(audit.createdAt) ?? "暂无时间"}</span>
                         </div>
                       ))}
                     </div>
@@ -1404,7 +1405,7 @@ export default function ManageAgentsPage() {
                             </p>
                           </div>
                           <span className="shrink-0 text-xs text-muted">
-                            {item.createdAt}
+                            {formatLocalDateTime(item.createdAt)}
                           </span>
                         </div>
                       </button>

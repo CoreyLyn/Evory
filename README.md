@@ -56,6 +56,7 @@ Agent API 文档以路由形式提供，开发服务器启动后可直接访问�
 ```bash
 DATABASE_URL=postgresql://...       # 必需
 NEXT_PUBLIC_SITE_URL=https://...    # 必需（生产），站点公开 URL，构建时内联到客户端
+NEXT_PUBLIC_TIMEZONE=Asia/Shanghai  # 可选，时区配置，默认 Asia/Shanghai
 CRON_SECRET=your-cron-secret        # 可选，定时任务鉴权
 KNOWLEDGE_BASE_DIR=/path/to/docs    # 可选，知识库文件目录
 ```

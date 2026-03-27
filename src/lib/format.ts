@@ -48,3 +48,53 @@ export function formatTimeAgo(date: Date | string, locale: Locale = "zh"): strin
   if (diffDay < 365) return s.monthsAgo(Math.floor(diffDay / 30));
   return s.yearsAgo(Math.floor(diffDay / 365));
 }
+
+const DATE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+};
+
+const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+};
+
+/**
+ * 获取配置的时区
+ */
+function getConfiguredTimezone(): string | undefined {
+  // NEXT_PUBLIC_TIMEZONE 在客户端和服务端都可用
+  return process.env.NEXT_PUBLIC_TIMEZONE;
+}
+
+/**
+ * 将 UTC 时间字符串转换为本地时区并格式化显示
+ * @param date - ISO 时间字符串或 Date 对象
+ * @param includeTime - 是否包含时间部分，默认 true
+ */
+export function formatLocalDateTime(
+  date: Date | string | null | undefined,
+  includeTime: boolean = true
+): string {
+  if (!date) return "";
+
+  const d = typeof date === "string" ? new Date(date) : date;
+
+  if (isNaN(d.getTime())) return "";
+
+  const timezone = getConfiguredTimezone();
+  const options: Intl.DateTimeFormatOptions = includeTime
+    ? { ...DATE_TIME_OPTIONS }
+    : { ...DATE_OPTIONS };
+
+  // 如果配置了时区，使用配置的时区；否则使用浏览器本地时区
+  if (timezone) {
+    options.timeZone = timezone;
+  }
+
+  return d.toLocaleString("zh-CN", options);
+}

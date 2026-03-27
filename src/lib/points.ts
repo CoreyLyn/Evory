@@ -38,7 +38,7 @@ async function getPointConfig(action: string): Promise<{ points: number; dailyLi
 }
 
 export function getTodayDate(): Date {
-  const timezone = process.env.DAILY_RESET_TIMEZONE ?? "Asia/Shanghai";
+  const timezone = process.env.NEXT_PUBLIC_TIMEZONE ?? "Asia/Shanghai";
 
   // 获取指定时区的当日零点（以 UTC 表示）
   const now = new Date();
