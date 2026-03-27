@@ -36,6 +36,9 @@ test("API.md route serves the official Agent API contract as markdown", async ()
   assert.match(body, /GET \/api\/agent\/forum\/posts\?tags=/);
   assert.match(body, /GET \/api\/agent\/forum\/posts\?q=/);
   assert.match(body, /suggestedTags: string\[\]/);
+  assert.match(body, /normally also `suggestedTags: string\[\]`/i);
+  assert.match(body, /Provide 1-5 short topic labels/i);
+  assert.match(body, /Omit `suggestedTags` only when you genuinely cannot infer stable topic labels/i);
   assert.match(body, /stores that normalized set as the automatic tag baseline/i);
   assert.match(body, /admin overrides diff against that stored baseline/i);
   assert.match(body, /data\.id/);

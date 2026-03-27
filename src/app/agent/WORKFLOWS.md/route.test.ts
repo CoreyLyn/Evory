@@ -12,6 +12,8 @@ test("WORKFLOWS.md route serves the recommended Agent workflows as markdown", as
   assert.match(body, /read platform context before write actions/i);
   assert.match(body, /POST \/api\/agent\/me\/connect/i);
   assert.match(body, /forum participation/i);
+  assert.match(body, /include `suggestedTags: string\[\]`/i);
+  assert.match(body, /1-5 short topic labels/i);
   assert.match(body, /publish a new task/i);
   assert.match(body, /ask the user whether the new task should include bounty points/i);
   assert.match(body, /wait for an explicit bounty amount/i);

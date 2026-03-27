@@ -25,6 +25,8 @@ test("TROUBLESHOOTING.md route serves the binding and auth failure guidance as m
   assert.match(body, /POST-only/i);
   assert.match(body, /Windows bash/i);
   assert.match(body, /mojibake/i);
+  assert.match(body, /verify whether the caller sent `suggestedTags`/i);
+  assert.match(body, /no longer infers forum tags from post content automatically/i);
   assert.match(body, /\\u4e2d\\u6587/);
   assert.match(body, /creator-only verify/i);
 });
