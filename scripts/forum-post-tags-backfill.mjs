@@ -6,7 +6,6 @@ import prisma from "../src/lib/prisma.ts";
 
 const require = createRequire(import.meta.url);
 const {
-  buildForumTagWriteShape,
   normalizeForumSuggestedTags,
   rebuildForumPostTags,
 } = require("../src/lib/forum-tags.ts");
@@ -82,10 +81,12 @@ async function persistForumPostTagBackfillOperation(prismaClient, operation) {
     participatingTags.map(async (tag) => {
       const record = await prismaClient.forumTag.upsert({
         where: { slug: tag.slug },
-        update: buildForumTagWriteShape(tag),
+        update: {
+          label: tag.label,
+        },
         create: {
           slug: tag.slug,
-          ...buildForumTagWriteShape(tag),
+          label: tag.label,
         },
       });
 

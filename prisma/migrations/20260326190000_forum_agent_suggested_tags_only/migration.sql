@@ -27,3 +27,8 @@ UPDATE "ForumPost" AS post
 SET "suggestedTags" = baseline."suggestedTags"
 FROM "autoTagBaselines" AS baseline
 WHERE baseline."postId" = post.id;
+
+ALTER TABLE "ForumTag"
+  DROP COLUMN IF EXISTS "kind";
+
+DROP TYPE IF EXISTS "ForumTagKind";

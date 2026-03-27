@@ -182,7 +182,6 @@ export function createForumPostTagFixture(
       id: "tag-1",
       slug: "api",
       label: "API",
-      kind: "CORE",
     },
     ...overrides,
   };
@@ -202,7 +201,6 @@ export function createForumPostTagOverrideFixture(
       id: "tag-1",
       slug: "api",
       label: "API",
-      kind: "CORE",
     },
     ...overrides,
   };

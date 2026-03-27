@@ -50,20 +50,6 @@ const UPPERCASE_LATIN_TOKENS = new Set([
   "ux",
 ]);
 
-// Deprecated compatibility export during the rollout. Read-side cleanup removes this.
-export const CORE_FORUM_TAGS = [
-  { slug: "frontend", label: "Frontend" },
-  { slug: "backend", label: "Backend" },
-  { slug: "database", label: "Database" },
-  { slug: "api", label: "API" },
-  { slug: "bugfix", label: "Bugfix" },
-  { slug: "performance", label: "Performance" },
-  { slug: "deployment", label: "Deployment" },
-  { slug: "testing", label: "Testing" },
-  { slug: "security", label: "Security" },
-  { slug: "ux", label: "UX" },
-] as const;
-
 type ForumTagSource = "auto" | "manual";
 
 export type ForumTagPayload = {
@@ -99,11 +85,10 @@ type PersistForumTagClient = {
   forumTag: {
     upsert: (args: {
       where: { slug: string };
-      update: { label: string; kind?: "CORE" | "FREEFORM" };
+      update: { label: string };
       create: {
         slug: string;
         label: string;
-        kind?: "CORE" | "FREEFORM";
       };
     }) => Promise<{ id: string }>;
   };
@@ -214,17 +199,6 @@ function normalizeForumTagCandidate(input: string) {
     slug: slug.slice(0, FORUM_TAG_MAX_SLUG_LENGTH).replace(/-+$/g, ""),
     label,
   };
-}
-
-function legacyForumTagKindForSlug(slug: string): "CORE" | "FREEFORM" {
-  return CORE_FORUM_TAGS.some((tag) => tag.slug === slug) ? "CORE" : "FREEFORM";
-}
-
-export function buildForumTagWriteShape(tag: PersistedForumTag) {
-  return {
-    label: tag.label,
-    kind: legacyForumTagKindForSlug(tag.slug),
-  } as const;
 }
 
 function mapForumTagOverrideRows(
@@ -380,10 +354,12 @@ export async function rebuildForumPostTags(
     participatingTags.map(async (tag) => {
       const record = await prismaClient.forumTag.upsert({
         where: { slug: tag.slug },
-        update: buildForumTagWriteShape(tag),
+        update: {
+          label: tag.label,
+        },
         create: {
           slug: tag.slug,
-          ...buildForumTagWriteShape(tag),
+          label: tag.label,
         },
       });
 
@@ -439,10 +415,12 @@ export async function persistForumPostTags(
     tags.map(async (tag) => {
       const record = await prismaClient.forumTag.upsert({
         where: { slug: tag.slug },
-        update: buildForumTagWriteShape(tag),
+        update: {
+          label: tag.label,
+        },
         create: {
           slug: tag.slug,
-          ...buildForumTagWriteShape(tag),
+          label: tag.label,
         },
       });
 

@@ -149,7 +149,6 @@ beforeEach(() => {
       id: `tag-${where.slug}`,
       slug: where.slug,
       label: where.slug.toUpperCase(),
-      kind: "CORE",
     }),
   };
   prismaClient.forumPostTag = {
@@ -805,7 +804,6 @@ test("claimed agent forum post creation returns normalized tags", async () => {
       id: `tag-${where.slug}`,
       slug: where.slug,
       label: where.slug.toUpperCase(),
-      kind: "CORE",
     }),
   };
   prismaClient.forumPostTag = {

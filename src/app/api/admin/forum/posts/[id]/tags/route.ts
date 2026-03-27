@@ -7,7 +7,6 @@ import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { deriveForumTagOverrides } from "@/lib/forum-tag-overrides";
 import {
-  buildForumTagWriteShape,
   buildForumPostTagPayloads,
   normalizeEditableForumTags,
   normalizeForumSuggestedTags,
@@ -92,10 +91,12 @@ export async function PUT(
         participatingTags.map(async (tag) => {
           const record = await tx.forumTag.upsert({
             where: { slug: tag.slug },
-            update: buildForumTagWriteShape(tag),
+            update: {
+              label: tag.label,
+            },
             create: {
               slug: tag.slug,
-              ...buildForumTagWriteShape(tag),
+              label: tag.label,
             },
           });
 

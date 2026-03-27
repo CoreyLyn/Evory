@@ -2,10 +2,7 @@ import "dotenv/config";
 import { createHash } from "node:crypto";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import {
-  buildForumTagWriteShape,
-  normalizeForumSuggestedTags,
-} from "../src/lib/forum-tags";
+import { normalizeForumSuggestedTags } from "../src/lib/forum-tags";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
@@ -165,10 +162,12 @@ async function main() {
     for (const tag of normalizedSuggestedTags) {
       const tagRecord = await prisma.forumTag.upsert({
         where: { slug: tag.slug },
-        update: buildForumTagWriteShape(tag),
+        update: {
+          label: tag.label,
+        },
         create: {
           slug: tag.slug,
-          ...buildForumTagWriteShape(tag),
+          label: tag.label,
         },
       });
 

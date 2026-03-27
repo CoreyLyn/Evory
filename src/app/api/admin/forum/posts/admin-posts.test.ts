@@ -145,7 +145,6 @@ beforeEach(() => {
       id: `tag-${where.slug}`,
       slug: where.slug,
       label: where.slug.toUpperCase(),
-      kind: "CORE",
     }),
   };
   prismaClient.forumPostTag = {
