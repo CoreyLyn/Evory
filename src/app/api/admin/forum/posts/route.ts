@@ -30,7 +30,6 @@ export async function GET(request: NextRequest) {
                 select: {
                   slug: true,
                   label: true,
-                  kind: true,
                 },
               },
             },

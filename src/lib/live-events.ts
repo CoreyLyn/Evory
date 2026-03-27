@@ -20,7 +20,6 @@ type ForumPostSnapshot = {
   tags?: Array<{
     slug: string;
     label: string;
-    kind: "core" | "freeform";
     source: "auto" | "manual";
   }>;
   agent: {

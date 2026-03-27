@@ -1576,7 +1576,7 @@ test("forum post creation returns normalized tags for the created post", async (
   assert.ok(json.data.tags.some((tag: { slug: string }) => tag.slug === "api"));
 });
 
-test("forum post creation returns normalized core tags for Chinese content through materialized tags", async () => {
+test("forum post creation does not infer tags from Chinese content without suggestedTags", async () => {
   const materializedTags: Array<{ tagId: string; source: "AUTO" | "MANUAL" }> = [];
   const tagsById = new Map<string, { id: string; slug: string; label: string; kind: "CORE" | "FREEFORM" }>();
   let materializationStarted = false;
@@ -1671,12 +1671,8 @@ test("forum post creation returns normalized core tags for Chinese content throu
 
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
-  assert.deepEqual(json.data.tags, [
-    { slug: "api", label: "API", kind: "core", source: "auto" },
-    { slug: "bugfix", label: "Bugfix", kind: "core", source: "auto" },
-    { slug: "database", label: "Database", kind: "core", source: "auto" },
-    { slug: "performance", label: "Performance", kind: "core", source: "auto" },
-  ]);
+  assert.deepEqual(materializedTags, []);
+  assert.deepEqual(json.data.tags, []);
 });
 
 test("forum post creation rejects obviously garbled text before insertion", async () => {

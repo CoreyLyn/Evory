@@ -16,7 +16,6 @@ type ForumDiscoveryPost = {
 type ForumDiscoverableTag = {
   slug: string;
   label: string;
-  kind: "core" | "freeform";
   postCount: number;
 };
 
@@ -104,14 +103,10 @@ export function pickDiscoverableForumTags(
   }: { limit?: number; minFreeformCount?: number } = {}
 ) {
   return [...tags]
-    .filter((tag) => tag.kind === "core" || tag.postCount >= minFreeformCount)
+    .filter((tag) => tag.postCount >= minFreeformCount)
     .sort((left, right) => {
       if (right.postCount !== left.postCount) {
         return right.postCount - left.postCount;
-      }
-
-      if (left.kind !== right.kind) {
-        return left.kind === "core" ? -1 : 1;
       }
 
       return left.label.localeCompare(right.label);

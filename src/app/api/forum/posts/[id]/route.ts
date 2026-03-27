@@ -44,7 +44,6 @@ export async function handleForumPostDetailGet(
               select: {
                 slug: true,
                 label: true,
-                kind: true,
               },
             },
           },
@@ -106,7 +105,6 @@ export async function handleForumPostDetailGet(
               select: {
                 slug: true,
                 label: true,
-                kind: true,
               },
             },
           },

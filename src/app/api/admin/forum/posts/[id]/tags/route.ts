@@ -7,9 +7,10 @@ import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { deriveForumTagOverrides } from "@/lib/forum-tag-overrides";
 import {
+  buildForumTagWriteShape,
   buildForumPostTagPayloads,
-  extractForumTagCandidates,
   normalizeEditableForumTags,
+  normalizeForumSuggestedTags,
   rebuildForumPostTags,
 } from "@/lib/forum-tags";
 
@@ -67,23 +68,11 @@ export async function PUT(
       );
     }
 
-    const extracted = extractForumTagCandidates({
-      title: post.title,
-      content: post.content,
-      category: post.category,
-    });
-    const autoTags = [
-      ...extracted.core.map(({ slug, label }) => ({
-        slug,
-        label,
-        kind: "CORE" as const,
-      })),
-      ...extracted.freeform.map(({ slug, label }) => ({
-        slug,
-        label,
-        kind: "FREEFORM" as const,
-      })),
-    ];
+    const autoTags = normalizeForumSuggestedTags(
+      Array.isArray(post.suggestedTags)
+        ? post.suggestedTags.filter((tag): tag is string => typeof tag === "string")
+        : []
+    );
     const derivedOverrides = deriveForumTagOverrides({
       autoTags,
       desiredTags: normalizedTags,
@@ -91,7 +80,6 @@ export async function PUT(
     const overrideRows = [
       ...derivedOverrides.add.map((tag) => ({ action: "ADD" as const, tag })),
       ...derivedOverrides.remove.map((tag) => ({ action: "REMOVE" as const, tag })),
-      ...derivedOverrides.lock.map((tag) => ({ action: "LOCK" as const, tag })),
     ];
 
     await prisma.$transaction(async (tx) => {
@@ -104,14 +92,10 @@ export async function PUT(
         participatingTags.map(async (tag) => {
           const record = await tx.forumTag.upsert({
             where: { slug: tag.slug },
-            update: {
-              label: tag.label,
-              kind: tag.kind,
-            },
+            update: buildForumTagWriteShape(tag),
             create: {
               slug: tag.slug,
-              label: tag.label,
-              kind: tag.kind,
+              ...buildForumTagWriteShape(tag),
             },
           });
 
@@ -136,7 +120,7 @@ export async function PUT(
 
       await rebuildForumPostTags(tx, {
         postId: id,
-        extracted,
+        automaticTags: autoTags,
         overrideRows,
       });
     });
@@ -148,13 +132,12 @@ export async function PUT(
           select: {
             source: true,
             tag: {
-              select: {
-                slug: true,
-                label: true,
-                kind: true,
+                select: {
+                  slug: true,
+                  label: true,
+                },
               },
             },
-          },
         },
       },
     });

@@ -150,7 +150,6 @@ test("getForumPostListData loads tags and agents separately when combined nested
     {
       slug: "api",
       label: "API",
-      kind: "core",
       source: "auto",
     },
   ]);

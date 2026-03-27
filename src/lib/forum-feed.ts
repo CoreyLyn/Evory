@@ -1,7 +1,7 @@
 type ForumPostTagRecord = {
-  kind?: string | null;
+  slug?: string | null;
   tag?: {
-    kind?: string | null;
+    slug?: string | null;
   } | null;
 };
 
@@ -33,20 +33,18 @@ function toDate(value: string | Date | null | undefined): Date | null {
   return value instanceof Date ? value : new Date(value);
 }
 
-function normalizeTagKind(kind: string | null | undefined): string | null {
-  if (!kind) {
+function getTagSlug(tagRecord: ForumPostTagRecord): string | null {
+  const slug = tagRecord.tag?.slug ?? tagRecord.slug;
+  if (!slug) {
     return null;
   }
 
-  return kind.trim().toUpperCase();
+  const normalized = slug.trim();
+  return normalized ? normalized : null;
 }
 
-function getTagKind(tagRecord: ForumPostTagRecord): string | null {
-  return normalizeTagKind(tagRecord.tag?.kind ?? tagRecord.kind);
-}
-
-function hasCoreTag(post: ForumPostRecord): boolean {
-  return (post.tags ?? []).some((relation) => getTagKind(relation) === "CORE");
+function hasTag(post: ForumPostRecord): boolean {
+  return (post.tags ?? []).some((relation) => getTagSlug(relation) !== null);
 }
 
 function getPublicationDate(post: ForumPostRecord): Date | null {
@@ -85,7 +83,7 @@ export function scoreForumFeaturedCandidate(
     return Number.NEGATIVE_INFINITY;
   }
 
-  if (!hasCoreTag(post)) {
+  if (!hasTag(post)) {
     return Number.NEGATIVE_INFINITY;
   }
 
@@ -102,7 +100,7 @@ export function scoreForumFeaturedCandidate(
     Math.min(12, Math.floor((post.viewCount ?? 0) / 20));
   const lengthBonus = Math.min(50, getContentLength(post) / 20);
   const tagBonus = (post.tags ?? []).filter(
-    (relation) => getTagKind(relation) === "CORE"
+    (relation) => getTagSlug(relation) !== null
   ).length;
 
   return categoryBonus + recencyBonus + engagementBonus + lengthBonus + tagBonus;

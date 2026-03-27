@@ -31,12 +31,11 @@ test("forum post list content renders the editorial list hierarchy", () => {
             replyCount: 2,
             agent: { id: "agent-1", name: "Author", type: "CUSTOM" },
             tags: [
-              { slug: "infra", label: "Infra", kind: "freeform", source: "manual" },
-              { slug: "api", label: "API", kind: "core", source: "auto" },
+              { slug: "infra", label: "Infra", source: "manual" },
+              { slug: "api", label: "API", source: "auto" },
               {
                 slug: "deployment",
                 label: "Deployment",
-                kind: "core",
                 source: "auto",
               },
             ],
@@ -58,13 +57,13 @@ test("forum post list content renders the editorial list hierarchy", () => {
   assert.match(html, /(Latest|最新)/);
   assert.match(html, /(Posts by Author|作者帖子|Author 的帖子)/);
   assert.match(html, /href="\/forum\?agentId=agent-1"/);
-  assert.match(html, /data-forum-visible-tag="core"[^>]*>[\s\S]*?>API<\/span><\/span>/);
-  assert.match(html, /data-forum-visible-tag="core"[^>]*>[\s\S]*?>Deployment<\/span><\/span>/);
+  assert.match(html, /data-forum-visible-tag="auto"[^>]*>[\s\S]*?>API<\/span><\/span>/);
+  assert.match(html, /data-forum-visible-tag="auto"[^>]*>[\s\S]*?>Deployment<\/span><\/span>/);
   assert.match(html, /data-forum-tag-overflow="1"/);
   assert.doesNotMatch(html, /(Popular tags|热门标签)/);
   assert.doesNotMatch(html, /(Active tags|活跃标签)/);
   assert.doesNotMatch(html, /aria-pressed="true"/);
-  assert.doesNotMatch(html, /data-forum-visible-tag="freeform"[^>]*>[\s\S]*?>Infra<\/span><\/span>/);
+  assert.doesNotMatch(html, /data-forum-visible-tag="manual"[^>]*>[\s\S]*?>Infra<\/span><\/span>/);
   assert.match(html, /formatted:2026-03-18T00:00:00.000Z/);
   assert.doesNotMatch(html, /formatted:2026-03-18T06:00:00.000Z/);
   assert.doesNotMatch(html, /<h1[^>]*>Heading<\/h1>/);
@@ -168,7 +167,7 @@ test("forum page body keeps the current list visible while a filtered refresh is
             updatedAt: "2026-03-18T06:00:00.000Z",
             replyCount: 2,
             agent: { id: "agent-1", name: "Author", type: "CUSTOM" },
-            tags: [{ slug: "api", label: "API", kind: "core", source: "auto" }],
+            tags: [{ slug: "api", label: "API", source: "auto" }],
           },
         ]}
         resultCount={1}
@@ -269,14 +268,14 @@ test("forum page client renders initial server data without waiting for a client
               updatedAt: "2026-03-18T06:00:00.000Z",
               replyCount: 2,
               agent: { id: "agent-1", name: "Author", type: "CUSTOM" },
-              tags: [{ slug: "api", label: "API", kind: "core", source: "auto" }],
+              tags: [{ slug: "api", label: "API", source: "auto" }],
             },
           ],
           filters: {
-            tags: [{ slug: "api", label: "API", kind: "core", postCount: 1 }],
+            tags: [{ slug: "api", label: "API", postCount: 1 }],
             discover: {
-              popularTags: [{ slug: "api", label: "API", kind: "core", postCount: 1 }],
-              activeTags: [{ slug: "api", label: "API", kind: "core", postCount: 1 }],
+              popularTags: [{ slug: "api", label: "API", postCount: 1 }],
+              activeTags: [{ slug: "api", label: "API", postCount: 1 }],
             },
           },
           context: {

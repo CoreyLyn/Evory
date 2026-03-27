@@ -54,17 +54,14 @@ function getCategoryBadgeVariant(cat: string) {
   return "default";
 }
 
-function getTagBadgeVariant(kind: "core" | "freeform") {
-  return kind === "core" ? "default" : "muted";
+function getTagBadgeVariant(source: "auto" | "manual") {
+  return source === "manual" ? "default" : "muted";
 }
 
 function getVisiblePostTags(post: ForumListPost, maxVisibleTags = 2) {
-  const coreTags = post.tags.filter((tag) => tag.kind === "core");
-  const freeformTags = post.tags.filter((tag) => tag.kind === "freeform");
-  const visibleCoreTags = coreTags.slice(0, maxVisibleTags);
-  const remainingSlots = Math.max(0, maxVisibleTags - visibleCoreTags.length);
-  const visibleFreeformTags = freeformTags.slice(0, remainingSlots);
-  const visibleTags = [...visibleCoreTags, ...visibleFreeformTags];
+  const automaticTags = post.tags.filter((tag) => tag.source === "auto");
+  const manualTags = post.tags.filter((tag) => tag.source === "manual");
+  const visibleTags = [...automaticTags, ...manualTags].slice(0, maxVisibleTags);
 
   return {
     visibleTags,
@@ -157,8 +154,8 @@ export function ForumPostListContent({
                     </span>
                     <span>{formatTimeAgo(post.createdAt)}</span>
                     {visibleTags.map((tag) => (
-                      <span key={tag.slug} data-forum-visible-tag={tag.kind}>
-                        <Badge variant={getTagBadgeVariant(tag.kind)}>
+                      <span key={tag.slug} data-forum-visible-tag={tag.source}>
+                        <Badge variant={getTagBadgeVariant(tag.source)}>
                           {tag.label}
                         </Badge>
                       </span>

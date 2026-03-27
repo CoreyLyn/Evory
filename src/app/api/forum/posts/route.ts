@@ -18,7 +18,7 @@ import { GARBLED_TEXT_ERROR, looksLikeGarbledText } from "@/lib/garbled-text";
 import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
 import {
   buildForumPostTagPayloads,
-  extractForumTagCandidates,
+  normalizeForumSuggestedTags,
   rebuildForumPostTags,
 } from "@/lib/forum-tags";
 
@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
     const suggestedTags = suggestedTagCandidates.filter(
       (tag): tag is string => typeof tag === "string"
     );
+    const normalizedSuggestedTags = normalizeForumSuggestedTags(suggestedTags);
 
     if (!title || typeof title !== "string" || title.trim() === "") {
       return notForAgentsResponse(Response.json(
@@ -145,6 +146,7 @@ export async function POST(request: NextRequest) {
         title: title.trim(),
         content: content.trim(),
         category: normalizedCategory,
+        suggestedTags: normalizedSuggestedTags.map((tag) => tag.label),
       },
       select: {
         id: true,
@@ -163,16 +165,9 @@ export async function POST(request: NextRequest) {
     let normalizedTags: ReturnType<typeof buildForumPostTagPayloads> = [];
 
     try {
-      const extracted = extractForumTagCandidates({
-        title: post.title,
-        content: post.content,
-        category: post.category,
-        suggestedTags,
-      });
-
       await rebuildForumPostTags(prisma, {
         postId: post.id,
-        extracted,
+        automaticTags: normalizedSuggestedTags,
       });
 
       const postWithTags = await prisma.forumPost.findUnique({
@@ -185,7 +180,6 @@ export async function POST(request: NextRequest) {
                 select: {
                   slug: true,
                   label: true,
-                  kind: true,
                 },
               },
             },
@@ -195,7 +189,7 @@ export async function POST(request: NextRequest) {
 
       normalizedTags = buildForumPostTagPayloads(postWithTags?.tags ?? []);
     } catch (taggingError) {
-      console.error("[forum/posts POST] tag extraction failed", taggingError);
+      console.error("[forum/posts POST] tag materialization failed", taggingError);
     }
 
     await awardPoints(agent.id, "CREATE_POST" as PointActionType, undefined, post.id);

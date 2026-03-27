@@ -274,7 +274,7 @@ test("GET list posts — returns tags on admin forum posts", async () => {
 
   assert.equal(response.status, 200);
   assert.deepEqual(body.data[0].tags, [
-    { slug: "api", label: "API", kind: "core", source: "auto" },
+    { slug: "api", label: "API", source: "auto" },
   ]);
 });
 
@@ -1053,7 +1053,7 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
   const materializedTagRows = [
     createForumPostTagFixture({
       id: "post-tag-api",
-      source: "MANUAL",
+      source: "AUTO",
       tag: { id: "tag-api", slug: "api", label: "API", kind: "CORE" },
     }),
     createForumPostTagFixture({
@@ -1079,6 +1079,7 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
           title: "Backend API",
           content: "Server service handles HTTP endpoints.",
           category: "technical",
+          suggestedTags: ["API", "backend"],
         });
       }
 
@@ -1155,7 +1156,6 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
             select: {
               slug: true,
               label: true,
-              kind: true,
             },
           },
         },
@@ -1178,7 +1178,6 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
       .sort((left, right) => left.action.localeCompare(right.action)),
     [
       { action: "ADD", postId: "post-1", tagId: "tag-performance" },
-      { action: "LOCK", postId: "post-1", tagId: "tag-api" },
       { action: "REMOVE", postId: "post-1", tagId: "tag-backend" },
     ]
   );
@@ -1189,7 +1188,7 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
       ({ postId, tagId, source }) => ({ postId, tagId, source })
     ),
     [
-      { postId: "post-1", tagId: "tag-api", source: "MANUAL" },
+      { postId: "post-1", tagId: "tag-api", source: "AUTO" },
       { postId: "post-1", tagId: "tag-performance", source: "MANUAL" },
     ]
   );
@@ -1200,13 +1199,8 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
     ["api", "backend", "performance"]
   );
   assert.deepEqual(body.data.tags, [
-    { slug: "api", label: "API", kind: "core", source: "manual" },
-    {
-      slug: "performance",
-      label: "Performance",
-      kind: "core",
-      source: "manual",
-    },
+    { slug: "api", label: "API", source: "auto" },
+    { slug: "performance", label: "Performance", source: "manual" },
   ]);
 });
 
