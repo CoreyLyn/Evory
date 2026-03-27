@@ -43,6 +43,134 @@ const statusBadgeVariant: Record<TaskStatus, "warning" | "default" | "muted" | "
   CANCELLED: "danger",
 };
 
+type TasksPageBodyProps = {
+  tasks: Task[];
+  pagination: {
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  } | null;
+  loading: boolean;
+  error: string | null;
+  page: number;
+  onPreviousPage: () => void;
+  onNextPage: () => void;
+  t: ReturnType<typeof useT>;
+  formatTimeAgo: ReturnType<typeof useFormatTimeAgo>;
+};
+
+export function TasksLoadingSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {[1, 2, 3, 4, 5, 6].map((i) => (
+        <Card key={i} className="animate-pulse">
+          <div className="h-5 w-3/4 rounded bg-card-border/50" />
+          <div className="mt-3 h-4 w-1/3 rounded bg-card-border/30" />
+          <div className="mt-2 h-4 w-1/2 rounded bg-card-border/30" />
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+export function TasksPageBody({
+  tasks,
+  pagination,
+  loading,
+  error,
+  page,
+  onPreviousPage,
+  onNextPage,
+  t,
+  formatTimeAgo,
+}: TasksPageBodyProps) {
+  return (
+    <>
+      {error && (
+        <div className="rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-danger">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <TasksLoadingSkeleton />
+      ) : tasks.length === 0 ? (
+        <EmptyState title={typeof t("tasks.empty") === "string" ? t("tasks.empty") as string : undefined} />
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger">
+            {tasks.map((task) => (
+              <Link key={task.id} href={`/tasks/${task.id}`}>
+                <Card className="hover:border-accent/30 hover:shadow-[0_4px_24px_rgba(0,200,255,0.06)] hover:-translate-y-0.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-semibold text-foreground line-clamp-2">
+                      {task.title}
+                    </h3>
+                    <Badge variant={statusBadgeVariant[task.status]}>
+                      {task.status}
+                    </Badge>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-accent">
+                    <span>🪙</span>
+                    <span className="font-medium">{task.bountyPoints} {t("common.pts")}</span>
+                  </div>
+                  <div
+                    className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted"
+                    data-task-meta="true"
+                  >
+                    <span
+                      className="inline-flex items-center gap-1"
+                      data-task-party="creator"
+                    >
+                      <span>{t("tasks.creator")}</span>
+                      <span>{task.creator.name}</span>
+                    </span>
+                    {task.assignee && (
+                      <span
+                        className="inline-flex items-center gap-1 text-accent-secondary"
+                        data-task-party="assignee"
+                      >
+                        <span>{t("tasks.assignee")}</span>
+                        <span>{task.assignee.name}</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 text-xs text-muted">
+                    {formatTimeAgo(task.createdAt)}
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={onPreviousPage}
+                disabled={page <= 1}
+                className="rounded-lg border border-card-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-accent/50 disabled:opacity-50"
+              >
+                {t("common.prevPage")}
+              </button>
+              <span className="text-sm text-muted">
+                {t("common.pageOf", { page: pagination.page, total: pagination.totalPages })}
+              </span>
+              <button
+                onClick={onNextPage}
+                disabled={page >= pagination.totalPages}
+                className="rounded-lg border border-card-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-accent/50 disabled:opacity-50"
+              >
+                {t("common.nextPage")}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
 export default function TasksPage() {
   const t = useT();
   const formatTimeAgo = useFormatTimeAgo();
@@ -112,84 +240,19 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-danger">
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <div className="h-5 w-3/4 rounded bg-card-border/50" />
-              <div className="mt-3 h-4 w-1/3 rounded bg-card-border/30" />
-              <div className="mt-2 h-4 w-1/2 rounded bg-card-border/30" />
-            </Card>
-          ))}
-        </div>
-      ) : tasks.length === 0 ? (
-        <EmptyState title={typeof t("tasks.empty") === "string" ? t("tasks.empty") as string : undefined} />
-      ) : (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger">
-            {tasks.map((task) => (
-              <Link key={task.id} href={`/tasks/${task.id}`}>
-                <Card className="hover:border-accent/30 hover:shadow-[0_4px_24px_rgba(0,200,255,0.06)] hover:-translate-y-0.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold text-foreground line-clamp-2">
-                      {task.title}
-                    </h3>
-                    <Badge variant={statusBadgeVariant[task.status]}>
-                      {task.status}
-                    </Badge>
-                  </div>
-                  <div className="mt-2 flex items-center gap-2 text-accent">
-                    <span>🪙</span>
-                    <span className="font-medium">{task.bountyPoints} {t("common.pts")}</span>
-                  </div>
-                  <div className="mt-2 text-sm text-muted">
-                    {t("tasks.creator")} {task.creator.name}
-                    {task.assignee && (
-                      <span className="text-accent-secondary">
-                        {" "}
-                        {t("tasks.assignee")} {task.assignee.name}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-2 text-xs text-muted">
-                    {formatTimeAgo(task.createdAt)}
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
-
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="rounded-lg border border-card-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-accent/50 disabled:opacity-50"
-              >
-                {t("common.prevPage")}
-              </button>
-              <span className="text-sm text-muted">
-                {t("common.pageOf", { page: pagination.page, total: pagination.totalPages })}
-              </span>
-              <button
-                onClick={() =>
-                  setPage((p) => Math.min(pagination.totalPages, p + 1))
-                }
-                disabled={page >= pagination.totalPages}
-                className="rounded-lg border border-card-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-accent/50 disabled:opacity-50"
-              >
-                {t("common.nextPage")}
-              </button>
-            </div>
-          )}
-        </>
-      )}
+      <TasksPageBody
+        tasks={tasks}
+        pagination={pagination}
+        loading={loading}
+        error={error}
+        page={page}
+        onPreviousPage={() => setPage((p) => Math.max(1, p - 1))}
+        onNextPage={() =>
+          setPage((p) => (pagination ? Math.min(pagination.totalPages, p + 1) : p + 1))
+        }
+        t={t}
+        formatTimeAgo={formatTimeAgo}
+      />
     </div>
   );
 }
