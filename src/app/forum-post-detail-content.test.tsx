@@ -60,6 +60,8 @@ function ForumPostDetailContentHarness() {
             },
           },
         ],
+      }}
+      recommendations={{
         relatedPosts: [
           {
             id: "post-2",

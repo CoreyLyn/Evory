@@ -10,6 +10,32 @@ import {
   buildForumTagFilterPayloads,
 } from "@/lib/forum-tags";
 
+// Type for the combined select result with nested relations
+type PostWithRelations = {
+  id: string;
+  agentId: string;
+  title: string;
+  content: string;
+  category: string;
+  viewCount: number;
+  likeCount: number;
+  createdAt: Date;
+  lastActivityAt: Date;
+  updatedAt: Date;
+  featuredOverride: boolean | null;
+  _count: { replies: number };
+  tags: Array<{
+    source: string;
+    tag: { slug: string; label: string };
+  }>;
+  agent: {
+    id: string;
+    name: string;
+    isDeletedPlaceholder: boolean | null;
+    type: string;
+  };
+};
+
 export type ForumListPost = {
   id: string;
   title: string;
@@ -138,52 +164,58 @@ export async function getForumPostListData({
         ? [{ likeCount: "desc" }, { lastActivityAt: "desc" }, { createdAt: "desc" }]
         : [{ createdAt: "desc" }];
 
-  const loadPageResult = () =>
-    runSequentialPageQuery({
-      getItems: () =>
-        prisma.forumPost.findMany({
-          where,
+  // Shared select object for posts with included relations
+  const postSelect = {
+    id: true,
+    agentId: true,
+    title: true,
+    content: true,
+    category: true,
+    viewCount: true,
+    likeCount: true,
+    createdAt: true,
+    lastActivityAt: true,
+    updatedAt: true,
+    featuredOverride: true,
+    _count: { select: { replies: true } },
+    // Include tags directly to avoid N+1 query
+    tags: {
+      select: {
+        source: true,
+        tag: {
           select: {
-            id: true,
-            agentId: true,
-            title: true,
-            content: true,
-            category: true,
-            viewCount: true,
-            likeCount: true,
-            createdAt: true,
-            lastActivityAt: true,
-            updatedAt: true,
-            featuredOverride: true,
-            _count: { select: { replies: true } },
+            slug: true,
+            label: true,
           },
-          orderBy,
-          skip: (page - 1) * pageSize,
-          take: pageSize,
-        }),
-      getTotal: () => prisma.forumPost.count({ where }),
-    });
-
-  const loadFeaturedCandidates = () =>
-    prisma.forumPost.findMany({
-      where,
+        },
+      },
+    },
+    // Include agent directly to avoid N+1 query
+    agent: {
       select: {
         id: true,
-        agentId: true,
-        title: true,
-        content: true,
-        category: true,
-        viewCount: true,
-        likeCount: true,
-        createdAt: true,
-        lastActivityAt: true,
-        updatedAt: true,
-        featuredOverride: true,
-        _count: { select: { replies: true } },
+        name: true,
+        isDeletedPlaceholder: true,
+        type: true,
       },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    });
+    },
+  } as const;
+
+  // Fallback select without nested relations for environments where combined selects fail
+  const postSelectFallback = {
+    id: true,
+    agentId: true,
+    title: true,
+    content: true,
+    category: true,
+    viewCount: true,
+    likeCount: true,
+    createdAt: true,
+    lastActivityAt: true,
+    updatedAt: true,
+    featuredOverride: true,
+    _count: { select: { replies: true } },
+  } as const;
 
   const loadPostTags = (postIds: string[]) =>
     postIds.length === 0
@@ -219,6 +251,27 @@ export async function getForumPostListData({
           },
         });
 
+  const loadPageResult = (useCombinedSelect: boolean) =>
+    runSequentialPageQuery({
+      getItems: () =>
+        prisma.forumPost.findMany({
+          where,
+          select: useCombinedSelect ? postSelect : postSelectFallback,
+          orderBy,
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+      getTotal: () => prisma.forumPost.count({ where }),
+    });
+
+  const loadFeaturedCandidates = (useCombinedSelect: boolean) =>
+    prisma.forumPost.findMany({
+      where,
+      select: useCombinedSelect ? postSelect : postSelectFallback,
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+
   const loadTagFilters = () =>
     prisma.forumTag.findMany({
       select: {
@@ -249,8 +302,24 @@ export async function getForumPostListData({
         })
       : Promise.resolve([]);
 
-  const loadPageData = async () => {
-    const pageResult = await loadPageResult();
+  const loadPageData = async (useCombinedSelect: boolean) => {
+    const pageResult = await loadPageResult(useCombinedSelect);
+
+    // Check if combined select returned the expected nested data
+    const hasIncludedRelations = pageResult.items.length > 0 && "agent" in pageResult.items[0];
+
+    if (useCombinedSelect && hasIncludedRelations) {
+      // Tags and agent are already included in the query
+      return {
+        total: pageResult.total,
+        items: (pageResult.items as PostWithRelations[]).map((post) => ({
+          ...post,
+          agent: serializeAgentDisplayName(post.agent),
+        })),
+      };
+    }
+
+    // Fallback: load tags and agents separately
     const postIds = pageResult.items.map((post) => post.id);
     const agentIds = [...new Set(pageResult.items.map((post) => post.agentId))];
     const requestedAgentIds = agentId ? [...new Set([...agentIds, agentId])] : agentIds;
@@ -285,8 +354,18 @@ export async function getForumPostListData({
     };
   };
 
-  const loadFeaturedCandidateData = async () => {
-    const candidates = await loadFeaturedCandidates();
+  const loadFeaturedCandidateData = async (useCombinedSelect: boolean) => {
+    const candidates = await loadFeaturedCandidates(useCombinedSelect);
+
+    // Check if combined select returned the expected nested data
+    const hasIncludedTags = candidates.length > 0 && "tags" in candidates[0];
+
+    if (useCombinedSelect && hasIncludedTags) {
+      // Tags are already included in the query
+      return candidates;
+    }
+
+    // Fallback: load tags separately
     const candidateIds = candidates.map((post) => post.id);
     const candidateTags = await loadPostTags(candidateIds);
     const tagsByPostId = new Map<string, typeof candidateTags>();
@@ -303,17 +382,50 @@ export async function getForumPostListData({
     }));
   };
 
+  // Try combined select first, fall back to separate queries on connection errors
+  let useCombinedSelect = true;
+
+  const tryLoadPageData = async () => {
+    const currentUseCombinedSelect = useCombinedSelect;
+    try {
+      return await loadPageData(currentUseCombinedSelect);
+    } catch (error) {
+      const prismaError = error as { code?: string };
+      // P1017 = Server has closed the connection (can happen with nested selects on some DB configs)
+      if (currentUseCombinedSelect && prismaError.code === "P1017") {
+        useCombinedSelect = false;
+        return loadPageData(false);
+      }
+      throw error;
+    }
+  };
+
+  const tryLoadFeaturedCandidateData = async () => {
+    const currentUseCombinedSelect = useCombinedSelect;
+    try {
+      return await loadFeaturedCandidateData(currentUseCombinedSelect);
+    } catch (error) {
+      const prismaError = error as { code?: string };
+      // P1017 = Server has closed the connection - retry with fallback select
+      if (prismaError.code === "P1017") {
+        useCombinedSelect = false;
+        return loadFeaturedCandidateData(false);
+      }
+      throw error;
+    }
+  };
+
   const [pageResult, tagFilters, featuredCandidates, contextAgents] = serializeQueries
     ? [
-        await loadPageData(),
+        await tryLoadPageData(),
         await loadTagFilters(),
-        await loadFeaturedCandidateData(),
+        await tryLoadFeaturedCandidateData(),
         await loadContextAgent(),
       ]
     : await Promise.all([
-        loadPageData(),
+        tryLoadPageData(),
         loadTagFilters(),
-        loadFeaturedCandidateData(),
+        tryLoadFeaturedCandidateData(),
         loadContextAgent(),
       ]);
 

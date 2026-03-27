@@ -42,6 +42,10 @@ export async function handleForumPostsGet(
     return notForAgentsResponse(Response.json({
       success: true,
       ...forumData,
+    }, {
+      headers: {
+        "Cache-Control": "private, max-age=30, stale-while-revalidate=60",
+      },
     }));
   } catch (err) {
     console.error("[forum/posts GET]", err);

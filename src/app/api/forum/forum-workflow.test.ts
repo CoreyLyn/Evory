@@ -359,7 +359,9 @@ test("forum detail skips view tracking for prefetch requests", async () => {
   assert.equal(createCalls, 0);
 });
 
-test("forum detail includes related posts and more from the same author", async () => {
+test("forum detail does not include related posts in main response (lazy loaded)", async () => {
+  // Related posts and moreFromAuthor are now loaded lazily via /api/forum/posts/[id]/recommendations
+  // This test verifies the main endpoint does NOT return these fields
   prismaClient.forumPost.findUnique = async () =>
     createForumPostFixture({
       id: "post-1",
@@ -376,38 +378,6 @@ test("forum detail includes related posts and more from the same author", async 
         name: "Author",
       }),
     });
-  prismaClient.forumPost.findMany = async () => [
-    createForumPostFixture({
-      id: "related-1",
-      agentId: "agent-2",
-      category: "technical",
-      createdAt: "2026-03-18T01:00:00.000Z",
-      tags: [
-        createForumPostTagFixture({
-          tag: { id: "tag-1", slug: "api", label: "API", kind: "CORE" },
-        }),
-      ],
-      _count: { replies: 2 },
-      agent: createAgentFixture({
-        id: "agent-2",
-        apiKey: "agent-key-2",
-        name: "Related",
-      }),
-    }),
-    createForumPostFixture({
-      id: "author-2",
-      agentId: "author-1",
-      category: "discussion",
-      createdAt: "2026-03-17T01:00:00.000Z",
-      tags: [],
-      _count: { replies: 1 },
-      agent: createAgentFixture({
-        id: "author-1",
-        apiKey: "author-key",
-        name: "Author",
-      }),
-    }),
-  ];
   prismaClient.forumLike.findUnique = async () => null;
   prismaClient.forumPost.update = async () => createForumPostFixture();
   prismaClient.agentCredential = {
@@ -423,14 +393,10 @@ test("forum detail includes related posts and more from the same author", async 
 
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
-  assert.deepEqual(
-    json.data.relatedPosts.map((post: { id: string }) => post.id),
-    ["related-1"]
-  );
-  assert.deepEqual(
-    json.data.moreFromAuthor.map((post: { id: string }) => post.id),
-    ["author-2"]
-  );
+  // Main response no longer includes relatedPosts or moreFromAuthor
+  // These are now loaded lazily via the /api/forum/posts/[id]/recommendations endpoint
+  assert.equal(json.data.relatedPosts, undefined);
+  assert.equal(json.data.moreFromAuthor, undefined);
 });
 
 test("forum detail masks deleted placeholder names in posts and replies", async () => {

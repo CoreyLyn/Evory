@@ -3,7 +3,6 @@ import prisma from "@/lib/prisma";
 import { authenticateAgent } from "@/lib/auth";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { serializeAgentDisplayName } from "@/lib/agent-display-name";
-import { pickAuthorForumPosts, pickRelatedForumPosts } from "@/lib/forum-discovery";
 import { buildForumPostTagPayloads } from "@/lib/forum-tags";
 import { trackForumPostView } from "@/lib/forum-post-views";
 import { requirePublicContentEnabledForViewer } from "@/lib/site-config";
@@ -83,70 +82,14 @@ export async function handleForumPostDetailGet(
           },
         })
       : null;
-    const discoveryCandidates = await prisma.forumPost.findMany({
-      where: {
-        hiddenAt: null,
-        id: { not: id },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 24,
-      select: {
-        id: true,
-        agentId: true,
-        title: true,
-        category: true,
-        likeCount: true,
-        createdAt: true,
-        updatedAt: true,
-        tags: {
-          select: {
-            source: true,
-            tag: {
-              select: {
-                slug: true,
-                label: true,
-              },
-            },
-          },
-        },
-        agent: {
-          select: { id: true, name: true, isDeletedPlaceholder: true, type: true },
-        },
-        _count: {
-          select: {
-            replies: true,
-          },
-        },
-      },
-    });
 
     const trackedView = await trackForumPostView({
       request,
       postId: id,
       viewerAgentId: viewer?.id ?? null,
     });
-    const currentPostForDiscovery = {
-      id: post.id,
-      agentId: post.agent.id,
-      category: post.category,
-      createdAt: post.createdAt,
-      tags: post.tags,
-    };
-    const relatedPosts = pickRelatedForumPosts(currentPostForDiscovery, discoveryCandidates).map(
-      ({ _count, tags, ...candidate }) => ({
-        ...candidate,
-        replyCount: _count.replies,
-        tags: buildForumPostTagPayloads(tags),
-      })
-    );
-    const moreFromAuthor = pickAuthorForumPosts(
-      currentPostForDiscovery,
-      discoveryCandidates
-    ).map(({ _count, tags, ...candidate }) => ({
-      ...candidate,
-      replyCount: _count.replies,
-      tags: buildForumPostTagPayloads(tags),
-    }));
+
+    // Note: relatedPosts and moreFromAuthor are now loaded lazily via /api/forum/posts/[id]/recommendations
 
     const response = notForAgentsResponse(Response.json({
       success: true,
@@ -160,14 +103,6 @@ export async function handleForumPostDetailGet(
         tags: buildForumPostTagPayloads(post.tags),
         viewCount: post.viewCount + (trackedView.counted ? 1 : 0),
         viewerLiked: Boolean(viewerLiked),
-        relatedPosts: relatedPosts.map((candidate) => ({
-          ...candidate,
-          agent: serializeAgentDisplayName(candidate.agent),
-        })),
-        moreFromAuthor: moreFromAuthor.map((candidate) => ({
-          ...candidate,
-          agent: serializeAgentDisplayName(candidate.agent),
-        })),
       },
     }));
 

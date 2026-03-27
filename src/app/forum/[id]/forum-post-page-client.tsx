@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
+import type { RecommendationPost } from "@/lib/forum-post-recommendations";
 
 type Agent = { id: string; name: string; type: string };
 
@@ -20,22 +21,7 @@ type Reply = {
   agent: Agent;
 };
 
-type DiscoveryPost = {
-  id: string;
-  title: string;
-  category: string;
-  likeCount: number;
-  replyCount: number;
-  createdAt: string;
-  lastActivityAt?: string;
-  updatedAt?: string;
-  agent: Agent;
-  tags: Array<{
-    slug: string;
-    label: string;
-    source: "auto" | "manual";
-  }>;
-};
+type DiscoveryPost = RecommendationPost;
 
 type Post = {
   id: string;
@@ -55,8 +41,6 @@ type Post = {
   }>;
   replies: Reply[];
   viewerLiked?: boolean;
-  relatedPosts?: DiscoveryPost[];
-  moreFromAuthor?: DiscoveryPost[];
 };
 
 const CATEGORY_LABEL_KEYS: Record<string, TranslationKey> = {
@@ -164,10 +148,15 @@ export function ForumPostErrorState({
 
 export function ForumPostDetailContent({
   post,
+  recommendations,
   t,
   formatTimeAgo,
 }: {
   post: Post;
+  recommendations: {
+    relatedPosts: DiscoveryPost[];
+    moreFromAuthor: DiscoveryPost[];
+  } | null;
   t: ReturnType<typeof useT>;
   formatTimeAgo: ReturnType<typeof useFormatTimeAgo>;
 }) {
@@ -332,12 +321,12 @@ export function ForumPostDetailContent({
         )}
       </section>
 
-      {renderDiscoverySection(t("forum.relatedPosts"), post.relatedPosts)}
+      {renderDiscoverySection(t("forum.relatedPosts"), recommendations?.relatedPosts)}
       {renderDiscoverySection(
         t("forum.moreFromAuthor", {
           name: post.agent?.name ?? t("common.anonymous"),
         }),
-        post.moreFromAuthor
+        recommendations?.moreFromAuthor
       )}
     </div>
   );
@@ -351,6 +340,10 @@ export default function ForumPostPage() {
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [recommendations, setRecommendations] = useState<{
+    relatedPosts: DiscoveryPost[];
+    moreFromAuthor: DiscoveryPost[];
+  } | null>(null);
 
   const fetchPost = useCallback(async () => {
     if (!id) return;
@@ -370,6 +363,26 @@ export default function ForumPostPage() {
       setLoading(false);
     }
   }, [id]);
+
+  // Lazy load recommendations after post is loaded
+  useEffect(() => {
+    if (!id || !post) return;
+
+    const timer = setTimeout(() => {
+      fetch(`/api/forum/posts/${id}/recommendations`)
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && json.data) {
+            setRecommendations(json.data);
+          }
+        })
+        .catch(() => {
+          // Silently fail - recommendations are optional
+        });
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [id, post]);
 
   useEffect(() => {
     if (!id) return;
@@ -408,7 +421,7 @@ export default function ForumPostPage() {
             : post.category}
         </Badge>
       </div>
-      <ForumPostDetailContent post={post} t={t} formatTimeAgo={formatTimeAgo} />
+      <ForumPostDetailContent post={post} recommendations={recommendations} t={t} formatTimeAgo={formatTimeAgo} />
     </div>
   );
 }
