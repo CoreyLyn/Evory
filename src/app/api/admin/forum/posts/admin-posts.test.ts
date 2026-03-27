@@ -145,7 +145,6 @@ beforeEach(() => {
       id: `tag-${where.slug}`,
       slug: where.slug,
       label: where.slug.toUpperCase(),
-      kind: "CORE",
     }),
   };
   prismaClient.forumPostTag = {
@@ -274,7 +273,7 @@ test("GET list posts — returns tags on admin forum posts", async () => {
 
   assert.equal(response.status, 200);
   assert.deepEqual(body.data[0].tags, [
-    { slug: "api", label: "API", kind: "core", source: "auto" },
+    { slug: "api", label: "API", source: "auto" },
   ]);
 });
 
@@ -1053,7 +1052,7 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
   const materializedTagRows = [
     createForumPostTagFixture({
       id: "post-tag-api",
-      source: "MANUAL",
+      source: "AUTO",
       tag: { id: "tag-api", slug: "api", label: "API", kind: "CORE" },
     }),
     createForumPostTagFixture({
@@ -1079,6 +1078,7 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
           title: "Backend API",
           content: "Server service handles HTTP endpoints.",
           category: "technical",
+          suggestedTags: ["API", "backend"],
         });
       }
 
@@ -1133,8 +1133,8 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
       },
       json: {
         tags: [
-          { slug: "api", label: "API", kind: "core" },
-          { slug: "performance", label: "Performance", kind: "core" },
+          { slug: "api", label: "API" },
+          { slug: "performance", label: "Performance" },
         ],
       },
     }),
@@ -1155,7 +1155,6 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
             select: {
               slug: true,
               label: true,
-              kind: true,
             },
           },
         },
@@ -1178,7 +1177,6 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
       .sort((left, right) => left.action.localeCompare(right.action)),
     [
       { action: "ADD", postId: "post-1", tagId: "tag-performance" },
-      { action: "LOCK", postId: "post-1", tagId: "tag-api" },
       { action: "REMOVE", postId: "post-1", tagId: "tag-backend" },
     ]
   );
@@ -1189,7 +1187,7 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
       ({ postId, tagId, source }) => ({ postId, tagId, source })
     ),
     [
-      { postId: "post-1", tagId: "tag-api", source: "MANUAL" },
+      { postId: "post-1", tagId: "tag-api", source: "AUTO" },
       { postId: "post-1", tagId: "tag-performance", source: "MANUAL" },
     ]
   );
@@ -1200,14 +1198,81 @@ test("PUT tags rebuilds overrides and final tags from admin textarea", async () 
     ["api", "backend", "performance"]
   );
   assert.deepEqual(body.data.tags, [
-    { slug: "api", label: "API", kind: "core", source: "manual" },
-    {
-      slug: "performance",
-      label: "Performance",
-      kind: "core",
-      source: "manual",
-    },
+    { slug: "api", label: "API", source: "auto" },
+    { slug: "performance", label: "Performance", source: "manual" },
   ]);
+});
+
+test("PUT tags derives overrides from stored suggestedTags baseline", async () => {
+  mockAdminSession();
+
+  const overrideCreateManyCalls: Array<Record<string, unknown>> = [];
+  let findUniqueCalls = 0;
+
+  prismaClient.forumPost = {
+    ...prismaClient.forumPost,
+    findUnique: async () =>
+      findUniqueCalls++ === 0
+        ? createForumPostFixture({
+            id: "post-1",
+            title: "General",
+            content: "Update",
+            category: "discussion",
+            suggestedTags: ["API Gateway", "缓存层"],
+          })
+        : createForumPostFixture({
+            id: "post-1",
+            title: "General",
+            content: "Update",
+            category: "discussion",
+            tags: [],
+          }),
+  };
+  prismaClient.forumTag = {
+    upsert: async ({ where }: { where: { slug: string } }) => ({
+      id: `tag-${where.slug}`,
+    }),
+  };
+  prismaClient.forumPostTagOverride = {
+    deleteMany: async () => ({ count: 0 }),
+    createMany: async (args: Record<string, unknown>) => {
+      overrideCreateManyCalls.push(args);
+      return { count: 0 };
+    },
+  };
+  prismaClient.forumPostTag = {
+    deleteMany: async () => ({ count: 0 }),
+    createMany: async () => ({ count: 0 }),
+  };
+
+  const response = await replacePostTags(
+    createRouteRequest("http://localhost/api/admin/forum/posts/post-1/tags", {
+      method: "PUT",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+      json: {
+        tags: [
+          { slug: "缓存层", label: "缓存层" },
+          { slug: "发布回滚", label: "发布回滚" },
+        ],
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(overrideCreateManyCalls.length, 1);
+  assert.deepEqual(
+    new Set(
+      (overrideCreateManyCalls[0].data as Array<Record<string, string>>).map(
+        ({ action, tagId }) => `${action}:${tagId}`
+      )
+    ),
+    new Set(["REMOVE:tag-api-gateway", "ADD:tag-发布回滚"])
+  );
 });
 
 // ---------------------------------------------------------------------------

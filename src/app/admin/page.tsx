@@ -10,7 +10,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
-import { CORE_FORUM_TAGS } from "@/lib/forum-tags";
 import { AdminKnowledgePanel } from "./admin-knowledge-panel";
 import { AdminPrimaryTabs, normalizeAdminPrimaryTab } from "./admin-tabs";
 
@@ -29,7 +28,6 @@ type Post = {
   tags: Array<{
     slug: string;
     label: string;
-    kind: "core" | "freeform";
     source: "auto" | "manual";
   }>;
 };
@@ -58,7 +56,7 @@ function normalizeTagSlug(value: string) {
   return value
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
     .replace(/^-+|-+$/g, "");
 }
 
@@ -69,19 +67,11 @@ function buildEditableTags(input: string) {
     .filter(Boolean)
     .map((label) => {
       const slug = normalizeTagSlug(label);
-      const coreTag = CORE_FORUM_TAGS.find((tag) => tag.slug === slug);
-
-      if (coreTag) {
-        return {
-          slug: coreTag.slug,
-          label: coreTag.label,
-          kind: "core",
-        };
-      }
-
-      return {
+      return slug ? {
+        slug,
         label,
-        kind: "freeform",
+      } : {
+        label,
       };
     });
 }
@@ -542,7 +532,7 @@ function AdminPageContent() {
                             {post.tags.map((tag) => (
                               <Badge
                                 key={`${post.id}-${tag.slug}`}
-                                variant={tag.kind === "core" ? "default" : "muted"}
+                                variant={tag.source === "manual" ? "default" : "muted"}
                               >
                                 {tag.label}
                               </Badge>

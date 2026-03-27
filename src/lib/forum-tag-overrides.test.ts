@@ -6,52 +6,45 @@ import {
   deriveForumTagOverrides,
 } from "./forum-tag-overrides";
 
-test("deriveForumTagOverrides emits LOCK, ADD, REMOVE from desired vs auto", () => {
+test("deriveForumTagOverrides compares unified automatic and desired tags by slug", () => {
   const result = deriveForumTagOverrides({
-    autoTags: [
-      { slug: "api", label: "API", kind: "CORE" },
-      { slug: "backend", label: "Backend", kind: "CORE" },
-    ],
-    desiredTags: [
-      { slug: "api", label: "API", kind: "CORE" },
-      { slug: "performance", label: "Performance", kind: "CORE" },
-    ],
+    autoTags: [{ slug: "缓存层", label: "缓存层" }],
+    desiredTags: [{ slug: "发布回滚", label: "发布回滚" }],
   });
 
-  assert.deepEqual(result.lock.map((tag) => tag.slug), ["api"]);
-  assert.deepEqual(result.add.map((tag) => tag.slug), ["performance"]);
-  assert.deepEqual(result.remove.map((tag) => tag.slug), ["backend"]);
+  assert.deepEqual(result.add.map((tag) => tag.slug), ["发布回滚"]);
+  assert.deepEqual(result.remove.map((tag) => tag.slug), ["缓存层"]);
+  assert.deepEqual(result.lock, []);
 });
 
 test("applyForumTagOverrides rebuilds final tags and marks manual influence", () => {
   const result = applyForumTagOverrides({
     autoTags: [
-      { slug: "api", label: "API", kind: "CORE" },
-      { slug: "backend", label: "Backend", kind: "CORE" },
+      { slug: "api-gateway", label: "API Gateway" },
+      { slug: "缓存层", label: "缓存层" },
     ],
     overrides: {
-      add: [{ slug: "performance", label: "Performance", kind: "CORE" }],
-      remove: ["backend"],
-      lock: [{ slug: "api", label: "API", kind: "CORE" }],
-    },
-  });
-
-  assert.deepEqual(result.finalTags.map((tag) => [tag.slug, tag.source]), [
-    ["api", "MANUAL"],
-    ["performance", "MANUAL"],
-  ]);
-});
-
-test("applyForumTagOverrides keeps locked tags as MANUAL when re-extraction drops them", () => {
-  const result = applyForumTagOverrides({
-    autoTags: [],
-    overrides: {
-      lock: [{ slug: "api", label: "API", kind: "CORE" }],
+      add: [{ slug: "发布回滚", label: "发布回滚" }],
+      remove: ["缓存层"],
     },
   });
 
   assert.deepEqual(result.finalTags, [
-    { slug: "api", label: "API", kind: "CORE", source: "MANUAL" },
+    { slug: "api-gateway", label: "API Gateway", source: "AUTO" },
+    { slug: "发布回滚", label: "发布回滚", source: "MANUAL" },
+  ]);
+});
+
+test("applyForumTagOverrides keeps locked tags as MANUAL for historical overrides", () => {
+  const result = applyForumTagOverrides({
+    autoTags: [],
+    overrides: {
+      lock: [{ slug: "api-gateway", label: "API Gateway" }],
+    },
+  });
+
+  assert.deepEqual(result.finalTags, [
+    { slug: "api-gateway", label: "API Gateway", source: "MANUAL" },
   ]);
 });
 
@@ -59,12 +52,12 @@ test("applyForumTagOverrides rejects conflicting override actions for the same s
   assert.throws(
     () =>
       applyForumTagOverrides({
-        autoTags: [{ slug: "api", label: "API", kind: "CORE" }],
+        autoTags: [{ slug: "api-gateway", label: "API Gateway" }],
         overrides: {
-          remove: ["api"],
-          lock: [{ slug: "api", label: "API", kind: "CORE" }],
+          remove: ["api-gateway"],
+          lock: [{ slug: "api-gateway", label: "API Gateway" }],
         },
       }),
-    /conflicting forum tag overrides.*api/i
+    /conflicting forum tag overrides.*api-gateway/i
   );
 });

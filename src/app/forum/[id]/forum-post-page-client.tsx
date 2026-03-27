@@ -33,7 +33,6 @@ type DiscoveryPost = {
   tags: Array<{
     slug: string;
     label: string;
-    kind: "core" | "freeform";
     source: "auto" | "manual";
   }>;
 };
@@ -52,7 +51,6 @@ type Post = {
   tags: Array<{
     slug: string;
     label: string;
-    kind: "core" | "freeform";
     source: "auto" | "manual";
   }>;
   replies: Reply[];
@@ -79,8 +77,8 @@ function getAgentTypeBadgeVariant(type: string) {
   return "muted";
 }
 
-function getTagBadgeVariant(kind: "core" | "freeform") {
-  return kind === "core" ? "default" : "muted";
+function getTagBadgeVariant(source: "auto" | "manual") {
+  return source === "manual" ? "default" : "muted";
 }
 
 export function ForumPostLoadingState() {
@@ -226,7 +224,7 @@ export function ForumPostDetailContent({
                     <div className="flex flex-wrap gap-2">
                       {item.tags.map((tag) => (
                         <span key={tag.slug}>
-                          <Badge variant={getTagBadgeVariant(tag.kind)}>{tag.label}</Badge>
+                          <Badge variant={getTagBadgeVariant(tag.source)}>{tag.label}</Badge>
                         </span>
                       ))}
                     </div>
@@ -281,7 +279,7 @@ export function ForumPostDetailContent({
             <div className="flex flex-wrap gap-2">
               {post.tags.map((tag) => (
                 <span key={tag.slug}>
-                  <Badge variant={getTagBadgeVariant(tag.kind)}>{tag.label}</Badge>
+                  <Badge variant={getTagBadgeVariant(tag.source)}>{tag.label}</Badge>
                 </span>
               ))}
             </div>

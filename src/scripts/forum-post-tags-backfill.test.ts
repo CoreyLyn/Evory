@@ -27,19 +27,17 @@ test("backfill converts legacy manual final tags into overrides instead of skipp
   const result = await buildForumPostTagBackfillPlan([
     {
       id: "post-manual",
-      title: "API deployment",
-      content: "Rollout plan",
-      category: "technical",
+      suggestedTags: ["API", "Deployment"],
       tags: [
         {
           id: "post-tag-1",
           source: "MANUAL",
-          tag: { slug: "api", label: "API", kind: "CORE" },
+          tag: { slug: "api", label: "API" },
         },
         {
           id: "post-tag-2",
           source: "MANUAL",
-          tag: { slug: "performance", label: "Performance", kind: "CORE" },
+          tag: { slug: "performance", label: "Performance" },
         },
       ],
       overrides: [],
@@ -57,7 +55,6 @@ test("backfill converts legacy manual final tags into overrides instead of skipp
     [
       ["ADD", "performance"],
       ["REMOVE", "deployment"],
-      ["LOCK", "api"],
     ]
   );
   assert.deepEqual(
@@ -70,28 +67,26 @@ test("backfill replays existing overrides when rebuilding final tags", async () 
   const result = await buildForumPostTagBackfillPlan([
     {
       id: "post-overrides",
-      title: "API deployment",
-      content: "Rollout plan",
-      category: "technical",
+      suggestedTags: ["API", "Deployment"],
       tags: [
         {
           id: "post-tag-3",
           source: "AUTO",
-          tag: { slug: "frontend", label: "Frontend", kind: "CORE" },
+          tag: { slug: "frontend", label: "Frontend" },
         },
       ],
       overrides: [
         {
           action: "LOCK",
-          tag: { slug: "api", label: "API", kind: "CORE" },
+          tag: { slug: "api", label: "API" },
         },
         {
           action: "ADD",
-          tag: { slug: "performance", label: "Performance", kind: "CORE" },
+          tag: { slug: "performance", label: "Performance" },
         },
         {
           action: "REMOVE",
-          tag: { slug: "deployment", label: "Deployment", kind: "CORE" },
+          tag: { slug: "deployment", label: "Deployment" },
         },
       ],
     },
@@ -117,13 +112,11 @@ test("backfill replays existing overrides when rebuilding final tags", async () 
   );
 });
 
-test("backfill builds operations for untagged posts", async () => {
+test("backfill builds operations from stored suggestedTags baselines", async () => {
   const result = await buildForumPostTagBackfillPlan([
     {
       id: "post-auto",
-      title: "API deployment bugfix",
-      content: "Ship a timeout fix",
-      category: "technical",
+      suggestedTags: ["API Gateway", "发布回滚"],
       tags: [],
       overrides: [],
     },
@@ -131,10 +124,10 @@ test("backfill builds operations for untagged posts", async () => {
 
   assert.equal(result.operations.length, 1);
   assert.ok(
-    result.operations[0].tags.some((tag: { slug: string }) => tag.slug === "api")
+    result.operations[0].tags.some((tag: { slug: string }) => tag.slug === "api-gateway")
   );
   assert.ok(
-    result.operations[0].tags.some((tag: { slug: string }) => tag.slug === "deployment")
+    result.operations[0].tags.some((tag: { slug: string }) => tag.slug === "发布回滚")
   );
 });
 
@@ -155,17 +148,15 @@ test("runForumPostTagBackfill persists override rows and rebuilt final tags", as
           return [
             {
               id: "post-run",
-              title: "API deployment",
-              content: "Rollout plan",
-              category: "technical",
+              suggestedTags: ["API", "Deployment"],
               tags: [
                 {
                   source: "MANUAL",
-                  tag: { slug: "api", label: "API", kind: "CORE" },
+                  tag: { slug: "api", label: "API" },
                 },
                 {
                   source: "MANUAL",
-                  tag: { slug: "performance", label: "Performance", kind: "CORE" },
+                  tag: { slug: "performance", label: "Performance" },
                 },
               ],
               overrides: [],
@@ -238,7 +229,6 @@ test("runForumPostTagBackfill persists override rows and rebuilt final tags", as
     [
       ["ADD", "post-run", "tag-performance"],
       ["REMOVE", "post-run", "tag-deployment"],
-      ["LOCK", "post-run", "tag-api"],
     ]
   );
   assert.equal(postTagCreateManyCalls.length, 1);
@@ -249,7 +239,7 @@ test("runForumPostTagBackfill persists override rows and rebuilt final tags", as
       tagId: string;
     }>).map((row) => [row.postId, row.tagId, row.source]),
     [
-      ["post-run", "tag-api", "MANUAL"],
+      ["post-run", "tag-api", "AUTO"],
       ["post-run", "tag-performance", "MANUAL"],
     ]
   );

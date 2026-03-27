@@ -1,7 +1,6 @@
 export type ForumTagRecord = {
   slug: string;
   label: string;
-  kind: "CORE" | "FREEFORM";
 };
 
 export type DerivedForumTagOverrides = {
@@ -22,11 +21,7 @@ export type MaterializedForumTagRecord = ForumTagRecord & {
 
 function sortForumTagRecords<T extends ForumTagRecord>(tags: T[]) {
   return [...tags].sort((left, right) => {
-    return (
-      left.slug.localeCompare(right.slug) ||
-      left.label.localeCompare(right.label) ||
-      left.kind.localeCompare(right.kind)
-    );
+    return left.slug.localeCompare(right.slug) || left.label.localeCompare(right.label);
   });
 }
 
@@ -87,16 +82,12 @@ export function deriveForumTagOverrides(input: {
   const desiredTagsBySlug = uniqueForumTagsBySlug(input.desiredTags);
 
   const add: ForumTagRecord[] = [];
-  const lock: ForumTagRecord[] = [];
   const remove: ForumTagRecord[] = [];
 
   for (const [slug, desiredTag] of desiredTagsBySlug) {
-    if (autoTagsBySlug.has(slug)) {
-      lock.push(desiredTag);
-      continue;
+    if (!autoTagsBySlug.has(slug)) {
+      add.push(desiredTag);
     }
-
-    add.push(desiredTag);
   }
 
   for (const [slug, autoTag] of autoTagsBySlug) {
@@ -108,7 +99,7 @@ export function deriveForumTagOverrides(input: {
   return {
     add: sortForumTagRecords(add),
     remove: sortForumTagRecords(remove),
-    lock: sortForumTagRecords(lock),
+    lock: [],
   };
 }
 

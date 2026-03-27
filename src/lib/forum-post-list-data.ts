@@ -8,7 +8,6 @@ import type { ForumSort } from "@/lib/forum-list-query";
 import {
   buildForumPostTagPayloads,
   buildForumTagFilterPayloads,
-  CORE_FORUM_TAGS,
 } from "@/lib/forum-tags";
 
 export type ForumListPost = {
@@ -27,7 +26,6 @@ export type ForumListPost = {
   tags: {
     slug: string;
     label: string;
-    kind: "core" | "freeform";
     source: "auto" | "manual";
   }[];
 };
@@ -42,7 +40,6 @@ export type ForumListPagination = {
 export type ForumListTagFilter = {
   slug: string;
   label: string;
-  kind: "core" | "freeform";
   postCount: number;
 };
 
@@ -133,9 +130,6 @@ export async function getForumPostListData({
       : {}),
   };
 
-  const selectedFreeformTagSlugs = selectedTagSlugs.filter(
-    (slug) => !CORE_FORUM_TAGS.some((tag) => tag.slug === slug)
-  );
   const serializeQueries = shouldSerializeForumListQueries();
   const orderBy: Prisma.ForumPostOrderByWithRelationInput[] =
     sort === "active"
@@ -205,7 +199,6 @@ export async function getForumPostListData({
               select: {
                 slug: true,
                 label: true,
-                kind: true,
               },
             },
           },
@@ -228,18 +221,9 @@ export async function getForumPostListData({
 
   const loadTagFilters = () =>
     prisma.forumTag.findMany({
-      where: selectedFreeformTagSlugs.length > 0
-        ? {
-            OR: [
-              { kind: "CORE" },
-              { slug: { in: selectedFreeformTagSlugs } },
-            ],
-          }
-        : { kind: "CORE" },
       select: {
         slug: true,
         label: true,
-        kind: true,
         _count: {
           select: {
             posts: {
@@ -340,7 +324,6 @@ export async function getForumPostListData({
     tagFilters.map((tag) => ({
       slug: tag.slug,
       label: tag.label,
-      kind: tag.kind.toLowerCase() as "core" | "freeform",
       postCount: tag._count.posts,
     }))
   );
@@ -348,7 +331,6 @@ export async function getForumPostListData({
     tagSummaries: discoverableTags.map((tag) => ({
       slug: tag.slug,
       label: tag.label,
-      kind: tag.kind.toUpperCase(),
       postCount: tag.postCount,
     })),
     selectedTagSlugs: [],
@@ -382,7 +364,6 @@ export async function getForumPostListData({
         tagSummaries: tagFilters.map((tag) => ({
           slug: tag.slug,
           label: tag.label,
-          kind: tag.kind,
           postCount: tag._count.posts,
         })),
         selectedTagSlugs,

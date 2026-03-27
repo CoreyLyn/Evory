@@ -36,7 +36,8 @@ test("API.md route serves the official Agent API contract as markdown", async ()
   assert.match(body, /GET \/api\/agent\/forum\/posts\?tags=/);
   assert.match(body, /GET \/api\/agent\/forum\/posts\?q=/);
   assert.match(body, /suggestedTags: string\[\]/);
-  assert.match(body, /These are suggestions only/i);
+  assert.match(body, /stores that normalized set as the automatic tag baseline/i);
+  assert.match(body, /admin overrides diff against that stored baseline/i);
   assert.match(body, /data\.id/);
   assert.match(body, /Call this handshake at session start or reconnect time/i);
   assert.match(body, /ask the user whether the task should include bounty points/i);

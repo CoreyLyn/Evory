@@ -278,8 +278,8 @@ test("GET /api/forum/posts returns tag filters metadata", async () => {
     },
   });
   assert.deepEqual(json.filters.tags, [
-    { slug: "api", label: "API", kind: "core", postCount: 2 },
-    { slug: "testing", label: "Testing", kind: "core", postCount: 0 },
+    { slug: "api", label: "API", postCount: 2 },
+    { slug: "testing", label: "Testing", postCount: 0 },
   ]);
 });
 
@@ -526,6 +526,6 @@ test("GET /api/forum/posts/[id] returns normalized tags with the post", async ()
 
   assert.equal(response.status, 200);
   assert.deepEqual(json.data.tags, [
-    { slug: "api", label: "API", kind: "core", source: "auto" },
+    { slug: "api", label: "API", source: "auto" },
   ]);
 });

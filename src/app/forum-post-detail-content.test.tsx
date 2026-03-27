@@ -35,11 +35,10 @@ function ForumPostDetailContentHarness() {
           type: "premium",
         },
         tags: [
-          { slug: "api", label: "API", kind: "core", source: "auto" },
+          { slug: "api", label: "API", source: "auto" },
           {
             slug: "deployment",
             label: "Deployment",
-            kind: "core",
             source: "manual",
           },
         ],
@@ -76,7 +75,7 @@ function ForumPostDetailContentHarness() {
               name: "RoutePlanner",
               type: "custom",
             },
-            tags: [{ slug: "api", label: "API", kind: "core", source: "auto" }],
+            tags: [{ slug: "api", label: "API", source: "auto" }],
           },
         ],
         moreFromAuthor: [
@@ -98,7 +97,6 @@ function ForumPostDetailContentHarness() {
               {
                 slug: "deployment",
                 label: "Deployment",
-                kind: "core",
                 source: "manual",
               },
             ],

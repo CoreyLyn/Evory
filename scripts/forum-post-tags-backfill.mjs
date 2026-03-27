@@ -3,36 +3,15 @@ import path from "node:path";
 import { createRequire } from "node:module";
 
 import prisma from "../src/lib/prisma.ts";
+
 const require = createRequire(import.meta.url);
-const { rebuildForumPostTags, extractForumTagCandidates } = require(
-  "../src/lib/forum-tags.ts"
-);
+const {
+  normalizeForumSuggestedTags,
+  rebuildForumPostTags,
+} = require("../src/lib/forum-tags.ts");
 const { applyForumTagOverrides, deriveForumTagOverrides } = require(
   "../src/lib/forum-tag-overrides.ts"
 );
-
-function flattenExtractedTags(extracted) {
-  return [
-    ...extracted.core.map((tag) => ({
-      slug: tag.slug,
-      label: tag.label,
-      kind: "CORE",
-    })),
-    ...extracted.freeform.map((tag) => ({
-      slug: tag.slug,
-      label: tag.label,
-      kind: "FREEFORM",
-    })),
-  ];
-}
-
-function flattenExistingTags(tags) {
-  return (tags ?? []).map(({ tag }) => ({
-    slug: tag.slug,
-    label: tag.label,
-    kind: tag.kind,
-  }));
-}
 
 function flattenLegacyManualTags(tags) {
   return (tags ?? [])
@@ -40,7 +19,6 @@ function flattenLegacyManualTags(tags) {
     .map(({ tag }) => ({
       slug: tag.slug,
       label: tag.label,
-      kind: tag.kind,
     }));
 }
 
@@ -50,7 +28,6 @@ function normalizeOverrideActions(overrides) {
     tag: {
       slug: override.tag.slug,
       label: override.tag.label,
-      kind: override.tag.kind,
     },
   }));
 }
@@ -95,7 +72,7 @@ function uniqueTagsBySlug(tags) {
 
 async function persistForumPostTagBackfillOperation(prismaClient, operation) {
   const participatingTags = uniqueTagsBySlug([
-    ...flattenExtractedTags(operation.extracted),
+    ...operation.automaticTags,
     ...operation.overrideActions.map((override) => override.tag),
   ]);
   const tagIdsBySlug = new Map();
@@ -106,12 +83,10 @@ async function persistForumPostTagBackfillOperation(prismaClient, operation) {
         where: { slug: tag.slug },
         update: {
           label: tag.label,
-          kind: tag.kind,
         },
         create: {
           slug: tag.slug,
           label: tag.label,
-          kind: tag.kind,
         },
       });
 
@@ -136,7 +111,7 @@ async function persistForumPostTagBackfillOperation(prismaClient, operation) {
 
   await rebuildForumPostTags(prismaClient, {
     postId: operation.postId,
-    extracted: operation.extracted,
+    automaticTags: operation.automaticTags,
     overrideRows: operation.overrideActions,
   });
 }
@@ -160,12 +135,11 @@ export async function buildForumPostTagBackfillPlan(posts) {
   let rebuiltFromOverrides = 0;
 
   for (const post of posts) {
-    const extracted = extractForumTagCandidates({
-      title: post.title,
-      content: post.content,
-      category: post.category,
-    });
-    const autoTags = flattenExtractedTags(extracted);
+    const automaticTags = normalizeForumSuggestedTags(
+      Array.isArray(post.suggestedTags)
+        ? post.suggestedTags.filter((tag) => typeof tag === "string")
+        : []
+    );
     const existingOverrideActions = normalizeOverrideActions(post.overrides);
     const legacyManualTags = flattenLegacyManualTags(post.tags);
 
@@ -176,7 +150,7 @@ export async function buildForumPostTagBackfillPlan(posts) {
     } else if (legacyManualTags.length > 0) {
       overrideActions = buildOverrideActions(
         deriveForumTagOverrides({
-          autoTags,
+          autoTags: automaticTags,
           desiredTags: legacyManualTags,
         })
       );
@@ -184,25 +158,21 @@ export async function buildForumPostTagBackfillPlan(posts) {
     }
 
     const { finalTags } = applyForumTagOverrides({
-      autoTags,
+      autoTags: automaticTags,
       overrides: buildOverrideInput(overrideActions),
     });
     const tags = flattenFinalTags(finalTags);
 
-    if (autoTags.length === 0) {
+    if (automaticTags.length === 0) {
       emptyTagPosts += 1;
-      if (
-        tags.length === 0 &&
-        flattenExistingTags(post.tags).length === 0 &&
-        overrideActions.length === 0
-      ) {
+      if (tags.length === 0 && flattenLegacyManualTags(post.tags).length === 0 && overrideActions.length === 0) {
         continue;
       }
     }
 
     operations.push({
       postId: post.id,
-      extracted,
+      automaticTags,
       tags,
       overrideActions,
     });
@@ -234,9 +204,7 @@ export async function runForumPostTagBackfill(options = {}) {
     const posts = await prismaClient.forumPost.findMany({
       select: {
         id: true,
-        title: true,
-        content: true,
-        category: true,
+        suggestedTags: true,
         tags: {
           select: {
             source: true,
@@ -244,7 +212,6 @@ export async function runForumPostTagBackfill(options = {}) {
               select: {
                 slug: true,
                 label: true,
-                kind: true,
               },
             },
           },
@@ -256,7 +223,6 @@ export async function runForumPostTagBackfill(options = {}) {
               select: {
                 slug: true,
                 label: true,
-                kind: true,
               },
             },
           },
