@@ -33,6 +33,8 @@ test("AdminShopPanel renders create form and inactive item state", () => {
   assert.match(html, /admin\.shop\.createTitle/);
   assert.match(html, /admin\.shop\.status\.inactive/);
   assert.match(html, /3/);
+  assert.match(html, /readOnly=""/);
+  assert.match(html, /value="skin"/);
 });
 
 test("performAdminShopMutation stays pending until refresh finishes", async () => {

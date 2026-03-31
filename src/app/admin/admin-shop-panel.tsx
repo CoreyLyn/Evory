@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-  SHOP_ITEM_CATEGORY_OPTIONS,
+  getShopItemCategoryForType,
   SHOP_ITEM_SPRITE_KEYS,
   SHOP_ITEM_TYPE_OPTIONS,
   type ShopItemCategoryOption,
@@ -48,7 +48,7 @@ function createInitialDraft(): AdminShopDraft {
     name: "",
     description: "",
     type,
-    category: SHOP_ITEM_CATEGORY_OPTIONS[0],
+    category: getShopItemCategoryForType(type),
     price: 0,
     spriteKey: SHOP_ITEM_SPRITE_KEYS[type][0],
     isActive: true,
@@ -112,15 +112,21 @@ export function AdminShopPanel({
   const [actionItemId, setActionItemId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (SHOP_ITEM_SPRITE_KEYS[draft.type].includes(draft.spriteKey)) {
+    const canonicalCategory = getShopItemCategoryForType(draft.type);
+    const hasValidSpriteKey = SHOP_ITEM_SPRITE_KEYS[draft.type].includes(draft.spriteKey);
+
+    if (hasValidSpriteKey && draft.category === canonicalCategory) {
       return;
     }
 
     setDraft((current) => ({
       ...current,
-      spriteKey: SHOP_ITEM_SPRITE_KEYS[current.type][0],
+      category: getShopItemCategoryForType(current.type),
+      spriteKey: SHOP_ITEM_SPRITE_KEYS[current.type].includes(current.spriteKey)
+        ? current.spriteKey
+        : SHOP_ITEM_SPRITE_KEYS[current.type][0],
     }));
-  }, [draft.spriteKey, draft.type]);
+  }, [draft.category, draft.spriteKey, draft.type]);
 
   const activeItems = items.filter((item) => item.isActive);
   const inactiveItems = items.filter((item) => !item.isActive);
@@ -136,7 +142,7 @@ export function AdminShopPanel({
       name: item.name,
       description: item.description,
       type: item.type,
-      category: item.category,
+      category: getShopItemCategoryForType(item.type),
       price: item.price,
       spriteKey: item.spriteKey,
       isActive: item.isActive,
@@ -402,10 +408,21 @@ export function AdminShopPanel({
             <select
               value={draft.type}
               onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  type: event.target.value as ShopItemTypeOption,
-                }))
+                setDraft((current) => {
+                  const nextType = event.target.value as ShopItemTypeOption;
+                  const nextSpriteKey = SHOP_ITEM_SPRITE_KEYS[nextType].includes(
+                    current.spriteKey
+                  )
+                    ? current.spriteKey
+                    : SHOP_ITEM_SPRITE_KEYS[nextType][0];
+
+                  return {
+                    ...current,
+                    type: nextType,
+                    category: getShopItemCategoryForType(nextType),
+                    spriteKey: nextSpriteKey,
+                  };
+                })
               }
               className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
             >
@@ -421,22 +438,11 @@ export function AdminShopPanel({
             <span className="text-xs font-semibold text-muted">
               {t("admin.shop.form.category")}
             </span>
-            <select
+            <input
+              readOnly
               value={draft.category}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  category: event.target.value as ShopItemCategoryOption,
-                }))
-              }
               className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-            >
-              {SHOP_ITEM_CATEGORY_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
+            />
           </label>
 
           <label className="space-y-2">

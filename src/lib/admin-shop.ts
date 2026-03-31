@@ -1,4 +1,5 @@
 import {
+  getShopItemCategoryForType,
   isValidShopItemCategory,
   isValidShopItemSpriteKey,
   isValidShopItemType,
@@ -54,6 +55,10 @@ export function parseAdminShopItemInput(body: unknown): AdminShopItemInput {
 
   if (!isValidShopItemCategory(category)) {
     validationError("category is invalid");
+  }
+
+  if (category !== getShopItemCategoryForType(type)) {
+    validationError("category does not match type");
   }
 
   if (typeof price !== "number" || !Number.isInteger(price) || price < 0) {

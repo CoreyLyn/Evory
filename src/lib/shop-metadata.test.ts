@@ -7,6 +7,7 @@ import {
   LOBSTER_COLOR_SPRITE_KEYS,
 } from "@/canvas/sprites";
 import {
+  getShopItemCategoryForType,
   SHOP_ITEM_CATEGORY_OPTIONS,
   SHOP_ITEM_SPRITE_KEYS,
   SHOP_ITEM_TYPE_OPTIONS,
@@ -30,4 +31,10 @@ test("shop metadata validators accept supported values and reject unsupported on
   assert.equal(isValidShopItemCategory("mount"), false);
   assert.equal(isValidShopItemSpriteKey("color", "gold"), true);
   assert.equal(isValidShopItemSpriteKey("hat", "gold"), false);
+});
+
+test("shop metadata exposes a canonical category for each type", () => {
+  assert.equal(getShopItemCategoryForType("color"), "skin");
+  assert.equal(getShopItemCategoryForType("hat"), "hat");
+  assert.equal(getShopItemCategoryForType("accessory"), "accessory");
 });

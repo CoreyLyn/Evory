@@ -10,6 +10,15 @@ export type ShopItemTypeOption = (typeof SHOP_ITEM_TYPE_OPTIONS)[number];
 export const SHOP_ITEM_CATEGORY_OPTIONS = ["skin", "hat", "accessory"] as const;
 export type ShopItemCategoryOption = (typeof SHOP_ITEM_CATEGORY_OPTIONS)[number];
 
+export const SHOP_ITEM_CATEGORY_BY_TYPE: Record<
+  ShopItemTypeOption,
+  ShopItemCategoryOption
+> = {
+  color: "skin",
+  hat: "hat",
+  accessory: "accessory",
+};
+
 export const SHOP_ITEM_SPRITE_KEYS: Record<ShopItemTypeOption, readonly string[]> = {
   color: LOBSTER_COLOR_SPRITE_KEYS,
   hat: HAT_SPRITE_KEYS,
@@ -33,4 +42,10 @@ export function isValidShopItemSpriteKey(
   spriteKey: unknown
 ): boolean {
   return isSupportedOption(SHOP_ITEM_SPRITE_KEYS[type], spriteKey);
+}
+
+export function getShopItemCategoryForType(
+  type: ShopItemTypeOption
+): ShopItemCategoryOption {
+  return SHOP_ITEM_CATEGORY_BY_TYPE[type];
 }

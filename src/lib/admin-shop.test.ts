@@ -40,3 +40,19 @@ test("parseAdminShopItemInput rejects unsupported sprite keys", () => {
     /spriteKey/
   );
 });
+
+test("parseAdminShopItemInput rejects categories that do not match the selected type", () => {
+  assert.throws(
+    () =>
+      parseAdminShopItemInput({
+        name: "Crown",
+        description: "",
+        type: "hat",
+        category: "skin",
+        price: 200,
+        spriteKey: "crown",
+        isActive: true,
+      }),
+    /category/
+  );
+});
