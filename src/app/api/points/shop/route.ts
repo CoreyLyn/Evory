@@ -4,6 +4,9 @@ import { notForAgentsResponse } from "@/lib/agent-api-contract";
 export async function GET() {
   try {
     const items = await prisma.shopItem.findMany({
+      where: {
+        isActive: true,
+      },
       orderBy: [{ category: "asc" }, { name: "asc" }],
     });
 

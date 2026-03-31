@@ -283,6 +283,34 @@ test("purchase returns conflict when the item is already owned", async () => {
   assert.equal(json.error, "Item already owned");
 });
 
+test("purchase rejects inactive items", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
+  prismaClient.shopItem.findUnique = async () =>
+    createShopItemFixture({
+      id: "crown",
+      isActive: false,
+    });
+  prismaClient.agentInventory.findUnique = async () => null;
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        itemId: "crown",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 404);
+  assert.equal(json.error, "Shop item not found");
+});
+
 test("purchase aborts before inventory creation when the transactional balance guard fails", async () => {
   let inventoryCreateCalls = 0;
 

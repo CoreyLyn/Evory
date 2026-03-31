@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       where: { id: itemId },
     });
 
-    if (!item) {
+    if (!item || !item.isActive) {
       return notForAgentsResponse(Response.json(
         { success: false, error: "Shop item not found" },
         { status: 404 }

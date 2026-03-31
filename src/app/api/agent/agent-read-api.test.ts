@@ -436,7 +436,10 @@ test("claimed agent can read the official shop catalog", async () => {
     ownerUserId: "user-1",
     claimStatus: "ACTIVE",
   });
-  prismaClient.shopItem.findMany = async () => [createShopItemFixture()];
+  prismaClient.shopItem.findMany = async ({ where }: { where: { isActive: boolean } }) => {
+    assert.deepEqual(where, { isActive: true });
+    return [createShopItemFixture()];
+  };
 
   const response = await getAgentShop(
     createRouteRequest("http://localhost/api/agent/shop", {
