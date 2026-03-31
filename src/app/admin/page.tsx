@@ -1,16 +1,17 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Shield, ChevronDown, ChevronRight, ArrowLeft } from "lucide-react";
-import { useT } from "@/i18n";
+import { useT, type TranslationKey } from "@/i18n";
 import { useFormatTimeAgo } from "@/lib/useFormatTime";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { AdminKnowledgePanel } from "./admin-knowledge-panel";
+import { AdminShopPanel, type AdminShopItem } from "./admin-shop-panel";
 import { AdminPrimaryTabs, normalizeAdminPrimaryTab } from "./admin-tabs";
 
 type Post = {
@@ -51,6 +52,70 @@ type SiteConfig = {
   registrationEnabled: boolean;
   publicContentEnabled: boolean;
 };
+
+type ShopItemsResponse = {
+  success: boolean;
+  data?: AdminShopItem[];
+  error?: string;
+};
+
+export function createAdminShopRequestTracker() {
+  let currentRequestId = 0;
+
+  return {
+    beginRequest() {
+      const requestId = ++currentRequestId;
+      return () => requestId !== currentRequestId;
+    },
+    cancelPending() {
+      currentRequestId += 1;
+    },
+  };
+}
+
+export async function loadAdminShopItems({
+  fetchImpl,
+  setItems,
+  setError,
+  setLoading,
+  t,
+  isCancelled,
+}: {
+  fetchImpl: (input: string) => Promise<{ json: () => Promise<ShopItemsResponse> }>;
+  setItems: (items: AdminShopItem[]) => void;
+  setError: (message: string | null) => void;
+  setLoading: (value: boolean) => void;
+  t: (key: TranslationKey) => string;
+  isCancelled: () => boolean;
+}) {
+  setLoading(true);
+  setError(null);
+
+  try {
+    const response = await fetchImpl("/api/admin/shop/items");
+    const json = await response.json();
+
+    if (isCancelled()) {
+      return;
+    }
+
+    if (json.success) {
+      setItems(json.data ?? []);
+      setError(null);
+      return;
+    }
+
+    setError(json.error || t("admin.actionFailed"));
+  } catch {
+    if (!isCancelled()) {
+      setError(t("admin.actionFailed"));
+    }
+  } finally {
+    if (!isCancelled()) {
+      setLoading(false);
+    }
+  }
+}
 
 function normalizeTagSlug(value: string) {
   return value
@@ -99,6 +164,9 @@ function AdminPageContent() {
   const [success, setSuccess] = useState<string | null>(null);
   const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
   const [siteConfigBusy, setSiteConfigBusy] = useState<keyof SiteConfig | null>(null);
+  const [shopItems, setShopItems] = useState<AdminShopItem[]>([]);
+  const [shopLoading, setShopLoading] = useState(false);
+  const shopRequestTrackerRef = useRef(createAdminShopRequestTracker());
   // Bump to trigger a re-fetch from event handlers
   const [refreshKey, setRefreshKey] = useState(0);
   // Cached replies per post (fetched on expand)
@@ -181,6 +249,36 @@ function AdminPageContent() {
       cancelled = true;
     };
   }, [activePrimaryTab, authed, t]);
+
+  useEffect(() => {
+    if (!authed || activePrimaryTab !== "shop") return;
+
+    const isCancelled = shopRequestTrackerRef.current.beginRequest();
+    void loadAdminShopItems({
+      fetchImpl: (input) => fetch(input),
+      setItems: setShopItems,
+      setError,
+      setLoading: setShopLoading,
+      t,
+      isCancelled,
+    });
+
+    return () => {
+      shopRequestTrackerRef.current.cancelPending();
+    };
+  }, [activePrimaryTab, authed, refreshKey, t]);
+
+  async function refreshShopItems() {
+    const isCancelled = shopRequestTrackerRef.current.beginRequest();
+    await loadAdminShopItems({
+      fetchImpl: (input) => fetch(input),
+      setItems: setShopItems,
+      setError,
+      setLoading: setShopLoading,
+      t,
+      isCancelled,
+    });
+  }
 
   // Auto-clear success banner after 3 seconds
   useEffect(() => {
@@ -321,7 +419,7 @@ function AdminPageContent() {
     setSiteConfigBusy(null);
   }
 
-  function handlePrimaryTabChange(nextTab: "forum" | "site" | "knowledge") {
+  function handlePrimaryTabChange(nextTab: "forum" | "shop" | "site" | "knowledge") {
     router.replace(nextTab === "forum" ? "/admin" : `/admin?tab=${nextTab}`);
   }
 
@@ -418,6 +516,7 @@ function AdminPageContent() {
         activeTab={activePrimaryTab}
         labels={{
           forum: t("admin.title"),
+          shop: t("admin.shop.title"),
           site: t("admin.siteControls.title"),
           knowledge: t("admin.knowledge.title"),
         }}
@@ -436,6 +535,18 @@ function AdminPageContent() {
         <div className="rounded-xl border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
           {success}
         </div>
+      )}
+
+      {activePrimaryTab === "shop" && (
+        <AdminShopPanel
+          t={t}
+          items={shopItems}
+          loading={shopLoading}
+          busyItemId={busyId}
+          onRefresh={refreshShopItems}
+          onError={setError}
+          onSuccess={setSuccess}
+        />
       )}
 
       {activePrimaryTab === "forum" && (

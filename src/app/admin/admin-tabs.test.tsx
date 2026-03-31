@@ -7,17 +7,19 @@ import { AdminPrimaryTabs, normalizeAdminPrimaryTab } from "./admin-tabs";
 test("normalizeAdminPrimaryTab falls back to forum for unsupported values", () => {
   assert.equal(normalizeAdminPrimaryTab(undefined), "forum");
   assert.equal(normalizeAdminPrimaryTab(null), "forum");
+  assert.equal(normalizeAdminPrimaryTab("shop"), "shop");
   assert.equal(normalizeAdminPrimaryTab("site"), "site");
   assert.equal(normalizeAdminPrimaryTab("knowledge"), "knowledge");
   assert.equal(normalizeAdminPrimaryTab("unknown"), "forum");
 });
 
-test("AdminPrimaryTabs renders forum, site controls, and knowledge tabs", () => {
+test("AdminPrimaryTabs renders forum, shop, site controls, and knowledge tabs", () => {
   const html = renderToStaticMarkup(
     <AdminPrimaryTabs
-      activeTab="site"
+      activeTab="shop"
       labels={{
         forum: "内容审核",
+        shop: "商店管理",
         site: "站点访问控制",
         knowledge: "知识库管理",
       }}
@@ -26,6 +28,7 @@ test("AdminPrimaryTabs renders forum, site controls, and knowledge tabs", () => 
   );
 
   assert.match(html, /内容审核/);
+  assert.match(html, /商店管理/);
   assert.match(html, /站点访问控制/);
   assert.match(html, /知识库管理/);
   assert.match(html, /aria-pressed="true"/);
