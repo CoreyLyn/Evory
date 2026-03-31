@@ -13,6 +13,22 @@ export interface LobsterAppearance {
   accessory: string | null;
 }
 
+export const LOBSTER_COLOR_SPRITE_KEYS = [
+  "red",
+  "orange",
+  "blue",
+  "green",
+  "purple",
+  "pink",
+  "gold",
+  "cyan",
+  "white",
+] as const;
+
+export const HAT_SPRITE_KEYS = ["crown", "tophat", "party", "chef"] as const;
+
+export const ACCESSORY_SPRITE_KEYS = ["glasses", "monocle", "bowtie"] as const;
+
 /** Cache for text width measurements. Bounded by working set (agent names + bubble texts). */
 const textWidthCache = new Map<string, number>();
 
@@ -27,7 +43,7 @@ export function cachedMeasureText(ctx: CanvasRenderingContext2D, text: string, f
   return w;
 }
 
-const LOBSTER_COLORS: Record<string, string> = {
+const LOBSTER_COLORS: Record<(typeof LOBSTER_COLOR_SPRITE_KEYS)[number], string> = {
   red: "#ff4444",
   orange: "#ff8844",
   blue: "#4488ff",
@@ -61,7 +77,7 @@ for (const hex of Object.values(LOBSTER_COLORS)) {
   getColorVariants(hex);
 }
 
-const HAT_SPRITES: Record<string, (ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) => void> = {
+const HAT_SPRITES: Record<(typeof HAT_SPRITE_KEYS)[number], (ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) => void> = {
   crown: (ctx, x, y, s) => {
     ctx.fillStyle = "#ffcc00";
     ctx.fillRect(x - 5 * s, y - 8 * s, 10 * s, 5 * s);
@@ -94,7 +110,7 @@ const HAT_SPRITES: Record<string, (ctx: CanvasRenderingContext2D, x: number, y: 
   },
 };
 
-const ACCESSORY_SPRITES: Record<string, (ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) => void> = {
+const ACCESSORY_SPRITES: Record<(typeof ACCESSORY_SPRITE_KEYS)[number], (ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) => void> = {
   glasses: (ctx, x, y, s) => {
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = s;

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { normalizeForumSuggestedTags } from "../src/lib/forum-tags";
+import { SHOP_ITEMS } from "./shop-items";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
@@ -31,28 +32,14 @@ async function main() {
   console.log("Seeding database...");
 
   // Create shop items
-  const shopItems = [
-    { name: "Golden Shell", description: "A shiny golden lobster shell", type: "color", category: "skin", price: 100, spriteKey: "gold" },
-    { name: "Cyan Shell", description: "Cool cyan lobster shell", type: "color", category: "skin", price: 50, spriteKey: "cyan" },
-    { name: "Purple Shell", description: "Royal purple lobster shell", type: "color", category: "skin", price: 50, spriteKey: "purple" },
-    { name: "Pink Shell", description: "Cute pink lobster shell", type: "color", category: "skin", price: 50, spriteKey: "pink" },
-    { name: "Crown", description: "A royal crown for the top agent", type: "hat", category: "hat", price: 200, spriteKey: "crown" },
-    { name: "Top Hat", description: "A classy top hat", type: "hat", category: "hat", price: 150, spriteKey: "tophat" },
-    { name: "Party Hat", description: "Let's celebrate!", type: "hat", category: "hat", price: 80, spriteKey: "party" },
-    { name: "Chef Hat", description: "Cooking up some code", type: "hat", category: "hat", price: 120, spriteKey: "chef" },
-    { name: "Glasses", description: "Smart-looking glasses", type: "accessory", category: "accessory", price: 60, spriteKey: "glasses" },
-    { name: "Monocle", description: "Distinguished monocle", type: "accessory", category: "accessory", price: 90, spriteKey: "monocle" },
-    { name: "Bow Tie", description: "A dapper bow tie", type: "accessory", category: "accessory", price: 70, spriteKey: "bowtie" },
-  ];
-
-  for (const item of shopItems) {
+  for (const item of SHOP_ITEMS) {
     await prisma.shopItem.upsert({
-      where: { id: item.spriteKey },
+      where: { id: item.id },
       update: item,
-      create: { ...item, id: item.spriteKey },
+      create: item,
     });
   }
-  console.log(`Created ${shopItems.length} shop items`);
+  console.log(`Created ${SHOP_ITEMS.length} shop items`);
 
   const demoUser = await prisma.user.upsert({
     where: { email: "demo@evory.local" },

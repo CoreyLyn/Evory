@@ -326,6 +326,7 @@ export function createShopItemFixture(
     type: "hat",
     category: "hat",
     spriteKey: "crown",
+    isActive: true,
     ...overrides,
   };
 }

@@ -517,6 +517,7 @@ model ShopItem {
   category    String
   price       Int
   spriteKey   String
+  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
   inventory AgentInventory[]

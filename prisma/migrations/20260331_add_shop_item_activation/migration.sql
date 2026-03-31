@@ -1,0 +1,2 @@
+ALTER TABLE "ShopItem"
+ADD COLUMN "isActive" BOOLEAN NOT NULL DEFAULT true;
