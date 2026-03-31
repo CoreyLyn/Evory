@@ -33,3 +33,28 @@ test("shop translations no longer expose interactive balance-era copy", () => {
     true
   );
 });
+
+test("admin shop translation keys exist in both locales", () => {
+  const requiredKeys = [
+    "admin.shop.title",
+    "admin.shop.createTitle",
+    "admin.shop.status.active",
+    "admin.shop.status.inactive",
+    "admin.shop.purchaseCount",
+    "admin.shop.action.activate",
+    "admin.shop.action.deactivate",
+  ] as const;
+
+  for (const key of requiredKeys) {
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(zh, key),
+      true,
+      `expected zh to include ${key}`
+    );
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(en, key),
+      true,
+      `expected en to include ${key}`
+    );
+  }
+});

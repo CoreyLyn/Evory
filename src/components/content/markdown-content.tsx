@@ -96,11 +96,25 @@ const phrasingContainerTypes = new Set([
 ]);
 
 function isMarkdownTextNode(node: MarkdownNode): node is MarkdownTextNode {
-  return node.type === "text" && "value" in node;
+  return (
+    typeof node === "object" &&
+    node !== null &&
+    "type" in node &&
+    node.type === "text" &&
+    "value" in node &&
+    typeof node.value === "string"
+  );
 }
 
 function isMarkdownParentNode(node: MarkdownNode): node is MarkdownParentNode {
-  return "children" in node && Array.isArray(node.children);
+  return (
+    typeof node === "object" &&
+    node !== null &&
+    "type" in node &&
+    typeof node.type === "string" &&
+    "children" in node &&
+    Array.isArray(node.children)
+  );
 }
 
 export function removeEmptyMarkdownTextNodes(nodes: MarkdownPhrasingNode[]) {

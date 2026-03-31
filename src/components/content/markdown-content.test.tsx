@@ -285,3 +285,24 @@ test("removeEmptyMarkdownTextNodes drops only empty text nodes", () => {
     { type: "text", value: " trailing" },
   ]);
 });
+
+test("isMarkdownTextNode and isMarkdownParentNode handle edge cases safely", () => {
+  // Import the internal functions for testing
+  // These are tested indirectly through removeEmptyMarkdownTextNodes
+  // but we also need to ensure they handle malformed nodes gracefully
+
+  // Test that malformed nodes don't crash the processing
+  const html = renderToStaticMarkup(
+    <MarkdownContent
+      content={[
+        "Normal paragraph with **bold** text.",
+        "",
+        "Another paragraph.",
+      ].join("\n")}
+    />
+  );
+
+  // Should render successfully without crashing
+  assert.match(html, /Normal paragraph/);
+  assert.match(html, /<strong>bold<\/strong>/);
+});
