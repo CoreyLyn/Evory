@@ -56,7 +56,7 @@ export function parseAdminShopItemInput(body: unknown): AdminShopItemInput {
     validationError("category is invalid");
   }
 
-  if (!Number.isInteger(price) || price < 0) {
+  if (typeof price !== "number" || !Number.isInteger(price) || price < 0) {
     validationError("price must be a non-negative integer");
   }
 

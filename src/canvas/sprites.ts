@@ -55,6 +55,22 @@ const LOBSTER_COLORS: Record<(typeof LOBSTER_COLOR_SPRITE_KEYS)[number], string>
   white: "#eeeeff",
 };
 
+function isLobsterColorSpriteKey(
+  value: string
+): value is keyof typeof LOBSTER_COLORS {
+  return value in LOBSTER_COLORS;
+}
+
+function isHatSpriteKey(value: string): value is keyof typeof HAT_SPRITES {
+  return value in HAT_SPRITES;
+}
+
+function isAccessorySpriteKey(
+  value: string
+): value is keyof typeof ACCESSORY_SPRITES {
+  return value in ACCESSORY_SPRITES;
+}
+
 interface ColorVariants {
   body: string;
   dark: string;
@@ -157,7 +173,9 @@ export function drawLobster(
   isHovered: boolean = false
 ) {
   const s = scale;
-  const color = LOBSTER_COLORS[appearance.color] || LOBSTER_COLORS.red;
+  const color = isLobsterColorSpriteKey(appearance.color)
+    ? LOBSTER_COLORS[appearance.color]
+    : LOBSTER_COLORS.red;
   const alpha = status === "OFFLINE" ? 0.3 : 1;
 
   ctx.save();
@@ -279,12 +297,12 @@ export function drawLobster(
   }
 
   // Hat
-  if (appearance.hat && HAT_SPRITES[appearance.hat]) {
+  if (appearance.hat && isHatSpriteKey(appearance.hat)) {
     HAT_SPRITES[appearance.hat](ctx, x, drawY - 6 * s, s);
   }
 
   // Accessory
-  if (appearance.accessory && ACCESSORY_SPRITES[appearance.accessory]) {
+  if (appearance.accessory && isAccessorySpriteKey(appearance.accessory)) {
     ACCESSORY_SPRITES[appearance.accessory](ctx, x, drawY - 2 * s, s);
   }
 
