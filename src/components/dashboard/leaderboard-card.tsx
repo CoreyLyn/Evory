@@ -6,7 +6,11 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useT } from "@/i18n";
-import { useDashboardState } from "@/lib/dashboard-context";
+import {
+  type LeaderboardAgent,
+  type SpendingLeaderboardAgent,
+  useDashboardState,
+} from "@/lib/dashboard-context";
 
 const STATUS_COLORS: Record<string, string> = {
   FORUM: "bg-cyan",
@@ -63,14 +67,82 @@ function LeaderboardSkeleton() {
   );
 }
 
+function HoldingLeaderboardRows({ leaderboard }: { leaderboard: LeaderboardAgent[] }) {
+  return (
+    <div className="space-y-0.5">
+      {leaderboard.map((agent, i) => (
+        <div
+          key={agent.id}
+          className="group/item flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 hover:bg-foreground/[0.03] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
+        >
+          <div className="flex w-8 shrink-0 items-center justify-center">
+            <RankBadge rank={i} />
+          </div>
+          <div
+            className={`h-2 w-2 shrink-0 rounded-full ${
+              STATUS_COLORS[agent.status] || "bg-muted"
+            }`}
+          />
+          <div className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium text-foreground">
+              {agent.name}
+            </span>
+          </div>
+          <Badge variant="muted">{agent.type}</Badge>
+          <span className="font-display text-sm font-bold text-warning">
+            {agent.points}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SpendingLeaderboardRows({
+  spendingLeaderboard,
+}: {
+  spendingLeaderboard: SpendingLeaderboardAgent[];
+}) {
+  return (
+    <div className="space-y-0.5">
+      {spendingLeaderboard.map((agent, i) => (
+        <div
+          key={agent.id}
+          className="group/item flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 hover:bg-foreground/[0.03] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
+        >
+          <div className="flex w-8 shrink-0 items-center justify-center">
+            <RankBadge rank={i} />
+          </div>
+          <div
+            className={`h-2 w-2 shrink-0 rounded-full ${
+              STATUS_COLORS[agent.status] || "bg-muted"
+            }`}
+          />
+          <div className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium text-foreground">
+              {agent.name}
+            </span>
+          </div>
+          <Badge variant="muted">{agent.type}</Badge>
+          <span className="font-display text-sm font-bold text-warning">
+            {agent.spentPoints}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function LeaderboardCard() {
   const t = useT();
   const { loading, leaderboard, spendingLeaderboard } = useDashboardState();
   const [tab, setTab] = useState<LeaderboardTab>("holding");
 
-  const activeLeaderboard = tab === "holding" ? leaderboard : spendingLeaderboard;
-  const emptyText =
-    tab === "holding" ? t("dashboard.noAgents") : t("dashboard.noSpendingRecords");
+  const isHoldingTab = tab === "holding";
+  const emptyText = isHoldingTab
+    ? t("dashboard.noAgents")
+    : t("dashboard.noSpendingRecords");
+  const isEmpty = isHoldingTab ? leaderboard.length === 0 : spendingLeaderboard.length === 0;
 
   return (
     <Card>
@@ -90,7 +162,7 @@ export function LeaderboardCard() {
           type="button"
           onClick={() => setTab("holding")}
           className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            tab === "holding"
+            isHoldingTab
               ? "bg-foreground text-background"
               : "text-muted hover:text-foreground"
           }`}
@@ -101,7 +173,7 @@ export function LeaderboardCard() {
           type="button"
           onClick={() => setTab("spending")}
           className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            tab === "spending"
+            !isHoldingTab
               ? "bg-foreground text-background"
               : "text-muted hover:text-foreground"
           }`}
@@ -111,35 +183,12 @@ export function LeaderboardCard() {
       </div>
       {loading ? (
         <LeaderboardSkeleton />
-      ) : activeLeaderboard.length === 0 ? (
+      ) : isEmpty ? (
         <p className="py-4 text-sm text-muted">{emptyText}</p>
+      ) : isHoldingTab ? (
+        <HoldingLeaderboardRows leaderboard={leaderboard} />
       ) : (
-        <div className="space-y-0.5">
-          {activeLeaderboard.map((agent, i) => (
-            <div
-              key={agent.id}
-              className="group/item flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 hover:bg-foreground/[0.03] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
-            >
-              <div className="flex w-8 shrink-0 items-center justify-center">
-                <RankBadge rank={i} />
-              </div>
-              <div
-                className={`h-2 w-2 shrink-0 rounded-full ${
-                  STATUS_COLORS[agent.status] || "bg-muted"
-                }`}
-              />
-              <div className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-foreground">
-                  {agent.name}
-                </span>
-              </div>
-              <Badge variant="muted">{agent.type}</Badge>
-              <span className="font-display text-sm font-bold text-warning">
-                {tab === "holding" ? agent.points : agent.spentPoints}
-              </span>
-            </div>
-          ))}
-        </div>
+        <SpendingLeaderboardRows spendingLeaderboard={spendingLeaderboard} />
       )}
     </Card>
   );
