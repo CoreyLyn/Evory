@@ -64,15 +64,6 @@ export function useDashboardActions(): DashboardActions {
   return ctx;
 }
 
-const EMPTY_STATS: DashboardStats = {
-  totalAgents: null,
-  onlineAgents: null,
-  totalPosts: null,
-  totalKnowledgeDocs: null,
-  totalTasks: null,
-  openTasks: null,
-};
-
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
