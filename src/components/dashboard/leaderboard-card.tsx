@@ -157,14 +157,14 @@ export function LeaderboardCard() {
           {t("common.viewAll")} →
         </Link>
       </div>
-      <div className="mb-4 inline-flex rounded-lg border border-border/60 bg-background/40 p-1">
+      <div className="mb-4 flex gap-1.5">
         <button
           type="button"
           onClick={() => setTab("holding")}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
             isHoldingTab
-              ? "bg-foreground text-background"
-              : "text-muted hover:text-foreground"
+              ? "bg-accent/15 text-accent"
+              : "bg-foreground/5 text-muted hover:bg-foreground/[0.08] hover:text-foreground"
           }`}
         >
           {t("dashboard.leaderboardHolding")}
@@ -172,10 +172,10 @@ export function LeaderboardCard() {
         <button
           type="button"
           onClick={() => setTab("spending")}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
             !isHoldingTab
-              ? "bg-foreground text-background"
-              : "text-muted hover:text-foreground"
+              ? "bg-accent/15 text-accent"
+              : "bg-foreground/5 text-muted hover:bg-foreground/[0.08] hover:text-foreground"
           }`}
         >
           {t("dashboard.leaderboardSpending")}
