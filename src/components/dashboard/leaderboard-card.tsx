@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,8 @@ const STATUS_COLORS: Record<string, string> = {
   IDLE: "bg-muted",
   OFFLINE: "bg-danger",
 };
+
+type LeaderboardTab = "holding" | "spending";
 
 function RankBadge({ rank: i }: { rank: number }) {
   if (i === 0) {
@@ -39,9 +42,7 @@ function RankBadge({ rank: i }: { rank: number }) {
       </span>
     );
   }
-  return (
-    <span className="text-sm font-bold text-muted">{i + 1}</span>
-  );
+  return <span className="text-sm font-bold text-muted">{i + 1}</span>;
 }
 
 function LeaderboardSkeleton() {
@@ -49,7 +50,7 @@ function LeaderboardSkeleton() {
     <div className="space-y-0.5">
       {[0, 1, 2, 3, 4].map((i) => (
         <div key={i} className="flex items-center gap-3 px-3 py-2.5">
-          <div className="w-8 flex justify-center">
+          <div className="flex w-8 justify-center">
             <Skeleton className="h-6 w-6 rounded-full" />
           </div>
           <Skeleton className="h-2 w-2 rounded-full" />
@@ -64,48 +65,77 @@ function LeaderboardSkeleton() {
 
 export function LeaderboardCard() {
   const t = useT();
-  const { loading, leaderboard } = useDashboardState();
+  const { loading, leaderboard, spendingLeaderboard } = useDashboardState();
+  const [tab, setTab] = useState<LeaderboardTab>("holding");
+
+  const activeLeaderboard = tab === "holding" ? leaderboard : spendingLeaderboard;
+  const emptyText =
+    tab === "holding" ? t("dashboard.noAgents") : t("dashboard.noSpendingRecords");
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <h2 className="font-display text-lg font-bold text-foreground">
           {t("dashboard.leaderboard")}
         </h2>
         <Link
           href="/agents"
-          className="text-sm text-accent hover:text-accent-hover transition-colors"
+          className="text-sm text-accent transition-colors hover:text-accent-hover"
         >
           {t("common.viewAll")} →
         </Link>
       </div>
+      <div className="mb-4 inline-flex rounded-lg border border-border/60 bg-background/40 p-1">
+        <button
+          type="button"
+          onClick={() => setTab("holding")}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            tab === "holding"
+              ? "bg-foreground text-background"
+              : "text-muted hover:text-foreground"
+          }`}
+        >
+          {t("dashboard.leaderboardHolding")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("spending")}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            tab === "spending"
+              ? "bg-foreground text-background"
+              : "text-muted hover:text-foreground"
+          }`}
+        >
+          {t("dashboard.leaderboardSpending")}
+        </button>
+      </div>
       {loading ? (
         <LeaderboardSkeleton />
-      ) : leaderboard.length === 0 ? (
-        <p className="text-muted text-sm py-4">{t("dashboard.noAgents")}</p>
+      ) : activeLeaderboard.length === 0 ? (
+        <p className="py-4 text-sm text-muted">{emptyText}</p>
       ) : (
         <div className="space-y-0.5">
-          {leaderboard.map((agent, i) => (
+          {activeLeaderboard.map((agent, i) => (
             <div
               key={agent.id}
               className="group/item flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 hover:bg-foreground/[0.03] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
             >
-              <div className="w-8 flex items-center justify-center shrink-0">
+              <div className="flex w-8 shrink-0 items-center justify-center">
                 <RankBadge rank={i} />
               </div>
               <div
-                className={`w-2 h-2 shrink-0 rounded-full ${
+                className={`h-2 w-2 shrink-0 rounded-full ${
                   STATUS_COLORS[agent.status] || "bg-muted"
                 }`}
               />
-              <div className="flex-1 min-w-0">
-                <span className="text-foreground font-medium truncate block text-sm">
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-foreground">
                   {agent.name}
                 </span>
               </div>
               <Badge variant="muted">{agent.type}</Badge>
               <span className="font-display text-sm font-bold text-warning">
-                {agent.points}
+                {tab === "holding" ? agent.points : agent.spentPoints}
               </span>
             </div>
           ))}

@@ -27,6 +27,15 @@ export interface LeaderboardAgent {
   avatarConfig: Record<string, unknown> | null;
 }
 
+export interface SpendingLeaderboardAgent {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  spentPoints: number;
+  avatarConfig: Record<string, unknown> | null;
+}
+
 export interface RecentPost {
   id: string;
   title: string;
@@ -42,6 +51,7 @@ interface DashboardState {
   error: Error | null;
   stats: DashboardStats | null;
   leaderboard: LeaderboardAgent[];
+  spendingLeaderboard: SpendingLeaderboardAgent[];
   recentPosts: RecentPost[];
 }
 
@@ -69,6 +79,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<Error | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardAgent[]>([]);
+  const [spendingLeaderboard, setSpendingLeaderboard] = useState<SpendingLeaderboardAgent[]>([]);
   const [recentPosts, setRecentPosts] = useState<RecentPost[]>([]);
 
   const fetchData = useCallback(async () => {
@@ -89,6 +100,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           totalTasks: number;
           openTasks: number;
           leaderboard: LeaderboardAgent[];
+          spendingLeaderboard?: SpendingLeaderboardAgent[];
           recentPosts: RecentPost[];
         };
       };
@@ -104,6 +116,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         openTasks: json.data.openTasks,
       });
       setLeaderboard(json.data.leaderboard ?? []);
+      setSpendingLeaderboard(json.data.spendingLeaderboard ?? []);
       setRecentPosts(json.data.recentPosts ?? []);
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Unknown error"));
@@ -116,7 +129,14 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     fetchData();
   }, [fetchData]);
 
-  const state: DashboardState = { loading, error, stats, leaderboard, recentPosts };
+  const state: DashboardState = {
+    loading,
+    error,
+    stats,
+    leaderboard,
+    spendingLeaderboard,
+    recentPosts,
+  };
   const actions: DashboardActions = { refresh: fetchData };
 
   return (

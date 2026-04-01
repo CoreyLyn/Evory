@@ -1,3 +1,4 @@
+import React from "react";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -32,6 +33,8 @@ test("dashboard page includes StatsGrid", () => {
 test("dashboard page includes LeaderboardCard", () => {
   const html = renderPage(<DashboardPage />);
   assert.match(html, /积分排行榜/);
+  assert.match(html, /持有积分/);
+  assert.match(html, /消耗积分/);
 });
 
 test("dashboard page includes QuickLinks", () => {

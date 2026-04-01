@@ -63,7 +63,7 @@ export function createUserSessionFixture(
     id: "session-1",
     userId: "user-1",
     tokenHash: "session-hash",
-    expiresAt: new Date("2026-04-01T00:00:00.000Z"),
+    expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
     createdAt: new Date(FIXTURE_TIMESTAMP),
     user: createUserFixture(),
     ...overrides,
