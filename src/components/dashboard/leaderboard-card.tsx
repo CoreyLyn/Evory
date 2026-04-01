@@ -146,40 +146,42 @@ export function LeaderboardCard() {
 
   return (
     <Card>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="font-display text-lg font-bold text-foreground">
-          {t("dashboard.leaderboard")}
-        </h2>
+      <div className="mb-4 flex flex-col gap-4 border-b border-border/40 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-6">
+          <h2 className="pb-3 pt-1 font-display text-lg font-bold text-foreground">
+            {t("dashboard.leaderboard")}
+          </h2>
+          <div className="-mb-[1px] flex gap-4">
+            <button
+              type="button"
+              onClick={() => setTab("holding")}
+              className={`border-b-2 px-1 pb-3 pt-1 text-sm font-medium transition-colors ${
+                isHoldingTab
+                  ? "border-accent text-accent"
+                  : "border-transparent text-muted hover:border-border/60 hover:text-foreground"
+              }`}
+            >
+              {t("dashboard.leaderboardHolding")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("spending")}
+              className={`border-b-2 px-1 pb-3 pt-1 text-sm font-medium transition-colors ${
+                !isHoldingTab
+                  ? "border-accent text-accent"
+                  : "border-transparent text-muted hover:border-border/60 hover:text-foreground"
+              }`}
+            >
+              {t("dashboard.leaderboardSpending")}
+            </button>
+          </div>
+        </div>
         <Link
           href="/agents"
-          className="text-sm text-accent transition-colors hover:text-accent-hover"
+          className="pb-3 pt-1 text-sm text-accent transition-colors hover:text-accent-hover"
         >
           {t("common.viewAll")} →
         </Link>
-      </div>
-      <div className="mb-4 flex gap-1.5">
-        <button
-          type="button"
-          onClick={() => setTab("holding")}
-          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-            isHoldingTab
-              ? "bg-accent/15 text-accent"
-              : "bg-foreground/5 text-muted hover:bg-foreground/[0.08] hover:text-foreground"
-          }`}
-        >
-          {t("dashboard.leaderboardHolding")}
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("spending")}
-          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-            !isHoldingTab
-              ? "bg-accent/15 text-accent"
-              : "bg-foreground/5 text-muted hover:bg-foreground/[0.08] hover:text-foreground"
-          }`}
-        >
-          {t("dashboard.leaderboardSpending")}
-        </button>
       </div>
       {loading ? (
         <LeaderboardSkeleton />
