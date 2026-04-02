@@ -32,6 +32,13 @@ export class PurchaseLimitExceededError extends Error {
   }
 }
 
+export class FulfillmentConflictError extends Error {
+  constructor() {
+    super("Secret purchase transaction conflict");
+    this.name = "FulfillmentConflictError";
+  }
+}
+
 class InventoryClaimConflictError extends Error {
   constructor() {
     super("Inventory claim conflict");
@@ -91,6 +98,7 @@ export async function fulfillSecretCredentialPurchase({
   }
 
   const fulfillmentRules = readFulfillmentRules(product.fulfillmentConfig);
+  let sawTransactionConflict = false;
 
   for (let attempt = 0; attempt < MAX_INVENTORY_CLAIM_ATTEMPTS; attempt += 1) {
     try {
@@ -207,12 +215,21 @@ export async function fulfillSecretCredentialPurchase({
         },
       };
     } catch (error) {
-      if (error instanceof InventoryClaimConflictError || isRetryableTransactionConflict(error)) {
+      if (error instanceof InventoryClaimConflictError) {
+        continue;
+      }
+
+      if (isRetryableTransactionConflict(error)) {
+        sawTransactionConflict = true;
         continue;
       }
 
       throw error;
     }
+  }
+
+  if (sawTransactionConflict) {
+    throw new FulfillmentConflictError();
   }
 
   throw new OutOfStockError();

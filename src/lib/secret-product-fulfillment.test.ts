@@ -7,6 +7,7 @@ import {
   createSecretInventoryFixture,
 } from "@/test/factories";
 import {
+  FulfillmentConflictError,
   fulfillSecretCredentialPurchase,
   InsufficientPointsError,
   PurchaseLimitExceededError,
@@ -283,6 +284,37 @@ test("fulfillSecretCredentialPurchase retries when the transaction hits a serial
       process.env.SECRET_INVENTORY_ENCRYPTION_KEY = previousKey;
     }
   }
+});
+
+test("fulfillSecretCredentialPurchase surfaces exhausted serialization conflicts as fulfillment failures", async () => {
+  const product = createCatalogProductFixture({
+    id: "product-1",
+    name: "Provider Key Pack",
+    price: 200,
+    productType: "SECRET_CREDENTIAL",
+    isActive: true,
+  });
+
+  const prismaMock = {
+    catalogProduct: {
+      findUnique: async () => product,
+    },
+    $transaction: async () => {
+      const error = new Error("serialization failure") as Error & { code: string };
+      error.code = "P2034";
+      throw error;
+    },
+  };
+
+  await assert.rejects(
+    () =>
+      fulfillSecretCredentialPurchase({
+        agentId: "agent-1",
+        productId: "product-1",
+        prisma: prismaMock as never,
+      }),
+    (error: unknown) => error instanceof FulfillmentConflictError
+  );
 });
 
 test("fulfillSecretCredentialPurchase throws InsufficientPointsError when deduction fails", async () => {
