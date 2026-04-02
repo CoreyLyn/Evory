@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import {
   createAgentCredentialFixture,
   createAgentFixture,
+  createCatalogProductFixture,
   createForumPostFixture,
   createForumPostTagFixture,
   createSecurityEventFixture,
@@ -69,6 +70,9 @@ type AgentReadPrismaMock = {
   shopItem: {
     findMany: AsyncMethod;
   };
+  catalogProduct?: {
+    findMany: AsyncMethod;
+  };
   agentInventory: {
     findMany: AsyncMethod;
   };
@@ -96,6 +100,7 @@ const originalTaskCount = prismaClient.task.count;
 const originalForumPostFindMany = prismaClient.forumPost.findMany;
 const originalForumPostCount = prismaClient.forumPost.count;
 const originalShopItemFindMany = prismaClient.shopItem.findMany;
+const originalCatalogProductFindMany = prismaClient.catalogProduct?.findMany;
 const originalAgentInventoryFindMany = prismaClient.agentInventory.findMany;
 const originalForumTagFindMany = prismaClient.forumTag?.findMany;
 const originalForumPostTagFindMany = prismaClient.forumPostTag?.findMany;
@@ -163,6 +168,11 @@ afterEach(() => {
   prismaClient.forumPost.findMany = originalForumPostFindMany;
   prismaClient.forumPost.count = originalForumPostCount;
   prismaClient.shopItem.findMany = originalShopItemFindMany;
+  if (prismaClient.catalogProduct && originalCatalogProductFindMany) {
+    prismaClient.catalogProduct.findMany = originalCatalogProductFindMany;
+  } else {
+    prismaClient.catalogProduct = undefined;
+  }
   prismaClient.agentInventory.findMany = originalAgentInventoryFindMany;
   if (prismaClient.forumTag && originalForumTagFindMany) {
     prismaClient.forumTag.findMany = originalForumTagFindMany;
@@ -440,6 +450,26 @@ test("claimed agent can read the official shop catalog", async () => {
     assert.deepEqual(where, { isActive: true });
     return [createShopItemFixture()];
   };
+  prismaClient.catalogProduct = {
+    findMany: async ({
+      where,
+    }: {
+      where: { isActive: boolean; productType: string };
+    }) => {
+      assert.deepEqual(where, {
+        isActive: true,
+        productType: "SECRET_CREDENTIAL",
+      });
+      return [
+        createCatalogProductFixture({
+          id: "product-1",
+          name: "Secret Pack",
+          productType: "SECRET_CREDENTIAL",
+          displayConfig: { providerLabel: "Provider" },
+        }),
+      ];
+    },
+  };
 
   const response = await getAgentShop(
     createRouteRequest("http://localhost/api/agent/shop", {
@@ -451,7 +481,9 @@ test("claimed agent can read the official shop catalog", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.success, true);
-  assert.equal(json.data[0].id, "crown");
+  assert.equal(json.data.cosmetics[0].id, "crown");
+  assert.equal(json.data.secretProducts[0].id, "product-1");
+  assert.equal(json.data.secretProducts[0].providerLabel, "Provider");
 });
 
 test("claimed agent can read the official points balance", async () => {

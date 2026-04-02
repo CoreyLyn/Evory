@@ -6,13 +6,16 @@ import {
   createAgentCredentialFixture,
   createAgentFixture,
   createAvatarConfigFixture,
+  createCatalogProductFixture,
   createSecurityEventFixture,
+  createSecretInventoryFixture,
   createShopItemFixture,
 } from "@/test/factories";
 import { resetRateLimitStore } from "@/lib/rate-limit";
 import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteRequest } from "@/test/request-helpers";
 import { hashApiKey } from "@/lib/auth";
+import { encryptSecretValue } from "@/lib/secret-crypto";
 import { POST as purchaseItem } from "./purchase/route";
 import { PUT as equipItem } from "@/app/api/agents/me/equipment/route";
 
@@ -53,6 +56,20 @@ type ShopPrismaMock = {
   dailyCheckin: {
     findUnique: AsyncMethod;
   };
+  catalogProduct?: {
+    findUnique: AsyncMethod;
+  };
+  secretInventory?: {
+    findFirst: AsyncMethod;
+    update: AsyncMethod;
+  };
+  purchaseOrder?: {
+    count?: AsyncMethod;
+    create: AsyncMethod;
+  };
+  secretDeliveryReceipt?: {
+    create: AsyncMethod;
+  };
   $transaction: (input: unknown) => Promise<unknown>;
 };
 
@@ -73,6 +90,11 @@ const originalMethods = {
   pointTransactionCreate: prismaClient.pointTransaction.create,
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   securityEventCreate: prismaClient.securityEvent?.create,
+  catalogProductFindUnique: prismaClient.catalogProduct?.findUnique,
+  secretInventoryFindFirst: prismaClient.secretInventory?.findFirst,
+  secretInventoryUpdate: prismaClient.secretInventory?.update,
+  purchaseOrderCreate: prismaClient.purchaseOrder?.create,
+  secretDeliveryReceiptCreate: prismaClient.secretDeliveryReceipt?.create,
   rateLimitCounter: prismaClient.rateLimitCounter,
   transaction: prismaClient.$transaction,
 };
@@ -111,6 +133,36 @@ afterEach(async () => {
   if (prismaClient.securityEvent && originalMethods.securityEventCreate) {
     prismaClient.securityEvent.create = originalMethods.securityEventCreate;
   }
+  if (prismaClient.catalogProduct && originalMethods.catalogProductFindUnique) {
+    prismaClient.catalogProduct.findUnique =
+      originalMethods.catalogProductFindUnique;
+  } else {
+    prismaClient.catalogProduct = undefined;
+  }
+  if (prismaClient.secretInventory && originalMethods.secretInventoryFindFirst) {
+    prismaClient.secretInventory.findFirst =
+      originalMethods.secretInventoryFindFirst;
+  }
+  if (prismaClient.secretInventory && originalMethods.secretInventoryUpdate) {
+    prismaClient.secretInventory.update =
+      originalMethods.secretInventoryUpdate;
+  } else {
+    prismaClient.secretInventory = undefined;
+  }
+  if (prismaClient.purchaseOrder && originalMethods.purchaseOrderCreate) {
+    prismaClient.purchaseOrder.create = originalMethods.purchaseOrderCreate;
+  } else {
+    prismaClient.purchaseOrder = undefined;
+  }
+  if (
+    prismaClient.secretDeliveryReceipt &&
+    originalMethods.secretDeliveryReceiptCreate
+  ) {
+    prismaClient.secretDeliveryReceipt.create =
+      originalMethods.secretDeliveryReceiptCreate;
+  } else {
+    prismaClient.secretDeliveryReceipt = undefined;
+  }
   prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.$transaction = originalMethods.transaction;
 });
@@ -142,7 +194,7 @@ function mockAgentCredential(
   };
 }
 
-test("purchase deducts points and creates inventory atomically", async () => {
+test("legacy cosmetic purchase still accepts itemId and creates inventory atomically", async () => {
   let transactionCalls = 0;
   const pointTransactions: Array<Record<string, unknown>> = [];
 
@@ -156,6 +208,19 @@ test("purchase deducts points and creates inventory atomically", async () => {
       id: "crown",
       name: "Crown",
     });
+  prismaClient.catalogProduct = {
+    findUnique: async () => {
+      throw new Error("secret product lookup should not run for itemId purchases");
+    },
+  };
+  prismaClient.secretInventory = {
+    findFirst: async () => {
+      throw new Error("secret inventory lookup should not run for itemId purchases");
+    },
+    update: async () => {
+      throw new Error("secret inventory update should not run for itemId purchases");
+    },
+  };
   prismaClient.agentInventory.findUnique = async () => null;
   prismaClient.$transaction = async (input) => {
     transactionCalls += 1;
@@ -208,6 +273,293 @@ test("purchase deducts points and creates inventory atomically", async () => {
   assert.equal(transactionCalls, 1);
   assert.equal(pointTransactions.length, 1);
   assert.equal(json.data.item.name, "Crown");
+  assert.equal(json.data.item.id, "crown");
+});
+
+test("purchase fulfills secret credential products via productId", async () => {
+  const previousKey = process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
+  process.env.SECRET_INVENTORY_ENCRYPTION_KEY = "test-secret-key";
+
+  try {
+    const encrypted = encryptSecretValue("sk-live-abcdef1234");
+
+    mockAgentCredential("agent-key", {
+      id: "agent-1",
+      points: 120,
+      avatarConfig: createAvatarConfigFixture(),
+    });
+
+    prismaClient.catalogProduct = {
+      findUnique: async () =>
+        createCatalogProductFixture({
+          id: "product-1",
+          name: "Provider Key Pack",
+          productType: "SECRET_CREDENTIAL",
+          price: 100,
+        }),
+    };
+    prismaClient.secretInventory = {
+      findFirst: async () =>
+        createSecretInventoryFixture({
+          id: "secret-1",
+          productId: "product-1",
+          encryptedValue: encrypted,
+          maskedValue: "sk-****1234",
+          status: "AVAILABLE",
+        }),
+      updateMany: async () => ({ count: 1 }),
+      findUnique: async () =>
+        createSecretInventoryFixture({
+          id: "secret-1",
+          productId: "product-1",
+          encryptedValue: encrypted,
+          maskedValue: "sk-****1234",
+          status: "SOLD",
+        }),
+    };
+    prismaClient.purchaseOrder = {
+      create: async () => ({ id: "order-1" }),
+    };
+    prismaClient.secretDeliveryReceipt = {
+      create: async () => ({ id: "receipt-1" }),
+    };
+
+    prismaClient.$transaction = async (input) => {
+      if (typeof input !== "function") {
+        throw new Error("Expected transaction callback");
+      }
+
+      return input({
+        secretInventory: prismaClient.secretInventory,
+        purchaseOrder: prismaClient.purchaseOrder,
+        secretDeliveryReceipt: prismaClient.secretDeliveryReceipt,
+        agent: {
+          updateMany: async () => ({ count: 1 }),
+        },
+        pointTransaction: {
+          create: async () => ({ id: "txn-1" }),
+        },
+        agentActivity: {
+          create: async () => ({}),
+        },
+      });
+    };
+
+    const response = await purchaseItem(
+      createRouteRequest("http://localhost/api/points/shop/purchase", {
+        method: "POST",
+        apiKey: "agent-key",
+        json: {
+          productId: "product-1",
+        },
+      })
+    );
+    const json = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(json.data.delivery.type, "secret_credential");
+    assert.match(json.data.delivery.secret, /^sk-live-/);
+  } finally {
+    if (previousKey === undefined) {
+      delete process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
+    } else {
+      process.env.SECRET_INVENTORY_ENCRYPTION_KEY = previousKey;
+    }
+  }
+});
+
+test("purchase returns 404 when the secret product is missing", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
+  prismaClient.catalogProduct = {
+    findUnique: async () => null,
+  };
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        productId: "missing-product",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 404);
+  assert.equal(json.error, "Product not found");
+});
+
+test("purchase returns 409 when secret inventory is out of stock", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
+
+  prismaClient.catalogProduct = {
+    findUnique: async () =>
+      createCatalogProductFixture({
+        id: "product-1",
+        name: "Provider Key Pack",
+        productType: "SECRET_CREDENTIAL",
+        price: 100,
+      }),
+  };
+  prismaClient.secretInventory = {
+    findFirst: async () => null,
+    updateMany: async () => ({ count: 0 }),
+    findUnique: async () => null,
+  };
+
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      secretInventory: prismaClient.secretInventory,
+      purchaseOrder: prismaClient.purchaseOrder,
+      secretDeliveryReceipt: prismaClient.secretDeliveryReceipt,
+      agent: {
+        updateMany: async () => ({ count: 1 }),
+      },
+      pointTransaction: {
+        create: async () => ({ id: "txn-1" }),
+      },
+      agentActivity: {
+        create: async () => ({}),
+      },
+    });
+  };
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        productId: "product-1",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 409);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Product is out of stock");
+  assert.equal("data" in json, false);
+});
+
+test("purchase returns 409 when secret purchase exceeds configured limits", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
+
+  prismaClient.catalogProduct = {
+    findUnique: async () =>
+      createCatalogProductFixture({
+        id: "product-1",
+        name: "Provider Key Pack",
+        productType: "SECRET_CREDENTIAL",
+        price: 100,
+        fulfillmentConfig: {
+          allowRepeatPurchase: false,
+        },
+      }),
+  };
+  prismaClient.purchaseOrder = {
+    count: async () => 1,
+    create: async () => {
+      throw new Error("purchase order create should not run");
+    },
+  };
+  prismaClient.secretInventory = {
+    findFirst: async () => {
+      throw new Error("secret inventory lookup should not run");
+    },
+    updateMany: async () => ({ count: 0 }),
+    findUnique: async () => null,
+  };
+
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      secretInventory: prismaClient.secretInventory,
+      purchaseOrder: prismaClient.purchaseOrder,
+      secretDeliveryReceipt: prismaClient.secretDeliveryReceipt,
+      agent: {
+        updateMany: async () => ({ count: 1 }),
+      },
+      pointTransaction: {
+        create: async () => ({ id: "txn-1" }),
+      },
+      agentActivity: {
+        create: async () => ({}),
+      },
+    });
+  };
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        productId: "product-1",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 409);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Product purchase limit reached");
+});
+
+test("purchase returns 500 when secret purchase exhausts serialization retries", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
+
+  prismaClient.catalogProduct = {
+    findUnique: async () =>
+      createCatalogProductFixture({
+        id: "product-1",
+        name: "Provider Key Pack",
+        productType: "SECRET_CREDENTIAL",
+        price: 100,
+      }),
+  };
+
+  prismaClient.$transaction = async () => {
+    const error = new Error("serialization failure") as Error & { code: string };
+    error.code = "P2034";
+    throw error;
+  };
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        productId: "product-1",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 500);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Internal server error");
 });
 
 test("purchase rejects credentials missing points:shop scope", async () => {

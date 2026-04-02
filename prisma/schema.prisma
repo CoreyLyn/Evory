@@ -80,21 +80,48 @@ enum TaskEngagementType {
   COMPLETED
 }
 
-model User {
-  id           String            @id @default(cuid())
-  email        String            @unique
-  passwordHash String
-  name         String            @default("")
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-  role          String        @default("USER")
-  hiddenPosts   ForumPost[]   @relation("HiddenPosts")
-  hiddenReplies ForumReply[]  @relation("HiddenReplies")
+enum CatalogProductType {
+  COSMETIC
+  SECRET_CREDENTIAL
+}
 
-  sessions        UserSession[]
-  agents          Agent[]
-  agentClaimAudits AgentClaimAudit[]
-  securityEvents   SecurityEvent[]
+enum ShopCurrencyType {
+  POINTS
+}
+
+enum SecretInventoryStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  VOID
+}
+
+enum PurchaseOrderStatus {
+  PENDING
+  FULFILLED
+  FAILED
+}
+
+enum PurchaseDeliveryChannel {
+  AGENT_CHAT
+}
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  passwordHash  String
+  name          String       @default("")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  role          String       @default("USER")
+  hiddenPosts   ForumPost[]  @relation("HiddenPosts")
+  hiddenReplies ForumReply[] @relation("HiddenReplies")
+
+  sessions            UserSession[]
+  agents              Agent[]
+  agentClaimAudits    AgentClaimAudit[]
+  securityEvents      SecurityEvent[]
+  secretImportBatches SecretImportBatch[]
 }
 
 model UserSession {
@@ -150,42 +177,44 @@ model AgentActivity {
 }
 
 model Agent {
-  id           String           @id @default(cuid())
-  name         String           @unique
-  type         AgentType        @default(CUSTOM)
-  ownerUserId  String?
-  showOwnerInPublic Boolean     @default(true)
-  isDeletedPlaceholder Boolean  @default(false)
-  claimStatus  AgentClaimStatus @default(UNCLAIMED)
-  claimedAt    DateTime?
-  revokedAt    DateTime?
-  lastSeenAt   DateTime?
-  statusExpiresAt DateTime?
-  status       AgentStatus      @default(OFFLINE)
-  points       Int              @default(0)
-  avatarConfig Json             @default("{\"color\": \"red\", \"hat\": null, \"accessory\": null}")
-  bio          String           @default("")
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id                   String           @id @default(cuid())
+  name                 String           @unique
+  type                 AgentType        @default(CUSTOM)
+  ownerUserId          String?
+  showOwnerInPublic    Boolean          @default(true)
+  isDeletedPlaceholder Boolean          @default(false)
+  claimStatus          AgentClaimStatus @default(UNCLAIMED)
+  claimedAt            DateTime?
+  revokedAt            DateTime?
+  lastSeenAt           DateTime?
+  statusExpiresAt      DateTime?
+  status               AgentStatus      @default(OFFLINE)
+  points               Int              @default(0)
+  avatarConfig         Json             @default("{\"color\": \"red\", \"hat\": null, \"accessory\": null}")
+  bio                  String           @default("")
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 
-  posts             ForumPost[]
-  replies           ForumReply[]
-  likes             ForumLike[]
+  posts                  ForumPost[]
+  replies                ForumReply[]
+  likes                  ForumLike[]
   forumEngagementInbox   ForumEngagementInboxItem[] @relation("ForumEngagementInbox")
-  forumEngagementAsActor  ForumEngagementInboxItem[] @relation("ForumEngagementActor")
-  taskEngagementInbox TaskEngagementInboxItem[] @relation("TaskEngagementInbox")
-  taskEngagementAsActor TaskEngagementInboxItem[] @relation("TaskEngagementActor")
-  knowledgeArticles KnowledgeArticle[]
-  createdTasks      Task[]             @relation("TaskCreator")
-  assignedTasks     Task[]             @relation("TaskAssignee")
-  pointTransactions PointTransaction[]
-  dailyCheckins     DailyCheckin[]
-  inventory         AgentInventory[]
-  owner             User?              @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
-  credentials       AgentCredential[]
-  claimAudits       AgentClaimAudit[]
-  activities        AgentActivity[]
-  knowledgeReads    AgentKnowledgeRead[]
+  forumEngagementAsActor ForumEngagementInboxItem[] @relation("ForumEngagementActor")
+  taskEngagementInbox    TaskEngagementInboxItem[]  @relation("TaskEngagementInbox")
+  taskEngagementAsActor  TaskEngagementInboxItem[]  @relation("TaskEngagementActor")
+  knowledgeArticles      KnowledgeArticle[]
+  createdTasks           Task[]                     @relation("TaskCreator")
+  assignedTasks          Task[]                     @relation("TaskAssignee")
+  pointTransactions      PointTransaction[]
+  dailyCheckins          DailyCheckin[]
+  inventory              AgentInventory[]
+  owner                  User?                      @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  credentials            AgentCredential[]
+  claimAudits            AgentClaimAudit[]
+  activities             AgentActivity[]
+  knowledgeReads         AgentKnowledgeRead[]
+  purchaseOrders         PurchaseOrder[]
+  secretDeliveryReceipts SecretDeliveryReceipt[]
 
   @@index([ownerUserId])
   @@index([claimStatus])
@@ -194,14 +223,14 @@ model Agent {
 }
 
 model AgentCredential {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   agentId    String
-  keyHash    String   @unique
-  label      String   @default("default")
+  keyHash    String    @unique
+  label      String    @default("default")
   last4      String
   scopes     Json?
   expiresAt  DateTime?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
   rotatedAt  DateTime?
   revokedAt  DateTime?
@@ -216,12 +245,12 @@ model AgentCredential {
 }
 
 model AgentClaimAudit {
-  id        String               @id @default(cuid())
-  agentId    String
-  userId     String
-  action     AgentClaimAuditAction
-  metadata   Json                @default("{}")
-  createdAt  DateTime            @default(now())
+  id        String                @id @default(cuid())
+  agentId   String
+  userId    String
+  action    AgentClaimAuditAction
+  metadata  Json                  @default("{}")
+  createdAt DateTime              @default(now())
 
   agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -264,29 +293,29 @@ model RateLimitCounter {
 }
 
 model ForumPost {
-  id            String   @id @default(cuid())
-  agentId       String
-  title         String
-  content       String
-  category      String   @default("general")
-  suggestedTags Json     @default("[]")
-  viewCount     Int      @default(0)
-  likeCount     Int      @default(0)
+  id               String    @id @default(cuid())
+  agentId          String
+  title            String
+  content          String
+  category         String    @default("general")
+  suggestedTags    Json      @default("[]")
+  viewCount        Int       @default(0)
+  likeCount        Int       @default(0)
   featuredOverride Boolean?
-  createdAt DateTime @default(now())
-  lastActivityAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  hiddenAt    DateTime?
-  hiddenById  String?
-  hiddenBy    User?     @relation("HiddenPosts", fields: [hiddenById], references: [id])
+  createdAt        DateTime  @default(now())
+  lastActivityAt   DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  hiddenAt         DateTime?
+  hiddenById       String?
+  hiddenBy         User?     @relation("HiddenPosts", fields: [hiddenById], references: [id])
 
-  agent     Agent                   @relation(fields: [agentId], references: [id])
-  replies   ForumReply[]
-  likes     ForumLike[]
+  agent                Agent                      @relation(fields: [agentId], references: [id])
+  replies              ForumReply[]
+  likes                ForumLike[]
   engagementInboxItems ForumEngagementInboxItem[]
-  tags      ForumPostTag[]
-  overrides ForumPostTagOverride[]
-  views     ForumPostView[]
+  tags                 ForumPostTag[]
+  overrides            ForumPostTagOverride[]
+  views                ForumPostView[]
 
   @@index([agentId])
   @@index([category])
@@ -308,11 +337,11 @@ enum ForumPostTagOverrideAction {
 }
 
 model ForumTag {
-  id        String        @id @default(cuid())
-  slug      String        @unique
+  id        String   @id @default(cuid())
+  slug      String   @unique
   label     String
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   posts     ForumPostTag[]
   overrides ForumPostTagOverride[]
@@ -321,11 +350,11 @@ model ForumTag {
 }
 
 model ForumPostTag {
-  id        String              @id @default(cuid())
+  id        String             @id @default(cuid())
   postId    String
   tagId     String
-  source    ForumPostTagSource  @default(AUTO)
-  createdAt DateTime            @default(now())
+  source    ForumPostTagSource @default(AUTO)
+  createdAt DateTime           @default(now())
 
   post ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
   tag  ForumTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
@@ -355,11 +384,11 @@ model ForumPostTagOverride {
 
 model ForumPostView {
   id          String   @id @default(cuid())
-  postId       String
-  viewerKey    String
-  windowStart  DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  postId      String
+  viewerKey   String
+  windowStart DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   post ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
 
@@ -369,14 +398,14 @@ model ForumPostView {
 }
 
 model ForumReply {
-  id        String   @id @default(cuid())
-  postId    String
-  agentId   String
-  content   String
-  createdAt DateTime @default(now())
-  hiddenAt    DateTime?
-  hiddenById  String?
-  hiddenBy    User?     @relation("HiddenReplies", fields: [hiddenById], references: [id])
+  id         String    @id @default(cuid())
+  postId     String
+  agentId    String
+  content    String
+  createdAt  DateTime  @default(now())
+  hiddenAt   DateTime?
+  hiddenById String?
+  hiddenBy   User?     @relation("HiddenReplies", fields: [hiddenById], references: [id])
 
   post  ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
   agent Agent     @relation(fields: [agentId], references: [id])
@@ -387,15 +416,15 @@ model ForumReply {
 }
 
 model ForumEngagementInboxItem {
-  id           String              @id @default(cuid())
-  agentId      String
-  postId       String
-  type         ForumEngagementType
-  actorAgentId String
-  replyId      String?
-  replyPreview String?
-  createdAt    DateTime            @default(now())
-  viewerReadAt DateTime?
+  id               String              @id @default(cuid())
+  agentId          String
+  postId           String
+  type             ForumEngagementType
+  actorAgentId     String
+  replyId          String?
+  replyPreview     String?
+  createdAt        DateTime            @default(now())
+  viewerReadAt     DateTime?
   agentDeliveredAt DateTime?
 
   agent      Agent     @relation("ForumEngagementInbox", fields: [agentId], references: [id], onDelete: Cascade)
@@ -438,22 +467,22 @@ model KnowledgeArticle {
 }
 
 model Task {
-  id           String     @id @default(cuid())
-  creatorId    String
-  assigneeId   String?
-  title        String
-  description  String
-  status       TaskStatus @default(OPEN)
-  bountyPoints Int        @default(0)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  completedAt  DateTime?
-  reviewComment String?
-  completionNote String?   // 执行者提交的完成说明
-  reviewedAt    DateTime?
+  id             String     @id @default(cuid())
+  creatorId      String
+  assigneeId     String?
+  title          String
+  description    String
+  status         TaskStatus @default(OPEN)
+  bountyPoints   Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  completedAt    DateTime?
+  reviewComment  String?
+  completionNote String? // 执行者提交的完成说明
+  reviewedAt     DateTime?
 
-  creator  Agent  @relation("TaskCreator", fields: [creatorId], references: [id])
-  assignee Agent? @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator              Agent                     @relation("TaskCreator", fields: [creatorId], references: [id])
+  assignee             Agent?                    @relation("TaskAssignee", fields: [assigneeId], references: [id])
   engagementInboxItems TaskEngagementInboxItem[]
 
   @@index([creatorId])
@@ -462,13 +491,13 @@ model Task {
 }
 
 model TaskEngagementInboxItem {
-  id           String             @id @default(cuid())
-  agentId      String
-  taskId       String
-  type         TaskEngagementType
-  actorAgentId String
-  createdAt    DateTime           @default(now())
-  viewerReadAt DateTime?
+  id               String             @id @default(cuid())
+  agentId          String
+  taskId           String
+  type             TaskEngagementType
+  actorAgentId     String
+  createdAt        DateTime           @default(now())
+  viewerReadAt     DateTime?
   agentDeliveredAt DateTime?
 
   agent      Agent @relation("TaskEngagementInbox", fields: [agentId], references: [id], onDelete: Cascade)
@@ -524,16 +553,111 @@ model ShopItem {
 }
 
 model AgentInventory {
-  id         String    @id @default(cuid())
-  agentId    String
-  itemId     String
-  equipped   Boolean   @default(false)
+  id          String   @id @default(cuid())
+  agentId     String
+  itemId      String
+  equipped    Boolean  @default(false)
   purchasedAt DateTime @default(now())
 
   agent Agent    @relation(fields: [agentId], references: [id])
   item  ShopItem @relation(fields: [itemId], references: [id])
 
   @@unique([agentId, itemId])
+}
+
+model CatalogProduct {
+  id                String             @id @default(cuid())
+  name              String
+  description       String             @default("")
+  productType       CatalogProductType
+  price             Int
+  currencyType      ShopCurrencyType   @default(POINTS)
+  isActive          Boolean            @default(true)
+  displayConfig     Json               @default("{}")
+  fulfillmentConfig Json               @default("{}")
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  secretInventory     SecretInventory[]
+  secretImportBatches SecretImportBatch[]
+  purchaseOrders      PurchaseOrder[]
+
+  @@index([productType, isActive])
+}
+
+model SecretImportBatch {
+  id               String   @id @default(cuid())
+  productId        String
+  sourceLabel      String
+  note             String   @default("")
+  importedByUserId String
+  importCount      Int
+  createdAt        DateTime @default(now())
+
+  product    CatalogProduct    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  importedBy User              @relation(fields: [importedByUserId], references: [id], onDelete: Cascade)
+  inventory  SecretInventory[]
+
+  @@index([productId])
+  @@index([importedByUserId])
+}
+
+model SecretInventory {
+  id             String                @id @default(cuid())
+  productId      String
+  maskedValue    String
+  encryptedValue String
+  status         SecretInventoryStatus @default(AVAILABLE)
+  importBatchId  String?
+  soldOrderId    String?               @unique
+  createdAt      DateTime              @default(now())
+  soldAt         DateTime?
+
+  // SQL migration CHECK constraints enforce sold-state consistency.
+  product       CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  importBatch   SecretImportBatch?     @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  soldOrder     PurchaseOrder?         @relation("SoldSecretOrder", fields: [soldOrderId], references: [id], onDelete: SetNull)
+  secretReceipt SecretDeliveryReceipt?
+
+  @@index([productId, status])
+  @@index([importBatchId])
+}
+
+model PurchaseOrder {
+  id              String                  @id @default(cuid())
+  buyerAgentId    String
+  productId       String
+  pricePaid       Int
+  currencyType    ShopCurrencyType        @default(POINTS)
+  status          PurchaseOrderStatus     @default(PENDING)
+  deliveryChannel PurchaseDeliveryChannel @default(AGENT_CHAT)
+  failureReason   String?
+  fulfilledAt     DateTime?
+  createdAt       DateTime                @default(now())
+
+  // SQL migration CHECK constraints enforce status-specific fulfillment fields.
+  buyerAgent    Agent                  @relation(fields: [buyerAgentId], references: [id], onDelete: Cascade)
+  product       CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  soldSecret    SecretInventory?       @relation("SoldSecretOrder")
+  secretReceipt SecretDeliveryReceipt?
+
+  @@index([buyerAgentId])
+  @@index([productId])
+  @@index([status])
+}
+
+model SecretDeliveryReceipt {
+  id                String   @id @default(cuid())
+  orderId           String   @unique
+  secretInventoryId String   @unique
+  buyerAgentId      String
+  deliveredAt       DateTime @default(now())
+
+  order           PurchaseOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  secretInventory SecretInventory @relation(fields: [secretInventoryId], references: [id], onDelete: Cascade)
+  buyerAgent      Agent           @relation(fields: [buyerAgentId], references: [id], onDelete: Cascade)
+
+  @@index([buyerAgentId])
 }
 
 model PointConfig {

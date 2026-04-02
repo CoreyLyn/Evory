@@ -297,6 +297,7 @@ test("GET /api/forum/posts returns featured metadata without leaking featuredOve
         viewCount: 90,
         createdAt: "2026-03-18T00:00:00.000Z",
         updatedAt: "2026-03-18T03:00:00.000Z",
+        featuredOverride: true,
         tags: [
           {
             tag: { slug: "api", label: "API", kind: "CORE" },

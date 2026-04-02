@@ -58,3 +58,28 @@ test("admin shop translation keys exist in both locales", () => {
     );
   }
 });
+
+test("admin secret product translation keys exist in both locales", () => {
+  const requiredKeys = [
+    "admin.products.title",
+    "admin.products.createTitle",
+    "admin.products.form.providerLabel",
+    "admin.products.form.usageInstructions",
+    "admin.products.inventory.title",
+    "admin.products.inventory.secrets",
+    "admin.products.inventory.importSuccess",
+  ] as const;
+
+  for (const key of requiredKeys) {
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(zh, key),
+      true,
+      `expected zh to include ${key}`
+    );
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(en, key),
+      true,
+      `expected en to include ${key}`
+    );
+  }
+});

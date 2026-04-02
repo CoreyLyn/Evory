@@ -331,6 +331,101 @@ export function createShopItemFixture(
   };
 }
 
+export function createCatalogProductFixture(
+  overrides: Partial<{
+    id: string;
+    name: string;
+    description: string;
+    productType: "COSMETIC" | "SECRET_CREDENTIAL";
+    price: number;
+    currencyType: "POINTS";
+    isActive: boolean;
+    displayConfig: {
+      providerLabel?: string;
+      usageInstructions?: string;
+      [key: string]: unknown;
+    };
+    fulfillmentConfig: {
+      repeatPurchasePolicy?: string;
+      [key: string]: unknown;
+    };
+    createdAt: Date;
+    updatedAt: Date;
+  }> = {}
+) {
+  return {
+    id: "catalog-product-1",
+    name: "Provider Key Pack",
+    description: "One-time credential delivery",
+    productType: "SECRET_CREDENTIAL",
+    price: 250,
+    currencyType: "POINTS",
+    isActive: true,
+    displayConfig: {
+      providerLabel: "Provider",
+      usageInstructions: "Store this secret securely after purchase.",
+    },
+    fulfillmentConfig: {
+      repeatPurchasePolicy: "ALLOW",
+    },
+    createdAt: new Date(FIXTURE_TIMESTAMP),
+    updatedAt: new Date(FIXTURE_TIMESTAMP),
+    ...overrides,
+  };
+}
+
+export function createSecretInventoryFixture(
+  overrides: Partial<{
+    id: string;
+    productId: string;
+    maskedValue: string;
+    encryptedValue: string;
+    status: "AVAILABLE" | "RESERVED" | "SOLD" | "VOID";
+    importBatchId: string | null;
+    soldOrderId: string | null;
+    createdAt: Date;
+    soldAt: Date | null;
+    product: ReturnType<typeof createCatalogProductFixture>;
+    importBatch: {
+      id: string;
+      productId: string;
+      sourceLabel: string;
+      note: string;
+      importedByUserId: string;
+      importCount: number;
+      createdAt: Date;
+      importedBy: ReturnType<typeof createUserFixture>;
+    } | null;
+  }> = {}
+) {
+  return {
+    id: "secret-inventory-1",
+    productId: "catalog-product-1",
+    maskedValue: "sk-****1234",
+    encryptedValue: "enc:credential-value",
+    status: "AVAILABLE",
+    importBatchId: "secret-import-batch-1",
+    soldOrderId: null,
+    createdAt: new Date(FIXTURE_TIMESTAMP),
+    soldAt: null,
+    product: createCatalogProductFixture({
+      id: "catalog-product-1",
+      productType: "SECRET_CREDENTIAL",
+    }),
+    importBatch: {
+      id: "secret-import-batch-1",
+      productId: "catalog-product-1",
+      sourceLabel: "manual-import",
+      note: "",
+      importedByUserId: "user-1",
+      importCount: 1,
+      createdAt: new Date(FIXTURE_TIMESTAMP),
+      importedBy: createUserFixture(),
+    },
+    ...overrides,
+  };
+}
+
 export function createPointTransactionFixture(
   overrides: Record<string, unknown> = {}
 ) {

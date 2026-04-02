@@ -1,6 +1,54 @@
 type PublicFetch = (input: string, init?: RequestInit) => Promise<Response>;
 type AgentFetch = (input: string, init?: RequestInit) => Promise<Response>;
 
+export type AdminSecretProductRecord = {
+  id: string;
+  name: string;
+  description: string;
+  productType: "SECRET_CREDENTIAL";
+  price: number;
+  currencyType: "POINTS";
+  isActive: boolean;
+  displayConfig: {
+    providerLabel?: string | null;
+    usageInstructions?: string | null;
+    [key: string]: unknown;
+  };
+  fulfillmentConfig: {
+    allowRepeatPurchase?: boolean;
+    perAgentPurchaseLimit?: number | null;
+    [key: string]: unknown;
+  };
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminSecretProduct = AdminSecretProductRecord & {
+  inventoryCount: number;
+  orderCount: number;
+};
+
+export type AdminSecretProductCreateInput = {
+  name: string;
+  description: string;
+  price: number;
+  providerLabel: string;
+  usageInstructions: string;
+  allowRepeatPurchase: boolean;
+};
+
+export type AdminSecretInventoryImportInput = {
+  productId: string;
+  sourceLabel: string;
+  note: string;
+  secrets: string;
+};
+
+export type ShopPurchaseInput =
+  | string
+  | { itemId: string }
+  | { productId: string };
+
 type ApiEnvelope<T> = {
   success?: boolean;
   error?: string;
@@ -22,6 +70,58 @@ export async function fetchShopItems(fetcher: PublicFetch = fetch) {
   return readEnvelope<Array<Record<string, unknown>>>(response);
 }
 
+export async function fetchAdminSecretProducts(fetcher: PublicFetch = fetch) {
+  const response = await fetcher("/api/admin/shop/products");
+  return readEnvelope<AdminSecretProduct[]>(response);
+}
+
+export async function createAdminSecretProduct(
+  fetcher: PublicFetch,
+  input: AdminSecretProductCreateInput
+) {
+  const response = await fetcher("/api/admin/shop/products", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: input.name,
+      description: input.description,
+      productType: "SECRET_CREDENTIAL",
+      price: input.price,
+      isActive: true,
+      displayConfig: {
+        providerLabel: input.providerLabel,
+        usageInstructions: input.usageInstructions || undefined,
+      },
+      fulfillmentConfig: {
+        allowRepeatPurchase: input.allowRepeatPurchase,
+      },
+    }),
+  });
+
+  return readEnvelope<AdminSecretProductRecord>(response);
+}
+
+export async function importAdminSecretInventory(
+  fetcher: PublicFetch,
+  input: AdminSecretInventoryImportInput
+) {
+  const response = await fetcher(`/api/admin/shop/products/${input.productId}/inventory`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      sourceLabel: input.sourceLabel,
+      note: input.note,
+      secrets: input.secrets,
+    }),
+  });
+
+  return readEnvelope<{ importBatchId: string; importCount: number }>(response);
+}
+
 export async function fetchPointsBalance(agentFetch: AgentFetch) {
   const response = await agentFetch("/api/agent/points/balance");
   const data = await readEnvelope<{ balance: number }>(response);
@@ -33,13 +133,29 @@ export async function fetchAgentInventory(agentFetch: AgentFetch) {
   return readEnvelope<Array<Record<string, unknown>>>(response);
 }
 
-export async function purchaseShopItem(agentFetch: AgentFetch, itemId: string) {
+function normalizeShopPurchaseInput(input: ShopPurchaseInput) {
+  if (typeof input === "string") {
+    return { itemId: input };
+  }
+
+  if ("itemId" in input && typeof input.itemId === "string") {
+    return { itemId: input.itemId };
+  }
+
+  if ("productId" in input && typeof input.productId === "string") {
+    return { productId: input.productId };
+  }
+
+  throw new Error("itemId or productId is required");
+}
+
+export async function purchaseShopItem(agentFetch: AgentFetch, input: ShopPurchaseInput) {
   const response = await agentFetch("/api/agent/shop/purchase", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ itemId }),
+    body: JSON.stringify(normalizeShopPurchaseInput(input)),
   });
 
   return readEnvelope<Record<string, unknown>>(response);

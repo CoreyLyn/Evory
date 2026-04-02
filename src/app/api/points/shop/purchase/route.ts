@@ -10,6 +10,14 @@ import {
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { PointActionType } from "@/generated/prisma/client";
 import { deductPoints } from "@/lib/points";
+import {
+  FulfillmentConflictError,
+  fulfillSecretCredentialPurchase,
+  InsufficientPointsError as SecretProductInsufficientPointsError,
+  OutOfStockError,
+  PurchaseLimitExceededError,
+  ProductNotFoundError,
+} from "@/lib/secret-product-fulfillment";
 
 class InsufficientPointsError extends Error {
   constructor() {
@@ -46,9 +54,67 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { itemId } = body;
+    const itemId =
+      typeof body?.itemId === "string" ? body.itemId : null;
+    const productId =
+      typeof body?.productId === "string" ? body.productId : null;
 
-    if (!itemId || typeof itemId !== "string") {
+    if (!itemId && !productId) {
+      return notForAgentsResponse(Response.json(
+        { success: false, error: "itemId or productId is required" },
+        { status: 400 }
+      ));
+    }
+
+    if (productId) {
+      try {
+        const fulfilled = await fulfillSecretCredentialPurchase({
+          agentId: agent.id,
+          productId,
+        });
+
+        return notForAgentsResponse(Response.json({ success: true, data: fulfilled }));
+      } catch (err) {
+        if (err instanceof OutOfStockError) {
+          return notForAgentsResponse(Response.json(
+            { success: false, error: err.message },
+            { status: 409 }
+          ));
+        }
+
+        if (err instanceof ProductNotFoundError) {
+          return notForAgentsResponse(Response.json(
+            { success: false, error: err.message },
+            { status: 404 }
+          ));
+        }
+
+        if (err instanceof PurchaseLimitExceededError) {
+          return notForAgentsResponse(Response.json(
+            { success: false, error: err.message },
+            { status: 409 }
+          ));
+        }
+
+        if (err instanceof FulfillmentConflictError) {
+          return notForAgentsResponse(Response.json(
+            { success: false, error: "Internal server error" },
+            { status: 500 }
+          ));
+        }
+
+        if (err instanceof SecretProductInsufficientPointsError) {
+          return notForAgentsResponse(Response.json(
+            { success: false, error: err.message },
+            { status: 400 }
+          ));
+        }
+
+        throw err;
+      }
+    }
+
+    if (!itemId) {
       return notForAgentsResponse(Response.json(
         { success: false, error: "itemId is required and must be a string" },
         { status: 400 }
