@@ -111,6 +111,8 @@ test("GET /api/admin/shop/products lists secret credential products with counts"
   assert.equal(json.data[0].inventoryCount, 2);
   assert.equal(json.data[0].orderCount, 5);
   assert.equal("_count" in json.data[0], false);
+  assert.equal("secretInventory" in json.data[0], false);
+  assert.equal("purchaseOrders" in json.data[0], false);
 });
 
 test("POST /api/admin/shop/products creates a secret credential catalog product", async () => {

@@ -193,7 +193,7 @@ function mockAgentCredential(
   };
 }
 
-test("purchase deducts points and creates inventory atomically", async () => {
+test("legacy cosmetic purchase still accepts itemId and creates inventory atomically", async () => {
   let transactionCalls = 0;
   const pointTransactions: Array<Record<string, unknown>> = [];
 
@@ -207,6 +207,19 @@ test("purchase deducts points and creates inventory atomically", async () => {
       id: "crown",
       name: "Crown",
     });
+  prismaClient.catalogProduct = {
+    findUnique: async () => {
+      throw new Error("secret product lookup should not run for itemId purchases");
+    },
+  };
+  prismaClient.secretInventory = {
+    findFirst: async () => {
+      throw new Error("secret inventory lookup should not run for itemId purchases");
+    },
+    update: async () => {
+      throw new Error("secret inventory update should not run for itemId purchases");
+    },
+  };
   prismaClient.agentInventory.findUnique = async () => null;
   prismaClient.$transaction = async (input) => {
     transactionCalls += 1;
@@ -259,6 +272,7 @@ test("purchase deducts points and creates inventory atomically", async () => {
   assert.equal(transactionCalls, 1);
   assert.equal(pointTransactions.length, 1);
   assert.equal(json.data.item.name, "Crown");
+  assert.equal(json.data.item.id, "crown");
 });
 
 test("purchase fulfills secret credential products via productId", async () => {
@@ -433,7 +447,9 @@ test("purchase returns 409 when secret inventory is out of stock", async () => {
   const json = await response.json();
 
   assert.equal(response.status, 409);
+  assert.equal(json.success, false);
   assert.equal(json.error, "Product is out of stock");
+  assert.equal("data" in json, false);
 });
 
 test("purchase rejects credentials missing points:shop scope", async () => {

@@ -47,6 +47,68 @@ test("AdminSecretProductsPanel renders provider fields and inventory import text
   assert.match(html, /textarea/);
 });
 
+test("AdminSecretProductsPanel renders product counts and inactive state details", () => {
+  const html = renderToStaticMarkup(
+    <AdminSecretProductsPanel
+      t={(key) => key}
+      products={[
+        {
+          id: "product-1",
+          name: "Provider Pack",
+          description: "Secret credential",
+          productType: "SECRET_CREDENTIAL",
+          price: 300,
+          currencyType: "POINTS",
+          isActive: true,
+          displayConfig: {
+            providerLabel: "Provider",
+          },
+          fulfillmentConfig: {
+            allowRepeatPurchase: true,
+          },
+          inventoryCount: 2,
+          orderCount: 1,
+          createdAt: "2026-04-02T00:00:00.000Z",
+          updatedAt: "2026-04-02T00:00:00.000Z",
+        },
+        {
+          id: "product-2",
+          name: "Backup Pack",
+          description: "",
+          productType: "SECRET_CREDENTIAL",
+          price: 500,
+          currencyType: "POINTS",
+          isActive: false,
+          displayConfig: {
+            providerLabel: "Backup",
+          },
+          fulfillmentConfig: {
+            allowRepeatPurchase: false,
+          },
+          inventoryCount: 0,
+          orderCount: 3,
+          createdAt: "2026-04-02T00:00:00.000Z",
+          updatedAt: "2026-04-02T00:00:00.000Z",
+        },
+      ]}
+      loading={false}
+      onRefresh={() => Promise.resolve()}
+      onError={() => undefined}
+      onSuccess={() => undefined}
+    />
+  );
+
+  assert.match(html, /Provider Pack/);
+  assert.match(html, /Backup Pack/);
+  assert.match(html, /admin\.products\.status\.inactive/);
+  assert.match(html, /admin\.products\.inventory\.count/);
+  assert.match(html, /admin\.products\.orders\.count/);
+  assert.match(html, /Provider/);
+  assert.match(html, /Backup/);
+  assert.match(html, />2</);
+  assert.match(html, />3</);
+});
+
 test("performAdminSecretProductMutation stays pending until refresh finishes", async () => {
   const events: string[] = [];
   let resolveRefresh: (() => void) | null = null;

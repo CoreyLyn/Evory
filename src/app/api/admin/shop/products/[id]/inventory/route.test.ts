@@ -126,6 +126,9 @@ test("POST /api/admin/shop/products/[id]/inventory imports secret inventory rows
     importBatchId: "batch-1",
     importCount: 2,
   });
+  assert.equal("maskedValue" in json.data, false);
+  assert.equal("encryptedValue" in json.data, false);
+  assert.equal(JSON.stringify(json).includes("sk-live-abcdef1234"), false);
   assert.deepEqual(batchCreateArgs, {
     data: {
       productId: "product-1",
@@ -167,8 +170,12 @@ test("POST /api/admin/shop/products/[id]/inventory imports secret inventory rows
 test("POST /api/admin/shop/products/[id]/inventory returns 404 for non-secret products", async () => {
   mockAdminSession();
   let transactionCalled = false;
+  let findFirstArgs: unknown = null;
   prismaClient.catalogProduct = {
-    findFirst: async () => null,
+    findFirst: async (args: unknown) => {
+      findFirstArgs = args;
+      return null;
+    },
   };
   prismaClient.$transaction = async () => {
     transactionCalled = true;
@@ -196,6 +203,15 @@ test("POST /api/admin/shop/products/[id]/inventory returns 404 for non-secret pr
   assert.equal(json.success, false);
   assert.equal(json.error, "Catalog product not found");
   assert.equal(transactionCalled, false);
+  assert.deepEqual(findFirstArgs, {
+    where: {
+      id: "product-1",
+      productType: "SECRET_CREDENTIAL",
+    },
+    select: {
+      id: true,
+    },
+  });
 });
 
 test("POST /api/admin/shop/products/[id]/inventory returns 400 for malformed JSON", async () => {
