@@ -18,6 +18,7 @@ const originalMethods = {
   userSession: prismaClient.userSession,
   securityEvent: prismaClient.securityEvent,
   rateLimitCounter: prismaClient.rateLimitCounter,
+  catalogProduct: prismaClient.catalogProduct,
   $transaction: prismaClient.$transaction,
 };
 
@@ -64,6 +65,7 @@ afterEach(() => {
   prismaClient.userSession = originalMethods.userSession;
   prismaClient.securityEvent = originalMethods.securityEvent;
   prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
+  prismaClient.catalogProduct = originalMethods.catalogProduct;
   prismaClient.$transaction = originalMethods.$transaction;
   delete process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
 });
@@ -74,6 +76,9 @@ test("POST /api/admin/shop/products/[id]/inventory imports secret inventory rows
 
   let batchCreateArgs: unknown = null;
   let createManyArgs: unknown = null;
+  prismaClient.catalogProduct = {
+    findFirst: async () => ({ id: "product-1" }),
+  };
   prismaClient.$transaction = async (
     callback: (tx: Record<string, unknown>) => Promise<unknown>
   ) => {
@@ -157,6 +162,40 @@ test("POST /api/admin/shop/products/[id]/inventory imports secret inventory rows
     assert.equal(typeof row.encryptedValue, "string");
     assert.equal((row.encryptedValue as string).split(".").length, 3);
   }
+});
+
+test("POST /api/admin/shop/products/[id]/inventory returns 404 for non-secret products", async () => {
+  mockAdminSession();
+  let transactionCalled = false;
+  prismaClient.catalogProduct = {
+    findFirst: async () => null,
+  };
+  prismaClient.$transaction = async () => {
+    transactionCalled = true;
+    return null;
+  };
+
+  const response = await POST(
+    createRouteRequest("http://localhost/api/admin/shop/products/product-1/inventory", {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+      json: {
+        sourceLabel: "batch-1",
+        note: "",
+        secrets: "sk-1",
+      },
+    }),
+    createRouteParams({ id: "product-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 404);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Catalog product not found");
+  assert.equal(transactionCalled, false);
 });
 
 test("POST /api/admin/shop/products/[id]/inventory returns 400 for malformed JSON", async () => {

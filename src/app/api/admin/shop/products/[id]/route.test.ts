@@ -73,6 +73,7 @@ test("PUT /api/admin/shop/products/[id] updates a secret credential catalog prod
   let updatedWhere: unknown = null;
   let updatedData: unknown = null;
   prismaClient.catalogProduct = {
+    findFirst: async () => ({ id: "product-1" }),
     update: async ({ where, data }: { where: unknown; data: unknown }) => {
       updatedWhere = where;
       updatedData = data;
@@ -130,6 +131,48 @@ test("PUT /api/admin/shop/products/[id] updates a secret credential catalog prod
   });
 });
 
+test("PUT /api/admin/shop/products/[id] returns 404 for non-secret products", async () => {
+  mockAdminSession();
+  let updateCalled = false;
+  prismaClient.catalogProduct = {
+    findFirst: async () => null,
+    update: async () => {
+      updateCalled = true;
+      return createCatalogProductFixture();
+    },
+  };
+
+  const response = await PUT(
+    createRouteRequest("http://localhost/api/admin/shop/products/cosmetic-1", {
+      method: "PUT",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+      json: {
+        name: "Updated Pack",
+        description: "Revised secret",
+        productType: "SECRET_CREDENTIAL",
+        price: 450,
+        isActive: false,
+        displayConfig: {
+          providerLabel: "Provider",
+        },
+        fulfillmentConfig: {
+          allowRepeatPurchase: false,
+        },
+      },
+    }),
+    createRouteParams({ id: "cosmetic-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 404);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Catalog product not found");
+  assert.equal(updateCalled, false);
+});
+
 test("PUT /api/admin/shop/products/[id] returns 400 for malformed JSON", async () => {
   mockAdminSession();
 
@@ -156,6 +199,7 @@ test("PUT /api/admin/shop/products/[id] returns 400 for malformed JSON", async (
 test("PUT /api/admin/shop/products/[id] returns 404 when the product does not exist", async () => {
   mockAdminSession();
   prismaClient.catalogProduct = {
+    findFirst: async () => ({ id: "missing" }),
     update: async () => {
       const error = new Error("missing");
       (error as Error & { code?: string }).code = "P2025";

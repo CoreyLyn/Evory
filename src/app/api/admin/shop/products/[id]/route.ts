@@ -55,6 +55,25 @@ export async function PUT(
 
   try {
     const data = parseAdminSecretProductInput(await request.json());
+    const existingProduct = await prisma.catalogProduct.findFirst({
+      where: {
+        id,
+        productType: "SECRET_CREDENTIAL",
+      },
+      select: { id: true },
+    });
+    if (!existingProduct) {
+      return notForAgentsResponse(
+        Response.json(
+          {
+            success: false,
+            error: "Catalog product not found",
+          },
+          { status: 404 }
+        )
+      );
+    }
+
     const product = await prisma.catalogProduct.update({
       where: { id },
       data,

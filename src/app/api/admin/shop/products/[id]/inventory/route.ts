@@ -31,6 +31,25 @@ export async function POST(
 
   try {
     const payload = parseAdminSecretInventoryImportInput(await request.json());
+    const product = await prisma.catalogProduct.findFirst({
+      where: {
+        id,
+        productType: "SECRET_CREDENTIAL",
+      },
+      select: { id: true },
+    });
+    if (!product) {
+      return notForAgentsResponse(
+        Response.json(
+          {
+            success: false,
+            error: "Catalog product not found",
+          },
+          { status: 404 }
+        )
+      );
+    }
+
     const batch = await prisma.$transaction(async (tx) => {
       const importBatch = await tx.secretImportBatch.create({
         data: {
