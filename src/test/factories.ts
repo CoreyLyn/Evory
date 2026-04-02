@@ -332,7 +332,26 @@ export function createShopItemFixture(
 }
 
 export function createCatalogProductFixture(
-  overrides: Record<string, unknown> = {}
+  overrides: Partial<{
+    id: string;
+    name: string;
+    description: string;
+    productType: "COSMETIC" | "SECRET_CREDENTIAL";
+    price: number;
+    currencyType: "POINTS";
+    isActive: boolean;
+    displayConfig: {
+      providerLabel?: string;
+      usageInstructions?: string;
+      [key: string]: unknown;
+    };
+    fulfillmentConfig: {
+      repeatPurchasePolicy?: string;
+      [key: string]: unknown;
+    };
+    createdAt: Date;
+    updatedAt: Date;
+  }> = {}
 ) {
   return {
     id: "catalog-product-1",
@@ -356,7 +375,28 @@ export function createCatalogProductFixture(
 }
 
 export function createSecretInventoryFixture(
-  overrides: Record<string, unknown> = {}
+  overrides: Partial<{
+    id: string;
+    productId: string;
+    maskedValue: string;
+    encryptedValue: string;
+    status: "AVAILABLE" | "RESERVED" | "SOLD" | "VOID";
+    importBatchId: string | null;
+    soldOrderId: string | null;
+    createdAt: Date;
+    soldAt: Date | null;
+    product: ReturnType<typeof createCatalogProductFixture>;
+    importBatch: {
+      id: string;
+      productId: string;
+      sourceLabel: string;
+      note: string;
+      importedByUserId: string;
+      importCount: number;
+      createdAt: Date;
+      importedBy: ReturnType<typeof createUserFixture>;
+    } | null;
+  }> = {}
 ) {
   return {
     id: "secret-inventory-1",
@@ -380,7 +420,7 @@ export function createSecretInventoryFixture(
       importedByUserId: "user-1",
       importCount: 1,
       createdAt: new Date(FIXTURE_TIMESTAMP),
-      importedByUser: createUserFixture(),
+      importedBy: createUserFixture(),
     },
     ...overrides,
   };

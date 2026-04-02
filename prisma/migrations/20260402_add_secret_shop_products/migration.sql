@@ -66,7 +66,7 @@ CREATE TABLE "SecretInventory" (
     "maskedValue" TEXT NOT NULL,
     "encryptedValue" TEXT NOT NULL,
     "status" "SecretInventoryStatus" NOT NULL DEFAULT 'AVAILABLE',
-    "importBatchId" TEXT NOT NULL,
+    "importBatchId" TEXT,
     "soldOrderId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "soldAt" TIMESTAMP(3),
@@ -89,40 +89,28 @@ CREATE TABLE "SecretDeliveryReceipt" (
 CREATE INDEX "CatalogProduct_productType_isActive_idx" ON "CatalogProduct"("productType", "isActive");
 
 -- CreateIndex
-CREATE INDEX "CatalogProduct_createdAt_idx" ON "CatalogProduct"("createdAt");
+CREATE INDEX "SecretImportBatch_productId_idx" ON "SecretImportBatch"("productId");
 
 -- CreateIndex
-CREATE INDEX "SecretImportBatch_productId_createdAt_idx" ON "SecretImportBatch"("productId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "SecretImportBatch_importedByUserId_createdAt_idx" ON "SecretImportBatch"("importedByUserId", "createdAt");
+CREATE INDEX "SecretImportBatch_importedByUserId_idx" ON "SecretImportBatch"("importedByUserId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "SecretInventory_soldOrderId_key" ON "SecretInventory"("soldOrderId");
 
 -- CreateIndex
-CREATE INDEX "SecretInventory_productId_status_createdAt_idx" ON "SecretInventory"("productId", "status", "createdAt");
+CREATE INDEX "SecretInventory_productId_status_idx" ON "SecretInventory"("productId", "status");
 
 -- CreateIndex
 CREATE INDEX "SecretInventory_importBatchId_idx" ON "SecretInventory"("importBatchId");
 
 -- CreateIndex
-CREATE INDEX "SecretInventory_status_idx" ON "SecretInventory"("status");
+CREATE INDEX "PurchaseOrder_buyerAgentId_idx" ON "PurchaseOrder"("buyerAgentId");
 
 -- CreateIndex
-CREATE INDEX "SecretInventory_soldAt_idx" ON "SecretInventory"("soldAt");
+CREATE INDEX "PurchaseOrder_productId_idx" ON "PurchaseOrder"("productId");
 
 -- CreateIndex
-CREATE INDEX "PurchaseOrder_buyerAgentId_createdAt_idx" ON "PurchaseOrder"("buyerAgentId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "PurchaseOrder_productId_createdAt_idx" ON "PurchaseOrder"("productId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "PurchaseOrder_status_createdAt_idx" ON "PurchaseOrder"("status", "createdAt");
-
--- CreateIndex
-CREATE INDEX "PurchaseOrder_buyerAgentId_productId_createdAt_idx" ON "PurchaseOrder"("buyerAgentId", "productId", "createdAt");
+CREATE INDEX "PurchaseOrder_status_idx" ON "PurchaseOrder"("status");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "SecretDeliveryReceipt_orderId_key" ON "SecretDeliveryReceipt"("orderId");
@@ -131,10 +119,7 @@ CREATE UNIQUE INDEX "SecretDeliveryReceipt_orderId_key" ON "SecretDeliveryReceip
 CREATE UNIQUE INDEX "SecretDeliveryReceipt_secretInventoryId_key" ON "SecretDeliveryReceipt"("secretInventoryId");
 
 -- CreateIndex
-CREATE INDEX "SecretDeliveryReceipt_buyerAgentId_deliveredAt_idx" ON "SecretDeliveryReceipt"("buyerAgentId", "deliveredAt");
-
--- CreateIndex
-CREATE INDEX "SecretDeliveryReceipt_deliveredAt_idx" ON "SecretDeliveryReceipt"("deliveredAt");
+CREATE INDEX "SecretDeliveryReceipt_buyerAgentId_idx" ON "SecretDeliveryReceipt"("buyerAgentId");
 
 -- AddForeignKey
 ALTER TABLE "SecretImportBatch" ADD CONSTRAINT "SecretImportBatch_productId_fkey" FOREIGN KEY ("productId") REFERENCES "CatalogProduct"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -152,7 +137,7 @@ ALTER TABLE "PurchaseOrder" ADD CONSTRAINT "PurchaseOrder_productId_fkey" FOREIG
 ALTER TABLE "SecretInventory" ADD CONSTRAINT "SecretInventory_productId_fkey" FOREIGN KEY ("productId") REFERENCES "CatalogProduct"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "SecretInventory" ADD CONSTRAINT "SecretInventory_importBatchId_fkey" FOREIGN KEY ("importBatchId") REFERENCES "SecretImportBatch"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "SecretInventory" ADD CONSTRAINT "SecretInventory_importBatchId_fkey" FOREIGN KEY ("importBatchId") REFERENCES "SecretImportBatch"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SecretInventory" ADD CONSTRAINT "SecretInventory_soldOrderId_fkey" FOREIGN KEY ("soldOrderId") REFERENCES "PurchaseOrder"("id") ON DELETE SET NULL ON UPDATE CASCADE;

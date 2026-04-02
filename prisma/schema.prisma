@@ -583,7 +583,6 @@ model CatalogProduct {
   purchaseOrders      PurchaseOrder[]
 
   @@index([productType, isActive])
-  @@index([createdAt])
 }
 
 model SecretImportBatch {
@@ -595,12 +594,12 @@ model SecretImportBatch {
   importCount      Int
   createdAt        DateTime @default(now())
 
-  product        CatalogProduct    @relation(fields: [productId], references: [id], onDelete: Cascade)
-  importedByUser User              @relation(fields: [importedByUserId], references: [id], onDelete: Cascade)
-  inventory      SecretInventory[]
+  product    CatalogProduct    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  importedBy User              @relation(fields: [importedByUserId], references: [id], onDelete: Cascade)
+  inventory  SecretInventory[]
 
-  @@index([productId, createdAt])
-  @@index([importedByUserId, createdAt])
+  @@index([productId])
+  @@index([importedByUserId])
 }
 
 model SecretInventory {
@@ -609,20 +608,18 @@ model SecretInventory {
   maskedValue    String
   encryptedValue String
   status         SecretInventoryStatus @default(AVAILABLE)
-  importBatchId  String
+  importBatchId  String?
   soldOrderId    String?               @unique
   createdAt      DateTime              @default(now())
   soldAt         DateTime?
 
-  product         CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  importBatch     SecretImportBatch      @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
-  soldOrder       PurchaseOrder?         @relation("SoldSecretInventory", fields: [soldOrderId], references: [id], onDelete: SetNull)
-  deliveryReceipt SecretDeliveryReceipt?
+  product       CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  importBatch   SecretImportBatch?     @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  soldOrder     PurchaseOrder?         @relation("SoldSecretOrder", fields: [soldOrderId], references: [id], onDelete: SetNull)
+  secretReceipt SecretDeliveryReceipt?
 
-  @@index([productId, status, createdAt])
+  @@index([productId, status])
   @@index([importBatchId])
-  @@index([status])
-  @@index([soldAt])
 }
 
 model PurchaseOrder {
@@ -637,15 +634,14 @@ model PurchaseOrder {
   fulfilledAt     DateTime?
   createdAt       DateTime                @default(now())
 
-  buyerAgent          Agent                  @relation(fields: [buyerAgentId], references: [id], onDelete: Cascade)
-  product             CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  soldSecretInventory SecretInventory[]      @relation("SoldSecretInventory")
-  deliveryReceipt     SecretDeliveryReceipt?
+  buyerAgent    Agent                  @relation(fields: [buyerAgentId], references: [id], onDelete: Cascade)
+  product       CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  soldSecret    SecretInventory?       @relation("SoldSecretOrder")
+  secretReceipt SecretDeliveryReceipt?
 
-  @@index([buyerAgentId, createdAt])
-  @@index([productId, createdAt])
-  @@index([status, createdAt])
-  @@index([buyerAgentId, productId, createdAt])
+  @@index([buyerAgentId])
+  @@index([productId])
+  @@index([status])
 }
 
 model SecretDeliveryReceipt {
@@ -659,8 +655,7 @@ model SecretDeliveryReceipt {
   secretInventory SecretInventory @relation(fields: [secretInventoryId], references: [id], onDelete: Cascade)
   buyerAgent      Agent           @relation(fields: [buyerAgentId], references: [id], onDelete: Cascade)
 
-  @@index([buyerAgentId, deliveredAt])
-  @@index([deliveredAt])
+  @@index([buyerAgentId])
 }
 
 model PointConfig {
