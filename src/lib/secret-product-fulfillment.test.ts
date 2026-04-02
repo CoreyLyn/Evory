@@ -37,13 +37,19 @@ test("fulfillSecretCredentialPurchase marks inventory sold and returns the decry
     let orderArgs: Record<string, unknown> | undefined;
     let receiptArgs: Record<string, unknown> | undefined;
     let findUniqueArgs: Record<string, unknown> | undefined;
+    let transactionOptions: Record<string, unknown> | undefined;
 
     const prismaMock = {
       catalogProduct: {
         findUnique: async () => product,
       },
-      $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
-        callback({
+      $transaction: async (
+        callback: (tx: unknown) => Promise<unknown>,
+        options?: Record<string, unknown>
+      ) => {
+        transactionOptions = options;
+
+        return callback({
           secretInventory: {
             findFirst: async () => inventory,
             updateMany: async (args: Record<string, unknown>) => {
@@ -61,6 +67,7 @@ test("fulfillSecretCredentialPurchase marks inventory sold and returns the decry
             },
           },
           purchaseOrder: {
+            count: async () => 0,
             create: async (args: Record<string, unknown>) => {
               orderArgs = args;
               return { id: "order-1", ...(args.data as Record<string, unknown>) };
@@ -81,7 +88,8 @@ test("fulfillSecretCredentialPurchase marks inventory sold and returns the decry
           agentActivity: {
             create: async () => ({ id: "activity-1" }),
           },
-        }),
+        });
+      },
     };
 
     const result = await fulfillSecretCredentialPurchase({
@@ -94,6 +102,7 @@ test("fulfillSecretCredentialPurchase marks inventory sold and returns the decry
     assert.equal(result.delivery.secret, "sk-live-abcdef1234");
     assert.equal((updateArgs?.data as { status?: string })?.status, "SOLD");
     assert.equal((findUniqueArgs?.where as { id?: string })?.id, "secret-1");
+    assert.equal(transactionOptions?.isolationLevel, "Serializable");
     assert.equal((orderArgs?.data as { buyerAgentId?: string })?.buyerAgentId, "agent-1");
     assert.equal(
       (receiptArgs?.data as { secretInventoryId?: string })?.secretInventoryId,
@@ -156,6 +165,7 @@ test("fulfillSecretCredentialPurchase retries when inventory claim loses the rac
             }),
           },
           purchaseOrder: {
+            count: async () => 0,
             create: async () => ({ id: "order-1" }),
           },
           secretDeliveryReceipt: {
@@ -192,6 +202,89 @@ test("fulfillSecretCredentialPurchase retries when inventory claim loses the rac
   }
 });
 
+test("fulfillSecretCredentialPurchase retries when the transaction hits a serialization conflict", async () => {
+  const previousKey = process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
+  process.env.SECRET_INVENTORY_ENCRYPTION_KEY = "test-secret-key";
+
+  try {
+    const encrypted = encryptSecretValue("sk-live-serialize123");
+    const product = createCatalogProductFixture({
+      id: "product-1",
+      name: "Provider Key Pack",
+      price: 200,
+      productType: "SECRET_CREDENTIAL",
+      isActive: true,
+    });
+    const inventory = createSecretInventoryFixture({
+      id: "secret-1",
+      productId: "product-1",
+      encryptedValue: encrypted,
+      maskedValue: "sk-****e123",
+      status: "AVAILABLE",
+    });
+
+    let attempt = 0;
+    const prismaMock = {
+      catalogProduct: {
+        findUnique: async () => product,
+      },
+      $transaction: async (callback: (tx: unknown) => Promise<unknown>) => {
+        attempt += 1;
+
+        if (attempt === 1) {
+          const error = new Error("serialization failure") as Error & { code: string };
+          error.code = "P2034";
+          throw error;
+        }
+
+        return callback({
+          secretInventory: {
+            findFirst: async () => inventory,
+            updateMany: async () => ({ count: 1 }),
+            findUnique: async () => ({
+              ...inventory,
+              status: "SOLD",
+              soldOrderId: "order-1",
+              soldAt: new Date("2026-04-02T00:00:00.000Z"),
+            }),
+          },
+          purchaseOrder: {
+            count: async () => 0,
+            create: async () => ({ id: "order-1" }),
+          },
+          secretDeliveryReceipt: {
+            create: async () => ({ id: "receipt-1" }),
+          },
+          agent: {
+            updateMany: async () => ({ count: 1 }),
+          },
+          pointTransaction: {
+            create: async () => ({ id: "txn-1" }),
+          },
+          agentActivity: {
+            create: async () => ({ id: "activity-1" }),
+          },
+        });
+      },
+    };
+
+    const result = await fulfillSecretCredentialPurchase({
+      agentId: "agent-1",
+      productId: "product-1",
+      prisma: prismaMock as never,
+    });
+
+    assert.equal(result.delivery.type, "secret_credential");
+    assert.equal(attempt, 2);
+  } finally {
+    if (previousKey === undefined) {
+      delete process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
+    } else {
+      process.env.SECRET_INVENTORY_ENCRYPTION_KEY = previousKey;
+    }
+  }
+});
+
 test("fulfillSecretCredentialPurchase throws InsufficientPointsError when deduction fails", async () => {
   const product = createCatalogProductFixture({
     id: "product-1",
@@ -218,6 +311,7 @@ test("fulfillSecretCredentialPurchase throws InsufficientPointsError when deduct
           findUnique: async () => inventory,
         },
         purchaseOrder: {
+          count: async () => 0,
           create: async () => ({ id: "order-1" }),
         },
         secretDeliveryReceipt: {

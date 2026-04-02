@@ -1,4 +1,4 @@
-import { PointActionType } from "@/generated/prisma/client";
+import { Prisma, PointActionType } from "@/generated/prisma/client";
 
 import { decryptSecretValue } from "@/lib/secret-crypto";
 import { deductPoints } from "@/lib/points";
@@ -40,6 +40,15 @@ class InventoryClaimConflictError extends Error {
 }
 
 const MAX_INVENTORY_CLAIM_ATTEMPTS = 5;
+
+function isRetryableTransactionConflict(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "P2034"
+  );
+}
 
 function readFulfillmentRules(value: unknown) {
   const config =
@@ -85,98 +94,103 @@ export async function fulfillSecretCredentialPurchase({
 
   for (let attempt = 0; attempt < MAX_INVENTORY_CLAIM_ATTEMPTS; attempt += 1) {
     try {
-      const result = await db.$transaction(async (tx) => {
-        const fulfilledPurchaseCount =
-          typeof tx.purchaseOrder?.count === "function"
-            ? await tx.purchaseOrder.count({
-                where: {
-                  buyerAgentId: agentId,
-                  productId: product.id,
-                  status: "FULFILLED",
-                },
-              })
-            : 0;
+      const result = await db.$transaction(
+        async (tx) => {
+          const fulfilledPurchaseCount =
+            typeof tx.purchaseOrder?.count === "function"
+              ? await tx.purchaseOrder.count({
+                  where: {
+                    buyerAgentId: agentId,
+                    productId: product.id,
+                    status: "FULFILLED",
+                  },
+                })
+              : 0;
 
-        if (!fulfillmentRules.allowRepeatPurchase && fulfilledPurchaseCount >= 1) {
-          throw new PurchaseLimitExceededError();
+          if (!fulfillmentRules.allowRepeatPurchase && fulfilledPurchaseCount >= 1) {
+            throw new PurchaseLimitExceededError();
+          }
+
+          if (
+            fulfillmentRules.perAgentPurchaseLimit !== null &&
+            fulfilledPurchaseCount >= fulfillmentRules.perAgentPurchaseLimit
+          ) {
+            throw new PurchaseLimitExceededError();
+          }
+
+          const inventory = await tx.secretInventory.findFirst({
+            where: { productId, status: "AVAILABLE" },
+            orderBy: { createdAt: "asc" },
+          });
+
+          if (!inventory) {
+            throw new OutOfStockError();
+          }
+
+          const deducted = await deductPoints(
+            agentId,
+            product.price,
+            PointActionType.SHOP_PURCHASE,
+            product.id,
+            `Purchased: ${product.name}`,
+            tx
+          );
+
+          if (!deducted) {
+            throw new InsufficientPointsError();
+          }
+
+          const order = await tx.purchaseOrder.create({
+            data: {
+              buyerAgentId: agentId,
+              productId: product.id,
+              pricePaid: product.price,
+              currencyType: product.currencyType,
+              status: "FULFILLED",
+              deliveryChannel: "AGENT_CHAT",
+              fulfilledAt: new Date(),
+            },
+          });
+
+          const soldAt = new Date();
+          const claim = await tx.secretInventory.updateMany({
+            where: {
+              id: inventory.id,
+              status: "AVAILABLE",
+            },
+            data: {
+              status: "SOLD",
+              soldOrderId: order.id,
+              soldAt,
+            },
+          });
+
+          if (claim.count !== 1) {
+            throw new InventoryClaimConflictError();
+          }
+
+          const soldInventory = await tx.secretInventory.findUnique({
+            where: { id: inventory.id },
+          });
+
+          if (!soldInventory) {
+            throw new Error("Sold inventory not found");
+          }
+
+          await tx.secretDeliveryReceipt.create({
+            data: {
+              orderId: order.id,
+              secretInventoryId: soldInventory.id,
+              buyerAgentId: agentId,
+            },
+          });
+
+          return { order, inventory: soldInventory };
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
         }
-
-        if (
-          fulfillmentRules.perAgentPurchaseLimit !== null &&
-          fulfilledPurchaseCount >= fulfillmentRules.perAgentPurchaseLimit
-        ) {
-          throw new PurchaseLimitExceededError();
-        }
-
-        const inventory = await tx.secretInventory.findFirst({
-          where: { productId, status: "AVAILABLE" },
-          orderBy: { createdAt: "asc" },
-        });
-
-        if (!inventory) {
-          throw new OutOfStockError();
-        }
-
-        const deducted = await deductPoints(
-          agentId,
-          product.price,
-          PointActionType.SHOP_PURCHASE,
-          product.id,
-          `Purchased: ${product.name}`,
-          tx
-        );
-
-        if (!deducted) {
-          throw new InsufficientPointsError();
-        }
-
-        const order = await tx.purchaseOrder.create({
-          data: {
-            buyerAgentId: agentId,
-            productId: product.id,
-            pricePaid: product.price,
-            currencyType: product.currencyType,
-            status: "FULFILLED",
-            deliveryChannel: "AGENT_CHAT",
-            fulfilledAt: new Date(),
-          },
-        });
-
-        const soldAt = new Date();
-        const claim = await tx.secretInventory.updateMany({
-          where: {
-            id: inventory.id,
-            status: "AVAILABLE",
-          },
-          data: {
-            status: "SOLD",
-            soldOrderId: order.id,
-            soldAt,
-          },
-        });
-
-        if (claim.count !== 1) {
-          throw new InventoryClaimConflictError();
-        }
-
-        const soldInventory = await tx.secretInventory.findUnique({
-          where: { id: inventory.id },
-        });
-
-        if (!soldInventory) {
-          throw new Error("Sold inventory not found");
-        }
-
-        await tx.secretDeliveryReceipt.create({
-          data: {
-            orderId: order.id,
-            secretInventoryId: soldInventory.id,
-            buyerAgentId: agentId,
-          },
-        });
-
-        return { order, inventory: soldInventory };
-      });
+      );
 
       return {
         orderId: result.order.id,
@@ -193,7 +207,7 @@ export async function fulfillSecretCredentialPurchase({
         },
       };
     } catch (error) {
-      if (error instanceof InventoryClaimConflictError) {
+      if (error instanceof InventoryClaimConflictError || isRetryableTransactionConflict(error)) {
         continue;
       }
 
