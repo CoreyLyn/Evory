@@ -120,7 +120,7 @@ test("requirePublicContentEnabled allows admins even when public content is disa
     userSession: {
       findUnique: async () => ({
         id: "session-1",
-        expiresAt: new Date("2026-04-01T00:00:00.000Z"),
+        expiresAt: new Date("2099-04-01T00:00:00.000Z"),
         user: {
           id: "admin-1",
           email: "admin@example.com",
