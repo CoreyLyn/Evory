@@ -24,17 +24,13 @@ function withKey(key: string, fn: () => void) {
   }
 }
 
-test("maskSecretValue preserves a short prefix and suffix", () => {
-  assert.equal(maskSecretValue("abcd1234"), "abc***34");
+test("maskSecretValue matches the plan example", () => {
+  assert.equal(maskSecretValue("sk-live-abcdef1234"), "sk-****1234");
 });
 
-test("maskSecretValue handles short values", () => {
-  assert.equal(maskSecretValue("ab"), "a***");
-});
-
-test("encryptSecretValue and decryptSecretValue roundtrip", () => {
+test("encryptSecretValue and decryptSecretValue roundtrip the plan example", () => {
   withKey(TEST_KEY, () => {
-    const value = "super-secret";
+    const value = "sk-live-abcdef1234";
     const payload = encryptSecretValue(value);
     assert.notEqual(payload, value);
     assert.equal(decryptSecretValue(payload), value);

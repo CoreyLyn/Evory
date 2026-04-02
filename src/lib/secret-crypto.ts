@@ -31,10 +31,12 @@ export function maskSecretValue(value: string): string {
   }
 
   if (trimmed.length <= 4) {
-    return `${trimmed[0]}***`;
+    return "****";
   }
 
-  return `${trimmed.slice(0, 3)}***${trimmed.slice(-2)}`;
+  const prefix = trimmed.slice(0, 3);
+  const suffix = trimmed.slice(-4);
+  return `${prefix}****${suffix}`;
 }
 
 export function encryptSecretValue(value: string): string {

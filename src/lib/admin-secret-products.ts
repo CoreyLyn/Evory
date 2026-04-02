@@ -4,21 +4,14 @@ export type AdminSecretProductInput = {
   productType: "SECRET_CREDENTIAL";
   price: number;
   isActive: boolean;
-  displayConfig: {
-    providerLabel: string;
-    usageInstructions: string;
-  };
-  fulfillmentConfig: {
-    repeatPurchasePolicy: string;
-    perAgentPurchaseLimit: number | null;
-  };
+  displayConfig: Record<string, unknown>;
+  fulfillmentConfig: Record<string, unknown>;
 };
 
 export type AdminSecretInventoryImportInput = {
-  productId: string;
   sourceLabel: string;
   note: string;
-  values: string[];
+  secrets: string[];
 };
 
 export class AdminSecretProductValidationError extends Error {}
@@ -42,18 +35,16 @@ export function parseAdminSecretProductInput(
     typeof input.productType === "string"
       ? input.productType.trim()
       : input.productType;
-  const providerLabel =
-    typeof input.providerLabel === "string" ? input.providerLabel.trim() : "";
-  const usageInstructions =
-    typeof input.usageInstructions === "string"
-      ? input.usageInstructions.trim()
-      : "";
-  const repeatPurchasePolicy =
-    typeof input.repeatPurchasePolicy === "string"
-      ? input.repeatPurchasePolicy.trim()
-      : "";
   const { price, isActive } = input;
-  const perAgentPurchaseLimit = input.perAgentPurchaseLimit;
+  const displayConfig =
+    typeof input.displayConfig === "object" && input.displayConfig !== null
+      ? (input.displayConfig as Record<string, unknown>)
+      : null;
+  const fulfillmentConfig =
+    typeof input.fulfillmentConfig === "object" &&
+    input.fulfillmentConfig !== null
+      ? (input.fulfillmentConfig as Record<string, unknown>)
+      : null;
 
   if (!name) {
     validationError("name is required");
@@ -71,28 +62,12 @@ export function parseAdminSecretProductInput(
     validationError("isActive is required");
   }
 
-  if (!providerLabel) {
-    validationError("providerLabel is required");
+  if (!displayConfig) {
+    validationError("displayConfig is required");
   }
 
-  if (!usageInstructions) {
-    validationError("usageInstructions is required");
-  }
-
-  if (!repeatPurchasePolicy) {
-    validationError("repeatPurchasePolicy is required");
-  }
-
-  let parsedLimit: number | null = null;
-  if (perAgentPurchaseLimit !== undefined && perAgentPurchaseLimit !== null) {
-    if (
-      typeof perAgentPurchaseLimit !== "number" ||
-      !Number.isInteger(perAgentPurchaseLimit) ||
-      perAgentPurchaseLimit < 1
-    ) {
-      validationError("perAgentPurchaseLimit must be a positive integer");
-    }
-    parsedLimit = perAgentPurchaseLimit;
+  if (!fulfillmentConfig) {
+    validationError("fulfillmentConfig is required");
   }
 
   return {
@@ -101,14 +76,8 @@ export function parseAdminSecretProductInput(
     productType: "SECRET_CREDENTIAL",
     price,
     isActive,
-    displayConfig: {
-      providerLabel,
-      usageInstructions,
-    },
-    fulfillmentConfig: {
-      repeatPurchasePolicy,
-      perAgentPurchaseLimit: parsedLimit,
-    },
+    displayConfig,
+    fulfillmentConfig,
   };
 }
 
@@ -120,36 +89,36 @@ export function parseAdminSecretInventoryImportInput(
   }
 
   const input = body as Record<string, unknown>;
-  const productId =
-    typeof input.productId === "string" ? input.productId.trim() : "";
   const sourceLabel =
     typeof input.sourceLabel === "string" ? input.sourceLabel.trim() : "";
   const note = typeof input.note === "string" ? input.note.trim() : "";
-  const valuesRaw = typeof input.values === "string" ? input.values : "";
-
-  if (!productId) {
-    validationError("productId is required");
-  }
+  const secretsRaw = typeof input.secrets === "string" ? input.secrets : "";
 
   if (!sourceLabel) {
     validationError("sourceLabel is required");
   }
 
-  const values = valuesRaw.split(/\r?\n/).map((value) => value.trim());
+  const secrets = secretsRaw
+    .split(/\r?\n/)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
 
-  if (values.some((value) => !value)) {
-    validationError("values must not include empty lines");
+  if (secrets.length === 0) {
+    validationError("secrets is required");
   }
 
-  const seen = new Set(values);
-  if (seen.size !== values.length) {
-    validationError("values must not include duplicate entries");
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+  for (const value of secrets) {
+    if (!seen.has(value)) {
+      seen.add(value);
+      deduped.push(value);
+    }
   }
 
   return {
-    productId,
     sourceLabel,
     note,
-    values,
+    secrets: deduped,
   };
 }

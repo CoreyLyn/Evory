@@ -13,10 +13,14 @@ test("parseAdminSecretProductInput trims strings and accepts valid values", () =
     productType: " SECRET_CREDENTIAL ",
     price: 150,
     isActive: true,
-    providerLabel: "  Acme  ",
-    usageInstructions: "  Paste into your console  ",
-    repeatPurchasePolicy: "  ALLOW  ",
-    perAgentPurchaseLimit: 2,
+    displayConfig: {
+      providerLabel: "  Acme  ",
+      usageInstructions: "  Paste into your console  ",
+    },
+    fulfillmentConfig: {
+      repeatPurchasePolicy: "  ALLOW  ",
+      perAgentPurchaseLimit: 2,
+    },
   });
 
   assert.deepEqual(parsed, {
@@ -26,11 +30,11 @@ test("parseAdminSecretProductInput trims strings and accepts valid values", () =
     price: 150,
     isActive: true,
     displayConfig: {
-      providerLabel: "Acme",
-      usageInstructions: "Paste into your console",
+      providerLabel: "  Acme  ",
+      usageInstructions: "  Paste into your console  ",
     },
     fulfillmentConfig: {
-      repeatPurchasePolicy: "ALLOW",
+      repeatPurchasePolicy: "  ALLOW  ",
       perAgentPurchaseLimit: 2,
     },
   });
@@ -45,52 +49,40 @@ test("parseAdminSecretProductInput rejects non-secret product types", () => {
         productType: "COSMETIC",
         price: 150,
         isActive: true,
-        providerLabel: "Acme",
-        usageInstructions: "Use as directed",
-        repeatPurchasePolicy: "ALLOW",
+        displayConfig: {
+          providerLabel: "Acme",
+          usageInstructions: "Use as directed",
+        },
+        fulfillmentConfig: {
+          repeatPurchasePolicy: "ALLOW",
+        },
       }),
     /productType/
   );
 });
 
-test("parseAdminSecretInventoryImportInput trims values and accepts valid payloads", () => {
+test("parseAdminSecretInventoryImportInput trims and dedupes secrets", () => {
   const parsed = parseAdminSecretInventoryImportInput({
-    productId: "  prod_123  ",
     sourceLabel: "  April batch  ",
     note: "  initial load  ",
-    values: "  alpha  \n beta\nCHARLIE ",
+    secrets: "  alpha  \n beta\nCHARLIE \nalpha\n",
   });
 
   assert.deepEqual(parsed, {
-    productId: "prod_123",
     sourceLabel: "April batch",
     note: "initial load",
-    values: ["alpha", "beta", "CHARLIE"],
+    secrets: ["alpha", "beta", "CHARLIE"],
   });
 });
 
-test("parseAdminSecretInventoryImportInput rejects empty lines", () => {
+test("parseAdminSecretInventoryImportInput rejects empty payloads", () => {
   assert.throws(
     () =>
       parseAdminSecretInventoryImportInput({
-        productId: "prod_123",
         sourceLabel: "April batch",
         note: "",
-        values: "alpha\n\nbeta",
+        secrets: "   \n  ",
       }),
-    /empty/
-  );
-});
-
-test("parseAdminSecretInventoryImportInput rejects duplicate values", () => {
-  assert.throws(
-    () =>
-      parseAdminSecretInventoryImportInput({
-        productId: "prod_123",
-        sourceLabel: "April batch",
-        note: "",
-        values: "alpha\nalpha",
-      }),
-    /duplicate/
+    /secrets/
   );
 });
