@@ -26,6 +26,10 @@ export function maskSecretValue(value: string): string {
     return "****";
   }
 
+  if (trimmed.length <= 7) {
+    return `${trimmed[0]}****${trimmed[trimmed.length - 1]}`;
+  }
+
   const prefix = trimmed.slice(0, 3);
   const suffix = trimmed.slice(-4);
   return `${prefix}****${suffix}`;

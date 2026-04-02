@@ -28,6 +28,12 @@ test("maskSecretValue matches the plan example", () => {
   assert.equal(maskSecretValue("sk-live-abcdef1234"), "sk-****1234");
 });
 
+test("maskSecretValue does not reveal overlapping characters for short values", () => {
+  assert.equal(maskSecretValue("abcde"), "a****e");
+  assert.equal(maskSecretValue("abcdef"), "a****f");
+  assert.equal(maskSecretValue("abcdefg"), "a****g");
+});
+
 test("encryptSecretValue and decryptSecretValue roundtrip the plan example", () => {
   withKey(TEST_KEY, () => {
     const value = "sk-live-abcdef1234";
