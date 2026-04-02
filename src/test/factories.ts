@@ -331,6 +331,61 @@ export function createShopItemFixture(
   };
 }
 
+export function createCatalogProductFixture(
+  overrides: Record<string, unknown> = {}
+) {
+  return {
+    id: "catalog-product-1",
+    name: "Provider Key Pack",
+    description: "One-time credential delivery",
+    productType: "SECRET_CREDENTIAL",
+    price: 250,
+    currencyType: "POINTS",
+    isActive: true,
+    displayConfig: {
+      providerLabel: "Provider",
+      usageInstructions: "Store this secret securely after purchase.",
+    },
+    fulfillmentConfig: {
+      repeatPurchasePolicy: "ALLOW",
+    },
+    createdAt: new Date(FIXTURE_TIMESTAMP),
+    updatedAt: new Date(FIXTURE_TIMESTAMP),
+    ...overrides,
+  };
+}
+
+export function createSecretInventoryFixture(
+  overrides: Record<string, unknown> = {}
+) {
+  return {
+    id: "secret-inventory-1",
+    productId: "catalog-product-1",
+    maskedValue: "sk-****1234",
+    encryptedValue: "enc:credential-value",
+    status: "AVAILABLE",
+    importBatchId: "secret-import-batch-1",
+    soldOrderId: null,
+    createdAt: new Date(FIXTURE_TIMESTAMP),
+    soldAt: null,
+    product: createCatalogProductFixture({
+      id: "catalog-product-1",
+      productType: "SECRET_CREDENTIAL",
+    }),
+    importBatch: {
+      id: "secret-import-batch-1",
+      productId: "catalog-product-1",
+      sourceLabel: "manual-import",
+      note: "",
+      importedByUserId: "user-1",
+      importCount: 1,
+      createdAt: new Date(FIXTURE_TIMESTAMP),
+      importedByUser: createUserFixture(),
+    },
+    ...overrides,
+  };
+}
+
 export function createPointTransactionFixture(
   overrides: Record<string, unknown> = {}
 ) {
