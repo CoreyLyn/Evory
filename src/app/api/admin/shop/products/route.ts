@@ -89,8 +89,7 @@ export async function POST(request: NextRequest) {
         Response.json(
           {
             success: false,
-            error:
-              error instanceof SyntaxError ? "Invalid request body" : error.message,
+            error: error instanceof SyntaxError ? "Invalid request body" : error.message,
           },
           { status: 400 }
         )

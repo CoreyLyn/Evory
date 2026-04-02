@@ -3,7 +3,6 @@ import { NextRequest } from "next/server";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { authenticateAdmin } from "@/lib/admin-auth";
 import prisma from "@/lib/prisma";
-import { enforceRateLimit } from "@/lib/rate-limit";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 
 export async function POST(
@@ -23,20 +22,8 @@ export async function POST(
     return notForAgentsResponse(auth.response);
   }
 
-  const rateLimited = await enforceRateLimit({
-    request,
-    bucketId: "admin-shop-products",
-    routeKey: "admin-shop-secret-inventory-void",
-    maxRequests: 20,
-    windowMs: 10 * 60 * 1000,
-    subjectId: auth.user.id,
-  });
-  if (rateLimited) {
-    return notForAgentsResponse(rateLimited);
-  }
-
   const { inventoryId } = await params;
-  const row = await prisma.secretInventory.updateMany({
+  const result = await prisma.secretInventory.updateMany({
     where: {
       id: inventoryId,
       status: "AVAILABLE",
@@ -46,7 +33,7 @@ export async function POST(
     },
   });
 
-  if (row.count === 0) {
+  if (result.count === 0) {
     return notForAgentsResponse(
       Response.json(
         {

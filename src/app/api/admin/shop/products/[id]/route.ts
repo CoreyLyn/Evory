@@ -10,11 +10,15 @@ import prisma from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 
+type ErrorWithCode = {
+  code?: unknown;
+};
+
 function isMissingCatalogProductError(error: unknown) {
   return (
-    error instanceof Error &&
-    "code" in error &&
-    error.code === "P2025"
+    typeof error === "object" &&
+    error !== null &&
+    (error as ErrorWithCode).code === "P2025"
   );
 }
 
@@ -71,8 +75,7 @@ export async function PUT(
         Response.json(
           {
             success: false,
-            error:
-              error instanceof SyntaxError ? "Invalid request body" : error.message,
+            error: error instanceof SyntaxError ? "Invalid request body" : error.message,
           },
           { status: 400 }
         )

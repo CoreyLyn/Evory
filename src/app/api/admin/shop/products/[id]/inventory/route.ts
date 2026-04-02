@@ -31,7 +31,6 @@ export async function POST(
 
   try {
     const payload = parseAdminSecretInventoryImportInput(await request.json());
-
     const batch = await prisma.$transaction(async (tx) => {
       const importBatch = await tx.secretImportBatch.create({
         data: {
@@ -73,8 +72,7 @@ export async function POST(
         Response.json(
           {
             success: false,
-            error:
-              error instanceof SyntaxError ? "Invalid request body" : error.message,
+            error: error instanceof SyntaxError ? "Invalid request body" : error.message,
           },
           { status: 400 }
         )
