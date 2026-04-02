@@ -12,6 +12,7 @@ import { PointActionType } from "@/generated/prisma/client";
 import { deductPoints } from "@/lib/points";
 import {
   fulfillSecretCredentialPurchase,
+  InsufficientPointsError as SecretProductInsufficientPointsError,
   OutOfStockError,
   ProductNotFoundError,
 } from "@/lib/secret-product-fulfillment";
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
           ));
         }
 
-        if (err instanceof Error && err.message === "Insufficient points") {
+        if (err instanceof SecretProductInsufficientPointsError) {
           return notForAgentsResponse(Response.json(
             { success: false, error: err.message },
             { status: 400 }

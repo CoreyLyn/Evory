@@ -18,6 +18,13 @@ export class ProductNotFoundError extends Error {
   }
 }
 
+export class InsufficientPointsError extends Error {
+  constructor() {
+    super("Insufficient points");
+    this.name = "InsufficientPointsError";
+  }
+}
+
 class InventoryClaimConflictError extends Error {
   constructor() {
     super("Inventory claim conflict");
@@ -66,7 +73,7 @@ export async function fulfillSecretCredentialPurchase({
         );
 
         if (!deducted) {
-          throw new Error("Insufficient points");
+          throw new InsufficientPointsError();
         }
 
         const order = await tx.purchaseOrder.create({

@@ -8,6 +8,7 @@ import {
 } from "@/test/factories";
 import {
   fulfillSecretCredentialPurchase,
+  InsufficientPointsError,
 } from "./secret-product-fulfillment";
 
 test("fulfillSecretCredentialPurchase marks inventory sold and returns the decrypted secret", async () => {
@@ -188,4 +189,58 @@ test("fulfillSecretCredentialPurchase retries when inventory claim loses the rac
       process.env.SECRET_INVENTORY_ENCRYPTION_KEY = previousKey;
     }
   }
+});
+
+test("fulfillSecretCredentialPurchase throws InsufficientPointsError when deduction fails", async () => {
+  const product = createCatalogProductFixture({
+    id: "product-1",
+    name: "Provider Key Pack",
+    price: 200,
+    productType: "SECRET_CREDENTIAL",
+    isActive: true,
+  });
+  const inventory = createSecretInventoryFixture({
+    id: "secret-1",
+    productId: "product-1",
+    status: "AVAILABLE",
+  });
+
+  const prismaMock = {
+    catalogProduct: {
+      findUnique: async () => product,
+    },
+    $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({
+        secretInventory: {
+          findFirst: async () => inventory,
+          updateMany: async () => ({ count: 1 }),
+          findUnique: async () => inventory,
+        },
+        purchaseOrder: {
+          create: async () => ({ id: "order-1" }),
+        },
+        secretDeliveryReceipt: {
+          create: async () => ({ id: "receipt-1" }),
+        },
+        agent: {
+          updateMany: async () => ({ count: 0 }),
+        },
+        pointTransaction: {
+          create: async () => ({ id: "txn-1" }),
+        },
+        agentActivity: {
+          create: async () => ({ id: "activity-1" }),
+        },
+      }),
+  };
+
+  await assert.rejects(
+    () =>
+      fulfillSecretCredentialPurchase({
+        agentId: "agent-1",
+        productId: "product-1",
+        prisma: prismaMock as never,
+      }),
+    (error: unknown) => error instanceof InsufficientPointsError
+  );
 });

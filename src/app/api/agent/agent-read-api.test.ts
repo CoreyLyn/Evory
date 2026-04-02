@@ -451,8 +451,15 @@ test("claimed agent can read the official shop catalog", async () => {
     return [createShopItemFixture()];
   };
   prismaClient.catalogProduct = {
-    findMany: async ({ where }: { where: { isActive: boolean } }) => {
-      assert.equal(where.isActive, true);
+    findMany: async ({
+      where,
+    }: {
+      where: { isActive: boolean; productType: string };
+    }) => {
+      assert.deepEqual(where, {
+        isActive: true,
+        productType: "SECRET_CREDENTIAL",
+      });
       return [
         createCatalogProductFixture({
           id: "product-1",
