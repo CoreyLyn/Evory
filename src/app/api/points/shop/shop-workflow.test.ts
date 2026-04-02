@@ -6,13 +6,16 @@ import {
   createAgentCredentialFixture,
   createAgentFixture,
   createAvatarConfigFixture,
+  createCatalogProductFixture,
   createSecurityEventFixture,
+  createSecretInventoryFixture,
   createShopItemFixture,
 } from "@/test/factories";
 import { resetRateLimitStore } from "@/lib/rate-limit";
 import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteRequest } from "@/test/request-helpers";
 import { hashApiKey } from "@/lib/auth";
+import { encryptSecretValue } from "@/lib/secret-crypto";
 import { POST as purchaseItem } from "./purchase/route";
 import { PUT as equipItem } from "@/app/api/agents/me/equipment/route";
 
@@ -53,6 +56,19 @@ type ShopPrismaMock = {
   dailyCheckin: {
     findUnique: AsyncMethod;
   };
+  catalogProduct?: {
+    findUnique: AsyncMethod;
+  };
+  secretInventory?: {
+    findFirst: AsyncMethod;
+    update: AsyncMethod;
+  };
+  purchaseOrder?: {
+    create: AsyncMethod;
+  };
+  secretDeliveryReceipt?: {
+    create: AsyncMethod;
+  };
   $transaction: (input: unknown) => Promise<unknown>;
 };
 
@@ -73,6 +89,11 @@ const originalMethods = {
   pointTransactionCreate: prismaClient.pointTransaction.create,
   dailyCheckinFindUnique: prismaClient.dailyCheckin.findUnique,
   securityEventCreate: prismaClient.securityEvent?.create,
+  catalogProductFindUnique: prismaClient.catalogProduct?.findUnique,
+  secretInventoryFindFirst: prismaClient.secretInventory?.findFirst,
+  secretInventoryUpdate: prismaClient.secretInventory?.update,
+  purchaseOrderCreate: prismaClient.purchaseOrder?.create,
+  secretDeliveryReceiptCreate: prismaClient.secretDeliveryReceipt?.create,
   rateLimitCounter: prismaClient.rateLimitCounter,
   transaction: prismaClient.$transaction,
 };
@@ -110,6 +131,36 @@ afterEach(async () => {
   prismaClient.dailyCheckin.findUnique = originalMethods.dailyCheckinFindUnique;
   if (prismaClient.securityEvent && originalMethods.securityEventCreate) {
     prismaClient.securityEvent.create = originalMethods.securityEventCreate;
+  }
+  if (prismaClient.catalogProduct && originalMethods.catalogProductFindUnique) {
+    prismaClient.catalogProduct.findUnique =
+      originalMethods.catalogProductFindUnique;
+  } else {
+    prismaClient.catalogProduct = undefined;
+  }
+  if (prismaClient.secretInventory && originalMethods.secretInventoryFindFirst) {
+    prismaClient.secretInventory.findFirst =
+      originalMethods.secretInventoryFindFirst;
+  }
+  if (prismaClient.secretInventory && originalMethods.secretInventoryUpdate) {
+    prismaClient.secretInventory.update =
+      originalMethods.secretInventoryUpdate;
+  } else {
+    prismaClient.secretInventory = undefined;
+  }
+  if (prismaClient.purchaseOrder && originalMethods.purchaseOrderCreate) {
+    prismaClient.purchaseOrder.create = originalMethods.purchaseOrderCreate;
+  } else {
+    prismaClient.purchaseOrder = undefined;
+  }
+  if (
+    prismaClient.secretDeliveryReceipt &&
+    originalMethods.secretDeliveryReceiptCreate
+  ) {
+    prismaClient.secretDeliveryReceipt.create =
+      originalMethods.secretDeliveryReceiptCreate;
+  } else {
+    prismaClient.secretDeliveryReceipt = undefined;
   }
   prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.$transaction = originalMethods.transaction;
@@ -208,6 +259,99 @@ test("purchase deducts points and creates inventory atomically", async () => {
   assert.equal(transactionCalls, 1);
   assert.equal(pointTransactions.length, 1);
   assert.equal(json.data.item.name, "Crown");
+});
+
+test("purchase fulfills secret credential products via productId", async () => {
+  const previousKey = process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
+  process.env.SECRET_INVENTORY_ENCRYPTION_KEY = "test-secret-key";
+
+  try {
+    const encrypted = encryptSecretValue("sk-live-abcdef1234");
+
+    mockAgentCredential("agent-key", {
+      id: "agent-1",
+      points: 120,
+      avatarConfig: createAvatarConfigFixture(),
+    });
+
+    prismaClient.catalogProduct = {
+      findUnique: async () =>
+        createCatalogProductFixture({
+          id: "product-1",
+          name: "Provider Key Pack",
+          productType: "SECRET_CREDENTIAL",
+          price: 100,
+        }),
+    };
+    prismaClient.secretInventory = {
+      findFirst: async () =>
+        createSecretInventoryFixture({
+          id: "secret-1",
+          productId: "product-1",
+          encryptedValue: encrypted,
+          maskedValue: "sk-****1234",
+          status: "AVAILABLE",
+        }),
+      update: async ({ data }: { data: Record<string, unknown> }) => ({
+        ...createSecretInventoryFixture({
+          id: "secret-1",
+          productId: "product-1",
+          encryptedValue: encrypted,
+          maskedValue: "sk-****1234",
+          status: "AVAILABLE",
+        }),
+        ...data,
+      }),
+    };
+    prismaClient.purchaseOrder = {
+      create: async () => ({ id: "order-1" }),
+    };
+    prismaClient.secretDeliveryReceipt = {
+      create: async () => ({ id: "receipt-1" }),
+    };
+
+    prismaClient.$transaction = async (input) => {
+      if (typeof input !== "function") {
+        throw new Error("Expected transaction callback");
+      }
+
+      return input({
+        secretInventory: prismaClient.secretInventory,
+        purchaseOrder: prismaClient.purchaseOrder,
+        secretDeliveryReceipt: prismaClient.secretDeliveryReceipt,
+        agent: {
+          updateMany: async () => ({ count: 1 }),
+        },
+        pointTransaction: {
+          create: async () => ({ id: "txn-1" }),
+        },
+        agentActivity: {
+          create: async () => ({}),
+        },
+      });
+    };
+
+    const response = await purchaseItem(
+      createRouteRequest("http://localhost/api/points/shop/purchase", {
+        method: "POST",
+        apiKey: "agent-key",
+        json: {
+          productId: "product-1",
+        },
+      })
+    );
+    const json = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(json.data.delivery.type, "secret_credential");
+    assert.match(json.data.delivery.secret, /^sk-live-/);
+  } finally {
+    if (previousKey === undefined) {
+      delete process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
+    } else {
+      process.env.SECRET_INVENTORY_ENCRYPTION_KEY = previousKey;
+    }
+  }
 });
 
 test("purchase rejects credentials missing points:shop scope", async () => {
