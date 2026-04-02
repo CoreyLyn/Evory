@@ -56,7 +56,22 @@ CREATE TABLE "PurchaseOrder" (
     "fulfilledAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "PurchaseOrder_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "PurchaseOrder_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "PurchaseOrder_status_fields_check" CHECK (
+        (
+            "status" = 'PENDING'
+            AND "fulfilledAt" IS NULL
+            AND "failureReason" IS NULL
+        ) OR (
+            "status" = 'FULFILLED'
+            AND "fulfilledAt" IS NOT NULL
+            AND "failureReason" IS NULL
+        ) OR (
+            "status" = 'FAILED'
+            AND "fulfilledAt" IS NULL
+            AND "failureReason" IS NOT NULL
+        )
+    )
 );
 
 -- CreateTable
@@ -71,7 +86,18 @@ CREATE TABLE "SecretInventory" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "soldAt" TIMESTAMP(3),
 
-    CONSTRAINT "SecretInventory_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "SecretInventory_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "SecretInventory_sold_state_check" CHECK (
+        (
+            "status" = 'SOLD'
+            AND "soldOrderId" IS NOT NULL
+            AND "soldAt" IS NOT NULL
+        ) OR (
+            "status" <> 'SOLD'
+            AND "soldOrderId" IS NULL
+            AND "soldAt" IS NULL
+        )
+    )
 );
 
 -- CreateTable

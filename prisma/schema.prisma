@@ -613,6 +613,7 @@ model SecretInventory {
   createdAt      DateTime              @default(now())
   soldAt         DateTime?
 
+  // SQL migration CHECK constraints enforce sold-state consistency.
   product       CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
   importBatch   SecretImportBatch?     @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
   soldOrder     PurchaseOrder?         @relation("SoldSecretOrder", fields: [soldOrderId], references: [id], onDelete: SetNull)
@@ -634,6 +635,7 @@ model PurchaseOrder {
   fulfilledAt     DateTime?
   createdAt       DateTime                @default(now())
 
+  // SQL migration CHECK constraints enforce status-specific fulfillment fields.
   buyerAgent    Agent                  @relation(fields: [buyerAgentId], references: [id], onDelete: Cascade)
   product       CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
   soldSecret    SecretInventory?       @relation("SoldSecretOrder")
