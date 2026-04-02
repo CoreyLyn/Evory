@@ -20,6 +20,18 @@ function validationError(message: string): never {
   throw new AdminSecretProductValidationError(message);
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 export function parseAdminSecretProductInput(
   body: unknown
 ): AdminSecretProductInput {
@@ -36,15 +48,12 @@ export function parseAdminSecretProductInput(
       ? input.productType.trim()
       : input.productType;
   const { price, isActive } = input;
-  const displayConfig =
-    typeof input.displayConfig === "object" && input.displayConfig !== null
-      ? (input.displayConfig as Record<string, unknown>)
-      : null;
-  const fulfillmentConfig =
-    typeof input.fulfillmentConfig === "object" &&
-    input.fulfillmentConfig !== null
-      ? (input.fulfillmentConfig as Record<string, unknown>)
-      : null;
+  const displayConfig = isPlainObject(input.displayConfig)
+    ? input.displayConfig
+    : null;
+  const fulfillmentConfig = isPlainObject(input.fulfillmentConfig)
+    ? input.fulfillmentConfig
+    : null;
 
   if (!name) {
     validationError("name is required");
@@ -68,6 +77,33 @@ export function parseAdminSecretProductInput(
 
   if (!fulfillmentConfig) {
     validationError("fulfillmentConfig is required");
+  }
+
+  if (!isNonEmptyString(displayConfig.providerLabel)) {
+    validationError("displayConfig.providerLabel is required");
+  }
+
+  if (!isNonEmptyString(displayConfig.usageInstructions)) {
+    validationError("displayConfig.usageInstructions is required");
+  }
+
+  if (!isNonEmptyString(fulfillmentConfig.repeatPurchasePolicy)) {
+    validationError("fulfillmentConfig.repeatPurchasePolicy is required");
+  }
+
+  if (
+    fulfillmentConfig.perAgentPurchaseLimit !== undefined &&
+    fulfillmentConfig.perAgentPurchaseLimit !== null
+  ) {
+    if (
+      typeof fulfillmentConfig.perAgentPurchaseLimit !== "number" ||
+      !Number.isInteger(fulfillmentConfig.perAgentPurchaseLimit) ||
+      fulfillmentConfig.perAgentPurchaseLimit < 1
+    ) {
+      validationError(
+        "fulfillmentConfig.perAgentPurchaseLimit must be a positive integer"
+      );
+    }
   }
 
   return {

@@ -61,6 +61,107 @@ test("parseAdminSecretProductInput rejects non-secret product types", () => {
   );
 });
 
+test("parseAdminSecretProductInput rejects non-object displayConfig", () => {
+  assert.throws(
+    () =>
+      parseAdminSecretProductInput({
+        name: "API Key",
+        description: "",
+        productType: "SECRET_CREDENTIAL",
+        price: 150,
+        isActive: true,
+        displayConfig: ["Acme"],
+        fulfillmentConfig: {
+          repeatPurchasePolicy: "ALLOW",
+        },
+      }),
+    /displayConfig/
+  );
+});
+
+test("parseAdminSecretProductInput rejects non-object fulfillmentConfig", () => {
+  assert.throws(
+    () =>
+      parseAdminSecretProductInput({
+        name: "API Key",
+        description: "",
+        productType: "SECRET_CREDENTIAL",
+        price: 150,
+        isActive: true,
+        displayConfig: {
+          providerLabel: "Acme",
+          usageInstructions: "Use as directed",
+        },
+        fulfillmentConfig: ["ALLOW"],
+      }),
+    /fulfillmentConfig/
+  );
+});
+
+test("parseAdminSecretProductInput rejects missing displayConfig fields", () => {
+  assert.throws(
+    () =>
+      parseAdminSecretProductInput({
+        name: "API Key",
+        description: "",
+        productType: "SECRET_CREDENTIAL",
+        price: 150,
+        isActive: true,
+        displayConfig: {
+          providerLabel: "",
+          usageInstructions: "Use as directed",
+        },
+        fulfillmentConfig: {
+          repeatPurchasePolicy: "ALLOW",
+        },
+      }),
+    /providerLabel/
+  );
+});
+
+test("parseAdminSecretProductInput rejects missing fulfillmentConfig fields", () => {
+  assert.throws(
+    () =>
+      parseAdminSecretProductInput({
+        name: "API Key",
+        description: "",
+        productType: "SECRET_CREDENTIAL",
+        price: 150,
+        isActive: true,
+        displayConfig: {
+          providerLabel: "Acme",
+          usageInstructions: "Use as directed",
+        },
+        fulfillmentConfig: {
+          repeatPurchasePolicy: "",
+        },
+      }),
+    /repeatPurchasePolicy/
+  );
+});
+
+test("parseAdminSecretProductInput rejects invalid perAgentPurchaseLimit", () => {
+  assert.throws(
+    () =>
+      parseAdminSecretProductInput({
+        name: "API Key",
+        description: "",
+        productType: "SECRET_CREDENTIAL",
+        price: 150,
+        isActive: true,
+        displayConfig: {
+          providerLabel: "Acme",
+          usageInstructions: "Use as directed",
+        },
+        fulfillmentConfig: {
+          repeatPurchasePolicy: "ALLOW",
+          perAgentPurchaseLimit: 0,
+        },
+      }),
+    /perAgentPurchaseLimit/
+  );
+});
+
 test("parseAdminSecretInventoryImportInput trims and dedupes secrets", () => {
   const parsed = parseAdminSecretInventoryImportInput({
     sourceLabel: "  April batch  ",

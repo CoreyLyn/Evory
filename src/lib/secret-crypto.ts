@@ -44,23 +44,38 @@ export function encryptSecretValue(value: string): string {
 }
 
 export function decryptSecretValue(payload: string): string {
+  const invalidPayloadError = new Error("Invalid secret payload");
   const [ivPart, tagPart, dataPart, extra] = payload.split(".");
   if (!ivPart || !tagPart || !dataPart || extra) {
-    throw new Error("Invalid secret payload");
+    throw invalidPayloadError;
   }
 
-  const iv = Buffer.from(ivPart, "base64");
-  if (iv.length !== IV_LENGTH) {
-    throw new Error("Invalid secret payload");
+  let iv: Buffer;
+  let tag: Buffer;
+  let encrypted: Buffer;
+  try {
+    iv = Buffer.from(ivPart, "base64");
+    tag = Buffer.from(tagPart, "base64");
+    encrypted = Buffer.from(dataPart, "base64");
+  } catch {
+    throw invalidPayloadError;
   }
 
-  const tag = Buffer.from(tagPart, "base64");
-  const encrypted = Buffer.from(dataPart, "base64");
-  const decipher = createDecipheriv("aes-256-gcm", getEncryptionKey(), iv);
-  decipher.setAuthTag(tag);
+  if (iv.length !== IV_LENGTH || tag.length !== 16 || encrypted.length === 0) {
+    throw invalidPayloadError;
+  }
 
-  return Buffer.concat([
-    decipher.update(encrypted),
-    decipher.final(),
-  ]).toString("utf8");
+  const key = getEncryptionKey();
+
+  try {
+    const decipher = createDecipheriv("aes-256-gcm", key, iv);
+    decipher.setAuthTag(tag);
+
+    return Buffer.concat([
+      decipher.update(encrypted),
+      decipher.final(),
+    ]).toString("utf8");
+  } catch {
+    throw invalidPayloadError;
+  }
 }

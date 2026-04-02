@@ -50,6 +50,47 @@ test("decryptSecretValue rejects payloads encrypted with another key", () => {
   });
 });
 
+test("decryptSecretValue rejects malformed payloads with a stable error", () => {
+  withKey(TEST_KEY, () => {
+    assert.throws(() => decryptSecretValue("nope"), /Invalid secret payload/);
+    assert.throws(
+      () => decryptSecretValue("a.b.c.d"),
+      /Invalid secret payload/
+    );
+    assert.throws(
+      () =>
+        decryptSecretValue(
+          [
+            Buffer.alloc(12, 1).toString("base64"),
+            Buffer.alloc(8, 2).toString("base64"),
+            Buffer.alloc(1, 3).toString("base64"),
+          ].join(".")
+        ),
+      /Invalid secret payload/
+    );
+  });
+});
+
+test("decryptSecretValue fails when encryption key is missing", () => {
+  const previous = process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
+  delete process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
+  try {
+    const payload = [
+      Buffer.alloc(12, 1).toString("base64"),
+      Buffer.alloc(16, 2).toString("base64"),
+      Buffer.alloc(1, 3).toString("base64"),
+    ].join(".");
+    assert.throws(
+      () => decryptSecretValue(payload),
+      /SECRET_INVENTORY_ENCRYPTION_KEY/
+    );
+  } finally {
+    if (previous !== undefined) {
+      process.env.SECRET_INVENTORY_ENCRYPTION_KEY = previous;
+    }
+  }
+});
+
 test("encryptSecretValue returns payload with three segments", () => {
   withKey(TEST_KEY, () => {
     const payload = encryptSecretValue("secret");
