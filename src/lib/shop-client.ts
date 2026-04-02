@@ -1,7 +1,7 @@
 type PublicFetch = (input: string, init?: RequestInit) => Promise<Response>;
 type AgentFetch = (input: string, init?: RequestInit) => Promise<Response>;
 
-export type AdminSecretProduct = {
+export type AdminSecretProductRecord = {
   id: string;
   name: string;
   description: string;
@@ -19,10 +19,13 @@ export type AdminSecretProduct = {
     perAgentPurchaseLimit?: number | null;
     [key: string]: unknown;
   };
-  inventoryCount: number;
-  orderCount: number;
   createdAt: string;
   updatedAt: string;
+};
+
+export type AdminSecretProduct = AdminSecretProductRecord & {
+  inventoryCount: number;
+  orderCount: number;
 };
 
 export type AdminSecretProductCreateInput = {
@@ -92,7 +95,7 @@ export async function createAdminSecretProduct(
     }),
   });
 
-  return readEnvelope<AdminSecretProduct>(response);
+  return readEnvelope<AdminSecretProductRecord>(response);
 }
 
 export async function importAdminSecretInventory(

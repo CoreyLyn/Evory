@@ -12,6 +12,11 @@ import {
   type AdminSecretProduct,
 } from "@/lib/shop-client";
 
+type MutationResponse = {
+  success: boolean;
+  error?: string;
+};
+
 type ProductDraft = {
   name: string;
   description: string;
@@ -68,6 +73,48 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+export function normalizeInventoryProductId(
+  products: AdminSecretProduct[],
+  productId: string
+) {
+  if (products.length === 0) {
+    return "";
+  }
+
+  if (products.some((product) => product.id === productId)) {
+    return productId;
+  }
+
+  return products[0].id;
+}
+
+export async function performAdminSecretProductMutation({
+  request,
+  onRefresh,
+  onError,
+  onSuccess,
+  successMessage,
+  errorFallback,
+}: {
+  request: () => Promise<MutationResponse>;
+  onRefresh: () => Promise<void>;
+  onError: (message: string | null) => void;
+  onSuccess: (message: string | null) => void;
+  successMessage: string;
+  errorFallback: string;
+}): Promise<boolean> {
+  const json = await request();
+
+  if (!json.success) {
+    onError(json.error || errorFallback);
+    return false;
+  }
+
+  onSuccess(successMessage);
+  await onRefresh();
+  return true;
+}
+
 export function AdminSecretProductsPanel({
   t,
   products,
@@ -93,21 +140,14 @@ export function AdminSecretProductsPanel({
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
-    if (
-      products.length > 0 &&
-      !products.some((product) => product.id === inventoryDraft.productId)
-    ) {
+    const normalizedProductId = normalizeInventoryProductId(
+      products,
+      inventoryDraft.productId
+    );
+    if (normalizedProductId !== inventoryDraft.productId) {
       setInventoryDraft((current) => ({
         ...current,
-        productId: products[0].id,
-      }));
-      return;
-    }
-
-    if (products.length === 0 && inventoryDraft.productId) {
-      setInventoryDraft((current) => ({
-        ...current,
-        productId: "",
+        productId: normalizedProductId,
       }));
     }
   }, [inventoryDraft.productId, products]);
@@ -123,19 +163,30 @@ export function AdminSecretProductsPanel({
     onSuccess(null);
 
     try {
-      await createAdminSecretProduct(fetch, {
-        name: productDraft.name,
-        description: productDraft.description,
-        price: Number.isFinite(productDraft.price)
-          ? Math.max(0, Math.trunc(productDraft.price))
-          : 0,
-        providerLabel: productDraft.providerLabel,
-        usageInstructions: productDraft.usageInstructions,
-        allowRepeatPurchase: productDraft.allowRepeatPurchase,
+      const didSucceed = await performAdminSecretProductMutation({
+        request: async () => {
+          await createAdminSecretProduct(fetch, {
+            name: productDraft.name,
+            description: productDraft.description,
+            price: Number.isFinite(productDraft.price)
+              ? Math.max(0, Math.trunc(productDraft.price))
+              : 0,
+            providerLabel: productDraft.providerLabel,
+            usageInstructions: productDraft.usageInstructions,
+            allowRepeatPurchase: productDraft.allowRepeatPurchase,
+          });
+
+          return { success: true };
+        },
+        onRefresh,
+        onError,
+        onSuccess,
+        successMessage: t("admin.products.createSuccess"),
+        errorFallback: t("admin.actionFailed"),
       });
-      onSuccess(t("admin.products.createSuccess"));
-      await onRefresh();
-      setProductDraft(createInitialProductDraft());
+      if (didSucceed) {
+        setProductDraft(createInitialProductDraft());
+      }
     } catch (error) {
       onError(getErrorMessage(error, t("admin.actionFailed")));
     } finally {
@@ -156,13 +207,23 @@ export function AdminSecretProductsPanel({
     onSuccess(null);
 
     try {
-      await importAdminSecretInventory(fetch, inventoryDraft);
-      onSuccess(t("admin.products.inventory.importSuccess"));
-      await onRefresh();
-      setInventoryDraft((current) => ({
-        ...createInitialInventoryDraft(),
-        productId: current.productId,
-      }));
+      const didSucceed = await performAdminSecretProductMutation({
+        request: async () => {
+          await importAdminSecretInventory(fetch, inventoryDraft);
+          return { success: true };
+        },
+        onRefresh,
+        onError,
+        onSuccess,
+        successMessage: t("admin.products.inventory.importSuccess"),
+        errorFallback: t("admin.actionFailed"),
+      });
+      if (didSucceed) {
+        setInventoryDraft((current) => ({
+          ...createInitialInventoryDraft(),
+          productId: current.productId,
+        }));
+      }
     } catch (error) {
       onError(getErrorMessage(error, t("admin.actionFailed")));
     } finally {
