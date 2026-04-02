@@ -1,13 +1,24 @@
 "use client";
 
-export type AdminPrimaryTab = "forum" | "shop" | "site" | "knowledge";
+export type AdminPrimaryTab = "forum" | "products" | "shop" | "site" | "knowledge";
 
-const ADMIN_PRIMARY_TABS: AdminPrimaryTab[] = ["forum", "shop", "site", "knowledge"];
+const ADMIN_PRIMARY_TABS: AdminPrimaryTab[] = [
+  "forum",
+  "products",
+  "shop",
+  "site",
+  "knowledge",
+];
 
 export function normalizeAdminPrimaryTab(
   value: string | null | undefined
 ): AdminPrimaryTab {
-  if (value === "shop" || value === "site" || value === "knowledge") {
+  if (
+    value === "products" ||
+    value === "shop" ||
+    value === "site" ||
+    value === "knowledge"
+  ) {
     return value;
   }
 

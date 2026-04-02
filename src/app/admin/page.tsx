@@ -11,8 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { AdminKnowledgePanel } from "./admin-knowledge-panel";
+import { AdminSecretProductsPanel } from "./admin-secret-products-panel";
 import { AdminShopPanel, type AdminShopItem } from "./admin-shop-panel";
 import { AdminPrimaryTabs, normalizeAdminPrimaryTab } from "./admin-tabs";
+import { fetchAdminSecretProducts, type AdminSecretProduct } from "@/lib/shop-client";
 
 type Post = {
   id: string;
@@ -58,7 +60,6 @@ type ShopItemsResponse = {
   data?: AdminShopItem[];
   error?: string;
 };
-
 export function createAdminShopRequestTracker() {
   let currentRequestId = 0;
 
@@ -117,6 +118,44 @@ export async function loadAdminShopItems({
   }
 }
 
+export async function loadAdminSecretProducts({
+  fetchImpl,
+  setProducts,
+  setError,
+  setLoading,
+  t,
+  isCancelled,
+}: {
+  fetchImpl: typeof fetchAdminSecretProducts;
+  setProducts: (products: AdminSecretProduct[]) => void;
+  setError: (message: string | null) => void;
+  setLoading: (value: boolean) => void;
+  t: (key: TranslationKey) => string;
+  isCancelled: () => boolean;
+}) {
+  setLoading(true);
+  setError(null);
+
+  try {
+    const products = await fetchImpl();
+
+    if (isCancelled()) {
+      return;
+    }
+
+    setProducts(products);
+    setError(null);
+  } catch (error) {
+    if (!isCancelled()) {
+      setError(error instanceof Error ? error.message : t("admin.actionFailed"));
+    }
+  } finally {
+    if (!isCancelled()) {
+      setLoading(false);
+    }
+  }
+}
+
 function normalizeTagSlug(value: string) {
   return value
     .trim()
@@ -167,6 +206,9 @@ function AdminPageContent() {
   const [shopItems, setShopItems] = useState<AdminShopItem[]>([]);
   const [shopLoading, setShopLoading] = useState(false);
   const shopRequestTrackerRef = useRef(createAdminShopRequestTracker());
+  const [secretProducts, setSecretProducts] = useState<AdminSecretProduct[]>([]);
+  const [secretProductsLoading, setSecretProductsLoading] = useState(false);
+  const secretProductsRequestTrackerRef = useRef(createAdminShopRequestTracker());
   // Bump to trigger a re-fetch from event handlers
   const [refreshKey, setRefreshKey] = useState(0);
   // Cached replies per post (fetched on expand)
@@ -268,6 +310,24 @@ function AdminPageContent() {
     };
   }, [activePrimaryTab, authed, refreshKey, t]);
 
+  useEffect(() => {
+    if (!authed || activePrimaryTab !== "products") return;
+
+    const isCancelled = secretProductsRequestTrackerRef.current.beginRequest();
+    void loadAdminSecretProducts({
+      fetchImpl: () => fetchAdminSecretProducts(fetch),
+      setProducts: setSecretProducts,
+      setError,
+      setLoading: setSecretProductsLoading,
+      t,
+      isCancelled,
+    });
+
+    return () => {
+      secretProductsRequestTrackerRef.current.cancelPending();
+    };
+  }, [activePrimaryTab, authed, refreshKey, t]);
+
   async function refreshShopItems() {
     const isCancelled = shopRequestTrackerRef.current.beginRequest();
     await loadAdminShopItems({
@@ -275,6 +335,18 @@ function AdminPageContent() {
       setItems: setShopItems,
       setError,
       setLoading: setShopLoading,
+      t,
+      isCancelled,
+    });
+  }
+
+  async function refreshSecretProducts() {
+    const isCancelled = secretProductsRequestTrackerRef.current.beginRequest();
+    await loadAdminSecretProducts({
+      fetchImpl: () => fetchAdminSecretProducts(fetch),
+      setProducts: setSecretProducts,
+      setError,
+      setLoading: setSecretProductsLoading,
       t,
       isCancelled,
     });
@@ -419,7 +491,9 @@ function AdminPageContent() {
     setSiteConfigBusy(null);
   }
 
-  function handlePrimaryTabChange(nextTab: "forum" | "shop" | "site" | "knowledge") {
+  function handlePrimaryTabChange(
+    nextTab: "forum" | "products" | "shop" | "site" | "knowledge"
+  ) {
     router.replace(nextTab === "forum" ? "/admin" : `/admin?tab=${nextTab}`);
   }
 
@@ -516,6 +590,7 @@ function AdminPageContent() {
         activeTab={activePrimaryTab}
         labels={{
           forum: t("admin.title"),
+          products: t("admin.products.title"),
           shop: t("admin.shop.title"),
           site: t("admin.siteControls.title"),
           knowledge: t("admin.knowledge.title"),
@@ -544,6 +619,17 @@ function AdminPageContent() {
           loading={shopLoading}
           busyItemId={busyId}
           onRefresh={refreshShopItems}
+          onError={setError}
+          onSuccess={setSuccess}
+        />
+      )}
+
+      {activePrimaryTab === "products" && (
+        <AdminSecretProductsPanel
+          t={t}
+          products={secretProducts}
+          loading={secretProductsLoading}
+          onRefresh={refreshSecretProducts}
           onError={setError}
           onSuccess={setSuccess}
         />
