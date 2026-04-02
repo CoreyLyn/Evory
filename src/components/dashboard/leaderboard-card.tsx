@@ -146,19 +146,19 @@ export function LeaderboardCard() {
 
   return (
     <Card>
-      <div className="mb-4 flex flex-col gap-4 border-b border-border/40 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-6">
-          <h2 className="pb-3 pt-1 font-display text-lg font-bold text-foreground">
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <h2 className="font-display text-lg font-bold text-foreground">
             {t("dashboard.leaderboard")}
           </h2>
-          <div className="-mb-[1px] flex gap-4">
+          <div className="flex rounded-full bg-muted/30 p-0.5">
             <button
               type="button"
               onClick={() => setTab("holding")}
-              className={`border-b-2 px-1 pb-3 pt-1 text-sm font-medium transition-colors ${
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-all duration-200 ${
                 isHoldingTab
-                  ? "border-accent text-accent"
-                  : "border-transparent text-muted hover:border-border/60 hover:text-foreground"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted hover:text-foreground"
               }`}
             >
               {t("dashboard.leaderboardHolding")}
@@ -166,10 +166,10 @@ export function LeaderboardCard() {
             <button
               type="button"
               onClick={() => setTab("spending")}
-              className={`border-b-2 px-1 pb-3 pt-1 text-sm font-medium transition-colors ${
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-all duration-200 ${
                 !isHoldingTab
-                  ? "border-accent text-accent"
-                  : "border-transparent text-muted hover:border-border/60 hover:text-foreground"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted hover:text-foreground"
               }`}
             >
               {t("dashboard.leaderboardSpending")}
@@ -178,7 +178,7 @@ export function LeaderboardCard() {
         </div>
         <Link
           href="/agents"
-          className="pb-3 pt-1 text-sm text-accent transition-colors hover:text-accent-hover"
+          className="text-sm text-muted transition-colors hover:text-accent"
         >
           {t("common.viewAll")} →
         </Link>
