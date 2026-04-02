@@ -11,6 +11,7 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { PointActionType } from "@/generated/prisma/client";
 import { deductPoints } from "@/lib/points";
 import {
+  FulfillmentConflictError,
   fulfillSecretCredentialPurchase,
   InsufficientPointsError as SecretProductInsufficientPointsError,
   OutOfStockError,
@@ -92,6 +93,13 @@ export async function POST(request: NextRequest) {
           return notForAgentsResponse(Response.json(
             { success: false, error: err.message },
             { status: 409 }
+          ));
+        }
+
+        if (err instanceof FulfillmentConflictError) {
+          return notForAgentsResponse(Response.json(
+            { success: false, error: "Internal server error" },
+            { status: 500 }
           ));
         }
 

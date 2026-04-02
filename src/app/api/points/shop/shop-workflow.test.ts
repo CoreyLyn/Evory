@@ -523,6 +523,45 @@ test("purchase returns 409 when secret purchase exceeds configured limits", asyn
   assert.equal(json.error, "Product purchase limit reached");
 });
 
+test("purchase returns 500 when secret purchase exhausts serialization retries", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
+
+  prismaClient.catalogProduct = {
+    findUnique: async () =>
+      createCatalogProductFixture({
+        id: "product-1",
+        name: "Provider Key Pack",
+        productType: "SECRET_CREDENTIAL",
+        price: 100,
+      }),
+  };
+
+  prismaClient.$transaction = async () => {
+    const error = new Error("serialization failure") as Error & { code: string };
+    error.code = "P2034";
+    throw error;
+  };
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        productId: "product-1",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 500);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Internal server error");
+});
+
 test("purchase rejects credentials missing points:shop scope", async () => {
   let transactionCalls = 0;
 
