@@ -83,12 +83,16 @@ export function parseAdminSecretProductInput(
     validationError("displayConfig.providerLabel is required");
   }
 
-  if (!isNonEmptyString(displayConfig.usageInstructions)) {
-    validationError("displayConfig.usageInstructions is required");
+  if (
+    displayConfig.usageInstructions !== undefined &&
+    displayConfig.usageInstructions !== null &&
+    !isNonEmptyString(displayConfig.usageInstructions)
+  ) {
+    validationError("displayConfig.usageInstructions must be a non-empty string");
   }
 
-  if (!isNonEmptyString(fulfillmentConfig.repeatPurchasePolicy)) {
-    validationError("fulfillmentConfig.repeatPurchasePolicy is required");
+  if (typeof fulfillmentConfig.allowRepeatPurchase !== "boolean") {
+    validationError("fulfillmentConfig.allowRepeatPurchase is required");
   }
 
   if (

@@ -15,10 +15,9 @@ test("parseAdminSecretProductInput trims strings and accepts valid values", () =
     isActive: true,
     displayConfig: {
       providerLabel: "  Acme  ",
-      usageInstructions: "  Paste into your console  ",
     },
     fulfillmentConfig: {
-      repeatPurchasePolicy: "  ALLOW  ",
+      allowRepeatPurchase: true,
       perAgentPurchaseLimit: 2,
     },
   });
@@ -31,10 +30,9 @@ test("parseAdminSecretProductInput trims strings and accepts valid values", () =
     isActive: true,
     displayConfig: {
       providerLabel: "  Acme  ",
-      usageInstructions: "  Paste into your console  ",
     },
     fulfillmentConfig: {
-      repeatPurchasePolicy: "  ALLOW  ",
+      allowRepeatPurchase: true,
       perAgentPurchaseLimit: 2,
     },
   });
@@ -51,10 +49,9 @@ test("parseAdminSecretProductInput rejects non-secret product types", () => {
         isActive: true,
         displayConfig: {
           providerLabel: "Acme",
-          usageInstructions: "Use as directed",
         },
         fulfillmentConfig: {
-          repeatPurchasePolicy: "ALLOW",
+          allowRepeatPurchase: true,
         },
       }),
     /productType/
@@ -72,7 +69,7 @@ test("parseAdminSecretProductInput rejects non-object displayConfig", () => {
         isActive: true,
         displayConfig: ["Acme"],
         fulfillmentConfig: {
-          repeatPurchasePolicy: "ALLOW",
+          allowRepeatPurchase: true,
         },
       }),
     /displayConfig/
@@ -90,7 +87,6 @@ test("parseAdminSecretProductInput rejects non-object fulfillmentConfig", () => 
         isActive: true,
         displayConfig: {
           providerLabel: "Acme",
-          usageInstructions: "Use as directed",
         },
         fulfillmentConfig: ["ALLOW"],
       }),
@@ -109,17 +105,16 @@ test("parseAdminSecretProductInput rejects missing displayConfig fields", () => 
         isActive: true,
         displayConfig: {
           providerLabel: "",
-          usageInstructions: "Use as directed",
         },
         fulfillmentConfig: {
-          repeatPurchasePolicy: "ALLOW",
+          allowRepeatPurchase: true,
         },
       }),
     /providerLabel/
   );
 });
 
-test("parseAdminSecretProductInput rejects missing fulfillmentConfig fields", () => {
+test("parseAdminSecretProductInput rejects missing allowRepeatPurchase", () => {
   assert.throws(
     () =>
       parseAdminSecretProductInput({
@@ -130,13 +125,12 @@ test("parseAdminSecretProductInput rejects missing fulfillmentConfig fields", ()
         isActive: true,
         displayConfig: {
           providerLabel: "Acme",
-          usageInstructions: "Use as directed",
         },
         fulfillmentConfig: {
-          repeatPurchasePolicy: "",
+          allowRepeatPurchase: null,
         },
       }),
-    /repeatPurchasePolicy/
+    /allowRepeatPurchase/
   );
 });
 
@@ -151,10 +145,9 @@ test("parseAdminSecretProductInput rejects invalid perAgentPurchaseLimit", () =>
         isActive: true,
         displayConfig: {
           providerLabel: "Acme",
-          usageInstructions: "Use as directed",
         },
         fulfillmentConfig: {
-          repeatPurchasePolicy: "ALLOW",
+          allowRepeatPurchase: true,
           perAgentPurchaseLimit: 0,
         },
       }),
