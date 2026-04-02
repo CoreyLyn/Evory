@@ -11,6 +11,22 @@ export class OutOfStockError extends Error {
   }
 }
 
+export class ProductNotFoundError extends Error {
+  constructor() {
+    super("Product not found");
+    this.name = "ProductNotFoundError";
+  }
+}
+
+class InventoryClaimConflictError extends Error {
+  constructor() {
+    super("Inventory claim conflict");
+    this.name = "InventoryClaimConflictError";
+  }
+}
+
+const MAX_INVENTORY_CLAIM_ATTEMPTS = 5;
+
 export async function fulfillSecretCredentialPurchase({
   agentId,
   productId,
@@ -25,76 +41,104 @@ export async function fulfillSecretCredentialPurchase({
   });
 
   if (!product || !product.isActive || product.productType !== "SECRET_CREDENTIAL") {
-    throw new Error("Product not found");
+    throw new ProductNotFoundError();
   }
 
-  const result = await db.$transaction(async (tx) => {
-    const inventory = await tx.secretInventory.findFirst({
-      where: { productId, status: "AVAILABLE" },
-      orderBy: { createdAt: "asc" },
-    });
+  for (let attempt = 0; attempt < MAX_INVENTORY_CLAIM_ATTEMPTS; attempt += 1) {
+    try {
+      const result = await db.$transaction(async (tx) => {
+        const inventory = await tx.secretInventory.findFirst({
+          where: { productId, status: "AVAILABLE" },
+          orderBy: { createdAt: "asc" },
+        });
 
-    if (!inventory) {
-      throw new OutOfStockError();
+        if (!inventory) {
+          throw new OutOfStockError();
+        }
+
+        const deducted = await deductPoints(
+          agentId,
+          product.price,
+          PointActionType.SHOP_PURCHASE,
+          product.id,
+          `Purchased: ${product.name}`,
+          tx
+        );
+
+        if (!deducted) {
+          throw new Error("Insufficient points");
+        }
+
+        const order = await tx.purchaseOrder.create({
+          data: {
+            buyerAgentId: agentId,
+            productId: product.id,
+            pricePaid: product.price,
+            currencyType: product.currencyType,
+            status: "FULFILLED",
+            deliveryChannel: "AGENT_CHAT",
+            fulfilledAt: new Date(),
+          },
+        });
+
+        const soldAt = new Date();
+        const claim = await tx.secretInventory.updateMany({
+          where: {
+            id: inventory.id,
+            status: "AVAILABLE",
+          },
+          data: {
+            status: "SOLD",
+            soldOrderId: order.id,
+            soldAt,
+          },
+        });
+
+        if (claim.count !== 1) {
+          throw new InventoryClaimConflictError();
+        }
+
+        const soldInventory = await tx.secretInventory.findUnique({
+          where: { id: inventory.id },
+        });
+
+        if (!soldInventory) {
+          throw new Error("Sold inventory not found");
+        }
+
+        await tx.secretDeliveryReceipt.create({
+          data: {
+            orderId: order.id,
+            secretInventoryId: soldInventory.id,
+            buyerAgentId: agentId,
+          },
+        });
+
+        return { order, inventory: soldInventory };
+      });
+
+      return {
+        orderId: result.order.id,
+        product: {
+          id: product.id,
+          name: product.name,
+        },
+        delivery: {
+          type: "secret_credential" as const,
+          secret: decryptSecretValue(result.inventory.encryptedValue),
+          masked: result.inventory.maskedValue,
+          displayInstruction:
+            "This credential is returned only in this purchase response. Store it securely.",
+        },
+      };
+    } catch (error) {
+      if (error instanceof InventoryClaimConflictError) {
+        continue;
+      }
+
+      throw error;
     }
+  }
 
-    const deducted = await deductPoints(
-      agentId,
-      product.price,
-      PointActionType.SHOP_PURCHASE,
-      product.id,
-      `Purchased: ${product.name}`,
-      tx
-    );
-
-    if (!deducted) {
-      throw new Error("Insufficient points");
-    }
-
-    const order = await tx.purchaseOrder.create({
-      data: {
-        buyerAgentId: agentId,
-        productId: product.id,
-        pricePaid: product.price,
-        currencyType: product.currencyType,
-        status: "FULFILLED",
-        deliveryChannel: "AGENT_CHAT",
-        fulfilledAt: new Date(),
-      },
-    });
-
-    const soldInventory = await tx.secretInventory.update({
-      where: { id: inventory.id },
-      data: {
-        status: "SOLD",
-        soldOrderId: order.id,
-        soldAt: new Date(),
-      },
-    });
-
-    await tx.secretDeliveryReceipt.create({
-      data: {
-        orderId: order.id,
-        secretInventoryId: soldInventory.id,
-        buyerAgentId: agentId,
-      },
-    });
-
-    return { order, inventory: soldInventory };
-  });
-
-  return {
-    orderId: result.order.id,
-    product: {
-      id: product.id,
-      name: product.name,
-    },
-    delivery: {
-      type: "secret_credential" as const,
-      secret: decryptSecretValue(result.inventory.encryptedValue),
-      masked: result.inventory.maskedValue,
-      displayInstruction:
-        "This credential is returned only in this purchase response. Store it securely.",
-    },
-  };
+  throw new OutOfStockError();
 }

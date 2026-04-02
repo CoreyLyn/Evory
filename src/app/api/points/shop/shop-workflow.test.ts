@@ -292,16 +292,15 @@ test("purchase fulfills secret credential products via productId", async () => {
           maskedValue: "sk-****1234",
           status: "AVAILABLE",
         }),
-      update: async ({ data }: { data: Record<string, unknown> }) => ({
-        ...createSecretInventoryFixture({
+      updateMany: async () => ({ count: 1 }),
+      findUnique: async () =>
+        createSecretInventoryFixture({
           id: "secret-1",
           productId: "product-1",
           encryptedValue: encrypted,
           maskedValue: "sk-****1234",
-          status: "AVAILABLE",
+          status: "SOLD",
         }),
-        ...data,
-      }),
     };
     prismaClient.purchaseOrder = {
       create: async () => ({ id: "order-1" }),
@@ -352,6 +351,89 @@ test("purchase fulfills secret credential products via productId", async () => {
       process.env.SECRET_INVENTORY_ENCRYPTION_KEY = previousKey;
     }
   }
+});
+
+test("purchase returns 404 when the secret product is missing", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
+  prismaClient.catalogProduct = {
+    findUnique: async () => null,
+  };
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        productId: "missing-product",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 404);
+  assert.equal(json.error, "Product not found");
+});
+
+test("purchase returns 409 when secret inventory is out of stock", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
+
+  prismaClient.catalogProduct = {
+    findUnique: async () =>
+      createCatalogProductFixture({
+        id: "product-1",
+        name: "Provider Key Pack",
+        productType: "SECRET_CREDENTIAL",
+        price: 100,
+      }),
+  };
+  prismaClient.secretInventory = {
+    findFirst: async () => null,
+    updateMany: async () => ({ count: 0 }),
+    findUnique: async () => null,
+  };
+
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      secretInventory: prismaClient.secretInventory,
+      purchaseOrder: prismaClient.purchaseOrder,
+      secretDeliveryReceipt: prismaClient.secretDeliveryReceipt,
+      agent: {
+        updateMany: async () => ({ count: 1 }),
+      },
+      pointTransaction: {
+        create: async () => ({ id: "txn-1" }),
+      },
+      agentActivity: {
+        create: async () => ({}),
+      },
+    });
+  };
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        productId: "product-1",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 409);
+  assert.equal(json.error, "Product is out of stock");
 });
 
 test("purchase rejects credentials missing points:shop scope", async () => {

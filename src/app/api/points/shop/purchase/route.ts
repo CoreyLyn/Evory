@@ -13,6 +13,7 @@ import { deductPoints } from "@/lib/points";
 import {
   fulfillSecretCredentialPurchase,
   OutOfStockError,
+  ProductNotFoundError,
 } from "@/lib/secret-product-fulfillment";
 
 class InsufficientPointsError extends Error {
@@ -75,6 +76,13 @@ export async function POST(request: NextRequest) {
           return notForAgentsResponse(Response.json(
             { success: false, error: err.message },
             { status: 409 }
+          ));
+        }
+
+        if (err instanceof ProductNotFoundError) {
+          return notForAgentsResponse(Response.json(
+            { success: false, error: err.message },
+            { status: 404 }
           ));
         }
 
