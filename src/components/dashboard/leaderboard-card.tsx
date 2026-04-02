@@ -178,7 +178,7 @@ export function LeaderboardCard() {
         </div>
         <Link
           href="/agents"
-          className="text-sm text-muted transition-colors hover:text-accent"
+          className="text-sm text-accent transition-colors hover:text-accent-hover"
         >
           {t("common.viewAll")} →
         </Link>
