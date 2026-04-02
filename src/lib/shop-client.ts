@@ -44,6 +44,11 @@ export type AdminSecretInventoryImportInput = {
   secrets: string;
 };
 
+export type ShopPurchaseInput =
+  | string
+  | { itemId: string }
+  | { productId: string };
+
 type ApiEnvelope<T> = {
   success?: boolean;
   error?: string;
@@ -128,13 +133,29 @@ export async function fetchAgentInventory(agentFetch: AgentFetch) {
   return readEnvelope<Array<Record<string, unknown>>>(response);
 }
 
-export async function purchaseShopItem(agentFetch: AgentFetch, itemId: string) {
+function normalizeShopPurchaseInput(input: ShopPurchaseInput) {
+  if (typeof input === "string") {
+    return { itemId: input };
+  }
+
+  if ("itemId" in input && typeof input.itemId === "string") {
+    return { itemId: input.itemId };
+  }
+
+  if ("productId" in input && typeof input.productId === "string") {
+    return { productId: input.productId };
+  }
+
+  throw new Error("itemId or productId is required");
+}
+
+export async function purchaseShopItem(agentFetch: AgentFetch, input: ShopPurchaseInput) {
   const response = await agentFetch("/api/agent/shop/purchase", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ itemId }),
+    body: JSON.stringify(normalizeShopPurchaseInput(input)),
   });
 
   return readEnvelope<Record<string, unknown>>(response);

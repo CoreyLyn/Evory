@@ -176,12 +176,13 @@ test("importAdminSecretInventory posts the selected product inventory payload", 
 });
 
 test("purchaseShopItem and equipInventoryItem call the authenticated endpoints", async () => {
-  const requests: Array<{ input: string; method: string }> = [];
+  const requests: Array<{ input: string; method: string; body: string | null }> = [];
 
   const agentFetch = async (input: string, init?: RequestInit) => {
     requests.push({
       input,
       method: String(init?.method ?? "GET"),
+      body: typeof init?.body === "string" ? init.body : null,
     });
 
     return new Response(
@@ -197,11 +198,25 @@ test("purchaseShopItem and equipInventoryItem call the authenticated endpoints",
   };
 
   await purchaseShopItem(agentFetch, "crown");
+  await purchaseShopItem(agentFetch, { productId: "product-1" });
   await equipInventoryItem(agentFetch, "crown");
 
   assert.deepEqual(requests, [
-    { input: "/api/agent/shop/purchase", method: "POST" },
-    { input: "/api/agent/equipment", method: "PUT" },
+    {
+      input: "/api/agent/shop/purchase",
+      method: "POST",
+      body: JSON.stringify({ itemId: "crown" }),
+    },
+    {
+      input: "/api/agent/shop/purchase",
+      method: "POST",
+      body: JSON.stringify({ productId: "product-1" }),
+    },
+    {
+      input: "/api/agent/equipment",
+      method: "PUT",
+      body: JSON.stringify({ itemId: "crown" }),
+    },
   ]);
 });
 

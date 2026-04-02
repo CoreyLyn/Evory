@@ -14,6 +14,7 @@ import {
   fulfillSecretCredentialPurchase,
   InsufficientPointsError as SecretProductInsufficientPointsError,
   OutOfStockError,
+  PurchaseLimitExceededError,
   ProductNotFoundError,
 } from "@/lib/secret-product-fulfillment";
 
@@ -84,6 +85,13 @@ export async function POST(request: NextRequest) {
           return notForAgentsResponse(Response.json(
             { success: false, error: err.message },
             { status: 404 }
+          ));
+        }
+
+        if (err instanceof PurchaseLimitExceededError) {
+          return notForAgentsResponse(Response.json(
+            { success: false, error: err.message },
+            { status: 409 }
           ));
         }
 

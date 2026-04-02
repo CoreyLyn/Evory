@@ -25,6 +25,13 @@ export class InsufficientPointsError extends Error {
   }
 }
 
+export class PurchaseLimitExceededError extends Error {
+  constructor() {
+    super("Product purchase limit reached");
+    this.name = "PurchaseLimitExceededError";
+  }
+}
+
 class InventoryClaimConflictError extends Error {
   constructor() {
     super("Inventory claim conflict");
@@ -33,6 +40,29 @@ class InventoryClaimConflictError extends Error {
 }
 
 const MAX_INVENTORY_CLAIM_ATTEMPTS = 5;
+
+function readFulfillmentRules(value: unknown) {
+  const config =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+
+  const allowRepeatPurchase =
+    typeof config?.allowRepeatPurchase === "boolean"
+      ? config.allowRepeatPurchase
+      : true;
+  const perAgentPurchaseLimit =
+    typeof config?.perAgentPurchaseLimit === "number" &&
+    Number.isInteger(config.perAgentPurchaseLimit) &&
+    config.perAgentPurchaseLimit > 0
+      ? config.perAgentPurchaseLimit
+      : null;
+
+  return {
+    allowRepeatPurchase,
+    perAgentPurchaseLimit,
+  };
+}
 
 export async function fulfillSecretCredentialPurchase({
   agentId,
@@ -51,9 +81,33 @@ export async function fulfillSecretCredentialPurchase({
     throw new ProductNotFoundError();
   }
 
+  const fulfillmentRules = readFulfillmentRules(product.fulfillmentConfig);
+
   for (let attempt = 0; attempt < MAX_INVENTORY_CLAIM_ATTEMPTS; attempt += 1) {
     try {
       const result = await db.$transaction(async (tx) => {
+        const fulfilledPurchaseCount =
+          typeof tx.purchaseOrder?.count === "function"
+            ? await tx.purchaseOrder.count({
+                where: {
+                  buyerAgentId: agentId,
+                  productId: product.id,
+                  status: "FULFILLED",
+                },
+              })
+            : 0;
+
+        if (!fulfillmentRules.allowRepeatPurchase && fulfilledPurchaseCount >= 1) {
+          throw new PurchaseLimitExceededError();
+        }
+
+        if (
+          fulfillmentRules.perAgentPurchaseLimit !== null &&
+          fulfilledPurchaseCount >= fulfillmentRules.perAgentPurchaseLimit
+        ) {
+          throw new PurchaseLimitExceededError();
+        }
+
         const inventory = await tx.secretInventory.findFirst({
           where: { productId, status: "AVAILABLE" },
           orderBy: { createdAt: "asc" },

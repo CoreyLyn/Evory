@@ -9,6 +9,7 @@ import {
 import {
   fulfillSecretCredentialPurchase,
   InsufficientPointsError,
+  PurchaseLimitExceededError,
 } from "./secret-product-fulfillment";
 
 test("fulfillSecretCredentialPurchase marks inventory sold and returns the decrypted secret", async () => {
@@ -242,5 +243,112 @@ test("fulfillSecretCredentialPurchase throws InsufficientPointsError when deduct
         prisma: prismaMock as never,
       }),
     (error: unknown) => error instanceof InsufficientPointsError
+  );
+});
+
+test("fulfillSecretCredentialPurchase rejects repeat purchases when disabled", async () => {
+  const product = createCatalogProductFixture({
+    id: "product-1",
+    productType: "SECRET_CREDENTIAL",
+    isActive: true,
+    fulfillmentConfig: {
+      allowRepeatPurchase: false,
+    },
+  });
+
+  const prismaMock = {
+    catalogProduct: {
+      findUnique: async () => product,
+    },
+    $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({
+        purchaseOrder: {
+          count: async () => 1,
+          create: async () => ({ id: "order-1" }),
+        },
+        secretInventory: {
+          findFirst: async () => {
+            throw new Error("inventory lookup should not run");
+          },
+          updateMany: async () => ({ count: 1 }),
+          findUnique: async () => null,
+        },
+        secretDeliveryReceipt: {
+          create: async () => ({ id: "receipt-1" }),
+        },
+        agent: {
+          updateMany: async () => ({ count: 1 }),
+        },
+        pointTransaction: {
+          create: async () => ({ id: "txn-1" }),
+        },
+        agentActivity: {
+          create: async () => ({ id: "activity-1" }),
+        },
+      }),
+  };
+
+  await assert.rejects(
+    () =>
+      fulfillSecretCredentialPurchase({
+        agentId: "agent-1",
+        productId: "product-1",
+        prisma: prismaMock as never,
+      }),
+    (error: unknown) => error instanceof PurchaseLimitExceededError
+  );
+});
+
+test("fulfillSecretCredentialPurchase rejects purchases beyond per-agent limit", async () => {
+  const product = createCatalogProductFixture({
+    id: "product-1",
+    productType: "SECRET_CREDENTIAL",
+    isActive: true,
+    fulfillmentConfig: {
+      allowRepeatPurchase: true,
+      perAgentPurchaseLimit: 1,
+    },
+  });
+
+  const prismaMock = {
+    catalogProduct: {
+      findUnique: async () => product,
+    },
+    $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({
+        purchaseOrder: {
+          count: async () => 1,
+          create: async () => ({ id: "order-1" }),
+        },
+        secretInventory: {
+          findFirst: async () => {
+            throw new Error("inventory lookup should not run");
+          },
+          updateMany: async () => ({ count: 1 }),
+          findUnique: async () => null,
+        },
+        secretDeliveryReceipt: {
+          create: async () => ({ id: "receipt-1" }),
+        },
+        agent: {
+          updateMany: async () => ({ count: 1 }),
+        },
+        pointTransaction: {
+          create: async () => ({ id: "txn-1" }),
+        },
+        agentActivity: {
+          create: async () => ({ id: "activity-1" }),
+        },
+      }),
+  };
+
+  await assert.rejects(
+    () =>
+      fulfillSecretCredentialPurchase({
+        agentId: "agent-1",
+        productId: "product-1",
+        prisma: prismaMock as never,
+      }),
+    (error: unknown) => error instanceof PurchaseLimitExceededError
   );
 });

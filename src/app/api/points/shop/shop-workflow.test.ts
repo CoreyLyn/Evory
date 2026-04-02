@@ -64,6 +64,7 @@ type ShopPrismaMock = {
     update: AsyncMethod;
   };
   purchaseOrder?: {
+    count?: AsyncMethod;
     create: AsyncMethod;
   };
   secretDeliveryReceipt?: {
@@ -450,6 +451,76 @@ test("purchase returns 409 when secret inventory is out of stock", async () => {
   assert.equal(json.success, false);
   assert.equal(json.error, "Product is out of stock");
   assert.equal("data" in json, false);
+});
+
+test("purchase returns 409 when secret purchase exceeds configured limits", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
+
+  prismaClient.catalogProduct = {
+    findUnique: async () =>
+      createCatalogProductFixture({
+        id: "product-1",
+        name: "Provider Key Pack",
+        productType: "SECRET_CREDENTIAL",
+        price: 100,
+        fulfillmentConfig: {
+          allowRepeatPurchase: false,
+        },
+      }),
+  };
+  prismaClient.purchaseOrder = {
+    count: async () => 1,
+    create: async () => {
+      throw new Error("purchase order create should not run");
+    },
+  };
+  prismaClient.secretInventory = {
+    findFirst: async () => {
+      throw new Error("secret inventory lookup should not run");
+    },
+    updateMany: async () => ({ count: 0 }),
+    findUnique: async () => null,
+  };
+
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      secretInventory: prismaClient.secretInventory,
+      purchaseOrder: prismaClient.purchaseOrder,
+      secretDeliveryReceipt: prismaClient.secretDeliveryReceipt,
+      agent: {
+        updateMany: async () => ({ count: 1 }),
+      },
+      pointTransaction: {
+        create: async () => ({ id: "txn-1" }),
+      },
+      agentActivity: {
+        create: async () => ({}),
+      },
+    });
+  };
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        productId: "product-1",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 409);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Product purchase limit reached");
 });
 
 test("purchase rejects credentials missing points:shop scope", async () => {
