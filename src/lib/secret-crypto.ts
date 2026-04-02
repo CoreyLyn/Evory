@@ -1,4 +1,9 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from "node:crypto";
 
 const IV_LENGTH = 12;
 
@@ -8,20 +13,7 @@ function getEncryptionKey(): Buffer {
     throw new Error("SECRET_INVENTORY_ENCRYPTION_KEY is required");
   }
 
-  if (/^[0-9a-fA-F]{64}$/.test(key)) {
-    return Buffer.from(key, "hex");
-  }
-
-  if (key.length === 32) {
-    return Buffer.from(key, "utf8");
-  }
-
-  const decoded = Buffer.from(key, "base64");
-  if (decoded.length === 32) {
-    return decoded;
-  }
-
-  throw new Error("SECRET_INVENTORY_ENCRYPTION_KEY must be 32 bytes");
+  return createHash("sha256").update(key, "utf8").digest();
 }
 
 export function maskSecretValue(value: string): string {
