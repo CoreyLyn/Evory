@@ -1,11 +1,13 @@
+import type { Prisma } from "@/generated/prisma/client";
+
 export type AdminSecretProductInput = {
   name: string;
   description: string;
   productType: "SECRET_CREDENTIAL";
   price: number;
   isActive: boolean;
-  displayConfig: Record<string, unknown>;
-  fulfillmentConfig: Record<string, unknown>;
+  displayConfig: Prisma.InputJsonObject;
+  fulfillmentConfig: Prisma.InputJsonObject;
 };
 
 export type AdminSecretInventoryImportInput = {
@@ -20,7 +22,7 @@ function validationError(message: string): never {
   throw new AdminSecretProductValidationError(message);
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
+function isPlainObject(value: unknown): value is Prisma.InputJsonObject {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -30,6 +32,15 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+export function isAdminSecretProductValidationError(
+  error: unknown
+): error is AdminSecretProductValidationError | SyntaxError {
+  return (
+    error instanceof AdminSecretProductValidationError ||
+    error instanceof SyntaxError
+  );
 }
 
 export function parseAdminSecretProductInput(

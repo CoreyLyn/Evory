@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { authenticateAdmin } from "@/lib/admin-auth";
 import {
-  AdminSecretProductValidationError,
+  isAdminSecretProductValidationError,
   parseAdminSecretProductInput,
 } from "@/lib/admin-secret-products";
 import prisma from "@/lib/prisma";
@@ -86,15 +86,14 @@ export async function PUT(
       })
     );
   } catch (error) {
-    if (
-      error instanceof AdminSecretProductValidationError ||
-      error instanceof SyntaxError
-    ) {
+    if (isAdminSecretProductValidationError(error)) {
+      const message =
+        error instanceof SyntaxError ? "Invalid request body" : error.message;
       return notForAgentsResponse(
         Response.json(
           {
             success: false,
-            error: error instanceof SyntaxError ? "Invalid request body" : error.message,
+            error: message,
           },
           { status: 400 }
         )
