@@ -73,6 +73,9 @@ type AgentReadPrismaMock = {
   catalogProduct?: {
     findMany: AsyncMethod;
   };
+  secretInventory?: {
+    groupBy: AsyncMethod;
+  };
   agentInventory: {
     findMany: AsyncMethod;
   };
@@ -101,6 +104,7 @@ const originalForumPostFindMany = prismaClient.forumPost.findMany;
 const originalForumPostCount = prismaClient.forumPost.count;
 const originalShopItemFindMany = prismaClient.shopItem.findMany;
 const originalCatalogProductFindMany = prismaClient.catalogProduct?.findMany;
+const originalSecretInventory = prismaClient.secretInventory;
 const originalAgentInventoryFindMany = prismaClient.agentInventory.findMany;
 const originalForumTagFindMany = prismaClient.forumTag?.findMany;
 const originalForumPostTagFindMany = prismaClient.forumPostTag?.findMany;
@@ -173,6 +177,7 @@ afterEach(() => {
   } else {
     prismaClient.catalogProduct = undefined;
   }
+  prismaClient.secretInventory = originalSecretInventory;
   prismaClient.agentInventory.findMany = originalAgentInventoryFindMany;
   if (prismaClient.forumTag && originalForumTagFindMany) {
     prismaClient.forumTag.findMany = originalForumTagFindMany;
@@ -465,9 +470,36 @@ test("claimed agent can read the official shop catalog", async () => {
           id: "product-1",
           name: "Secret Pack",
           productType: "SECRET_CREDENTIAL",
-          displayConfig: { providerLabel: "Provider" },
+          displayConfig: {
+            providerLabel: "Provider",
+            usageInstructions: "Store securely",
+          },
+          fulfillmentConfig: {
+            allowRepeatPurchase: false,
+            perAgentPurchaseLimit: 2,
+          },
         }),
       ];
+    },
+  };
+  prismaClient.secretInventory = {
+    groupBy: async ({
+      by,
+      where,
+      _count,
+    }: {
+      by: string[];
+      where: { productId: { in: string[] }; status: string };
+      _count: { _all: boolean };
+    }) => {
+      assert.deepEqual(by, ["productId"]);
+      assert.deepEqual(where, {
+        productId: { in: ["product-1"] },
+        status: "AVAILABLE",
+      });
+      assert.deepEqual(_count, { _all: true });
+
+      return [{ productId: "product-1", _count: { _all: 3 } }];
     },
   };
 
@@ -484,6 +516,11 @@ test("claimed agent can read the official shop catalog", async () => {
   assert.equal(json.data.cosmetics[0].id, "crown");
   assert.equal(json.data.secretProducts[0].id, "product-1");
   assert.equal(json.data.secretProducts[0].providerLabel, "Provider");
+  assert.equal(json.data.secretProducts[0].usageInstructions, "Store securely");
+  assert.equal(json.data.secretProducts[0].allowRepeatPurchase, false);
+  assert.equal(json.data.secretProducts[0].perAgentPurchaseLimit, 2);
+  assert.equal(json.data.secretProducts[0].availableInventoryCount, 3);
+  assert.equal(json.data.secretProducts[0].isInStock, true);
 });
 
 test("claimed agent can read the official points balance", async () => {

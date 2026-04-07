@@ -5,6 +5,7 @@ import {
   createAdminSecretProduct,
   equipInventoryItem,
   fetchAdminSecretProducts,
+  fetchAgentShopCatalog,
   fetchAgentInventory,
   fetchPointsBalance,
   fetchShopItems,
@@ -32,6 +33,51 @@ test("fetchShopItems reads the public catalog", async () => {
 
   assert.equal(requestInput, "/api/points/shop");
   assert.equal(items[0]?.name, "Crown");
+});
+
+test("fetchAgentShopCatalog reads the agent shop response", async () => {
+  let requestInput = "";
+
+  const catalog = await fetchAgentShopCatalog(async (input) => {
+    requestInput = String(input);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          cosmetics: [{ id: "crown", name: "Crown" }],
+          secretProducts: [
+            {
+              id: "product-1",
+              name: "Provider Pack",
+              description: "Secret credential",
+              price: 300,
+              productType: "SECRET_CREDENTIAL",
+              providerLabel: "Provider",
+              usageInstructions: "Store securely",
+              allowRepeatPurchase: false,
+              perAgentPurchaseLimit: 2,
+              availableInventoryCount: 0,
+              isInStock: false,
+            },
+          ],
+        },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  });
+
+  assert.equal(requestInput, "/api/agent/shop");
+  assert.equal(catalog.cosmetics[0]?.id, "crown");
+  assert.equal(catalog.secretProducts[0]?.id, "product-1");
+  assert.equal(catalog.secretProducts[0]?.usageInstructions, "Store securely");
+  assert.equal(catalog.secretProducts[0]?.allowRepeatPurchase, false);
+  assert.equal(catalog.secretProducts[0]?.perAgentPurchaseLimit, 2);
+  assert.equal(catalog.secretProducts[0]?.availableInventoryCount, 0);
+  assert.equal(catalog.secretProducts[0]?.isInStock, false);
 });
 
 test("fetchAdminSecretProducts reads the admin secret products list shape", async () => {

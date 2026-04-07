@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, beforeEach, test } from "node:test";
+import { after, afterEach, before, beforeEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
 import {
@@ -61,7 +61,8 @@ type ShopPrismaMock = {
   };
   secretInventory?: {
     findFirst: AsyncMethod;
-    update: AsyncMethod;
+    updateMany: AsyncMethod;
+    findUnique: AsyncMethod;
   };
   purchaseOrder?: {
     count?: AsyncMethod;
@@ -74,6 +75,8 @@ type ShopPrismaMock = {
 };
 
 const prismaClient = prisma as unknown as ShopPrismaMock;
+const previousSecretInventoryEncryptionKey =
+  process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
 
 const originalMethods = {
   agentFindUnique: prismaClient.agent.findUnique,
@@ -92,7 +95,8 @@ const originalMethods = {
   securityEventCreate: prismaClient.securityEvent?.create,
   catalogProductFindUnique: prismaClient.catalogProduct?.findUnique,
   secretInventoryFindFirst: prismaClient.secretInventory?.findFirst,
-  secretInventoryUpdate: prismaClient.secretInventory?.update,
+  secretInventoryUpdateMany: prismaClient.secretInventory?.updateMany,
+  secretInventoryFindUnique: prismaClient.secretInventory?.findUnique,
   purchaseOrderCreate: prismaClient.purchaseOrder?.create,
   secretDeliveryReceiptCreate: prismaClient.secretDeliveryReceipt?.create,
   rateLimitCounter: prismaClient.rateLimitCounter,
@@ -108,6 +112,20 @@ beforeEach(() => {
     id: "checkin-1",
     actions: { DAILY_LOGIN: true },
   });
+});
+
+before(() => {
+  process.env.SECRET_INVENTORY_ENCRYPTION_KEY = "test-secret-key";
+});
+
+after(() => {
+  if (previousSecretInventoryEncryptionKey === undefined) {
+    delete process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
+    return;
+  }
+
+  process.env.SECRET_INVENTORY_ENCRYPTION_KEY =
+    previousSecretInventoryEncryptionKey;
 });
 
 afterEach(async () => {
@@ -143,9 +161,19 @@ afterEach(async () => {
     prismaClient.secretInventory.findFirst =
       originalMethods.secretInventoryFindFirst;
   }
-  if (prismaClient.secretInventory && originalMethods.secretInventoryUpdate) {
-    prismaClient.secretInventory.update =
-      originalMethods.secretInventoryUpdate;
+  if (
+    prismaClient.secretInventory &&
+    originalMethods.secretInventoryUpdateMany
+  ) {
+    prismaClient.secretInventory.updateMany =
+      originalMethods.secretInventoryUpdateMany;
+  }
+  if (
+    prismaClient.secretInventory &&
+    originalMethods.secretInventoryFindUnique
+  ) {
+    prismaClient.secretInventory.findUnique =
+      originalMethods.secretInventoryFindUnique;
   } else {
     prismaClient.secretInventory = undefined;
   }
@@ -217,8 +245,11 @@ test("legacy cosmetic purchase still accepts itemId and creates inventory atomic
     findFirst: async () => {
       throw new Error("secret inventory lookup should not run for itemId purchases");
     },
-    update: async () => {
+    updateMany: async () => {
       throw new Error("secret inventory update should not run for itemId purchases");
+    },
+    findUnique: async () => {
+      throw new Error("secret inventory lookup should not run for itemId purchases");
     },
   };
   prismaClient.agentInventory.findUnique = async () => null;
@@ -277,95 +308,84 @@ test("legacy cosmetic purchase still accepts itemId and creates inventory atomic
 });
 
 test("purchase fulfills secret credential products via productId", async () => {
-  const previousKey = process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
-  process.env.SECRET_INVENTORY_ENCRYPTION_KEY = "test-secret-key";
+  const encrypted = encryptSecretValue("sk-live-abcdef1234");
 
-  try {
-    const encrypted = encryptSecretValue("sk-live-abcdef1234");
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
 
-    mockAgentCredential("agent-key", {
-      id: "agent-1",
-      points: 120,
-      avatarConfig: createAvatarConfigFixture(),
-    });
+  prismaClient.catalogProduct = {
+    findUnique: async () =>
+      createCatalogProductFixture({
+        id: "product-1",
+        name: "Provider Key Pack",
+        productType: "SECRET_CREDENTIAL",
+        price: 100,
+      }),
+  };
+  prismaClient.secretInventory = {
+    findFirst: async () =>
+      createSecretInventoryFixture({
+        id: "secret-1",
+        productId: "product-1",
+        encryptedValue: encrypted,
+        maskedValue: "sk-****1234",
+        status: "AVAILABLE",
+      }),
+    updateMany: async () => ({ count: 1 }),
+    findUnique: async () =>
+      createSecretInventoryFixture({
+        id: "secret-1",
+        productId: "product-1",
+        encryptedValue: encrypted,
+        maskedValue: "sk-****1234",
+        status: "SOLD",
+      }),
+  };
+  prismaClient.purchaseOrder = {
+    create: async () => ({ id: "order-1" }),
+  };
+  prismaClient.secretDeliveryReceipt = {
+    create: async () => ({ id: "receipt-1" }),
+  };
 
-    prismaClient.catalogProduct = {
-      findUnique: async () =>
-        createCatalogProductFixture({
-          id: "product-1",
-          name: "Provider Key Pack",
-          productType: "SECRET_CREDENTIAL",
-          price: 100,
-        }),
-    };
-    prismaClient.secretInventory = {
-      findFirst: async () =>
-        createSecretInventoryFixture({
-          id: "secret-1",
-          productId: "product-1",
-          encryptedValue: encrypted,
-          maskedValue: "sk-****1234",
-          status: "AVAILABLE",
-        }),
-      updateMany: async () => ({ count: 1 }),
-      findUnique: async () =>
-        createSecretInventoryFixture({
-          id: "secret-1",
-          productId: "product-1",
-          encryptedValue: encrypted,
-          maskedValue: "sk-****1234",
-          status: "SOLD",
-        }),
-    };
-    prismaClient.purchaseOrder = {
-      create: async () => ({ id: "order-1" }),
-    };
-    prismaClient.secretDeliveryReceipt = {
-      create: async () => ({ id: "receipt-1" }),
-    };
-
-    prismaClient.$transaction = async (input) => {
-      if (typeof input !== "function") {
-        throw new Error("Expected transaction callback");
-      }
-
-      return input({
-        secretInventory: prismaClient.secretInventory,
-        purchaseOrder: prismaClient.purchaseOrder,
-        secretDeliveryReceipt: prismaClient.secretDeliveryReceipt,
-        agent: {
-          updateMany: async () => ({ count: 1 }),
-        },
-        pointTransaction: {
-          create: async () => ({ id: "txn-1" }),
-        },
-        agentActivity: {
-          create: async () => ({}),
-        },
-      });
-    };
-
-    const response = await purchaseItem(
-      createRouteRequest("http://localhost/api/points/shop/purchase", {
-        method: "POST",
-        apiKey: "agent-key",
-        json: {
-          productId: "product-1",
-        },
-      })
-    );
-    const json = await response.json();
-
-    assert.equal(response.status, 200);
-    assert.equal(json.data.delivery.type, "secret_credential");
-    assert.match(json.data.delivery.secret, /^sk-live-/);
-  } finally {
-    if (previousKey === undefined) {
-      delete process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
-    } else {
-      process.env.SECRET_INVENTORY_ENCRYPTION_KEY = previousKey;
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
     }
-  }
+
+    return input({
+      secretInventory: prismaClient.secretInventory,
+      purchaseOrder: prismaClient.purchaseOrder,
+      secretDeliveryReceipt: prismaClient.secretDeliveryReceipt,
+      agent: {
+        updateMany: async () => ({ count: 1 }),
+      },
+      pointTransaction: {
+        create: async () => ({ id: "txn-1" }),
+      },
+      agentActivity: {
+        create: async () => ({}),
+      },
+    });
+  };
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        productId: "product-1",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.data.delivery.type, "secret_credential");
+  assert.match(json.data.delivery.secret, /^sk-live-/);
 });
 
 test("purchase returns 404 when the secret product is missing", async () => {
@@ -523,7 +543,7 @@ test("purchase returns 409 when secret purchase exceeds configured limits", asyn
   assert.equal(json.error, "Product purchase limit reached");
 });
 
-test("purchase returns 500 when secret purchase exhausts serialization retries", async () => {
+test("purchase returns a retryable conflict when secret purchase exhausts serialization retries", async () => {
   mockAgentCredential("agent-key", {
     id: "agent-1",
     points: 120,
@@ -557,9 +577,125 @@ test("purchase returns 500 when secret purchase exhausts serialization retries",
   );
   const json = await response.json();
 
-  assert.equal(response.status, 500);
+  assert.equal(response.status, 503);
   assert.equal(json.success, false);
-  assert.equal(json.error, "Internal server error");
+  assert.equal(json.code, "secret_purchase_retryable_conflict");
+  assert.match(json.error, /retry/i);
+});
+
+test("purchase returns 400 when the request body is invalid JSON", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
+
+  const response = await purchaseItem(
+    new Request("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer agent-key",
+        "Content-Type": "application/json",
+      },
+      body: "{",
+    }) as never
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Request body must be valid JSON");
+});
+
+test("purchase returns 400 when both itemId and productId are provided", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        itemId: "crown",
+        productId: "product-1",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Provide exactly one of itemId or productId");
+});
+
+test("purchase treats voided secret inventory as out of stock", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
+
+  prismaClient.catalogProduct = {
+    findUnique: async () =>
+      createCatalogProductFixture({
+        id: "product-1",
+        name: "Provider Key Pack",
+        productType: "SECRET_CREDENTIAL",
+        price: 100,
+      }),
+  };
+
+  let findFirstArgs: Record<string, unknown> | undefined;
+  prismaClient.secretInventory = {
+    findFirst: async (args: Record<string, unknown>) => {
+      findFirstArgs = args;
+      return null;
+    },
+    updateMany: async () => ({ count: 0 }),
+    findUnique: async () => null,
+  };
+
+  prismaClient.$transaction = async (input) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
+    }
+
+    return input({
+      secretInventory: prismaClient.secretInventory,
+      purchaseOrder: prismaClient.purchaseOrder,
+      secretDeliveryReceipt: prismaClient.secretDeliveryReceipt,
+      agent: {
+        updateMany: async () => ({ count: 1 }),
+      },
+      pointTransaction: {
+        create: async () => ({ id: "txn-1" }),
+      },
+      agentActivity: {
+        create: async () => ({}),
+      },
+    });
+  };
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        productId: "product-1",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 409);
+  assert.equal(json.error, "Product is out of stock");
+  assert.equal(
+    (findFirstArgs?.where as { status?: string })?.status,
+    "AVAILABLE"
+  );
 });
 
 test("purchase rejects credentials missing points:shop scope", async () => {
@@ -633,6 +769,84 @@ test("purchase returns conflict when the item is already owned", async () => {
 
   assert.equal(response.status, 409);
   assert.equal(json.error, "Item already owned");
+});
+
+test("purchase maps only the agent item ownership unique violation to already owned", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
+
+  prismaClient.shopItem.findUnique = async () =>
+    createShopItemFixture({
+      id: "crown",
+      name: "Crown",
+    });
+  prismaClient.agentInventory.findUnique = async () => null;
+  prismaClient.$transaction = async () => {
+    const error = new Error("duplicate agent inventory") as Error & {
+      code: string;
+      meta: { target: string[] };
+    };
+    error.code = "P2002";
+    error.meta = { target: ["agentId", "itemId"] };
+    throw error;
+  };
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        itemId: "crown",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 409);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Item already owned");
+});
+
+test("purchase leaves unrelated unique violations as internal errors", async () => {
+  mockAgentCredential("agent-key", {
+    id: "agent-1",
+    points: 120,
+    avatarConfig: createAvatarConfigFixture(),
+  });
+
+  prismaClient.shopItem.findUnique = async () =>
+    createShopItemFixture({
+      id: "crown",
+      name: "Crown",
+    });
+  prismaClient.agentInventory.findUnique = async () => null;
+  prismaClient.$transaction = async () => {
+    const error = new Error("duplicate unrelated field") as Error & {
+      code: string;
+      meta: { target: string[] };
+    };
+    error.code = "P2002";
+    error.meta = { target: ["sku"] };
+    throw error;
+  };
+
+  const response = await purchaseItem(
+    createRouteRequest("http://localhost/api/points/shop/purchase", {
+      method: "POST",
+      apiKey: "agent-key",
+      json: {
+        itemId: "crown",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 500);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Internal server error");
 });
 
 test("purchase rejects inactive items", async () => {

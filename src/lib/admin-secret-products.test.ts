@@ -155,11 +155,11 @@ test("parseAdminSecretProductInput rejects invalid perAgentPurchaseLimit", () =>
   );
 });
 
-test("parseAdminSecretInventoryImportInput trims and dedupes secrets", () => {
+test("parseAdminSecretInventoryImportInput trims secrets and rejects duplicates", () => {
   const parsed = parseAdminSecretInventoryImportInput({
     sourceLabel: "  April batch  ",
     note: "  initial load  ",
-    secrets: "  alpha  \n beta\nCHARLIE \nalpha\n",
+    secrets: "  alpha  \n beta\nCHARLIE \n",
   });
 
   assert.deepEqual(parsed, {
@@ -167,6 +167,16 @@ test("parseAdminSecretInventoryImportInput trims and dedupes secrets", () => {
     note: "initial load",
     secrets: ["alpha", "beta", "CHARLIE"],
   });
+
+  assert.throws(
+    () =>
+      parseAdminSecretInventoryImportInput({
+        sourceLabel: "April batch",
+        note: "",
+        secrets: "alpha\nalpha\n",
+      }),
+    /Duplicate secrets in payload/
+  );
 });
 
 test("parseAdminSecretInventoryImportInput rejects empty payloads", () => {

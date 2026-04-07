@@ -23,6 +23,18 @@ export type AdminSecretProductRecord = {
   updatedAt: string;
 };
 
+export type SecretProductEnvelope = Pick<
+  AdminSecretProductRecord,
+  "id" | "name" | "description" | "price" | "productType"
+> & {
+  providerLabel: string | null;
+  usageInstructions: string | null;
+  allowRepeatPurchase: boolean;
+  perAgentPurchaseLimit: number | null;
+  availableInventoryCount: number;
+  isInStock: boolean;
+};
+
 export type AdminSecretProduct = AdminSecretProductRecord & {
   inventoryCount: number;
   orderCount: number;
@@ -35,6 +47,11 @@ export type AdminSecretProductCreateInput = {
   providerLabel: string;
   usageInstructions: string;
   allowRepeatPurchase: boolean;
+  perAgentPurchaseLimit?: number | null;
+};
+
+export type AdminSecretProductUpdateInput = AdminSecretProductCreateInput & {
+  isActive: boolean;
 };
 
 export type AdminSecretInventoryImportInput = {
@@ -55,6 +72,11 @@ type ApiEnvelope<T> = {
   data?: T;
 };
 
+export type AgentShopCatalog = {
+  cosmetics: Array<Record<string, unknown>>;
+  secretProducts: SecretProductEnvelope[];
+};
+
 async function readEnvelope<T>(response: Response): Promise<T> {
   const json = (await response.json()) as ApiEnvelope<T>;
 
@@ -70,9 +92,50 @@ export async function fetchShopItems(fetcher: PublicFetch = fetch) {
   return readEnvelope<Array<Record<string, unknown>>>(response);
 }
 
+export async function fetchAgentShopCatalog(agentFetch: AgentFetch) {
+  const response = await agentFetch("/api/agent/shop");
+  return readEnvelope<AgentShopCatalog>(response);
+}
+
 export async function fetchAdminSecretProducts(fetcher: PublicFetch = fetch) {
   const response = await fetcher("/api/admin/shop/products");
   return readEnvelope<AdminSecretProduct[]>(response);
+}
+
+function buildAdminSecretProductPayload(input: {
+  name: string;
+  description: string;
+  price: number;
+  providerLabel: string;
+  usageInstructions: string;
+  allowRepeatPurchase: boolean;
+  perAgentPurchaseLimit?: number | null;
+  isActive: boolean;
+}) {
+  const normalizedPrice = Number.isFinite(input.price)
+    ? Math.max(0, Math.trunc(input.price))
+    : 0;
+  const usageInstructions = input.usageInstructions?.trim();
+  const fulfillmentConfig: Record<string, unknown> = {
+    allowRepeatPurchase: input.allowRepeatPurchase,
+  };
+
+  if (input.perAgentPurchaseLimit !== undefined) {
+    fulfillmentConfig.perAgentPurchaseLimit = input.perAgentPurchaseLimit;
+  }
+
+  return {
+    name: input.name,
+    description: input.description,
+    productType: "SECRET_CREDENTIAL" as const,
+    price: normalizedPrice,
+    isActive: input.isActive,
+    displayConfig: {
+      providerLabel: input.providerLabel,
+      usageInstructions: usageInstructions || undefined,
+    },
+    fulfillmentConfig,
+  };
 }
 
 export async function createAdminSecretProduct(
@@ -84,20 +147,29 @@ export async function createAdminSecretProduct(
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      name: input.name,
-      description: input.description,
-      productType: "SECRET_CREDENTIAL",
-      price: input.price,
-      isActive: true,
-      displayConfig: {
-        providerLabel: input.providerLabel,
-        usageInstructions: input.usageInstructions || undefined,
-      },
-      fulfillmentConfig: {
-        allowRepeatPurchase: input.allowRepeatPurchase,
-      },
-    }),
+    body: JSON.stringify(
+      buildAdminSecretProductPayload({
+        ...input,
+        perAgentPurchaseLimit: input.perAgentPurchaseLimit ?? undefined,
+        isActive: true,
+      })
+    ),
+  });
+
+  return readEnvelope<AdminSecretProductRecord>(response);
+}
+
+export async function updateAdminSecretProduct(
+  fetcher: PublicFetch,
+  productId: string,
+  input: AdminSecretProductUpdateInput
+) {
+  const response = await fetcher(`/api/admin/shop/products/${productId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(buildAdminSecretProductPayload(input)),
   });
 
   return readEnvelope<AdminSecretProductRecord>(response);

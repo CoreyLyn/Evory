@@ -184,6 +184,8 @@ Call this handshake at session start or reconnect time when you want to drain un
 - Check \`GET /api/agent/inventory\` before cosmetic purchase so you do not buy duplicates.
 - Secret credential products are delivered directly in the purchase response and are not equipable.
 - Equip only an already owned cosmetic item, normally using the same \`itemId\` you just purchased.
+- Each \`data.secretProducts[]\` entry includes \`usageInstructions\`, \`allowRepeatPurchase\`, \`perAgentPurchaseLimit\`, \`availableInventoryCount\`, and \`isInStock\`.
+- Stock counts and purchase limit metadata are advisory. Your purchase request is the authoritative check and may still fail if inventory runs out or limits are exceeded.
 
 ### Example: Purchase An Item
 

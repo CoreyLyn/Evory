@@ -26,6 +26,63 @@ class InsufficientPointsError extends Error {
   }
 }
 
+type PurchaseLogLevel = "info" | "warn" | "error";
+
+function logPurchaseEvent(
+  level: PurchaseLogLevel,
+  event: string,
+  details: Record<string, unknown>
+) {
+  const payload = { event, ...details };
+  if (level === "error") {
+    console.error("[points/shop/purchase POST]", payload);
+    return;
+  }
+  if (level === "info") {
+    console.info("[points/shop/purchase POST]", payload);
+    return;
+  }
+  console.warn("[points/shop/purchase POST]", payload);
+}
+
+function isJsonParseError(error: unknown) {
+  return error instanceof SyntaxError;
+}
+
+function isOwnedItemUniqueViolation(error: unknown) {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !("code" in error) ||
+    (error as { code?: string }).code !== "P2002"
+  ) {
+    return false;
+  }
+
+  const target = "meta" in error
+    ? (error as { meta?: { target?: unknown } }).meta?.target
+    : undefined;
+
+  return (
+    Array.isArray(target) &&
+    target.length === 2 &&
+    target.includes("agentId") &&
+    target.includes("itemId")
+  );
+}
+
+function readPurchaseRequestBody(body: unknown) {
+  const payload =
+    body && typeof body === "object" && !Array.isArray(body)
+      ? (body as { itemId?: unknown; productId?: unknown })
+      : {};
+
+  return {
+    itemId: typeof payload.itemId === "string" ? payload.itemId : null,
+    productId: typeof payload.productId === "string" ? payload.productId : null,
+  };
+}
+
 export async function POST(request: NextRequest) {
   const agentContext = await authenticateAgentContext(request);
   if (!agentContext) return notForAgentsResponse(unauthorizedResponse());
@@ -51,17 +108,37 @@ export async function POST(request: NextRequest) {
   }
 
   const agent = agentContext.agent;
+  let requestedItemId: string | null = null;
 
   try {
-    const body = await request.json();
-    const itemId =
-      typeof body?.itemId === "string" ? body.itemId : null;
-    const productId =
-      typeof body?.productId === "string" ? body.productId : null;
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch (error) {
+      if (isJsonParseError(error)) {
+        return notForAgentsResponse(Response.json(
+          { success: false, error: "Request body must be valid JSON" },
+          { status: 400 }
+        ));
+      }
+
+      throw error;
+    }
+
+    const { itemId, productId } = readPurchaseRequestBody(body);
+
+    requestedItemId = itemId;
 
     if (!itemId && !productId) {
       return notForAgentsResponse(Response.json(
         { success: false, error: "itemId or productId is required" },
+        { status: 400 }
+      ));
+    }
+
+    if (itemId && productId) {
+      return notForAgentsResponse(Response.json(
+        { success: false, error: "Provide exactly one of itemId or productId" },
         { status: 400 }
       ));
     }
@@ -76,6 +153,11 @@ export async function POST(request: NextRequest) {
         return notForAgentsResponse(Response.json({ success: true, data: fulfilled }));
       } catch (err) {
         if (err instanceof OutOfStockError) {
+          logPurchaseEvent("warn", "secret_purchase_out_of_stock", {
+            category: "business",
+            agentId: agent.id,
+            productId,
+          });
           return notForAgentsResponse(Response.json(
             { success: false, error: err.message },
             { status: 409 }
@@ -90,6 +172,11 @@ export async function POST(request: NextRequest) {
         }
 
         if (err instanceof PurchaseLimitExceededError) {
+          logPurchaseEvent("warn", "secret_purchase_limit_rejected", {
+            category: "business",
+            agentId: agent.id,
+            productId,
+          });
           return notForAgentsResponse(Response.json(
             { success: false, error: err.message },
             { status: 409 }
@@ -97,9 +184,17 @@ export async function POST(request: NextRequest) {
         }
 
         if (err instanceof FulfillmentConflictError) {
+          const conflictCode =
+            err.code ?? "secret_purchase_retryable_conflict";
+          logPurchaseEvent("error", "secret_purchase_conflict_exhausted", {
+            category: "platform",
+            agentId: agent.id,
+            productId,
+            code: conflictCode,
+          });
           return notForAgentsResponse(Response.json(
-            { success: false, error: "Internal server error" },
-            { status: 500 }
+            { success: false, error: err.message, code: conflictCode },
+            { status: 503 }
           ));
         }
 
@@ -139,6 +234,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (existing) {
+      logPurchaseEvent("warn", "shop_item_duplicate_rejected", {
+        category: "business",
+        agentId: agent.id,
+        itemId,
+      });
       return notForAgentsResponse(Response.json(
         { success: false, error: "Item already owned" },
         { status: 409 }
@@ -177,13 +277,12 @@ export async function POST(request: NextRequest) {
       ));
     }
 
-    const isUniqueViolation =
-      err &&
-      typeof err === "object" &&
-      "code" in err &&
-      (err as { code?: string }).code === "P2002";
-
-    if (isUniqueViolation) {
+    if (isOwnedItemUniqueViolation(err)) {
+      logPurchaseEvent("warn", "shop_item_duplicate_rejected", {
+        category: "business",
+        agentId: agent.id,
+        itemId: requestedItemId,
+      });
       return notForAgentsResponse(Response.json(
         { success: false, error: "Item already owned" },
         { status: 409 }

@@ -20,6 +20,7 @@ const originalMethods = {
   securityEvent: prismaClient.securityEvent,
   rateLimitCounter: prismaClient.rateLimitCounter,
   catalogProduct: prismaClient.catalogProduct,
+  secretInventory: prismaClient.secretInventory,
 };
 
 const ADMIN_TOKEN = "admin-session-token";
@@ -66,11 +67,13 @@ afterEach(() => {
   prismaClient.securityEvent = originalMethods.securityEvent;
   prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.catalogProduct = originalMethods.catalogProduct;
+  prismaClient.secretInventory = originalMethods.secretInventory;
 });
 
-test("GET /api/admin/shop/products lists secret credential products with counts", async () => {
+test("GET /api/admin/shop/products lists secret credential products with status counts", async () => {
   mockAdminSession();
   let receivedArgs: unknown = null;
+  let receivedInventoryArgs: unknown = null;
   prismaClient.catalogProduct = {
     findMany: async (args: unknown) => {
       receivedArgs = args;
@@ -79,10 +82,20 @@ test("GET /api/admin/shop/products lists secret credential products with counts"
           id: "product-1",
           isActive: false,
           _count: {
-            secretInventory: 2,
+            secretInventory: 4,
             purchaseOrders: 5,
           },
         }),
+      ];
+    },
+  };
+  prismaClient.secretInventory = {
+    groupBy: async (args: unknown) => {
+      receivedInventoryArgs = args;
+      return [
+        { productId: "product-1", status: "AVAILABLE", _count: { _all: 2 } },
+        { productId: "product-1", status: "SOLD", _count: { _all: 1 } },
+        { productId: "product-1", status: "VOID", _count: { _all: 1 } },
       ];
     },
   };
@@ -101,18 +114,27 @@ test("GET /api/admin/shop/products lists secret credential products with counts"
     include: {
       _count: {
         select: {
-          secretInventory: true,
           purchaseOrders: true,
         },
       },
     },
   });
+  assert.deepEqual(receivedInventoryArgs, {
+    by: ["productId", "status"],
+    where: {
+      productId: { in: ["product-1"] },
+    },
+    _count: {
+      _all: true,
+    },
+  });
   assert.equal(json.success, true);
-  assert.equal(json.data[0].inventoryCount, 2);
+  assert.equal(json.data[0].availableInventoryCount, 2);
+  assert.equal(json.data[0].soldInventoryCount, 1);
+  assert.equal(json.data[0].voidInventoryCount, 1);
   assert.equal(json.data[0].orderCount, 5);
+  assert.equal("inventoryCount" in json.data[0], false);
   assert.equal("_count" in json.data[0], false);
-  assert.equal("secretInventory" in json.data[0], false);
-  assert.equal("purchaseOrders" in json.data[0], false);
 });
 
 test("POST /api/admin/shop/products creates a secret credential catalog product", async () => {

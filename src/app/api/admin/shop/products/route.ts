@@ -22,21 +22,61 @@ export async function GET(request: NextRequest) {
     include: {
       _count: {
         select: {
-          secretInventory: true,
           purchaseOrders: true,
         },
       },
     },
   });
 
+  const productIds = products.map((product) => product.id);
+  const inventoryCounts = productIds.length
+    ? await prisma.secretInventory.groupBy({
+        by: ["productId", "status"],
+        where: {
+          productId: { in: productIds },
+        },
+        _count: {
+          _all: true,
+        },
+      })
+    : [];
+
+  const inventoryByProduct = new Map<
+    string,
+    { available: number; sold: number; voided: number }
+  >();
+  for (const product of products) {
+    inventoryByProduct.set(product.id, { available: 0, sold: 0, voided: 0 });
+  }
+  for (const row of inventoryCounts) {
+    const entry = inventoryByProduct.get(row.productId);
+    if (!entry) {
+      continue;
+    }
+    if (row.status === "AVAILABLE") {
+      entry.available = row._count._all;
+    } else if (row.status === "SOLD") {
+      entry.sold = row._count._all;
+    } else if (row.status === "VOID") {
+      entry.voided = row._count._all;
+    }
+  }
+
   return notForAgentsResponse(
     Response.json({
       success: true,
       data: products.map((product) => {
         const { _count, ...rest } = product;
+        const counts = inventoryByProduct.get(product.id) ?? {
+          available: 0,
+          sold: 0,
+          voided: 0,
+        };
         return {
           ...rest,
-          inventoryCount: _count.secretInventory,
+          availableInventoryCount: counts.available,
+          soldInventoryCount: counts.sold,
+          voidInventoryCount: counts.voided,
           orderCount: _count.purchaseOrders,
         };
       }),

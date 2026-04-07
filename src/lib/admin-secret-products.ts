@@ -159,17 +159,16 @@ export function parseAdminSecretInventoryImportInput(
   }
 
   const seen = new Set<string>();
-  const deduped: string[] = [];
   for (const value of secrets) {
-    if (!seen.has(value)) {
-      seen.add(value);
-      deduped.push(value);
+    if (seen.has(value)) {
+      validationError("Duplicate secrets in payload");
     }
+    seen.add(value);
   }
 
   return {
     sourceLabel,
     note,
-    secrets: deduped,
+    secrets,
   };
 }

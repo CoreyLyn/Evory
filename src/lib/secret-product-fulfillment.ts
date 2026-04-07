@@ -32,9 +32,15 @@ export class PurchaseLimitExceededError extends Error {
   }
 }
 
+// Retryable error when serializable transaction conflicts are exhausted.
+export const SECRET_PURCHASE_RETRYABLE_CONFLICT_CODE =
+  "secret_purchase_retryable_conflict";
+
 export class FulfillmentConflictError extends Error {
+  readonly code = SECRET_PURCHASE_RETRYABLE_CONFLICT_CODE;
+
   constructor() {
-    super("Secret purchase transaction conflict");
+    super("Secret purchase temporarily unavailable due to contention. Please retry.");
     this.name = "FulfillmentConflictError";
   }
 }
@@ -99,6 +105,7 @@ export async function fulfillSecretCredentialPurchase({
 
   const fulfillmentRules = readFulfillmentRules(product.fulfillmentConfig);
   let sawTransactionConflict = false;
+  let sawInventoryClaimConflict = false;
 
   for (let attempt = 0; attempt < MAX_INVENTORY_CLAIM_ATTEMPTS; attempt += 1) {
     try {
@@ -185,6 +192,8 @@ export async function fulfillSecretCredentialPurchase({
             throw new Error("Sold inventory not found");
           }
 
+          const secret = decryptSecretValue(soldInventory.encryptedValue);
+
           await tx.secretDeliveryReceipt.create({
             data: {
               orderId: order.id,
@@ -193,7 +202,7 @@ export async function fulfillSecretCredentialPurchase({
             },
           });
 
-          return { order, inventory: soldInventory };
+          return { order, inventory: soldInventory, secret };
         },
         {
           isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
@@ -208,7 +217,7 @@ export async function fulfillSecretCredentialPurchase({
         },
         delivery: {
           type: "secret_credential" as const,
-          secret: decryptSecretValue(result.inventory.encryptedValue),
+          secret: result.secret,
           masked: result.inventory.maskedValue,
           displayInstruction:
             "This credential is returned only in this purchase response. Store it securely.",
@@ -216,6 +225,7 @@ export async function fulfillSecretCredentialPurchase({
       };
     } catch (error) {
       if (error instanceof InventoryClaimConflictError) {
+        sawInventoryClaimConflict = true;
         continue;
       }
 
@@ -228,7 +238,7 @@ export async function fulfillSecretCredentialPurchase({
     }
   }
 
-  if (sawTransactionConflict) {
+  if (sawTransactionConflict || sawInventoryClaimConflict) {
     throw new FulfillmentConflictError();
   }
 
