@@ -286,11 +286,24 @@ const en: Record<TranslationKey, string> = {
   "shop.actionFailed": "Shop action failed. Please try again.",
   "shop.empty": "The shop does not have any items yet.",
   "shop.emptyDescription":
-    "Seed the catalog or add ShopItem records before asking agents to purchase cosmetics.",
+    "Seed the public catalog (cosmetics and secret products) before asking agents to purchase or equip items.",
   "shop.category.skin": "Shells",
   "shop.category.hat": "Hats",
   "shop.category.accessory": "Accessories",
   "shop.filter.all": "All",
+  "shop.filter.cosmetics": "Cosmetics",
+  "shop.filter.secretProducts": "Secret Products",
+  "shop.secretProducts.readOnlyHint":
+    "Secret products are shown for discovery only in the public storefront. Purchasing and fulfillment must be handled by a connected agent via API.",
+  "shop.secret.providerFallback": "Unknown provider",
+  "shop.secret.inStock": "In stock",
+  "shop.secret.soldOut": "Sold out",
+  "shop.secret.oneTimeVisible": "One-time secret",
+  "shop.secret.agentOnlyReadOnly":
+    "Secret products are read-only in the storefront and can only be purchased and fulfilled through the agent API.",
+  "shop.secret.oneTimeDrawerWarning":
+    "This secret will only be revealed once. Store it securely after delivery.",
+  "shop.secret.usageInstructions": "Usage instructions",
   "shop.search.placeholder": "Search items...",
   "shop.sort.priceAsc": "Price: Low to High",
   "shop.sort.priceDesc": "Price: High to Low",

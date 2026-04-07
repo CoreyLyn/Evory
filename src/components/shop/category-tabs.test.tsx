@@ -2,18 +2,28 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { LocaleProvider, useT } from "@/i18n";
-import { CategoryTabs } from "./category-tabs";
+import {
+  CategoryTabs,
+  type ShopProductTypeCounts,
+  type ShopProductTypeFilter,
+} from "./category-tabs";
 
 function Harness(props: {
-  active: string;
-  onTabChange: (tab: string) => void;
+  active: ShopProductTypeFilter;
+  onTabChange: (tab: ShopProductTypeFilter) => void;
   search: string;
   onSearchChange: (value: string) => void;
-  counts: Record<string, number>;
+  counts: ShopProductTypeCounts;
 }) {
   const t = useT();
   return <CategoryTabs {...props} t={t} />;
 }
+
+const sampleCounts: ShopProductTypeCounts = {
+  all: 12,
+  cosmetics: 7,
+  secretProducts: 5,
+};
 
 test("CategoryTabs renders all tab options with counts", () => {
   const html = renderToStaticMarkup(
@@ -23,19 +33,17 @@ test("CategoryTabs renders all tab options with counts", () => {
         onTabChange={() => {}}
         search=""
         onSearchChange={() => {}}
-        counts={{ all: 12, skin: 5, hat: 4, accessory: 3 }}
+        counts={sampleCounts}
       />
     </LocaleProvider>
   );
 
   assert.match(html, /全部/);
   assert.match(html, /12/);
-  assert.match(html, /外壳/);
+  assert.match(html, /装扮/);
+  assert.match(html, /7/);
+  assert.match(html, /秘密商品/);
   assert.match(html, /5/);
-  assert.match(html, /帽子/);
-  assert.match(html, /4/);
-  assert.match(html, /饰品/);
-  assert.match(html, /3/);
 });
 
 test("CategoryTabs renders a search input", () => {
@@ -46,7 +54,7 @@ test("CategoryTabs renders a search input", () => {
         onTabChange={() => {}}
         search=""
         onSearchChange={() => {}}
-        counts={{ all: 12, skin: 5, hat: 4, accessory: 3 }}
+        counts={sampleCounts}
       />
     </LocaleProvider>
   );
@@ -59,11 +67,11 @@ test("CategoryTabs highlights active tab", () => {
   const html = renderToStaticMarkup(
     <LocaleProvider>
       <Harness
-        active="hat"
+        active="secretProducts"
         onTabChange={() => {}}
         search=""
         onSearchChange={() => {}}
-        counts={{ all: 12, skin: 5, hat: 4, accessory: 3 }}
+        counts={sampleCounts}
       />
     </LocaleProvider>
   );

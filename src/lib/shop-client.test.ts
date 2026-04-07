@@ -22,7 +22,18 @@ test("fetchShopItems reads the public catalog", async () => {
     return new Response(
       JSON.stringify({
         success: true,
-        data: [{ id: "crown", name: "Crown" }],
+        data: [
+          {
+            entryType: "cosmetic",
+            id: "crown",
+            name: "Crown",
+            description: "A royal crown for the top agent",
+            price: 200,
+            type: "hat",
+            category: "hat",
+            spriteKey: "crown",
+          },
+        ],
       }),
       {
         status: 200,
@@ -33,6 +44,173 @@ test("fetchShopItems reads the public catalog", async () => {
 
   assert.equal(requestInput, "/api/points/shop");
   assert.equal(items[0]?.name, "Crown");
+});
+
+test("fetchShopItems normalizes mixed public catalog entries", async () => {
+  const items = await fetchShopItems(async () => {
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: [
+          {
+            entryType: "cosmetic",
+            id: "crown",
+            name: "Crown",
+            description: "A royal crown for the top agent",
+            price: 200,
+            type: "hat",
+            category: "hat",
+            spriteKey: "crown",
+          },
+          {
+            entryType: "secret_product",
+            id: "product-1",
+            name: "Provider Pack",
+            description: "Secret credential",
+            price: 300,
+            availableInventoryCount: 3,
+          },
+        ],
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  });
+
+  assert.equal(items.length, 2);
+
+  const [first, second] = items;
+  assert.equal(first?.entryType, "cosmetic");
+  assert.equal(second?.entryType, "secret_product");
+
+  assert.equal(first?.currencyType, "POINTS");
+  assert.equal(second?.currencyType, "POINTS");
+
+  if (first?.entryType === "cosmetic") {
+    assert.equal(first.spriteKey, "crown");
+    assert.equal(first.category, "hat");
+    assert.equal(first.type, "hat");
+  }
+
+  if (second?.entryType === "secret_product") {
+    assert.equal(second.providerLabel, null);
+    assert.equal(second.usageInstructions, null);
+    assert.equal(second.allowRepeatPurchase, true);
+    assert.equal(second.perAgentPurchaseLimit, null);
+    assert.equal(second.availableInventoryCount, 3);
+    assert.equal(second.isInStock, true);
+  }
+});
+
+test("fetchShopItems preserves secret-product detail fields", async () => {
+  const items = await fetchShopItems(async () => {
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: [
+          {
+            entryType: "secret_product",
+            id: "product-1",
+            name: "Provider Pack",
+            description: "Secret credential",
+            price: 300,
+            providerLabel: "Provider",
+            usageInstructions: "Store securely",
+            allowRepeatPurchase: false,
+            perAgentPurchaseLimit: 2,
+            availableInventoryCount: 0,
+            isInStock: false,
+          },
+        ],
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  });
+
+  assert.equal(items[0]?.entryType, "secret_product");
+
+  const entry = items[0];
+  if (entry?.entryType === "secret_product") {
+    assert.equal(entry.providerLabel, "Provider");
+    assert.equal(entry.usageInstructions, "Store securely");
+    assert.equal(entry.allowRepeatPurchase, false);
+    assert.equal(entry.perAgentPurchaseLimit, 2);
+    assert.equal(entry.availableInventoryCount, 0);
+    assert.equal(entry.isInStock, false);
+  }
+});
+
+test("fetchShopItems rejects success envelopes with null data", async () => {
+  await assert.rejects(
+    () =>
+      fetchShopItems(async () => {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: null,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }),
+    /Shop request failed/
+  );
+});
+
+test("fetchShopItems rejects success envelopes with undefined data", async () => {
+  await assert.rejects(
+    () =>
+      fetchShopItems(async () => {
+        return new Response(
+          JSON.stringify({
+            success: true,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }),
+    /Shop request failed/
+  );
+});
+
+test("fetchShopItems rejects unexpected currency types", async () => {
+  await assert.rejects(
+    () =>
+      fetchShopItems(async () => {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: [
+              {
+                entryType: "cosmetic",
+                id: "crown",
+                name: "Crown",
+                description: "A royal crown for the top agent",
+                price: 200,
+                currencyType: "USD",
+                type: "hat",
+                category: "hat",
+                spriteKey: "crown",
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }),
+    /currencyType/
+  );
 });
 
 test("fetchAgentShopCatalog reads the agent shop response", async () => {

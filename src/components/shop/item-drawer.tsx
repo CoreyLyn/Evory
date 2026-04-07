@@ -4,7 +4,13 @@ import { useEffect } from "react";
 import { X } from "lucide-react";
 import { useT } from "@/i18n";
 import { LobsterPreview } from "./lobster-preview";
-import { itemToAppearance, CATEGORY_KEYS, type ShopItemData } from "./utils";
+import {
+  itemToAppearance,
+  getCategoryTranslationKey,
+  isCosmeticShopItem,
+  isSecretProductShopItem,
+  type ShopItemData,
+} from "./utils";
 
 interface ItemDrawerProps {
   item: ShopItemData | null;
@@ -25,10 +31,115 @@ export function ItemDrawer({ item, onClose }: ItemDrawerProps) {
 
   if (!item) return null;
 
+  if (isSecretProductShopItem(item)) {
+    const providerLabel =
+      item.detail.providerLabel?.trim() || t("shop.secret.providerFallback");
+    const stockLabel = item.detail.isInStock
+      ? t("shop.secret.inStock")
+      : t("shop.secret.soldOut");
+    const showOneTime = !item.detail.allowRepeatPurchase;
+    const usageInstructions = item.detail.usageInstructions?.trim();
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-end" role="dialog" aria-modal="true">
+        {/* Backdrop — clicking closes the drawer */}
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+        />
+
+        {/* Drawer panel — stopPropagation prevents backdrop close */}
+        <div
+          className="relative w-full max-w-md h-full bg-background/95 backdrop-blur-2xl border-l border-card-border/50 shadow-2xl overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute top-4 right-4 z-10 p-2 rounded-lg hover:bg-foreground/5 transition-colors"
+          >
+            <X className="w-5 h-5 text-muted" />
+          </button>
+
+          {/* Content */}
+          <div className="px-6 pb-8 pt-12 space-y-6">
+            {/* Title & Price */}
+            <div>
+              <h2 className="font-display text-2xl font-bold text-foreground">
+                {item.name}
+              </h2>
+              <div className="flex items-center gap-3 mt-2">
+                <div className="flex items-center gap-1">
+                  <span className="text-2xl font-bold text-warning font-display">
+                    {item.price}
+                  </span>
+                  <span className="text-xs uppercase tracking-[0.15em] text-muted">
+                    {t("common.pts")}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-muted/10 text-muted/80 border border-muted/10">
+                {providerLabel}
+              </span>
+              <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-muted/10 text-muted/80 border border-muted/10">
+                {stockLabel}
+              </span>
+              {showOneTime && (
+                <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-warning/10 text-warning border border-warning/20">
+                  {t("shop.secret.oneTimeVisible")}
+                </span>
+              )}
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <h3 className="text-xs uppercase tracking-[0.2em] text-muted">
+                {t("shop.drawer.description")}
+              </h3>
+              <p className="text-sm text-foreground/80 leading-relaxed">
+                {item.description}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-card-border/30 bg-card/40 px-4 py-3">
+              <p className="text-xs text-muted leading-relaxed">
+                {t("shop.secret.agentOnlyReadOnly")}
+              </p>
+            </div>
+
+            {showOneTime && (
+              <div className="rounded-xl border border-warning/20 bg-warning/10 px-4 py-3">
+                <p className="text-xs text-warning leading-relaxed">
+                  {t("shop.secret.oneTimeDrawerWarning")}
+                </p>
+              </div>
+            )}
+
+            {usageInstructions && (
+              <div className="space-y-1.5">
+                <h3 className="text-xs uppercase tracking-[0.2em] text-muted">
+                  {t("shop.secret.usageInstructions")}
+                </h3>
+                <p className="text-sm text-foreground/80 leading-relaxed">
+                  {usageInstructions}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isCosmeticShopItem(item)) return null;
+
   const appearance = itemToAppearance(item);
-  const categoryLabel = CATEGORY_KEYS[item.category]
-    ? t(CATEGORY_KEYS[item.category])
-    : item.category;
+  const categoryKey = getCategoryTranslationKey(item.category);
+  const categoryLabel = categoryKey ? t(categoryKey) : item.category;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end" role="dialog" aria-modal="true">
@@ -73,7 +184,7 @@ export function ItemDrawer({ item, onClose }: ItemDrawerProps) {
                   {item.price}
                 </span>
                 <span className="text-xs uppercase tracking-[0.15em] text-muted">
-                  pts
+                  {t("common.pts")}
                 </span>
               </div>
             </div>

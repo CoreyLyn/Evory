@@ -2,21 +2,39 @@
 
 import { Search } from "lucide-react";
 import type { TranslationKey } from "@/i18n";
+export type ShopProductTypeFilter = "all" | "cosmetics" | "secretProducts";
+export type ShopProductTypeCounts = {
+  all: number;
+  cosmetics: number;
+  secretProducts: number;
+};
+
+type CategoryTabsTranslationKey = Extract<
+  TranslationKey,
+  | "shop.filter.all"
+  | "shop.filter.cosmetics"
+  | "shop.filter.secretProducts"
+  | "shop.search.placeholder"
+>;
+
+type TabOption = {
+  key: ShopProductTypeFilter;
+  labelKey: CategoryTabsTranslationKey;
+};
 
 const TAB_OPTIONS = [
-  { key: "all", labelKey: "shop.filter.all" as TranslationKey },
-  { key: "skin", labelKey: "shop.category.skin" as TranslationKey },
-  { key: "hat", labelKey: "shop.category.hat" as TranslationKey },
-  { key: "accessory", labelKey: "shop.category.accessory" as TranslationKey },
-] as const;
+  { key: "all", labelKey: "shop.filter.all" },
+  { key: "cosmetics", labelKey: "shop.filter.cosmetics" },
+  { key: "secretProducts", labelKey: "shop.filter.secretProducts" },
+] as const satisfies readonly TabOption[];
 
 interface CategoryTabsProps {
-  active: string;
-  onTabChange: (tab: string) => void;
+  active: ShopProductTypeFilter;
+  onTabChange: (tab: ShopProductTypeFilter) => void;
   search: string;
   onSearchChange: (value: string) => void;
-  counts: Record<string, number>;
-  t: (key: TranslationKey) => string;
+  counts: ShopProductTypeCounts;
+  t: (key: CategoryTabsTranslationKey) => string;
 }
 
 export function CategoryTabs({

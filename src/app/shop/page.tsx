@@ -3,34 +3,27 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import { fetchShopItems } from "@/lib/shop-client";
+import { fetchShopItems, type PublicShopCatalogEntry } from "@/lib/shop-client";
 import { useT } from "@/i18n";
-import { CategoryTabs } from "@/components/shop/category-tabs";
+import {
+  CategoryTabs,
+  type ShopProductTypeFilter,
+} from "@/components/shop/category-tabs";
 import { ItemCard } from "@/components/shop/item-card";
 import { ItemDrawer } from "@/components/shop/item-drawer";
 import { SortSelect, type SortOption } from "@/components/shop/sort-select";
+import {
+  filterAndSortCatalogEntries,
+  getTypeCounts,
+} from "./page-helpers";
 import type { ShopItemData } from "@/components/shop/utils";
-
-function sortItems(items: ShopItemData[], sort: SortOption): ShopItemData[] {
-  const sorted = [...items];
-  switch (sort) {
-    case "price-asc":
-      return sorted.sort((a, b) => a.price - b.price);
-    case "price-desc":
-      return sorted.sort((a, b) => b.price - a.price);
-    case "name-asc":
-      return sorted.sort((a, b) => a.name.localeCompare(b.name));
-    default:
-      return sorted;
-  }
-}
 
 export default function ShopPage() {
   const t = useT();
-  const [items, setItems] = useState<ShopItemData[]>([]);
+  const [catalog, setCatalog] = useState<PublicShopCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState<ShopProductTypeFilter>("all");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("price-asc");
   const [selectedItem, setSelectedItem] = useState<ShopItemData | null>(null);
@@ -43,9 +36,9 @@ export default function ShopPage() {
       setError(null);
 
       try {
-        const catalog = await fetchShopItems();
+        const nextCatalog = await fetchShopItems();
         if (cancelled) return;
-        setItems(catalog as unknown as ShopItemData[]);
+        setCatalog(nextCatalog);
       } catch (nextError) {
         if (cancelled) return;
         setError(
@@ -60,29 +53,18 @@ export default function ShopPage() {
     return () => { cancelled = true; };
   }, [t]);
 
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: items.length };
-    for (const item of items) {
-      counts[item.category] = (counts[item.category] ?? 0) + 1;
-    }
-    return counts;
-  }, [items]);
+  const typeCounts = useMemo(() => {
+    return getTypeCounts(catalog);
+  }, [catalog]);
 
   const filteredItems = useMemo(() => {
-    let result = items;
-    if (activeTab !== "all") {
-      result = result.filter((item) => item.category === activeTab);
-    }
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (item) =>
-          item.name.toLowerCase().includes(q) ||
-          item.description.toLowerCase().includes(q)
-      );
-    }
-    return sortItems(result, sort);
-  }, [items, activeTab, search, sort]);
+    return filterAndSortCatalogEntries({
+      catalog,
+      activeTab,
+      search,
+      sort,
+    });
+  }, [catalog, activeTab, search, sort]);
 
   const handleCloseDrawer = useCallback(() => setSelectedItem(null), []);
 
@@ -93,6 +75,9 @@ export default function ShopPage() {
           title={t("shop.title")}
           description={t("control.shopReadOnly")}
         />
+        <div className="rounded-lg border border-card-border/40 bg-card/30 px-4 py-3 text-xs text-muted">
+          {t("shop.secretProducts.readOnlyHint")}
+        </div>
         <div className="rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-danger">
           {error}
         </div>
@@ -106,15 +91,18 @@ export default function ShopPage() {
         title={t("shop.title")}
         description={t("control.shopReadOnly")}
       />
+      <div className="rounded-lg border border-card-border/40 bg-card/30 px-4 py-3 text-xs text-muted">
+        {t("shop.secretProducts.readOnlyHint")}
+      </div>
 
-      {!loading && items.length > 0 && (
+      {!loading && catalog.length > 0 && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CategoryTabs
             active={activeTab}
             onTabChange={setActiveTab}
             search={search}
             onSearchChange={setSearch}
-            counts={categoryCounts}
+            counts={typeCounts}
             t={t}
           />
           <SortSelect value={sort} onChange={setSort} t={t} />

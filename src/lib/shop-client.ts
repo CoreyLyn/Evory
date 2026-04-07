@@ -1,6 +1,41 @@
 type PublicFetch = (input: string, init?: RequestInit) => Promise<Response>;
 type AgentFetch = (input: string, init?: RequestInit) => Promise<Response>;
 
+export type ShopCurrencyType = "POINTS";
+
+export type PublicShopCatalogEntryType = "cosmetic" | "secret_product";
+
+export type PublicShopCatalogCosmeticEntry = {
+  entryType: "cosmetic";
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currencyType: ShopCurrencyType;
+  type: string;
+  category: string;
+  spriteKey: string;
+};
+
+export type PublicShopCatalogSecretProductEntry = {
+  entryType: "secret_product";
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currencyType: ShopCurrencyType;
+  providerLabel: string | null;
+  usageInstructions: string | null;
+  isInStock: boolean;
+  availableInventoryCount: number;
+  allowRepeatPurchase: boolean;
+  perAgentPurchaseLimit: number | null;
+};
+
+export type PublicShopCatalogEntry =
+  | PublicShopCatalogCosmeticEntry
+  | PublicShopCatalogSecretProductEntry;
+
 export type AdminSecretProductRecord = {
   id: string;
   name: string;
@@ -77,19 +112,146 @@ export type AgentShopCatalog = {
   secretProducts: SecretProductEnvelope[];
 };
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function requireString(
+  record: Record<string, unknown>,
+  key: string,
+  context: string
+): string {
+  const value = record[key];
+  if (typeof value !== "string" || !value) {
+    throw new Error(`Invalid ${context}: missing ${key}`);
+  }
+  return value;
+}
+
+function requireNumber(
+  record: Record<string, unknown>,
+  key: string,
+  context: string
+): number {
+  const value = record[key];
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`Invalid ${context}: missing ${key}`);
+  }
+  return value;
+}
+
+function readStringOrNull(record: Record<string, unknown>, key: string): string | null {
+  const value = record[key];
+  return typeof value === "string" ? value : null;
+}
+
+function readBoolean(record: Record<string, unknown>, key: string): boolean | undefined {
+  const value = record[key];
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function readPositiveIntegerOrNull(
+  record: Record<string, unknown>,
+  key: string
+): number | null {
+  const value = record[key];
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) return null;
+  return value;
+}
+
+function readNonNegativeInteger(record: Record<string, unknown>, key: string): number | undefined {
+  const value = record[key];
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) return undefined;
+  return value;
+}
+
+function readCurrencyType(
+  record: Record<string, unknown>,
+  context: string
+): ShopCurrencyType {
+  const value = record.currencyType;
+
+  // Back-compat: older/public endpoints may omit currencyType entirely.
+  if (value === undefined) return "POINTS";
+  if (value === "POINTS") return "POINTS";
+
+  throw new Error(`Invalid ${context}: unexpected currencyType`);
+}
+
+function normalizePublicShopCatalogEntry(rawEntry: unknown): PublicShopCatalogEntry {
+  const record = asRecord(rawEntry);
+  if (!record) {
+    throw new Error("Invalid shop catalog entry");
+  }
+
+  const entryType =
+    record.entryType === "secret_product" ? "secret_product" : "cosmetic";
+
+  const base = {
+    id: requireString(record, "id", "shop catalog entry"),
+    name: requireString(record, "name", "shop catalog entry"),
+    description: requireString(record, "description", "shop catalog entry"),
+    price: requireNumber(record, "price", "shop catalog entry"),
+    currencyType: readCurrencyType(record, "shop catalog entry"),
+  };
+
+  if (entryType === "secret_product") {
+    const availableInventoryCount =
+      readNonNegativeInteger(record, "availableInventoryCount") ?? 0;
+    const allowRepeatPurchase =
+      readBoolean(record, "allowRepeatPurchase") ?? true;
+    const perAgentPurchaseLimit = readPositiveIntegerOrNull(
+      record,
+      "perAgentPurchaseLimit"
+    );
+    const isInStock =
+      readBoolean(record, "isInStock") ?? availableInventoryCount > 0;
+
+    return {
+      entryType,
+      ...base,
+      providerLabel: readStringOrNull(record, "providerLabel"),
+      usageInstructions: readStringOrNull(record, "usageInstructions"),
+      isInStock,
+      availableInventoryCount,
+      allowRepeatPurchase,
+      perAgentPurchaseLimit,
+    };
+  }
+
+  return {
+    entryType,
+    ...base,
+    type: requireString(record, "type", "cosmetic catalog entry"),
+    category: requireString(record, "category", "cosmetic catalog entry"),
+    spriteKey: requireString(record, "spriteKey", "cosmetic catalog entry"),
+  };
+}
+
+function normalizePublicShopCatalog(raw: unknown): PublicShopCatalogEntry[] {
+  if (!Array.isArray(raw)) {
+    throw new Error("Invalid shop catalog");
+  }
+  return raw.map((entry) => normalizePublicShopCatalogEntry(entry));
+}
+
 async function readEnvelope<T>(response: Response): Promise<T> {
   const json = (await response.json()) as ApiEnvelope<T>;
 
-  if (!response.ok || !json.success || json.data === undefined) {
+  if (!response.ok || !json.success || json.data === undefined || json.data === null) {
     throw new Error(json.error ?? "Shop request failed");
   }
 
   return json.data;
 }
 
-export async function fetchShopItems(fetcher: PublicFetch = fetch) {
+export async function fetchShopItems(
+  fetcher: PublicFetch = fetch
+): Promise<PublicShopCatalogEntry[]> {
   const response = await fetcher("/api/points/shop");
-  return readEnvelope<Array<Record<string, unknown>>>(response);
+  const raw = await readEnvelope<unknown>(response);
+  return normalizePublicShopCatalog(raw);
 }
 
 export async function fetchAgentShopCatalog(agentFetch: AgentFetch) {

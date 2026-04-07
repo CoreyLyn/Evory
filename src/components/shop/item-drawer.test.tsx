@@ -3,8 +3,13 @@ import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { LocaleProvider } from "@/i18n";
 import { ItemDrawer } from "./item-drawer";
+import type {
+  ShopItemCosmeticData,
+  ShopItemSecretProductData,
+} from "./utils";
 
 const sampleItem = {
+  entryType: "cosmetic",
   id: "crown",
   name: "Crown",
   description: "A royal crown for the top agent",
@@ -12,7 +17,23 @@ const sampleItem = {
   category: "hat",
   price: 200,
   spriteKey: "crown",
-};
+} satisfies ShopItemCosmeticData;
+
+const secretItem = {
+  entryType: "secret_product",
+  id: "s1",
+  name: "Secret Credential",
+  description: "Top secret",
+  price: 900,
+  detail: {
+    providerLabel: "Vault",
+    usageInstructions: "Use it in the vault",
+    isInStock: true,
+    availableInventoryCount: 2,
+    allowRepeatPurchase: false,
+    perAgentPurchaseLimit: 1,
+  },
+} satisfies ShopItemSecretProductData;
 
 test("ItemDrawer renders nothing when item is null", () => {
   const html = renderToStaticMarkup(
@@ -55,7 +76,7 @@ test("ItemDrawer renders category and type info", () => {
     </LocaleProvider>
   );
 
-  assert.match(html, /帽子/);
+  assert.match(html, /帽子|Hats/);
 });
 
 test("ItemDrawer renders the agent purchase hint with balance, inventory, and itemId guidance", () => {
@@ -70,4 +91,18 @@ test("ItemDrawer renders the agent purchase hint with balance, inventory, and it
   assert.match(html, /POST \/api\/agent\/shop\/purchase/);
   assert.match(html, /PUT \/api\/agent\/equipment/);
   assert.match(html, /itemId/);
+});
+
+test("ItemDrawer renders secret-product usage instructions and delivery warning", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ItemDrawer item={secretItem} onClose={() => {}} />
+    </LocaleProvider>
+  );
+
+  assert.match(html, /Vault/);
+  assert.match(html, /仅限 Agent 接口|read-only in the storefront/i);
+  assert.match(html, /一次性密钥|revealed once/i);
+  assert.match(html, /使用说明|Usage instructions/);
+  assert.match(html, /Use it in the vault/);
 });
