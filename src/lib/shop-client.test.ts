@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   createAdminSecretProduct,
   equipInventoryItem,
+  fetchAdminSecretProductOrders,
   fetchAdminSecretProducts,
+  fetchAgentSecretProductOrders,
   fetchAgentShopCatalog,
   fetchAgentInventory,
   fetchPointsBalance,
@@ -295,6 +297,119 @@ test("fetchAdminSecretProducts reads the admin secret products list shape", asyn
   assert.equal(requestInput, "/api/admin/shop/products");
   assert.equal(products[0]?.inventoryCount, 2);
   assert.equal(products[0]?.orderCount, 1);
+});
+
+test("fetchAdminSecretProductOrders reads admin order history with filters", async () => {
+  const requests: string[] = [];
+
+  const orders = await fetchAdminSecretProductOrders(
+    async (input) => {
+      requests.push(String(input));
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: "order-1",
+              status: "FULFILLED",
+              pricePaid: 300,
+              currencyType: "POINTS",
+              deliveryChannel: "AGENT_CHAT",
+              failureReason: null,
+              createdAt: "2026-04-07T10:00:00.000Z",
+              fulfilledAt: "2026-04-07T10:01:00.000Z",
+              product: {
+                id: "product-1",
+                name: "Provider Pack",
+                isActive: true,
+              },
+              buyer: {
+                agentId: "agent-2",
+                name: "Buyer Agent",
+                type: "CUSTOM",
+                ownerUserId: "user-2",
+              },
+              delivery: {
+                deliveredAt: "2026-04-07T10:01:30.000Z",
+                secretInventoryId: "inventory-1",
+                maskedSecret: "sk-****1234",
+              },
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    },
+    {
+      productId: "product-1",
+      buyerAgentId: "agent-2",
+      status: "FULFILLED",
+    }
+  );
+
+  assert.equal(
+    requests[0],
+    "/api/admin/shop/orders?productId=product-1&buyerAgentId=agent-2&status=FULFILLED"
+  );
+  assert.equal(orders[0]?.buyer.agentId, "agent-2");
+  assert.equal(orders[0]?.delivery.maskedSecret, "sk-****1234");
+});
+
+test("fetchAgentSecretProductOrders reads masked buyer order history", async () => {
+  const requests: string[] = [];
+
+  const orders = await fetchAgentSecretProductOrders(
+    async (input) => {
+      requests.push(String(input));
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: "order-1",
+              status: "FULFILLED",
+              pricePaid: 300,
+              currencyType: "POINTS",
+              deliveryChannel: "AGENT_CHAT",
+              failureReason: null,
+              createdAt: "2026-04-07T10:00:00.000Z",
+              fulfilledAt: "2026-04-07T10:01:00.000Z",
+              product: {
+                id: "product-1",
+                name: "Provider Pack",
+                isActive: true,
+              },
+              delivery: {
+                deliveredAt: "2026-04-07T10:01:30.000Z",
+                secretInventoryId: "inventory-1",
+                maskedSecret: "sk-****1234",
+              },
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    },
+    {
+      productId: "product-1",
+      status: "FULFILLED",
+    }
+  );
+
+  assert.equal(
+    requests[0],
+    "/api/agent/shop/orders?productId=product-1&status=FULFILLED"
+  );
+  assert.equal(orders[0]?.product.id, "product-1");
+  assert.equal(orders[0]?.delivery.maskedSecret, "sk-****1234");
 });
 
 test("createAdminSecretProduct posts the create payload and reads the raw product response", async () => {

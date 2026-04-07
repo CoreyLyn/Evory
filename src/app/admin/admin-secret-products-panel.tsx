@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   createAdminSecretProduct,
+  fetchAdminSecretProductOrders,
   fetchAdminSecretProducts,
   importAdminSecretInventory,
+  type AdminSecretProductOrder,
   type AdminSecretProduct,
   type AdminSecretProductUpdateInput,
+  type SecretProductOrderStatus,
   updateAdminSecretProduct,
 } from "@/lib/shop-client";
 
@@ -57,6 +60,8 @@ type AdminSecretInventoryResponse = {
   productId: string;
   inventory: AdminSecretInventoryRow[];
 };
+
+type OrderStatusFilter = "ALL" | SecretProductOrderStatus;
 
 export function createInitialProductDraft(): ProductDraft {
   return {
@@ -246,6 +251,21 @@ function formatInventoryTimestamp(value: string | null) {
   return parsed.toLocaleString();
 }
 
+function getOrderStatusLabel(
+  status: SecretProductOrderStatus,
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string
+) {
+  switch (status) {
+    case "PENDING":
+      return t("admin.products.orders.status.pending");
+    case "FAILED":
+      return t("admin.products.orders.status.failed");
+    case "FULFILLED":
+    default:
+      return t("admin.products.orders.status.fulfilled");
+  }
+}
+
 export function normalizeInventoryProductId(
   products: AdminSecretProduct[],
   productId: string
@@ -317,6 +337,11 @@ export function AdminSecretProductsPanel({
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [inventoryError, setInventoryError] = useState<string | null>(null);
   const [voidingInventoryId, setVoidingInventoryId] = useState<string | null>(null);
+  const [orderRows, setOrderRows] = useState<AdminSecretProductOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatusFilter>("ALL");
+  const [orderBuyerAgentId, setOrderBuyerAgentId] = useState("");
 
   useEffect(() => {
     const normalizedProductId = normalizeInventoryProductId(
@@ -372,6 +397,54 @@ export function AdminSecretProductsPanel({
     }
   }
 
+  async function fetchOrderHistory({
+    productId,
+    buyerAgentId,
+    status,
+  }: {
+    productId: string;
+    buyerAgentId: string;
+    status: OrderStatusFilter;
+  }) {
+    return fetchAdminSecretProductOrders(fetch, {
+      productId,
+      buyerAgentId: buyerAgentId.trim() || undefined,
+      status: status === "ALL" ? undefined : status,
+    });
+  }
+
+  async function refreshOrders({
+    productId = inventoryDraft.productId,
+    buyerAgentId = orderBuyerAgentId,
+    status = orderStatusFilter,
+  }: {
+    productId?: string;
+    buyerAgentId?: string;
+    status?: OrderStatusFilter;
+  } = {}) {
+    if (!productId) {
+      setOrderRows([]);
+      return;
+    }
+
+    setOrdersLoading(true);
+    setOrdersError(null);
+
+    try {
+      const data = await fetchOrderHistory({
+        productId,
+        buyerAgentId,
+        status,
+      });
+      setOrderRows(data);
+    } catch (error) {
+      setOrdersError(getErrorMessage(error, t("admin.actionFailed")));
+      setOrderRows([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -405,6 +478,44 @@ export function AdminSecretProductsPanel({
       cancelled = true;
     };
   }, [inventoryDraft.productId, t]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!inventoryDraft.productId) {
+      setOrderRows([]);
+      return;
+    }
+
+    setOrdersLoading(true);
+    setOrdersError(null);
+
+    fetchOrderHistory({
+      productId: inventoryDraft.productId,
+      buyerAgentId: orderBuyerAgentId,
+      status: orderStatusFilter,
+    })
+      .then((data) => {
+        if (!cancelled) {
+          setOrderRows(data);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setOrdersError(getErrorMessage(error, t("admin.actionFailed")));
+          setOrderRows([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setOrdersLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [inventoryDraft.productId, orderBuyerAgentId, orderStatusFilter, t]);
 
   function resetProductDraft() {
     setProductDraft(createInitialProductDraft());
@@ -563,6 +674,7 @@ export function AdminSecretProductsPanel({
         onRefresh: async () => {
           await onRefresh();
           await refreshInventory();
+          await refreshOrders();
         },
         onError,
         onSuccess,
@@ -614,6 +726,7 @@ export function AdminSecretProductsPanel({
         onRefresh: async () => {
           await onRefresh();
           await refreshInventory();
+          await refreshOrders();
         },
         onError,
         onSuccess,
@@ -1189,6 +1302,133 @@ export function AdminSecretProductsPanel({
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Card className="border-card-border/50 bg-card/70">
+        <div className="space-y-2">
+          <h3 className="text-lg font-semibold text-foreground">
+            {t("admin.products.orders.title")}
+          </h3>
+          <p className="text-sm text-muted">{t("admin.products.orders.subtitle")}</p>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3">
+            <div className="text-xs uppercase tracking-[0.16em] text-muted/70">
+              {t("admin.products.inventory.details.selectedProduct")}
+            </div>
+            <div className="mt-1 text-sm text-foreground">
+              {selectedInventoryProduct?.name ??
+                t("admin.products.inventory.details.noneSelected")}
+            </div>
+          </div>
+
+          <label className="space-y-2">
+            <span className="text-xs font-semibold text-muted">
+              {t("admin.products.orders.filters.status")}
+            </span>
+            <select
+              value={orderStatusFilter}
+              onChange={(event) =>
+                setOrderStatusFilter(event.target.value as OrderStatusFilter)
+              }
+              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+            >
+              <option value="ALL">
+                {t("admin.products.orders.filters.allStatuses")}
+              </option>
+              <option value="FULFILLED">
+                {t("admin.products.orders.status.fulfilled")}
+              </option>
+              <option value="PENDING">
+                {t("admin.products.orders.status.pending")}
+              </option>
+              <option value="FAILED">
+                {t("admin.products.orders.status.failed")}
+              </option>
+            </select>
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-xs font-semibold text-muted">
+              {t("admin.products.orders.filters.buyerAgentId")}
+            </span>
+            <input
+              value={orderBuyerAgentId}
+              onChange={(event) => setOrderBuyerAgentId(event.target.value)}
+              placeholder={t("admin.products.orders.filters.buyerAgentIdPlaceholder")}
+              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+            />
+          </label>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {!inventoryDraft.productId ? (
+            <p className="text-sm text-muted">
+              {t("admin.products.inventory.details.selectProduct")}
+            </p>
+          ) : ordersLoading ? (
+            <p className="text-sm text-muted">{t("common.loading")}</p>
+          ) : ordersError ? (
+            <p className="text-sm text-danger">{ordersError}</p>
+          ) : orderRows.length === 0 ? (
+            <p className="text-sm text-muted">{t("admin.products.orders.empty")}</p>
+          ) : (
+            <div className="space-y-3">
+              {orderRows.map((order) => (
+                <div
+                  key={order.id}
+                  className="rounded-2xl border border-card-border/40 bg-background/20 p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">
+                      {order.buyer.name}
+                    </span>
+                    <Badge variant="default">{order.buyer.agentId}</Badge>
+                    <Badge variant="muted">
+                      {getOrderStatusLabel(order.status, t)}
+                    </Badge>
+                  </div>
+                  <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                    <div>
+                      <dt className="inline text-muted/70">
+                        {t("admin.products.orders.maskedSecret")}{" "}
+                      </dt>
+                      <dd className="inline text-foreground/80">
+                        {order.delivery.maskedSecret ??
+                          t("admin.products.inventory.details.unknown")}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="inline text-muted/70">
+                        {t("admin.products.orders.createdAt")}{" "}
+                      </dt>
+                      <dd className="inline text-foreground/80">
+                        {formatInventoryTimestamp(order.createdAt)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="inline text-muted/70">
+                        {t("admin.products.orders.fulfilledAt")}{" "}
+                      </dt>
+                      <dd className="inline text-foreground/80">
+                        {formatInventoryTimestamp(order.fulfilledAt)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="inline text-muted/70">
+                        {t("admin.products.orders.deliveredAt")}{" "}
+                      </dt>
+                      <dd className="inline text-foreground/80">
+                        {formatInventoryTimestamp(order.delivery.deliveredAt)}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              ))}
             </div>
           )}
         </div>

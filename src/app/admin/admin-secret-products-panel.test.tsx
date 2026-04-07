@@ -442,6 +442,157 @@ test("AdminSecretProductsPanel renders status-specific stock breakdown", () => {
   assert.match(html, />1</);
 });
 
+test("AdminSecretProductsPanel renders order history controls", () => {
+  const html = renderToStaticMarkup(
+    <AdminSecretProductsPanel
+      t={(key) => key}
+      products={[
+        {
+          id: "product-1",
+          name: "Provider Pack",
+          description: "Secret credential",
+          productType: "SECRET_CREDENTIAL",
+          price: 300,
+          currencyType: "POINTS",
+          isActive: true,
+          displayConfig: {
+            providerLabel: "Provider",
+          },
+          fulfillmentConfig: {
+            allowRepeatPurchase: true,
+          },
+          availableInventoryCount: 2,
+          orderCount: 1,
+          createdAt: "2026-04-02T00:00:00.000Z",
+          updatedAt: "2026-04-02T00:00:00.000Z",
+        },
+      ]}
+      loading={false}
+      onRefresh={() => Promise.resolve()}
+      onError={() => undefined}
+      onSuccess={() => undefined}
+    />
+  );
+
+  assert.match(html, /admin\.products\.orders\.title/);
+  assert.match(html, /admin\.products\.orders\.filters\.status/);
+  assert.match(html, /admin\.products\.orders\.filters\.buyerAgentId/);
+});
+
+test("AdminSecretProductsPanel fetches order history for the selected product", async () => {
+  const products: AdminSecretProduct[] = [
+    {
+      id: "product-1",
+      name: "Provider Pack",
+      description: "Secret credential",
+      productType: "SECRET_CREDENTIAL",
+      price: 300,
+      currencyType: "POINTS",
+      isActive: true,
+      displayConfig: {
+        providerLabel: "Provider",
+      },
+      fulfillmentConfig: {
+        allowRepeatPurchase: true,
+      },
+      availableInventoryCount: 1,
+      orderCount: 1,
+      createdAt: "2026-04-02T00:00:00.000Z",
+      updatedAt: "2026-04-02T00:00:00.000Z",
+    },
+  ];
+
+  const requests: Array<{ input: string; init?: RequestInit }> = [];
+
+  const fetchMock = async (input: string, init?: RequestInit) => {
+    requests.push({ input, init });
+
+    if (input.endsWith("/inventory") && (!init || !init.method || init.method === "GET")) {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            productId: "product-1",
+            inventory: [],
+          },
+        }),
+      } as Response;
+    }
+
+    if (input.startsWith("/api/admin/shop/orders?productId=product-1")) {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: [
+            {
+              id: "order-1",
+              status: "FULFILLED",
+              pricePaid: 300,
+              currencyType: "POINTS",
+              deliveryChannel: "AGENT_CHAT",
+              failureReason: null,
+              createdAt: "2026-04-07T10:00:00.000Z",
+              fulfilledAt: "2026-04-07T10:01:00.000Z",
+              product: {
+                id: "product-1",
+                name: "Provider Pack",
+                isActive: true,
+              },
+              buyer: {
+                agentId: "agent-2",
+                name: "Buyer Agent",
+                type: "CUSTOM",
+                ownerUserId: "user-2",
+              },
+              delivery: {
+                deliveredAt: "2026-04-07T10:01:30.000Z",
+                secretInventoryId: "inventory-1",
+                maskedSecret: "sk-****1234",
+              },
+            },
+          ],
+        }),
+      } as Response;
+    }
+
+    throw new Error(`Unexpected fetch: ${input}`);
+  };
+
+  const { rootNode, cleanup } = await renderPanelWithDom({
+    products,
+    fetchMock,
+    onRefresh: () => Promise.resolve(),
+  });
+
+  try {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      if (
+        requests.some((request) =>
+          request.input.startsWith("/api/admin/shop/orders?productId=product-1")
+        )
+      ) {
+        break;
+      }
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+
+    assert.equal(
+      requests.some((request) =>
+        request.input.startsWith("/api/admin/shop/orders?productId=product-1")
+      ),
+      true
+    );
+    assert.match(getNodeText(rootNode), /Buyer Agent/);
+    assert.match(getNodeText(rootNode), /sk-\*\*\*\*1234/);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("AdminSecretProductsPanel void flow triggers API request for available inventory", async () => {
   const products: AdminSecretProduct[] = [
     {

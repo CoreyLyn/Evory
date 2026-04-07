@@ -75,6 +75,54 @@ export type AdminSecretProduct = AdminSecretProductRecord & {
   orderCount: number;
 };
 
+export type SecretProductOrderStatus = "PENDING" | "FULFILLED" | "FAILED";
+
+export type SecretProductOrderDelivery = {
+  deliveredAt: string | null;
+  secretInventoryId: string | null;
+  maskedSecret: string | null;
+};
+
+export type AdminSecretProductOrder = {
+  id: string;
+  status: SecretProductOrderStatus;
+  pricePaid: number;
+  currencyType: ShopCurrencyType;
+  deliveryChannel: "AGENT_CHAT";
+  failureReason: string | null;
+  createdAt: string;
+  fulfilledAt: string | null;
+  product: {
+    id: string;
+    name: string;
+    isActive: boolean;
+  };
+  buyer: {
+    agentId: string;
+    name: string;
+    type: string;
+    ownerUserId: string | null;
+  };
+  delivery: SecretProductOrderDelivery;
+};
+
+export type AgentSecretProductOrder = {
+  id: string;
+  status: SecretProductOrderStatus;
+  pricePaid: number;
+  currencyType: ShopCurrencyType;
+  deliveryChannel: "AGENT_CHAT";
+  failureReason: string | null;
+  createdAt: string;
+  fulfilledAt: string | null;
+  product: {
+    id: string;
+    name: string;
+    isActive: boolean;
+  };
+  delivery: SecretProductOrderDelivery;
+};
+
 export type AdminSecretProductCreateInput = {
   name: string;
   description: string;
@@ -94,6 +142,15 @@ export type AdminSecretInventoryImportInput = {
   sourceLabel: string;
   note: string;
   secrets: string;
+};
+
+export type SecretProductOrderFilters = {
+  productId?: string;
+  status?: SecretProductOrderStatus;
+};
+
+export type AdminSecretProductOrderFilters = SecretProductOrderFilters & {
+  buyerAgentId?: string;
 };
 
 export type ShopPurchaseInput =
@@ -246,6 +303,21 @@ async function readEnvelope<T>(response: Response): Promise<T> {
   return json.data;
 }
 
+function buildQueryString(
+  filters: Record<string, string | undefined>
+): string {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (typeof value === "string" && value.length > 0) {
+      searchParams.set(key, value);
+    }
+  }
+
+  const query = searchParams.toString();
+  return query ? `?${query}` : "";
+}
+
 export async function fetchShopItems(
   fetcher: PublicFetch = fetch
 ): Promise<PublicShopCatalogEntry[]> {
@@ -262,6 +334,35 @@ export async function fetchAgentShopCatalog(agentFetch: AgentFetch) {
 export async function fetchAdminSecretProducts(fetcher: PublicFetch = fetch) {
   const response = await fetcher("/api/admin/shop/products");
   return readEnvelope<AdminSecretProduct[]>(response);
+}
+
+export async function fetchAdminSecretProductOrders(
+  fetcher: PublicFetch = fetch,
+  filters: AdminSecretProductOrderFilters = {}
+) {
+  const response = await fetcher(
+    `/api/admin/shop/orders${buildQueryString({
+      productId: filters.productId,
+      buyerAgentId: filters.buyerAgentId,
+      status: filters.status,
+    })}`
+  );
+
+  return readEnvelope<AdminSecretProductOrder[]>(response);
+}
+
+export async function fetchAgentSecretProductOrders(
+  agentFetch: AgentFetch,
+  filters: SecretProductOrderFilters = {}
+) {
+  const response = await agentFetch(
+    `/api/agent/shop/orders${buildQueryString({
+      productId: filters.productId,
+      status: filters.status,
+    })}`
+  );
+
+  return readEnvelope<AgentSecretProductOrder[]>(response);
 }
 
 function buildAdminSecretProductPayload(input: {
