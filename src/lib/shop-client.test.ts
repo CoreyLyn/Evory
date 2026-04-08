@@ -147,6 +147,37 @@ test("fetchShopItems preserves secret-product detail fields", async () => {
   }
 });
 
+test("fetchShopItems tolerates entries with missing descriptions", async () => {
+  const items = await fetchShopItems(async () => {
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: [
+          {
+            entryType: "secret_product",
+            id: "product-1",
+            name: "Provider Pack",
+            price: 300,
+            providerLabel: "Provider",
+            availableInventoryCount: 1,
+          },
+        ],
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  });
+
+  assert.equal(items[0]?.entryType, "secret_product");
+
+  const entry = items[0];
+  if (entry?.entryType === "secret_product") {
+    assert.equal(entry.description, "");
+  }
+});
+
 test("fetchShopItems rejects success envelopes with null data", async () => {
   await assert.rejects(
     () =>

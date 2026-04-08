@@ -203,6 +203,15 @@ function readStringOrNull(record: Record<string, unknown>, key: string): string 
   return typeof value === "string" ? value : null;
 }
 
+function readStringOrDefault(
+  record: Record<string, unknown>,
+  key: string,
+  fallback: string
+): string {
+  const value = record[key];
+  return typeof value === "string" ? value : fallback;
+}
+
 function readBoolean(record: Record<string, unknown>, key: string): boolean | undefined {
   const value = record[key];
   return typeof value === "boolean" ? value : undefined;
@@ -248,7 +257,7 @@ function normalizePublicShopCatalogEntry(rawEntry: unknown): PublicShopCatalogEn
   const base = {
     id: requireString(record, "id", "shop catalog entry"),
     name: requireString(record, "name", "shop catalog entry"),
-    description: requireString(record, "description", "shop catalog entry"),
+    description: readStringOrDefault(record, "description", ""),
     price: requireNumber(record, "price", "shop catalog entry"),
     currencyType: readCurrencyType(record, "shop catalog entry"),
   };
