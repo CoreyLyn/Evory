@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   }
 
   const products = await prisma.catalogProduct.findMany({
-    where: { productType: "SECRET_CREDENTIAL" },
+    where: { productType: "API_QUOTA" },
     orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
     include: {
       _count: {
