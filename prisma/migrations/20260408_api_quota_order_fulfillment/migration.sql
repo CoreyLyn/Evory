@@ -69,7 +69,7 @@ CREATE INDEX "ProvidedApiKey_providerLabel_isActive_idx" ON "ProvidedApiKey"("pr
 ALTER TABLE "ProvidedApiKey" ADD CONSTRAINT "ProvidedApiKey_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "PurchaseOrder" ADD CONSTRAINT "PurchaseOrder_providedApiKeyId_fkey" FOREIGN KEY ("providedApiKeyId") REFERENCES "ProvidedApiKey"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "PurchaseOrder" ADD CONSTRAINT "PurchaseOrder_providedApiKeyId_fkey" FOREIGN KEY ("providedApiKeyId") REFERENCES "ProvidedApiKey"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "PurchaseOrder" ADD CONSTRAINT "PurchaseOrder_confirmedByUserId_fkey" FOREIGN KEY ("confirmedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "PurchaseOrder" ADD CONSTRAINT "PurchaseOrder_confirmedByUserId_fkey" FOREIGN KEY ("confirmedByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
