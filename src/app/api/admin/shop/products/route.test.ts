@@ -124,7 +124,7 @@ test("GET /api/admin/shop/products lists api quota products with status counts",
       },
     },
   });
-  assert.equal(typeof receivedArgsRecord.where?.productType, "string");
+  assert.equal(receivedArgsRecord.where?.productType, "API_QUOTA");
   assert.deepEqual(receivedInventoryArgs, {
     by: ["productId", "status"],
     where: {
