@@ -11,6 +11,7 @@ import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteRequest } from "@/test/request-helpers";
 import { hashSessionToken } from "@/lib/user-auth";
 import { GET, POST } from "./route";
+import "./[id]/route.test";
 
 const prismaClient = prisma as Record<string, unknown>;
 
