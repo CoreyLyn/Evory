@@ -24,6 +24,20 @@ ADD COLUMN "providedApiKeyId" TEXT,
 ADD COLUMN "confirmedByUserId" TEXT,
 ADD COLUMN "confirmedAt" TIMESTAMP(3);
 
+-- Backfill quota fields for existing rows, then enforce required shape for new schema.
+UPDATE "PurchaseOrder"
+SET "quotaAmount" = 0
+WHERE "quotaAmount" IS NULL;
+
+UPDATE "PurchaseOrder"
+SET "quotaUnitLabel" = 'tokens'
+WHERE "quotaUnitLabel" IS NULL;
+
+-- AlterTable
+ALTER TABLE "PurchaseOrder"
+ALTER COLUMN "quotaAmount" SET NOT NULL,
+ALTER COLUMN "quotaUnitLabel" SET NOT NULL;
+
 -- CreateIndex
 CREATE INDEX "PurchaseOrder_providedApiKeyId_idx" ON "PurchaseOrder"("providedApiKeyId");
 

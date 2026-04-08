@@ -630,8 +630,8 @@ model PurchaseOrder {
   buyerAgentId    String
   productId       String
   pricePaid       Int
-  quotaAmount     Int?
-  quotaUnitLabel  String?
+  quotaAmount     Int
+  quotaUnitLabel  String
   providedApiKeyId String?
   confirmedByUserId String?
   currencyType    ShopCurrencyType        @default(POINTS)

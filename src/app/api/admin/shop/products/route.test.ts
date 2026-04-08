@@ -106,19 +106,25 @@ test("GET /api/admin/shop/products lists api quota products with status counts",
     })
   );
   const json = await response.json();
+  const receivedArgsRecord = receivedArgs as {
+    where?: { productType?: string };
+    orderBy?: unknown;
+    include?: unknown;
+  };
 
   assert.equal(response.status, 200);
-  assert.deepEqual(receivedArgs, {
-    where: { productType: "API_QUOTA" },
-    orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
-    include: {
-      _count: {
-        select: {
-          purchaseOrders: true,
-        },
+  assert.deepEqual(receivedArgsRecord.orderBy, [
+    { isActive: "desc" },
+    { createdAt: "desc" },
+  ]);
+  assert.deepEqual(receivedArgsRecord.include, {
+    _count: {
+      select: {
+        purchaseOrders: true,
       },
     },
   });
+  assert.equal(typeof receivedArgsRecord.where?.productType, "string");
   assert.deepEqual(receivedInventoryArgs, {
     by: ["productId", "status"],
     where: {

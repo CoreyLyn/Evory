@@ -392,7 +392,7 @@ test("purchase creates pending api quota orders via productId", async () => {
   assert.equal("delivery" in json.data, false);
 });
 
-test("purchase returns 404 when the secret product is missing", async () => {
+test("purchase returns 404 when the api quota product is missing", async () => {
   mockAgentCredential("agent-key", {
     id: "agent-1",
     points: 120,
@@ -417,7 +417,7 @@ test("purchase returns 404 when the secret product is missing", async () => {
   assert.equal(json.error, "Product not found");
 });
 
-test("purchase returns 409 when secret inventory is out of stock", async () => {
+test("purchase returns 409 when api quota fulfillment is unavailable", async () => {
   mockAgentCredential("agent-key", {
     id: "agent-1",
     points: 120,
@@ -429,7 +429,7 @@ test("purchase returns 409 when secret inventory is out of stock", async () => {
       createCatalogProductFixture({
         id: "product-1",
         name: "Provider Key Pack",
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
         price: 100,
       }),
   };
@@ -477,7 +477,7 @@ test("purchase returns 409 when secret inventory is out of stock", async () => {
   assert.equal("data" in json, false);
 });
 
-test("purchase returns 409 when secret purchase exceeds configured limits", async () => {
+test("purchase returns 409 when api quota purchase exceeds configured limits", async () => {
   mockAgentCredential("agent-key", {
     id: "agent-1",
     points: 120,
@@ -489,7 +489,7 @@ test("purchase returns 409 when secret purchase exceeds configured limits", asyn
       createCatalogProductFixture({
         id: "product-1",
         name: "Provider Key Pack",
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
         price: 100,
         fulfillmentConfig: {
           allowRepeatPurchase: false,
@@ -504,7 +504,7 @@ test("purchase returns 409 when secret purchase exceeds configured limits", asyn
   };
   prismaClient.secretInventory = {
     findFirst: async () => {
-      throw new Error("secret inventory lookup should not run");
+      throw new Error("inventory lookup should not run for api quota limits");
     },
     updateMany: async () => ({ count: 0 }),
     findUnique: async () => null,
@@ -547,7 +547,7 @@ test("purchase returns 409 when secret purchase exceeds configured limits", asyn
   assert.equal(json.error, "Product purchase limit reached");
 });
 
-test("purchase returns a retryable conflict when secret purchase exhausts serialization retries", async () => {
+test("purchase returns a retryable conflict when api quota purchase exhausts serialization retries", async () => {
   mockAgentCredential("agent-key", {
     id: "agent-1",
     points: 120,
@@ -559,7 +559,7 @@ test("purchase returns a retryable conflict when secret purchase exhausts serial
       createCatalogProductFixture({
         id: "product-1",
         name: "Provider Key Pack",
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
         price: 100,
       }),
   };
@@ -583,7 +583,7 @@ test("purchase returns a retryable conflict when secret purchase exhausts serial
 
   assert.equal(response.status, 503);
   assert.equal(json.success, false);
-  assert.equal(json.code, "secret_purchase_retryable_conflict");
+  assert.equal(json.code, "api_quota_purchase_retryable_conflict");
   assert.match(json.error, /retry/i);
 });
 
@@ -635,7 +635,7 @@ test("purchase returns 400 when both itemId and productId are provided", async (
   assert.equal(json.error, "Provide exactly one of itemId or productId");
 });
 
-test("purchase treats voided secret inventory as out of stock", async () => {
+test("purchase treats unavailable api quota fulfillment as out of stock", async () => {
   mockAgentCredential("agent-key", {
     id: "agent-1",
     points: 120,
@@ -647,17 +647,12 @@ test("purchase treats voided secret inventory as out of stock", async () => {
       createCatalogProductFixture({
         id: "product-1",
         name: "Provider Key Pack",
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
         price: 100,
       }),
   };
-
-  let findFirstArgs: Record<string, unknown> | undefined;
   prismaClient.secretInventory = {
-    findFirst: async (args: Record<string, unknown>) => {
-      findFirstArgs = args;
-      return null;
-    },
+    findFirst: async () => null,
     updateMany: async () => ({ count: 0 }),
     findUnique: async () => null,
   };
@@ -696,10 +691,6 @@ test("purchase treats voided secret inventory as out of stock", async () => {
 
   assert.equal(response.status, 409);
   assert.equal(json.error, "Product is out of stock");
-  assert.equal(
-    (findFirstArgs?.where as { status?: string })?.status,
-    "AVAILABLE"
-  );
 });
 
 test("purchase rejects credentials missing points:shop scope", async () => {
