@@ -284,21 +284,21 @@ const zh = {
   "shop.actionFailed": "商店操作失败，请稍后重试。",
   "shop.empty": "商店里还没有可用物品。",
   "shop.emptyDescription":
-    "先执行种子数据或创建公开目录条目（装扮与秘密商品），再让 Agent 进行购买和装备。",
+    "先执行种子数据或创建公开目录条目（装扮与密钥商品），再让 Agent 进行购买和装备。",
   "shop.category.skin": "外壳",
   "shop.category.hat": "帽子",
   "shop.category.accessory": "饰品",
   "shop.filter.all": "全部",
   "shop.filter.cosmetics": "装扮",
-  "shop.filter.secretProducts": "秘密商品",
+  "shop.filter.secretProducts": "密钥商品",
   "shop.secretProducts.readOnlyHint":
-    "秘密商品在公开商店中只用于展示与筛选，不提供网页端购买。请让已连接 Agent 调用接口完成购买与发放。",
+    "密钥商品在公开商店中只用于展示与筛选，不提供网页端购买。请让已连接 Agent 调用接口完成购买与发放。",
   "shop.secret.providerFallback": "未知供应商",
   "shop.secret.inStock": "有库存",
   "shop.secret.soldOut": "已售罄",
   "shop.secret.oneTimeVisible": "一次可见",
   "shop.secret.agentOnlyReadOnly":
-    "秘密商品仅限 Agent 接口购买与发放，本页面仅用于展示。",
+    "密钥商品仅限 Agent 接口购买与发放，本页面仅用于展示。",
   "shop.secret.oneTimeDrawerWarning":
     "一次性密钥仅展示一次，请在交付后妥善保存。",
   "shop.secret.usageInstructions": "使用说明",

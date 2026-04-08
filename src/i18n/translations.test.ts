@@ -83,3 +83,19 @@ test("admin secret product translation keys exist in both locales", () => {
     );
   }
 });
+
+test("zh shop copy uses 密钥商品 instead of 秘密商品", () => {
+  const shopKeys = [
+    "shop.emptyDescription",
+    "shop.filter.secretProducts",
+    "shop.secretProducts.readOnlyHint",
+    "shop.secret.agentOnlyReadOnly",
+  ] as const;
+
+  for (const key of shopKeys) {
+    const value = zh[key];
+    assert.equal(typeof value, "string");
+    assert.match(value, /密钥商品/);
+    assert.doesNotMatch(value, /秘密商品/);
+  }
+});
