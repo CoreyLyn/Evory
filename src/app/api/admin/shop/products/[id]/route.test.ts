@@ -68,7 +68,7 @@ afterEach(() => {
   prismaClient.catalogProduct = originalMethods.catalogProduct;
 });
 
-test("PUT /api/admin/shop/products/[id] updates a secret credential catalog product", async () => {
+test("PUT /api/admin/shop/products/[id] updates an api quota catalog product", async () => {
   mockAdminSession();
   let updatedWhere: unknown = null;
   let updatedData: unknown = null;
@@ -93,15 +93,17 @@ test("PUT /api/admin/shop/products/[id] updates a secret credential catalog prod
       },
       json: {
         name: "  Updated Pack  ",
-        description: "  Revised secret  ",
-        productType: "SECRET_CREDENTIAL",
+        description: "  Revised quota  ",
+        productType: "API_QUOTA",
         price: 450,
         isActive: false,
         displayConfig: {
           providerLabel: "Provider",
+          quotaUnitLabel: "tokens",
           usageInstructions: "Store securely",
         },
         fulfillmentConfig: {
+          quotaAmount: 10000,
           allowRepeatPurchase: false,
           perAgentPurchaseLimit: 1,
         },
@@ -116,22 +118,24 @@ test("PUT /api/admin/shop/products/[id] updates a secret credential catalog prod
   assert.deepEqual(updatedWhere, { id: "product-1" });
   assert.deepEqual(updatedData, {
     name: "Updated Pack",
-    description: "Revised secret",
-    productType: "SECRET_CREDENTIAL",
+    description: "Revised quota",
+    productType: "API_QUOTA",
     price: 450,
     isActive: false,
     displayConfig: {
       providerLabel: "Provider",
+      quotaUnitLabel: "tokens",
       usageInstructions: "Store securely",
     },
     fulfillmentConfig: {
+      quotaAmount: 10000,
       allowRepeatPurchase: false,
       perAgentPurchaseLimit: 1,
     },
   });
 });
 
-test("PUT /api/admin/shop/products/[id] returns 404 for non-secret products", async () => {
+test("PUT /api/admin/shop/products/[id] returns 404 for non-api-quota products", async () => {
   mockAdminSession();
   let updateCalled = false;
   prismaClient.catalogProduct = {
@@ -151,14 +155,16 @@ test("PUT /api/admin/shop/products/[id] returns 404 for non-secret products", as
       },
       json: {
         name: "Updated Pack",
-        description: "Revised secret",
-        productType: "SECRET_CREDENTIAL",
+        description: "Revised quota",
+        productType: "API_QUOTA",
         price: 450,
         isActive: false,
         displayConfig: {
           providerLabel: "Provider",
+          quotaUnitLabel: "tokens",
         },
         fulfillmentConfig: {
+          quotaAmount: 10000,
           allowRepeatPurchase: false,
         },
       },
@@ -216,14 +222,16 @@ test("PUT /api/admin/shop/products/[id] returns 404 when the product does not ex
       },
       json: {
         name: "Updated Pack",
-        description: "Revised secret",
-        productType: "SECRET_CREDENTIAL",
+        description: "Revised quota",
+        productType: "API_QUOTA",
         price: 450,
         isActive: false,
         displayConfig: {
           providerLabel: "Provider",
+          quotaUnitLabel: "tokens",
         },
         fulfillmentConfig: {
+          quotaAmount: 10000,
           allowRepeatPurchase: false,
         },
       },
