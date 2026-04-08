@@ -24,19 +24,34 @@ ADD COLUMN "providedApiKeyId" TEXT,
 ADD COLUMN "confirmedByUserId" TEXT,
 ADD COLUMN "confirmedAt" TIMESTAMP(3);
 
--- Backfill quota fields for existing rows, then enforce required shape for new schema.
+-- Backfill legacy secret-product rows with explicit sentinel values so they are not
+-- misread as real API quota purchases in downstream logic.
 UPDATE "PurchaseOrder"
-SET "quotaAmount" = 0
+SET "quotaAmount" = -1
 WHERE "quotaAmount" IS NULL;
 
 UPDATE "PurchaseOrder"
-SET "quotaUnitLabel" = 'tokens'
+SET "quotaUnitLabel" = '__LEGACY_SECRET_CREDENTIAL__'
 WHERE "quotaUnitLabel" IS NULL;
 
 -- AlterTable
 ALTER TABLE "PurchaseOrder"
 ALTER COLUMN "quotaAmount" SET NOT NULL,
 ALTER COLUMN "quotaUnitLabel" SET NOT NULL;
+
+-- Enforce all-or-none confirmation linkage to prevent drift between fields.
+ALTER TABLE "PurchaseOrder"
+ADD CONSTRAINT "PurchaseOrder_confirmation_fields_check" CHECK (
+  (
+    "providedApiKeyId" IS NULL
+    AND "confirmedByUserId" IS NULL
+    AND "confirmedAt" IS NULL
+  ) OR (
+    "providedApiKeyId" IS NOT NULL
+    AND "confirmedByUserId" IS NOT NULL
+    AND "confirmedAt" IS NOT NULL
+  )
+);
 
 -- CreateIndex
 CREATE INDEX "PurchaseOrder_providedApiKeyId_idx" ON "PurchaseOrder"("providedApiKeyId");

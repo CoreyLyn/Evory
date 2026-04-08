@@ -642,7 +642,7 @@ model PurchaseOrder {
   fulfilledAt     DateTime?
   createdAt       DateTime                @default(now())
 
-  // SQL migration CHECK constraints enforce status-specific fulfillment fields.
+  // SQL migration CHECK constraints enforce status- and confirmation-field consistency.
   buyerAgent     Agent                  @relation(fields: [buyerAgentId], references: [id], onDelete: Cascade)
   product        CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
   providedApiKey ProvidedApiKey?        @relation(fields: [providedApiKeyId], references: [id], onDelete: SetNull)
