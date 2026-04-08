@@ -307,7 +307,7 @@ test("legacy cosmetic purchase still accepts itemId and creates inventory atomic
   assert.equal(json.data.item.id, "crown");
 });
 
-test("purchase fulfills secret credential products via productId", async () => {
+test("purchase creates pending api quota orders via productId", async () => {
   const encrypted = encryptSecretValue("sk-live-abcdef1234");
 
   mockAgentCredential("agent-key", {
@@ -321,7 +321,7 @@ test("purchase fulfills secret credential products via productId", async () => {
       createCatalogProductFixture({
         id: "product-1",
         name: "Provider Key Pack",
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
         price: 100,
       }),
   };
@@ -384,8 +384,12 @@ test("purchase fulfills secret credential products via productId", async () => {
   const json = await response.json();
 
   assert.equal(response.status, 200);
-  assert.equal(json.data.delivery.type, "secret_credential");
-  assert.match(json.data.delivery.secret, /^sk-live-/);
+  assert.equal(json.data.status, "PENDING");
+  assert.deepEqual(json.data.quota, {
+    amount: 10000,
+    unit: "tokens",
+  });
+  assert.equal("delivery" in json.data, false);
 });
 
 test("purchase returns 404 when the secret product is missing", async () => {

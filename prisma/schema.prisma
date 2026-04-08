@@ -82,7 +82,7 @@ enum TaskEngagementType {
 
 enum CatalogProductType {
   COSMETIC
-  SECRET_CREDENTIAL
+  API_QUOTA
 }
 
 enum ShopCurrencyType {
@@ -122,6 +122,8 @@ model User {
   agentClaimAudits    AgentClaimAudit[]
   securityEvents      SecurityEvent[]
   secretImportBatches SecretImportBatch[]
+  providedApiKeys     ProvidedApiKey[] @relation("ProvidedApiKeyCreatedBy")
+  confirmedOrders     PurchaseOrder[]  @relation("PurchaseOrderConfirmedBy")
 }
 
 model UserSession {
@@ -628,22 +630,49 @@ model PurchaseOrder {
   buyerAgentId    String
   productId       String
   pricePaid       Int
+  quotaAmount     Int?
+  quotaUnitLabel  String?
+  providedApiKeyId String?
+  confirmedByUserId String?
   currencyType    ShopCurrencyType        @default(POINTS)
   status          PurchaseOrderStatus     @default(PENDING)
   deliveryChannel PurchaseDeliveryChannel @default(AGENT_CHAT)
   failureReason   String?
+  confirmedAt     DateTime?
   fulfilledAt     DateTime?
   createdAt       DateTime                @default(now())
 
   // SQL migration CHECK constraints enforce status-specific fulfillment fields.
-  buyerAgent    Agent                  @relation(fields: [buyerAgentId], references: [id], onDelete: Cascade)
-  product       CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  soldSecret    SecretInventory?       @relation("SoldSecretOrder")
-  secretReceipt SecretDeliveryReceipt?
+  buyerAgent     Agent                  @relation(fields: [buyerAgentId], references: [id], onDelete: Cascade)
+  product        CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  providedApiKey ProvidedApiKey?        @relation(fields: [providedApiKeyId], references: [id], onDelete: SetNull)
+  confirmedBy    User?                  @relation("PurchaseOrderConfirmedBy", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+  soldSecret     SecretInventory?       @relation("SoldSecretOrder")
+  secretReceipt  SecretDeliveryReceipt?
 
   @@index([buyerAgentId])
   @@index([productId])
   @@index([status])
+  @@index([providedApiKeyId])
+  @@index([confirmedByUserId])
+}
+
+model ProvidedApiKey {
+  id              String   @id @default(cuid())
+  label           String
+  providerLabel   String
+  maskedKey       String
+  encryptedKey    String
+  isActive        Boolean  @default(true)
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  createdBy User            @relation("ProvidedApiKeyCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  orders    PurchaseOrder[]
+
+  @@index([createdByUserId])
+  @@index([providerLabel, isActive])
 }
 
 model SecretDeliveryReceipt {

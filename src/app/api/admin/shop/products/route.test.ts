@@ -70,7 +70,7 @@ afterEach(() => {
   prismaClient.secretInventory = originalMethods.secretInventory;
 });
 
-test("GET /api/admin/shop/products lists secret credential products with status counts", async () => {
+test("GET /api/admin/shop/products lists api quota products with status counts", async () => {
   mockAdminSession();
   let receivedArgs: unknown = null;
   let receivedInventoryArgs: unknown = null;
@@ -109,7 +109,7 @@ test("GET /api/admin/shop/products lists secret credential products with status 
 
   assert.equal(response.status, 200);
   assert.deepEqual(receivedArgs, {
-    where: { productType: "SECRET_CREDENTIAL" },
+    where: { productType: "API_QUOTA" },
     orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
     include: {
       _count: {
@@ -137,7 +137,7 @@ test("GET /api/admin/shop/products lists secret credential products with status 
   assert.equal("_count" in json.data[0], false);
 });
 
-test("POST /api/admin/shop/products creates a secret credential catalog product", async () => {
+test("POST /api/admin/shop/products creates an api quota catalog product", async () => {
   mockAdminSession();
   let createdData: Record<string, unknown> | null = null;
   prismaClient.catalogProduct = {
@@ -157,13 +157,15 @@ test("POST /api/admin/shop/products creates a secret credential catalog product"
       json: {
         name: "  Provider Key Pack  ",
         description: "  One key  ",
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
         price: 300,
         isActive: true,
         displayConfig: {
           providerLabel: "Provider",
+          quotaUnitLabel: "tokens",
         },
         fulfillmentConfig: {
+          quotaAmount: 10000,
           allowRepeatPurchase: true,
         },
       },
@@ -176,13 +178,15 @@ test("POST /api/admin/shop/products creates a secret credential catalog product"
   assert.deepEqual(createdData, {
     name: "Provider Key Pack",
     description: "One key",
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     price: 300,
     isActive: true,
     displayConfig: {
       providerLabel: "Provider",
+      quotaUnitLabel: "tokens",
     },
     fulfillmentConfig: {
+      quotaAmount: 10000,
       allowRepeatPurchase: true,
     },
   });
