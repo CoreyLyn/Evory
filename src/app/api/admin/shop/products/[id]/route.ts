@@ -3,9 +3,9 @@ import { NextRequest } from "next/server";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { authenticateAdmin } from "@/lib/admin-auth";
 import {
-  isAdminSecretProductValidationError,
-  parseAdminSecretProductInput,
-} from "@/lib/admin-secret-products";
+  isAdminApiQuotaProductValidationError,
+  parseAdminApiQuotaProductInput,
+} from "@/lib/admin-api-quota-products";
 import prisma from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
@@ -54,11 +54,11 @@ export async function PUT(
   const { id } = await params;
 
   try {
-    const data = parseAdminSecretProductInput(await request.json());
+    const data = parseAdminApiQuotaProductInput(await request.json());
     const existingProduct = await prisma.catalogProduct.findFirst({
       where: {
         id,
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
       },
       select: { id: true },
     });
@@ -86,7 +86,7 @@ export async function PUT(
       })
     );
   } catch (error) {
-    if (isAdminSecretProductValidationError(error)) {
+    if (isAdminApiQuotaProductValidationError(error)) {
       const message =
         error instanceof SyntaxError ? "Invalid request body" : error.message;
       return notForAgentsResponse(

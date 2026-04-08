@@ -216,3 +216,40 @@ test("POST /api/admin/shop/products returns 400 for malformed JSON", async () =>
   assert.equal(json.success, false);
   assert.equal(json.error, "Invalid request body");
 });
+
+test("POST /api/admin/shop/products returns 400 for invalid quota payload", async () => {
+  mockAdminSession();
+
+  const response = await POST(
+    createRouteRequest("http://localhost/api/admin/shop/products", {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+      json: {
+        name: "Provider Token Pack",
+        description: "10k tokens",
+        productType: "API_QUOTA",
+        price: 300,
+        isActive: true,
+        displayConfig: {
+          providerLabel: "Provider",
+          quotaUnitLabel: "tokens",
+        },
+        fulfillmentConfig: {
+          quotaAmount: 0,
+          allowRepeatPurchase: true,
+        },
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.success, false);
+  assert.equal(
+    json.error,
+    "fulfillmentConfig.quotaAmount must be a positive integer"
+  );
+});
