@@ -11,9 +11,39 @@ import prisma from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 
-function toAdminProvidedApiKeyResponse(key: Record<string, unknown>) {
-  const { encryptedKey: _encryptedKey, ...rest } = key;
-  return rest;
+type AdminProvidedApiKeyRow = {
+  id: string;
+  label: string;
+  providerLabel: string;
+  maskedKey: string;
+  isActive: boolean;
+  createdByUserId: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+const ADMIN_PROVIDED_API_KEY_SELECT = {
+  id: true,
+  label: true,
+  providerLabel: true,
+  maskedKey: true,
+  isActive: true,
+  createdByUserId: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+function toAdminProvidedApiKeyResponse(key: AdminProvidedApiKeyRow) {
+  return {
+    id: key.id,
+    label: key.label,
+    providerLabel: key.providerLabel,
+    maskedKey: key.maskedKey,
+    isActive: key.isActive,
+    createdByUserId: key.createdByUserId,
+    createdAt: key.createdAt,
+    updatedAt: key.updatedAt,
+  };
 }
 
 export async function PUT(
@@ -52,12 +82,13 @@ export async function PUT(
     const key = await prisma.providedApiKey.update({
       where: { id },
       data,
+      select: ADMIN_PROVIDED_API_KEY_SELECT,
     });
 
     return notForAgentsResponse(
       Response.json({
         success: true,
-        data: toAdminProvidedApiKeyResponse(key as Record<string, unknown>),
+        data: toAdminProvidedApiKeyResponse(key as AdminProvidedApiKeyRow),
       })
     );
   } catch (error) {

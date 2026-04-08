@@ -11,13 +11,66 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { encryptSecretValue, maskSecretValue } from "@/lib/secret-crypto";
 
-function toAdminProvidedApiKeyResponse(
-  key: Record<string, unknown> & { _count?: { orders: number } }
-) {
-  const { encryptedKey: _encryptedKey, _count, ...rest } = key;
+type AdminProvidedApiKeyListRow = {
+  id: string;
+  label: string;
+  providerLabel: string;
+  maskedKey: string;
+  isActive: boolean;
+  createdByUserId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  _count: {
+    orders: number;
+  };
+};
+
+type AdminProvidedApiKeyRow = {
+  id: string;
+  label: string;
+  providerLabel: string;
+  maskedKey: string;
+  isActive: boolean;
+  createdByUserId: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+const ADMIN_PROVIDED_API_KEY_BASE_SELECT = {
+  id: true,
+  label: true,
+  providerLabel: true,
+  maskedKey: true,
+  isActive: true,
+  createdByUserId: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+function toAdminProvidedApiKeyListResponse(key: AdminProvidedApiKeyListRow) {
   return {
-    ...rest,
-    ...(_count ? { orderCount: _count.orders } : {}),
+    id: key.id,
+    label: key.label,
+    providerLabel: key.providerLabel,
+    maskedKey: key.maskedKey,
+    isActive: key.isActive,
+    createdByUserId: key.createdByUserId,
+    createdAt: key.createdAt,
+    updatedAt: key.updatedAt,
+    orderCount: key._count.orders,
+  };
+}
+
+function toAdminProvidedApiKeyResponse(key: AdminProvidedApiKeyRow) {
+  return {
+    id: key.id,
+    label: key.label,
+    providerLabel: key.providerLabel,
+    maskedKey: key.maskedKey,
+    isActive: key.isActive,
+    createdByUserId: key.createdByUserId,
+    createdAt: key.createdAt,
+    updatedAt: key.updatedAt,
   };
 }
 
@@ -29,7 +82,8 @@ export async function GET(request: NextRequest) {
 
   const keys = await prisma.providedApiKey.findMany({
     orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
-    include: {
+    select: {
+      ...ADMIN_PROVIDED_API_KEY_BASE_SELECT,
       _count: {
         select: {
           orders: true,
@@ -42,9 +96,7 @@ export async function GET(request: NextRequest) {
     Response.json({
       success: true,
       data: keys.map((key) =>
-        toAdminProvidedApiKeyResponse(
-          key as Record<string, unknown> & { _count?: { orders: number } }
-        )
+        toAdminProvidedApiKeyListResponse(key as AdminProvidedApiKeyListRow)
       ),
     })
   );
@@ -87,12 +139,13 @@ export async function POST(request: NextRequest) {
         isActive: input.isActive,
         createdByUserId: auth.user.id,
       },
+      select: ADMIN_PROVIDED_API_KEY_BASE_SELECT,
     });
 
     return notForAgentsResponse(
       Response.json({
         success: true,
-        data: toAdminProvidedApiKeyResponse(key as Record<string, unknown>),
+        data: toAdminProvidedApiKeyResponse(key as AdminProvidedApiKeyRow),
       })
     );
   } catch (error) {

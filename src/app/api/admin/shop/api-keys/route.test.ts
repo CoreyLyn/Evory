@@ -11,6 +11,7 @@ import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteRequest } from "@/test/request-helpers";
 import { hashSessionToken } from "@/lib/user-auth";
 import { GET, POST } from "./route";
+// Imported here so [id] tests run under reproducible top-level node --test commands.
 import "./[id]/route.test";
 
 const prismaClient = prisma as Record<string, unknown>;
@@ -110,7 +111,15 @@ test("GET /api/admin/shop/api-keys lists admin-safe provided keys", async () => 
   assert.equal(json.success, true);
   assert.deepEqual(receivedArgs, {
     orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
-    include: {
+    select: {
+      id: true,
+      label: true,
+      providerLabel: true,
+      maskedKey: true,
+      isActive: true,
+      createdByUserId: true,
+      createdAt: true,
+      updatedAt: true,
       _count: {
         select: {
           orders: true,
@@ -126,12 +135,24 @@ test("GET /api/admin/shop/api-keys lists admin-safe provided keys", async () => 
 test("POST /api/admin/shop/api-keys creates a provided api key", async () => {
   mockAdminSession();
   let createdData: Record<string, unknown> | null = null;
+  let createSelect: unknown = null;
   prismaClient.providedApiKey = {
-    create: async ({ data }: { data: Record<string, unknown> }) => {
+    create: async ({
+      data,
+      select,
+    }: {
+      data: Record<string, unknown>;
+      select: unknown;
+    }) => {
       createdData = data;
+      createSelect = select;
       return {
         id: "key-1",
-        ...data,
+        label: data.label,
+        providerLabel: data.providerLabel,
+        maskedKey: data.maskedKey,
+        isActive: data.isActive,
+        createdByUserId: data.createdByUserId,
         createdAt: new Date("2026-04-08T10:00:00.000Z"),
         updatedAt: new Date("2026-04-08T10:00:00.000Z"),
       };
@@ -164,6 +185,16 @@ test("POST /api/admin/shop/api-keys creates a provided api key", async () => {
   assert.equal(createdData?.createdByUserId, "admin-1");
   assert.equal(typeof createdData?.encryptedKey, "string");
   assert.equal((createdData?.encryptedKey as string).split(".").length, 3);
+  assert.deepEqual(createSelect, {
+    id: true,
+    label: true,
+    providerLabel: true,
+    maskedKey: true,
+    isActive: true,
+    createdByUserId: true,
+    createdAt: true,
+    updatedAt: true,
+  });
   assert.equal(json.data.maskedKey, "sk-****6789");
   assert.equal("encryptedKey" in json.data, false);
 });

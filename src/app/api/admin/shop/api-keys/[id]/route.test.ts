@@ -71,10 +71,20 @@ test("PUT /api/admin/shop/api-keys/[id] updates editable fields", async () => {
   mockAdminSession();
   let updatedWhere: unknown = null;
   let updatedData: unknown = null;
+  let updateSelect: unknown = null;
   prismaClient.providedApiKey = {
-    update: async ({ where, data }: { where: unknown; data: unknown }) => {
+    update: async ({
+      where,
+      data,
+      select,
+    }: {
+      where: unknown;
+      data: unknown;
+      select: unknown;
+    }) => {
       updatedWhere = where;
       updatedData = data;
+      updateSelect = select;
       return {
         id: "key-1",
         label: "Backup OpenAI key",
@@ -113,6 +123,16 @@ test("PUT /api/admin/shop/api-keys/[id] updates editable fields", async () => {
     label: "Backup OpenAI key",
     providerLabel: "OpenAI",
     isActive: false,
+  });
+  assert.deepEqual(updateSelect, {
+    id: true,
+    label: true,
+    providerLabel: true,
+    maskedKey: true,
+    isActive: true,
+    createdByUserId: true,
+    createdAt: true,
+    updatedAt: true,
   });
   assert.equal("encryptedKey" in json.data, false);
 });

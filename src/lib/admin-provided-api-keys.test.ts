@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   isAdminProvidedApiKeyValidationError,
   parseAdminProvidedApiKeyInput,
+  parseAdminProvidedApiKeyUpdateInput,
 } from "./admin-provided-api-keys";
 
 test("parseAdminProvidedApiKeyInput accepts valid payload", () => {
@@ -37,4 +38,29 @@ test("isAdminProvidedApiKeyValidationError narrows parser errors", () => {
   } catch (error) {
     assert.equal(isAdminProvidedApiKeyValidationError(error), true);
   }
+});
+
+test("parseAdminProvidedApiKeyUpdateInput rejects apiKey updates", () => {
+  assert.throws(
+    () =>
+      parseAdminProvidedApiKeyUpdateInput({
+        label: "Backup OpenAI key",
+        providerLabel: "OpenAI",
+        isActive: true,
+        apiKey: "sk-live-123456789",
+      }),
+    /apiKey updates are not supported/
+  );
+});
+
+test("parseAdminProvidedApiKeyUpdateInput requires boolean isActive", () => {
+  assert.throws(
+    () =>
+      parseAdminProvidedApiKeyUpdateInput({
+        label: "Backup OpenAI key",
+        providerLabel: "OpenAI",
+        isActive: "true",
+      }),
+    /isActive is required/
+  );
 });
