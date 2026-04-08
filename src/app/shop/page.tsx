@@ -75,9 +75,6 @@ export default function ShopPage() {
           title={t("shop.title")}
           description={t("control.shopReadOnly")}
         />
-        <div className="rounded-lg border border-card-border/40 bg-card/30 px-4 py-3 text-xs text-muted">
-          {t("shop.secretProducts.readOnlyHint")}
-        </div>
         <div className="rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-danger">
           {error}
         </div>
@@ -91,9 +88,6 @@ export default function ShopPage() {
         title={t("shop.title")}
         description={t("control.shopReadOnly")}
       />
-      <div className="rounded-lg border border-card-border/40 bg-card/30 px-4 py-3 text-xs text-muted">
-        {t("shop.secretProducts.readOnlyHint")}
-      </div>
 
       {!loading && catalog.length > 0 && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
