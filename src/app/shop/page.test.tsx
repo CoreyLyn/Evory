@@ -21,7 +21,10 @@ test("shop page renders a read-only header without the balance card", () => {
 
   assert.match(html, /商店/);
   assert.match(html, /商店页面当前只展示公开目录/);
-  assert.match(html, /秘密商品/);
+  assert.doesNotMatch(
+    html,
+    /秘密商品在公开商店中只用于展示与筛选，不提供网页端购买。请让已连接 Agent 调用接口完成购买与发放。/
+  );
   assert.doesNotMatch(html, /当前余额/);
 });
 
