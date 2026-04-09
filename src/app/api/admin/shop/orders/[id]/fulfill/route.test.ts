@@ -54,27 +54,17 @@ afterEach(() => {
 test("POST /api/admin/shop/orders/[id]/fulfill marks a pending api quota order as fulfilled", async () => {
   mockAdminSession();
 
-  let orderLookupArgs: unknown = null;
-  let keyLookupArgs: unknown = null;
   let updateArgs: unknown = null;
 
   prismaClient.purchaseOrder = {
-    findFirst: async (args: unknown) => {
-      orderLookupArgs = args;
-      return { id: "order-1" };
-    },
-    update: async (args: unknown) => {
+    updateMany: async (args: unknown) => {
       updateArgs = args;
-      return {
-        id: "order-1",
-        status: "FULFILLED",
-      };
+      return { count: 1 };
     },
   };
   prismaClient.providedApiKey = {
-    findFirst: async (args: unknown) => {
-      keyLookupArgs = args;
-      return { id: "key-1" };
+    findFirst: async () => {
+      throw new Error("provided key lookup should not run");
     },
   };
 
@@ -85,17 +75,23 @@ test("POST /api/admin/shop/orders/[id]/fulfill marks a pending api quota order a
         cookie: `evory_user_session=${ADMIN_TOKEN}`,
         origin: "http://localhost",
       },
-      json: {
-        providedApiKeyId: "key-1",
-      },
     }),
     createRouteParams({ id: "order-1" })
   );
   const json = await response.json();
+  const confirmedAt = (updateArgs as { data: { confirmedAt: Date } }).data.confirmedAt;
+  const fulfilledAt = (updateArgs as { data: { fulfilledAt: Date } }).data.fulfilledAt;
 
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
-  assert.deepEqual(orderLookupArgs, {
+  assert.deepEqual(json.data, {
+    id: "order-1",
+    status: "FULFILLED",
+    confirmedByUserId: "admin-1",
+    confirmedAt: confirmedAt.toISOString(),
+    fulfilledAt: fulfilledAt.toISOString(),
+  });
+  assert.deepEqual(updateArgs, {
     where: {
       id: "order-1",
       status: "PENDING",
@@ -103,31 +99,24 @@ test("POST /api/admin/shop/orders/[id]/fulfill marks a pending api quota order a
         productType: "API_QUOTA",
       },
     },
-    select: {
-      id: true,
+    data: {
+      status: "FULFILLED",
+      confirmedByUserId: "admin-1",
+      confirmedAt,
+      fulfilledAt,
     },
   });
-  assert.deepEqual(keyLookupArgs, {
-    where: {
-      id: "key-1",
-      isActive: true,
-    },
-    select: {
-      id: true,
-    },
-  });
-  assert.equal((updateArgs as { where: { id: string } }).where.id, "order-1");
   assert.equal(
-    (updateArgs as { data: { status: string } }).data.status,
-    "FULFILLED"
-  );
-  assert.equal(
-    (updateArgs as { data: { providedApiKeyId: string } }).data.providedApiKeyId,
-    "key-1"
-  );
-  assert.equal(
-    (updateArgs as { data: { confirmedByUserId: string } }).data.confirmedByUserId,
+    (updateArgs as { data: { confirmedAt: Date } }).data.confirmedByUserId,
     "admin-1"
+  );
+  assert.ok(
+    (updateArgs as { data: { confirmedAt: Date } }).data.confirmedAt instanceof
+      Date
+  );
+  assert.ok(
+    (updateArgs as { data: { fulfilledAt: Date } }).data.fulfilledAt instanceof
+      Date
   );
 });
 
@@ -135,7 +124,7 @@ test("POST /api/admin/shop/orders/[id]/fulfill returns 404 when the pending api 
   mockAdminSession();
 
   prismaClient.purchaseOrder = {
-    findFirst: async () => null,
+    updateMany: async () => ({ count: 0 }),
   };
   prismaClient.providedApiKey = {
     findFirst: async () => {
@@ -150,9 +139,6 @@ test("POST /api/admin/shop/orders/[id]/fulfill returns 404 when the pending api 
         cookie: `evory_user_session=${ADMIN_TOKEN}`,
         origin: "http://localhost",
       },
-      json: {
-        providedApiKeyId: "key-1",
-      },
     }),
     createRouteParams({ id: "missing" })
   );
@@ -161,34 +147,4 @@ test("POST /api/admin/shop/orders/[id]/fulfill returns 404 when the pending api 
   assert.equal(response.status, 404);
   assert.equal(json.success, false);
   assert.equal(json.error, "Purchase order not found");
-});
-
-test("POST /api/admin/shop/orders/[id]/fulfill returns 404 when the provided API key is inactive or missing", async () => {
-  mockAdminSession();
-
-  prismaClient.purchaseOrder = {
-    findFirst: async () => ({ id: "order-1" }),
-  };
-  prismaClient.providedApiKey = {
-    findFirst: async () => null,
-  };
-
-  const response = await POST(
-    createRouteRequest("http://localhost/api/admin/shop/orders/order-1/fulfill", {
-      method: "POST",
-      headers: {
-        cookie: `evory_user_session=${ADMIN_TOKEN}`,
-        origin: "http://localhost",
-      },
-      json: {
-        providedApiKeyId: "missing-key",
-      },
-    }),
-    createRouteParams({ id: "order-1" })
-  );
-  const json = await response.json();
-
-  assert.equal(response.status, 404);
-  assert.equal(json.success, false);
-  assert.equal(json.error, "Provided API key not found");
 });

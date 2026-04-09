@@ -11,6 +11,8 @@ import {
 import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteRequest } from "@/test/request-helpers";
 import { GET } from "./route";
+// Node test discovery can miss dynamic-segment siblings when invoked by path.
+import "./[id]/fulfill/route.test";
 
 const prismaClient = prisma as Record<string, unknown>;
 
@@ -51,7 +53,7 @@ afterEach(() => {
     originalMethods.userProvidedApiKeyApplication;
 });
 
-test("GET /api/admin/shop/api-key-applications returns pending applications with user info", async () => {
+test("GET /api/admin/shop/api-key-applications returns applications with user info", async () => {
   mockAdminSession();
   prismaClient.userProvidedApiKeyApplication = {
     findMany: async () => [
@@ -66,7 +68,12 @@ test("GET /api/admin/shop/api-key-applications returns pending applications with
           email: "owner@example.com",
           name: "Owner",
         }),
-        providedApiKey: null,
+        providedApiKey: {
+          id: "provided-key-1",
+          label: "OpenAI key",
+          providerLabel: "OpenAI",
+          maskedKey: "sk-****1234",
+        },
       }),
     ],
   };
@@ -90,6 +97,11 @@ test("GET /api/admin/shop/api-key-applications returns pending applications with
       email: "owner@example.com",
       name: "Owner",
     },
-    providedApiKey: null,
+    providedApiKey: {
+      id: "provided-key-1",
+      label: "OpenAI key",
+      providerLabel: "OpenAI",
+      maskedKey: "sk-****1234",
+    },
   });
 });

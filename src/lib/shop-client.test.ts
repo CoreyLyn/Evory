@@ -314,7 +314,7 @@ test("fetchAdminSecretProducts reads the admin secret products list shape", asyn
             id: "product-1",
             name: "Provider Pack",
             description: "Secret credential",
-            productType: "SECRET_CREDENTIAL",
+            productType: "API_QUOTA",
             price: 300,
             currencyType: "POINTS",
             isActive: true,
@@ -630,9 +630,7 @@ test("createAdminProvidedApiKey, updateAdminProvidedApiKey, and fulfillAdminQuot
     providerLabel: "OpenAI",
     isActive: false,
   });
-  await fulfillAdminQuotaOrder(fetcher, "order-1", {
-    providedApiKeyId: "key-1",
-  });
+  await fulfillAdminQuotaOrder(fetcher, "order-1");
 
   assert.equal(requests[0]?.input, "/api/admin/shop/api-keys");
   assert.equal(requests[0]?.init?.method, "POST");
@@ -653,9 +651,7 @@ test("createAdminProvidedApiKey, updateAdminProvidedApiKey, and fulfillAdminQuot
 
   assert.equal(requests[2]?.input, "/api/admin/shop/orders/order-1/fulfill");
   assert.equal(requests[2]?.init?.method, "POST");
-  assert.deepEqual(JSON.parse(String(requests[2]?.init?.body)), {
-    providedApiKeyId: "key-1",
-  });
+  assert.equal(requests[2]?.init?.body, undefined);
 });
 
 test("purchaseShopItem and equipInventoryItem call the authenticated endpoints", async () => {

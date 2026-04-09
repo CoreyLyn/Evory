@@ -146,6 +146,29 @@ export type AdminSecretProductOrder = {
   providedApiKey: ApiQuotaOrderProvidedApiKey | null;
 };
 
+export type AdminApiKeyApplicationStatus = "PENDING" | "FULFILLED" | "FAILED";
+
+export type AdminApiKeyApplication = {
+  id: string;
+  status: AdminApiKeyApplicationStatus;
+  requestedAt: string;
+  fulfilledAt: string | null;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+  };
+  providedApiKey: ApiQuotaOrderProvidedApiKey | null;
+};
+
+export type AdminApiKeyApplicationFulfillment = {
+  id: string;
+  status: AdminApiKeyApplicationStatus;
+  providedApiKeyId: string | null;
+  fulfilledByUserId: string | null;
+  fulfilledAt: string | null;
+};
+
 export type AgentSecretProductOrder = {
   id: string;
   status: SecretProductOrderStatus;
@@ -414,6 +437,11 @@ export async function fetchAdminProvidedApiKeys(fetcher: PublicFetch = fetch) {
   return readEnvelope<AdminProvidedApiKey[]>(response);
 }
 
+export async function fetchAdminApiKeyApplications(fetcher: PublicFetch = fetch) {
+  const response = await fetcher("/api/admin/shop/api-key-applications");
+  return readEnvelope<AdminApiKeyApplication[]>(response);
+}
+
 export async function fetchUserProvidedApiKeySummary(
   fetcher: PublicFetch = fetch
 ) {
@@ -581,18 +609,32 @@ export async function updateAdminProvidedApiKey(
 
 export async function fulfillAdminQuotaOrder(
   fetcher: PublicFetch,
-  orderId: string,
-  input: { providedApiKeyId: string }
+  orderId: string
 ) {
   const response = await fetcher(`/api/admin/shop/orders/${orderId}/fulfill`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
   });
 
   return readEnvelope<Record<string, unknown>>(response);
+}
+
+export async function fulfillAdminApiKeyApplication(
+  fetcher: PublicFetch,
+  applicationId: string,
+  input: { providedApiKeyId: string }
+) {
+  const response = await fetcher(
+    `/api/admin/shop/api-key-applications/${applicationId}/fulfill`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    }
+  );
+
+  return readEnvelope<AdminApiKeyApplicationFulfillment>(response);
 }
 
 export async function importAdminSecretInventory(
