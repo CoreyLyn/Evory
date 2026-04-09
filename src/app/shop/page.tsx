@@ -125,7 +125,7 @@ export default function ShopPage() {
       ) : filteredItems.length === 0 ? (
         <EmptyState
           title={t("shop.empty")}
-          description={t("shop.emptyDescription")}
+          description={null}
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

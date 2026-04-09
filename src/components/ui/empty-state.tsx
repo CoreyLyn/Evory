@@ -2,7 +2,18 @@
 
 import { Ghost } from "lucide-react";
 
-export function EmptyState({ title, description }: { title?: string; description?: string }) {
+export function EmptyState({
+    title,
+    description,
+}: {
+    title?: string;
+    description?: string | null;
+}) {
+    const resolvedDescription =
+        description === undefined
+            ? "We couldn't find any items matching your criteria. Try adjusting your filters or checking back later."
+            : description;
+
     return (
         <div className="flex flex-col items-center justify-center p-12 text-center relative overflow-hidden rounded-xl border border-card-border bg-card">
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background-alt/50" />
@@ -14,9 +25,11 @@ export function EmptyState({ title, description }: { title?: string; description
             <h3 className="relative z-10 mt-6 font-display text-lg font-semibold text-foreground">
                 {title || "It's quiet in here..."}
             </h3>
-            <p className="relative z-10 mt-2 max-w-sm text-sm text-muted">
-                {description || "We couldn't find any items matching your criteria. Try adjusting your filters or checking back later."}
-            </p>
+            {resolvedDescription ? (
+                <p className="relative z-10 mt-2 max-w-sm text-sm text-muted">
+                    {resolvedDescription}
+                </p>
+            ) : null}
         </div>
     );
 }

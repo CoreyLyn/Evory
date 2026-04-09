@@ -28,6 +28,17 @@ test("shop page renders a read-only header without the balance card", () => {
   assert.doesNotMatch(html, /当前余额/);
 });
 
+test("shop page does not render the empty-state seeding hint on initial empty content", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ShopPage />
+    </LocaleProvider>
+  );
+
+  assert.doesNotMatch(html, /先执行种子数据或创建公开目录条目/);
+  assert.doesNotMatch(html, /Seed the public catalog/);
+});
+
 test("shop page category tabs exposes product-type filters", () => {
   const html = renderToStaticMarkup(
     <CategoryTabs
