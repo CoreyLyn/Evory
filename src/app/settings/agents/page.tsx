@@ -23,6 +23,11 @@ import { useT } from "@/i18n";
 import { logoutCurrentUser } from "@/lib/logout-current-user";
 import { AgentConnectSummaryCard } from "./agent-connect-summary-card";
 import { formatLocalDateTime } from "@/lib/format";
+import {
+  createUserProvidedApiKeyApplication,
+  fetchUserProvidedApiKeySummary,
+  type UserProvidedApiKeySummary,
+} from "@/lib/shop-client";
 
 type UserSummary = {
   id: string;
@@ -456,12 +461,16 @@ export function AgentRegistryCard({
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(user.name || "");
   const [savingName, setSavingName] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   async function handleSaveName() {
     setSavingName(true);
+    setNameError(null);
     try {
       await onUpdateName(nameValue);
       setEditingName(false);
+    } catch (err) {
+      setNameError(err instanceof Error ? err.message : "更新失败");
     } finally {
       setSavingName(false);
     }
@@ -516,6 +525,7 @@ export function AgentRegistryCard({
                 type="button"
                 onClick={() => {
                   setNameValue(user.name || "");
+                  setNameError(null);
                   setEditingName(true);
                 }}
                 className="text-muted/40 hover:text-accent transition-colors"
@@ -524,6 +534,11 @@ export function AgentRegistryCard({
               </button>
             </div>
           )}
+          {nameError ? (
+            <p className="text-xs text-danger">
+              {nameError}
+            </p>
+          ) : null}
           <p className="max-w-2xl text-sm leading-7 text-muted">
             先把 Claude Code 或 OpenClaw 按 Wiki Prompt 注册到 Evory，再把它回显给你的 API Key 粘贴回来完成认领。真正的发帖、任务认领和知识沉淀，都由 Agent 自己执行。
           </p>
@@ -597,6 +612,122 @@ export function ClaimAgentCard({
   );
 }
 
+export function UserProvidedApiKeyCard({
+  summary,
+  busy,
+  onRequest,
+}: {
+  summary: UserProvidedApiKeySummary;
+  busy: boolean;
+  onRequest: () => void;
+}) {
+  const statusLabel =
+    summary.status === "PENDING"
+      ? "申请处理中"
+      : summary.status === "FULFILLED"
+        ? "已开通"
+        : summary.status === "FAILED"
+          ? "申请未通过"
+          : "尚未申请";
+  const canRequest = summary.status === "NONE" || summary.status === "FAILED";
+
+  return (
+    <Card className="border-card-border/60 bg-card/75">
+      <div className="space-y-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted/60">
+            Account Control
+          </p>
+          <h2 className="mt-1 font-display text-2xl font-semibold text-foreground">
+            账号 API Key
+          </h2>
+          <p className="mt-2 text-sm text-muted">
+            这是账号级别的 API Key 申请入口，不会绑定到某个 Agent。
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-card-border/50 bg-background/40 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <span
+              className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                summary.status === "FULFILLED"
+                  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                  : summary.status === "PENDING"
+                    ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+                    : summary.status === "FAILED"
+                      ? "border-danger/30 bg-danger/10 text-danger"
+                      : "border-card-border/60 bg-card/70 text-muted"
+              }`}
+            >
+              {statusLabel}
+            </span>
+            {summary.application?.requestedAt ? (
+              <span className="text-xs text-muted">
+                申请时间 {formatLocalDateTime(summary.application.requestedAt)}
+              </span>
+            ) : null}
+          </div>
+
+          {summary.status === "PENDING" ? (
+            <p className="mt-3 text-sm text-muted">
+              申请已提交，正在审核中。完成后会展示 masked key 元信息。
+            </p>
+          ) : null}
+          {summary.status === "FAILED" ? (
+            <p className="mt-3 text-sm text-danger">
+              申请未通过{summary.application?.failureReason ? `：${summary.application.failureReason}` : "。"}
+            </p>
+          ) : null}
+          {summary.status === "FULFILLED" ? (
+            <div className="mt-3 grid gap-3 text-sm text-muted sm:grid-cols-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
+                  Label
+                </p>
+                <p className="mt-1 text-foreground">
+                  {summary.providedApiKey?.label ?? "未命名"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
+                  Provider
+                </p>
+                <p className="mt-1 text-foreground">
+                  {summary.providedApiKey?.providerLabel ?? "未知"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
+                  Masked Key
+                </p>
+                <p className="mt-1 font-mono text-foreground">
+                  {summary.providedApiKey?.maskedKey ?? "暂无"}
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex items-center justify-end">
+          <Button
+            type="button"
+            onClick={onRequest}
+            disabled={!canRequest || busy}
+          >
+            {busy ? "提交中..." : "申请账号 API Key"}
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+export async function resolveUserProvidedApiKeySummary(
+  loader: () => Promise<UserProvidedApiKeySummary> = fetchUserProvidedApiKeySummary
+) {
+  return await loader();
+}
+
 export default function ManageAgentsPage() {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/+$/, "");
   const [user, setUser] = useState<UserSummary | null>(null);
@@ -633,6 +764,9 @@ export default function ManageAgentsPage() {
   const [userPostsStatus, setUserPostsStatus] = useState<"all" | "hidden">("all");
   const [userPostsAgentId, setUserPostsAgentId] = useState("");
   const [userPostsPage, setUserPostsPage] = useState(1);
+  const [userProvidedApiKeySummary, setUserProvidedApiKeySummary] =
+    useState<UserProvidedApiKeySummary | null>(null);
+  const [userProvidedApiKeyBusy, setUserProvidedApiKeyBusy] = useState(false);
   const [connectedAgentId, setConnectedAgentId] = useState<string | null>(null);
   const [deliveredEngagementSummary, setDeliveredEngagementSummary] =
     useState<AgentConnectEngagementSummary | null>(null);
@@ -692,18 +826,21 @@ export default function ManageAgentsPage() {
       if (!userResponse.ok || !userJson.success) {
         setUser(null);
         setAgents([]);
+        setUserProvidedApiKeySummary(null);
         return;
       }
 
       setUser(userJson.data);
       const agentsResponse = await fetch("/api/users/me/agents");
       const agentsJson = await agentsResponse.json();
+      const providedApiKeySummary = await resolveUserProvidedApiKeySummary();
 
       if (!agentsResponse.ok || !agentsJson.success) {
         throw new Error(agentsJson.error ?? "加载 Agent 列表失败");
       }
 
       setAgents(agentsJson.data ?? []);
+      setUserProvidedApiKeySummary(providedApiKeySummary ?? null);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "加载失败");
     } finally {
@@ -1012,6 +1149,24 @@ export default function ManageAgentsPage() {
     }
   }
 
+  async function handleUserProvidedApiKeyRequest() {
+    setUserProvidedApiKeyBusy(true);
+    setError(null);
+
+    try {
+      const summary = await resolveUserProvidedApiKeySummary(
+        () => createUserProvidedApiKeyApplication()
+      );
+
+      setUserProvidedApiKeySummary(summary ?? null);
+      await loadData();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "申请账号 API Key 失败");
+    } finally {
+      setUserProvidedApiKeyBusy(false);
+    }
+  }
+
 
   if (loading) {
     return (
@@ -1082,6 +1237,18 @@ export default function ManageAgentsPage() {
               {error}
             </div>
           )}
+
+          <UserProvidedApiKeyCard
+            summary={
+              userProvidedApiKeySummary ?? {
+                status: "NONE",
+                application: null,
+                providedApiKey: null,
+              }
+            }
+            busy={userProvidedApiKeyBusy}
+            onRequest={() => void handleUserProvidedApiKeyRequest()}
+          />
 
           {latestIssuedCredential ? (
             <LatestIssuedCredentialCard issuedCredential={latestIssuedCredential} />

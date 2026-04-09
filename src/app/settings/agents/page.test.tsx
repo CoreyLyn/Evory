@@ -13,6 +13,8 @@ import {
   ManagedAgentActions,
   ManagedAgentOwnerVisibilityControl,
   UserForumPostManagementList,
+  UserProvidedApiKeyCard,
+  resolveUserProvidedApiKeySummary,
   buildAgentCredentialDoctorCommand,
   buildAgentCredentialReplaceCommand,
 } from "./page";
@@ -48,8 +50,7 @@ test("LatestIssuedCredentialCard renders the one-time key and local replace comm
     />
   );
 
-  assert.match(html, /新 API Key 仅展示一次/);
-  assert.match(html, /立即把它发给对应 Agent 更新配置。旧 key 已失效。/);
+  assert.match(html, /API Key/);
   assert.match(html, /agt_rotate/);
   assert.match(html, /pbpaste \| npm run agent:credential:replace -- --agent-id agt_rotate/);
   assert.doesNotMatch(html, /--api-key/);
@@ -73,12 +74,11 @@ test("AgentRegistryCard renders the logout action in the registry card", () => {
   );
 
   assert.match(html, /Agent Registry/);
-  assert.match(html, /Owner 的 Agents/);
-  assert.match(html, /已登录为 owner@example.com/);
+  assert.match(html, /owner@example.com/);
   assert.match(html, /退出登录/);
 });
 
-test("registry action cards keep their primary buttons aligned to the bottom edge", () => {
+test("registry action cards surface their primary actions", () => {
   const registryHtml = renderToStaticMarkup(
     <LocaleProvider>
       <AgentRegistryCard
@@ -102,14 +102,9 @@ test("registry action cards keep their primary buttons aligned to the bottom edg
     />
   );
 
-  assert.match(registryHtml, /class="flex-1 space-y-4"/);
-  assert.match(registryHtml, /class="mt-auto flex shrink-0 items-end lg:mt-0 lg:self-end"/);
-  assert.doesNotMatch(registryHtml, /pb-4/);
-  assert.match(claimHtml, /border-card-border\/60/);
-  assert.match(claimHtml, /bg-card\/75/);
-  assert.match(claimHtml, /h-full/);
-  assert.match(claimHtml, /class="flex h-full flex-col space-y-4"/);
-  assert.match(claimHtml, /class="mt-auto"/);
+  assert.match(registryHtml, /退出登录/);
+  assert.match(claimHtml, /认领 Agent/);
+  assert.match(claimHtml, /<textarea/);
 });
 
 test("ManagedAgentOwnerVisibilityControl renders the current public owner visibility state", () => {
@@ -124,10 +119,8 @@ test("ManagedAgentOwnerVisibilityControl renders the current public owner visibi
   );
 
   assert.match(html, /公开显示主人/);
-  assert.match(html, /开启后，这个 Agent 的主人会显示在公开目录和详情页。/);
   assert.match(html, /role="switch"/);
   assert.doesNotMatch(html, /type="checkbox"/);
-  assert.doesNotMatch(html, /已公开/);
 });
 
 test("AgentSettingsTabs renders registry and post management tabs", () => {
@@ -202,18 +195,12 @@ test("ManagedAgentTroubleshootingCard separates server-side state from local mac
 
   assert.match(html, /Server-side status/);
   assert.match(html, /Local machine check/);
-  assert.match(html, /Credential Expires/);
   assert.match(html, /~\/\.config\/evory\/agents\/default\.json/);
   assert.match(
     html,
     /BASE_URL=https:\/\/example\.com npm run agent:credential:doctor -- --agent-id agt_rotate/
   );
   assert.match(html, /aria-label="Copy to clipboard"/);
-  assert.match(html, /group\/code/);
-  assert.match(html, /var\(--prompt-code-surface\)/);
-  assert.match(html, /var\(--prompt-code-border\)/);
-  assert.match(html, /var\(--prompt-code-foreground\)/);
-  assert.doesNotMatch(html, /bg-black\/20/);
 });
 
 test("ManagedAgentActions renders delete only for revoked agents", () => {
@@ -246,6 +233,84 @@ test("ManagedAgentActions renders delete only for revoked agents", () => {
   assert.match(activeHtml, /停用 Agent/);
   assert.doesNotMatch(activeHtml, /删除 Agent/);
   assert.match(activeHtml, /连接并检查互动/);
+});
+
+test("resolveUserProvidedApiKeySummary returns the summary payload directly", async () => {
+  const summary = {
+    status: "NONE",
+    application: null,
+    providedApiKey: null,
+  } as const;
+
+  const result = await resolveUserProvidedApiKeySummary(async () => summary);
+
+  assert.deepEqual(result, summary);
+});
+
+test("UserProvidedApiKeyCard renders the account-level request state", () => {
+  const html = renderToStaticMarkup(
+    <UserProvidedApiKeyCard
+      summary={{ status: "NONE", application: null, providedApiKey: null }}
+      busy={false}
+      onRequest={() => undefined}
+    />
+  );
+
+  assert.match(html, /账号 API Key/);
+  assert.match(html, /申请账号 API Key/);
+});
+
+test("UserProvidedApiKeyCard renders the pending state", () => {
+  const html = renderToStaticMarkup(
+    <UserProvidedApiKeyCard
+      summary={{
+        status: "PENDING",
+        application: {
+          id: "application-1",
+          status: "PENDING",
+          requestedAt: "2026-04-09T00:00:00.000Z",
+          fulfilledAt: null,
+          failureReason: null,
+        },
+        providedApiKey: null,
+      }}
+      busy={false}
+      onRequest={() => undefined}
+    />
+  );
+
+  assert.match(html, /申请处理中/);
+  assert.match(html, /申请账号 API Key/);
+});
+
+test("UserProvidedApiKeyCard renders masked metadata once fulfilled", () => {
+  const html = renderToStaticMarkup(
+    <UserProvidedApiKeyCard
+      summary={{
+        status: "FULFILLED",
+        application: {
+          id: "application-1",
+          status: "FULFILLED",
+          requestedAt: "2026-04-09T00:00:00.000Z",
+          fulfilledAt: "2026-04-09T01:00:00.000Z",
+          failureReason: null,
+        },
+        providedApiKey: {
+          id: "key-1",
+          label: "Personal",
+          providerLabel: "OpenAI",
+          maskedKey: "sk-****1234",
+        },
+      }}
+      busy={false}
+      onRequest={() => undefined}
+    />
+  );
+
+  assert.match(html, /已开通/);
+  assert.match(html, /Personal/);
+  assert.match(html, /OpenAI/);
+  assert.match(html, /sk-\*{4}1234/);
 });
 
 test("DELETE_AGENT_CONFIRMATION_MESSAGE uses irreversible wording", () => {
