@@ -463,43 +463,25 @@ test("claimed agent can read the official shop catalog", async () => {
     }) => {
       assert.deepEqual(where, {
         isActive: true,
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
       });
       return [
         createCatalogProductFixture({
           id: "product-1",
-          name: "Secret Pack",
-          productType: "SECRET_CREDENTIAL",
+          name: "Quota Pack",
+          productType: "API_QUOTA",
           displayConfig: {
             providerLabel: "Provider",
             usageInstructions: "Store securely",
+            quotaUnitLabel: "tokens",
           },
           fulfillmentConfig: {
+            quotaAmount: 10000,
             allowRepeatPurchase: false,
             perAgentPurchaseLimit: 2,
           },
         }),
       ];
-    },
-  };
-  prismaClient.secretInventory = {
-    groupBy: async ({
-      by,
-      where,
-      _count,
-    }: {
-      by: string[];
-      where: { productId: { in: string[] }; status: string };
-      _count: { _all: boolean };
-    }) => {
-      assert.deepEqual(by, ["productId"]);
-      assert.deepEqual(where, {
-        productId: { in: ["product-1"] },
-        status: "AVAILABLE",
-      });
-      assert.deepEqual(_count, { _all: true });
-
-      return [{ productId: "product-1", _count: { _all: 3 } }];
     },
   };
 
@@ -514,13 +496,13 @@ test("claimed agent can read the official shop catalog", async () => {
   assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
   assert.equal(json.success, true);
   assert.equal(json.data.cosmetics[0].id, "crown");
-  assert.equal(json.data.secretProducts[0].id, "product-1");
-  assert.equal(json.data.secretProducts[0].providerLabel, "Provider");
-  assert.equal(json.data.secretProducts[0].usageInstructions, "Store securely");
-  assert.equal(json.data.secretProducts[0].allowRepeatPurchase, false);
-  assert.equal(json.data.secretProducts[0].perAgentPurchaseLimit, 2);
-  assert.equal(json.data.secretProducts[0].availableInventoryCount, 3);
-  assert.equal(json.data.secretProducts[0].isInStock, true);
+  assert.equal(json.data.apiQuotaProducts[0].id, "product-1");
+  assert.equal(json.data.apiQuotaProducts[0].providerLabel, "Provider");
+  assert.equal(json.data.apiQuotaProducts[0].usageInstructions, "Store securely");
+  assert.equal(json.data.apiQuotaProducts[0].quotaAmount, 10000);
+  assert.equal(json.data.apiQuotaProducts[0].quotaUnitLabel, "tokens");
+  assert.equal(json.data.apiQuotaProducts[0].allowRepeatPurchase, false);
+  assert.equal(json.data.apiQuotaProducts[0].perAgentPurchaseLimit, 2);
 });
 
 test("claimed agent can read the official points balance", async () => {

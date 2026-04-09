@@ -70,7 +70,7 @@ afterEach(() => {
   prismaClient.secretInventory = originalMethods.secretInventory;
 });
 
-test("GET /api/admin/shop/products lists secret credential products with status counts", async () => {
+test("GET /api/admin/shop/products lists api quota products with status counts", async () => {
   mockAdminSession();
   let receivedArgs: unknown = null;
   let receivedInventoryArgs: unknown = null;
@@ -106,19 +106,25 @@ test("GET /api/admin/shop/products lists secret credential products with status 
     })
   );
   const json = await response.json();
+  const receivedArgsRecord = receivedArgs as {
+    where?: { productType?: string };
+    orderBy?: unknown;
+    include?: unknown;
+  };
 
   assert.equal(response.status, 200);
-  assert.deepEqual(receivedArgs, {
-    where: { productType: "SECRET_CREDENTIAL" },
-    orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
-    include: {
-      _count: {
-        select: {
-          purchaseOrders: true,
-        },
+  assert.deepEqual(receivedArgsRecord.orderBy, [
+    { isActive: "desc" },
+    { createdAt: "desc" },
+  ]);
+  assert.deepEqual(receivedArgsRecord.include, {
+    _count: {
+      select: {
+        purchaseOrders: true,
       },
     },
   });
+  assert.equal(receivedArgsRecord.where?.productType, "API_QUOTA");
   assert.deepEqual(receivedInventoryArgs, {
     by: ["productId", "status"],
     where: {
@@ -137,7 +143,7 @@ test("GET /api/admin/shop/products lists secret credential products with status 
   assert.equal("_count" in json.data[0], false);
 });
 
-test("POST /api/admin/shop/products creates a secret credential catalog product", async () => {
+test("POST /api/admin/shop/products creates an api quota catalog product", async () => {
   mockAdminSession();
   let createdData: Record<string, unknown> | null = null;
   prismaClient.catalogProduct = {
@@ -157,13 +163,15 @@ test("POST /api/admin/shop/products creates a secret credential catalog product"
       json: {
         name: "  Provider Key Pack  ",
         description: "  One key  ",
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
         price: 300,
         isActive: true,
         displayConfig: {
           providerLabel: "Provider",
+          quotaUnitLabel: "tokens",
         },
         fulfillmentConfig: {
+          quotaAmount: 10000,
           allowRepeatPurchase: true,
         },
       },
@@ -176,13 +184,15 @@ test("POST /api/admin/shop/products creates a secret credential catalog product"
   assert.deepEqual(createdData, {
     name: "Provider Key Pack",
     description: "One key",
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     price: 300,
     isActive: true,
     displayConfig: {
       providerLabel: "Provider",
+      quotaUnitLabel: "tokens",
     },
     fulfillmentConfig: {
+      quotaAmount: 10000,
       allowRepeatPurchase: true,
     },
   });
@@ -205,4 +215,41 @@ test("POST /api/admin/shop/products returns 400 for malformed JSON", async () =>
   assert.equal(response.status, 400);
   assert.equal(json.success, false);
   assert.equal(json.error, "Invalid request body");
+});
+
+test("POST /api/admin/shop/products returns 400 for invalid quota payload", async () => {
+  mockAdminSession();
+
+  const response = await POST(
+    createRouteRequest("http://localhost/api/admin/shop/products", {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+      json: {
+        name: "Provider Token Pack",
+        description: "10k tokens",
+        productType: "API_QUOTA",
+        price: 300,
+        isActive: true,
+        displayConfig: {
+          providerLabel: "Provider",
+          quotaUnitLabel: "tokens",
+        },
+        fulfillmentConfig: {
+          quotaAmount: 0,
+          allowRepeatPurchase: true,
+        },
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.success, false);
+  assert.equal(
+    json.error,
+    "fulfillmentConfig.quotaAmount must be a positive integer"
+  );
 });

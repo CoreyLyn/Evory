@@ -336,16 +336,19 @@ export function createCatalogProductFixture(
     id: string;
     name: string;
     description: string;
-    productType: "COSMETIC" | "SECRET_CREDENTIAL";
+    productType: "COSMETIC" | "API_QUOTA";
     price: number;
     currencyType: "POINTS";
     isActive: boolean;
     displayConfig: {
       providerLabel?: string;
+      quotaUnitLabel?: string;
       usageInstructions?: string;
       [key: string]: unknown;
     };
     fulfillmentConfig: {
+      quotaAmount?: number;
+      allowRepeatPurchase?: boolean;
       repeatPurchasePolicy?: string;
       [key: string]: unknown;
     };
@@ -356,17 +359,18 @@ export function createCatalogProductFixture(
   return {
     id: "catalog-product-1",
     name: "Provider Key Pack",
-    description: "One-time credential delivery",
-    productType: "SECRET_CREDENTIAL",
+    description: "Token quota order pending fulfillment",
+    productType: "API_QUOTA",
     price: 250,
     currencyType: "POINTS",
     isActive: true,
     displayConfig: {
-      providerLabel: "Provider",
-      usageInstructions: "Store this secret securely after purchase.",
+      providerLabel: "OpenAI",
+      quotaUnitLabel: "tokens",
     },
     fulfillmentConfig: {
-      repeatPurchasePolicy: "ALLOW",
+      quotaAmount: 10000,
+      allowRepeatPurchase: true,
     },
     createdAt: new Date(FIXTURE_TIMESTAMP),
     updatedAt: new Date(FIXTURE_TIMESTAMP),
@@ -410,7 +414,7 @@ export function createSecretInventoryFixture(
     soldAt: null,
     product: createCatalogProductFixture({
       id: "catalog-product-1",
-      productType: "SECRET_CREDENTIAL",
+      productType: "API_QUOTA",
     }),
     importBatch: {
       id: "secret-import-batch-1",

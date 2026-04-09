@@ -3,23 +3,47 @@ import { NextRequest } from "next/server";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { authenticateAdmin } from "@/lib/admin-auth";
 import {
-  isAdminApiQuotaProductValidationError,
-  parseAdminApiQuotaProductInput,
-} from "@/lib/admin-api-quota-products";
+  isAdminProvidedApiKeyValidationError,
+  isMissingProvidedApiKeyError,
+  parseAdminProvidedApiKeyUpdateInput,
+} from "@/lib/admin-provided-api-keys";
 import prisma from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 
-type ErrorWithCode = {
-  code?: unknown;
+type AdminProvidedApiKeyRow = {
+  id: string;
+  label: string;
+  providerLabel: string;
+  maskedKey: string;
+  isActive: boolean;
+  createdByUserId: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
-function isMissingCatalogProductError(error: unknown) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    (error as ErrorWithCode).code === "P2025"
-  );
+const ADMIN_PROVIDED_API_KEY_SELECT = {
+  id: true,
+  label: true,
+  providerLabel: true,
+  maskedKey: true,
+  isActive: true,
+  createdByUserId: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+function toAdminProvidedApiKeyResponse(key: AdminProvidedApiKeyRow) {
+  return {
+    id: key.id,
+    label: key.label,
+    providerLabel: key.providerLabel,
+    maskedKey: key.maskedKey,
+    isActive: key.isActive,
+    createdByUserId: key.createdByUserId,
+    createdAt: key.createdAt,
+    updatedAt: key.updatedAt,
+  };
 }
 
 export async function PUT(
@@ -28,7 +52,7 @@ export async function PUT(
 ) {
   const csrfBlocked = await enforceSameOriginControlPlaneRequest({
     request,
-    routeKey: "admin-shop-product-update",
+    routeKey: "admin-shop-api-key-update",
   });
   if (csrfBlocked) {
     return notForAgentsResponse(csrfBlocked);
@@ -41,8 +65,8 @@ export async function PUT(
 
   const rateLimited = await enforceRateLimit({
     request,
-    bucketId: "admin-shop-products",
-    routeKey: "admin-shop-product-update",
+    bucketId: "admin-shop-api-keys",
+    routeKey: "admin-shop-api-key-update",
     maxRequests: 20,
     windowMs: 10 * 60 * 1000,
     subjectId: auth.user.id,
@@ -54,39 +78,21 @@ export async function PUT(
   const { id } = await params;
 
   try {
-    const data = parseAdminApiQuotaProductInput(await request.json());
-    const existingProduct = await prisma.catalogProduct.findFirst({
-      where: {
-        id,
-        productType: "API_QUOTA",
-      },
-      select: { id: true },
-    });
-    if (!existingProduct) {
-      return notForAgentsResponse(
-        Response.json(
-          {
-            success: false,
-            error: "Catalog product not found",
-          },
-          { status: 404 }
-        )
-      );
-    }
-
-    const product = await prisma.catalogProduct.update({
+    const data = parseAdminProvidedApiKeyUpdateInput(await request.json());
+    const key = await prisma.providedApiKey.update({
       where: { id },
       data,
+      select: ADMIN_PROVIDED_API_KEY_SELECT,
     });
 
     return notForAgentsResponse(
       Response.json({
         success: true,
-        data: product,
+        data: toAdminProvidedApiKeyResponse(key as AdminProvidedApiKeyRow),
       })
     );
   } catch (error) {
-    if (isAdminApiQuotaProductValidationError(error)) {
+    if (isAdminProvidedApiKeyValidationError(error)) {
       const message =
         error instanceof SyntaxError ? "Invalid request body" : error.message;
       return notForAgentsResponse(
@@ -100,19 +106,19 @@ export async function PUT(
       );
     }
 
-    if (isMissingCatalogProductError(error)) {
+    if (isMissingProvidedApiKeyError(error)) {
       return notForAgentsResponse(
         Response.json(
           {
             success: false,
-            error: "Catalog product not found",
+            error: "Provided API key not found",
           },
           { status: 404 }
         )
       );
     }
 
-    console.error("[admin/shop/products/[id] PUT]", error);
+    console.error("[admin/shop/api-keys/[id] PUT]", error);
     return notForAgentsResponse(
       Response.json(
         {

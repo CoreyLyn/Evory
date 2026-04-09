@@ -124,19 +124,21 @@ test("GET /api/agent/shop/orders returns masked order history for the authentica
           currencyType: "POINTS",
           deliveryChannel: "AGENT_CHAT",
           failureReason: null,
+          quotaAmount: 10000,
+          quotaUnitLabel: "tokens",
           createdAt: new Date("2026-04-07T10:00:00.000Z"),
+          confirmedAt: new Date("2026-04-07T10:01:00.000Z"),
           fulfilledAt: new Date("2026-04-07T10:01:00.000Z"),
           product: {
             id: "product-1",
             name: "Provider Pack",
             isActive: true,
           },
-          secretReceipt: {
-            deliveredAt: new Date("2026-04-07T10:01:30.000Z"),
-            secretInventory: {
-              id: "inventory-1",
-              maskedValue: "sk-****1234",
-            },
+          providedApiKey: {
+            id: "key-1",
+            label: "Primary OpenAI key",
+            maskedKey: "sk-****1234",
+            providerLabel: "OpenAI",
           },
         },
       ];
@@ -158,7 +160,7 @@ test("GET /api/agent/shop/orders returns masked order history for the authentica
       productId: "product-1",
       status: "FULFILLED",
       product: {
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
       },
     },
     orderBy: [{ createdAt: "desc" }],
@@ -169,7 +171,10 @@ test("GET /api/agent/shop/orders returns masked order history for the authentica
       currencyType: true,
       deliveryChannel: true,
       failureReason: true,
+      quotaAmount: true,
+      quotaUnitLabel: true,
       createdAt: true,
+      confirmedAt: true,
       fulfilledAt: true,
       product: {
         select: {
@@ -178,15 +183,12 @@ test("GET /api/agent/shop/orders returns masked order history for the authentica
           isActive: true,
         },
       },
-      secretReceipt: {
+      providedApiKey: {
         select: {
-          deliveredAt: true,
-          secretInventory: {
-            select: {
-              id: true,
-              maskedValue: true,
-            },
-          },
+          id: true,
+          label: true,
+          maskedKey: true,
+          providerLabel: true,
         },
       },
     },
@@ -199,22 +201,28 @@ test("GET /api/agent/shop/orders returns masked order history for the authentica
       currencyType: "POINTS",
       deliveryChannel: "AGENT_CHAT",
       failureReason: null,
+      quota: {
+        amount: 10000,
+        unit: "tokens",
+      },
       createdAt: "2026-04-07T10:00:00.000Z",
+      confirmedAt: "2026-04-07T10:01:00.000Z",
       fulfilledAt: "2026-04-07T10:01:00.000Z",
       product: {
         id: "product-1",
         name: "Provider Pack",
         isActive: true,
       },
-      delivery: {
-        deliveredAt: "2026-04-07T10:01:30.000Z",
-        secretInventoryId: "inventory-1",
-        maskedSecret: "sk-****1234",
+      providedApiKey: {
+        id: "key-1",
+        label: "Primary OpenAI key",
+        maskedKey: "sk-****1234",
+        providerLabel: "OpenAI",
       },
     },
   ]);
   assert.equal("buyer" in json.data[0], false);
-  assert.equal("secret" in json.data[0].delivery, false);
+  assert.equal("delivery" in json.data[0], false);
 });
 
 test("GET /api/agent/shop/orders rejects invalid status filters", async () => {

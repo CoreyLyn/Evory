@@ -14,38 +14,30 @@ type ShopRoutePrismaMock = {
   };
   catalogProduct?: {
     findMany: (args: {
-      where: { isActive: boolean; productType: "SECRET_CREDENTIAL" };
+      where: { isActive: boolean; productType: "API_QUOTA" };
       orderBy?: unknown;
     }) => Promise<
       Array<{
         id: string;
         name: string;
         description: string;
-        productType: "SECRET_CREDENTIAL";
+        productType: "API_QUOTA";
         price: number;
+        currencyType: "POINTS";
         displayConfig: unknown;
         fulfillmentConfig: unknown;
       }>
     >;
-  };
-  secretInventory?: {
-    groupBy: (args: {
-      by: ["productId"];
-      where: { productId: { in: string[] }; status: "AVAILABLE" };
-      _count: { _all: true };
-    }) => Promise<Array<{ productId: string; _count: { _all: number } }>>;
   };
 };
 
 const prismaClient = prisma as unknown as ShopRoutePrismaMock;
 const originalShopItemFindMany = prismaClient.shopItem.findMany;
 const originalCatalogProduct = prismaClient.catalogProduct;
-const originalSecretInventory = prismaClient.secretInventory;
 
 afterEach(() => {
   prismaClient.shopItem.findMany = originalShopItemFindMany;
   prismaClient.catalogProduct = originalCatalogProduct;
-  prismaClient.secretInventory = originalSecretInventory;
 });
 
 test("GET /api/points/shop returns only active items", async () => {
@@ -80,7 +72,7 @@ test("GET /api/points/shop returns only active items", async () => {
   assert.equal("createdAt" in json.data[0], false);
 });
 
-test("GET /api/points/shop returns a mixed catalog list including active cosmetics and active secret credential products", async () => {
+test("GET /api/points/shop returns a mixed catalog list including active cosmetics and active api quota products", async () => {
   prismaClient.shopItem.findMany = async ({ where }) => {
     assert.deepEqual(where, { isActive: true });
     return [
@@ -95,39 +87,29 @@ test("GET /api/points/shop returns a mixed catalog list including active cosmeti
     findMany: async ({ where }) => {
       assert.deepEqual(where, {
         isActive: true,
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
       });
 
       return [
         {
-          id: "secret-product-1",
-          name: "Provider Key Pack",
-          description: "One-time credential delivery",
-          productType: "SECRET_CREDENTIAL",
+          id: "api-quota-product-1",
+          name: "Provider Quota Pack",
+          description: "10k tokens fulfilled by admin confirmation",
+          productType: "API_QUOTA",
           price: 250,
+          currencyType: "POINTS",
           displayConfig: {
             providerLabel: "Provider",
             usageInstructions: "Store securely",
+            quotaUnitLabel: "tokens",
           },
           fulfillmentConfig: {
+            quotaAmount: 10000,
             allowRepeatPurchase: false,
             perAgentPurchaseLimit: 2,
           },
         },
       ];
-    },
-  };
-
-  prismaClient.secretInventory = {
-    groupBy: async ({ by, where, _count }) => {
-      assert.deepEqual(by, ["productId"]);
-      assert.deepEqual(where, {
-        productId: { in: ["secret-product-1"] },
-        status: "AVAILABLE",
-      });
-      assert.deepEqual(_count, { _all: true });
-
-      return [{ productId: "secret-product-1", _count: { _all: 3 } }];
     },
   };
 
@@ -141,41 +123,81 @@ test("GET /api/points/shop returns a mixed catalog list including active cosmeti
   const cosmeticEntry = json.data.find(
     (entry: any) => entry?.entryType === "cosmetic"
   );
-  const secretEntry = json.data.find(
-    (entry: any) => entry?.entryType === "secret_product"
+  const apiQuotaEntry = json.data.find(
+    (entry: any) => entry?.entryType === "api_quota_product"
   );
 
   assert.equal(cosmeticEntry?.id, "active-crown");
   assert.equal(cosmeticEntry?.entryType, "cosmetic");
   assert.equal("internalOnlyFlag" in cosmeticEntry, false);
-  assert.equal(secretEntry?.id, "secret-product-1");
-  assert.equal(secretEntry?.providerLabel, "Provider");
-  assert.equal(secretEntry?.usageInstructions, "Store securely");
-  assert.equal(secretEntry?.allowRepeatPurchase, false);
-  assert.equal(secretEntry?.perAgentPurchaseLimit, 2);
-  assert.equal(secretEntry?.availableInventoryCount, 3);
-  assert.equal(secretEntry?.isInStock, true);
+  assert.equal(apiQuotaEntry?.id, "api-quota-product-1");
+  assert.equal(apiQuotaEntry?.providerLabel, "Provider");
+  assert.equal(apiQuotaEntry?.usageInstructions, "Store securely");
+  assert.equal(apiQuotaEntry?.quotaAmount, 10000);
+  assert.equal(apiQuotaEntry?.quotaUnitLabel, "tokens");
+  assert.equal(apiQuotaEntry?.allowRepeatPurchase, false);
+  assert.equal(apiQuotaEntry?.perAgentPurchaseLimit, 2);
+  assert.equal(apiQuotaEntry?.currencyType, "POINTS");
 
-  assert.equal("encryptedValue" in secretEntry, false);
-  assert.equal("maskedValue" in secretEntry, false);
-  assert.equal("displayConfig" in secretEntry, false);
-  assert.equal("fulfillmentConfig" in secretEntry, false);
+  assert.equal("availableInventoryCount" in apiQuotaEntry, false);
+  assert.equal("isInStock" in apiQuotaEntry, false);
+  assert.equal("displayConfig" in apiQuotaEntry, false);
+  assert.equal("fulfillmentConfig" in apiQuotaEntry, false);
 });
 
-test("GET /api/points/shop derives secret-product stock metadata from AVAILABLE inventory rows only", async () => {
+test("GET /api/points/shop omits stock metadata for api quota products", async () => {
   prismaClient.shopItem.findMany = async () => [];
 
   prismaClient.catalogProduct = {
     findMany: async () => [
       {
-        id: "secret-product-2",
-        name: "Another Secret Pack",
-        description: "Credential delivery",
-        productType: "SECRET_CREDENTIAL",
+        id: "api-quota-product-2",
+        name: "Another Quota Pack",
+        description: "Quota fulfilled after admin review",
+        productType: "API_QUOTA",
         price: 250,
+        currencyType: "POINTS",
         displayConfig: {
           providerLabel: "Provider",
           usageInstructions: "Store securely",
+          quotaUnitLabel: "calls",
+        },
+        fulfillmentConfig: {
+          quotaAmount: 5000,
+          allowRepeatPurchase: true,
+          perAgentPurchaseLimit: null,
+        },
+      },
+    ],
+  };
+
+  const response = await GET();
+  const json = await response.json();
+
+  const apiQuotaEntry = json.data.find(
+    (entry: any) => entry?.entryType === "api_quota_product"
+  );
+
+  assert.equal(apiQuotaEntry?.quotaAmount, 5000);
+  assert.equal(apiQuotaEntry?.quotaUnitLabel, "calls");
+  assert.equal("availableInventoryCount" in apiQuotaEntry, false);
+  assert.equal("isInStock" in apiQuotaEntry, false);
+});
+
+test("GET /api/points/shop returns 500 when an active api quota product has invalid quota config", async () => {
+  prismaClient.shopItem.findMany = async () => [];
+  prismaClient.catalogProduct = {
+    findMany: async () => [
+      {
+        id: "broken-api-quota",
+        name: "Broken quota pack",
+        description: "Invalid quota config",
+        productType: "API_QUOTA",
+        price: 250,
+        currencyType: "POINTS",
+        displayConfig: {
+          providerLabel: "Provider",
+          quotaUnitLabel: "tokens",
         },
         fulfillmentConfig: {
           allowRepeatPurchase: true,
@@ -185,20 +207,12 @@ test("GET /api/points/shop derives secret-product stock metadata from AVAILABLE 
     ],
   };
 
-  prismaClient.secretInventory = {
-    groupBy: async ({ where }) => {
-      assert.equal(where.status, "AVAILABLE");
-      return [];
-    },
-  };
-
   const response = await GET();
   const json = await response.json();
 
-  const secretEntry = json.data.find(
-    (entry: any) => entry?.entryType === "secret_product"
-  );
-
-  assert.equal(secretEntry?.availableInventoryCount, 0);
-  assert.equal(secretEntry?.isInStock, false);
+  assert.equal(response.status, 500);
+  assert.deepEqual(json, {
+    success: false,
+    error: "Internal server error",
+  });
 });

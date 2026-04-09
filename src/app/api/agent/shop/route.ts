@@ -6,17 +6,19 @@ import { setAgentStatus } from "@/lib/agent-status";
 import { GET as getPublicShop } from "@/app/api/points/shop/route";
 import prisma from "@/lib/prisma";
 
-type SecretProductConfig = {
+type ApiQuotaProductConfig = {
   providerLabel: string | null;
   usageInstructions: string | null;
+  quotaAmount: number;
+  quotaUnitLabel: string;
   allowRepeatPurchase: boolean;
   perAgentPurchaseLimit: number | null;
 };
 
-function readSecretProductConfig(
+function readApiQuotaProductConfig(
   displayConfig: unknown,
   fulfillmentConfig: unknown
-): SecretProductConfig {
+): ApiQuotaProductConfig {
   const display =
     displayConfig && typeof displayConfig === "object" && !Array.isArray(displayConfig)
       ? (displayConfig as Record<string, unknown>)
@@ -30,6 +32,15 @@ function readSecretProductConfig(
     typeof fulfillment?.allowRepeatPurchase === "boolean"
       ? fulfillment.allowRepeatPurchase
       : true;
+  const quotaAmount =
+    typeof fulfillment?.quotaAmount === "number" &&
+    Number.isInteger(fulfillment.quotaAmount) &&
+    fulfillment.quotaAmount > 0
+      ? fulfillment.quotaAmount
+      : null;
+  if (!quotaAmount) {
+    throw new Error("Invalid API quota product configuration");
+  }
   const perAgentPurchaseLimit =
     typeof fulfillment?.perAgentPurchaseLimit === "number" &&
     Number.isInteger(fulfillment.perAgentPurchaseLimit) &&
@@ -44,6 +55,11 @@ function readSecretProductConfig(
       typeof display?.usageInstructions === "string"
         ? display.usageInstructions
         : null,
+    quotaAmount,
+    quotaUnitLabel:
+      typeof display?.quotaUnitLabel === "string" && display.quotaUnitLabel.trim()
+        ? display.quotaUnitLabel.trim()
+        : "tokens",
     allowRepeatPurchase,
     perAgentPurchaseLimit,
   };
@@ -62,29 +78,23 @@ export async function GET(request: NextRequest) {
 
   try {
     const json = await response.json();
-    const cosmetics = json.data;
+    const cosmetics = Array.isArray(json.data)
+      ? json.data.filter(
+          (entry): entry is Record<string, unknown> =>
+            Boolean(entry) &&
+            typeof entry === "object" &&
+            !Array.isArray(entry) &&
+            (entry as { entryType?: unknown }).entryType === "cosmetic"
+        )
+      : [];
 
-    const secretProducts = await prisma.catalogProduct.findMany({
+    const apiQuotaProducts = await prisma.catalogProduct.findMany({
       where: {
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
         isActive: true,
       },
       orderBy: [{ createdAt: "desc" }],
     });
-    const secretProductIds = secretProducts.map((product) => product.id);
-    const secretInventoryCounts = secretProductIds.length
-      ? await prisma.secretInventory.groupBy({
-          by: ["productId"],
-          where: {
-            productId: { in: secretProductIds },
-            status: "AVAILABLE",
-          },
-          _count: { _all: true },
-        })
-      : [];
-    const secretInventoryCountByProductId = new Map(
-      secretInventoryCounts.map((row) => [row.productId, row._count._all])
-    );
 
     await setAgentStatus({
       agent,
@@ -97,17 +107,15 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         cosmetics,
-        secretProducts: secretProducts.map((product) => ({
-          ...readSecretProductConfig(product.displayConfig, product.fulfillmentConfig),
+        apiQuotaProducts: apiQuotaProducts.map((product) => ({
+          entryType: "api_quota_product" as const,
+          ...readApiQuotaProductConfig(product.displayConfig, product.fulfillmentConfig),
           id: product.id,
           name: product.name,
           description: product.description,
           price: product.price,
+          currencyType: product.currencyType,
           productType: product.productType,
-          availableInventoryCount:
-            secretInventoryCountByProductId.get(product.id) ?? 0,
-          isInStock:
-            (secretInventoryCountByProductId.get(product.id) ?? 0) > 0,
         })),
       },
     }));

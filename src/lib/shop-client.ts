@@ -3,7 +3,7 @@ type AgentFetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 export type ShopCurrencyType = "POINTS";
 
-export type PublicShopCatalogEntryType = "cosmetic" | "secret_product";
+export type PublicShopCatalogEntryType = "cosmetic" | "api_quota_product";
 
 export type PublicShopCatalogCosmeticEntry = {
   entryType: "cosmetic";
@@ -17,8 +17,8 @@ export type PublicShopCatalogCosmeticEntry = {
   spriteKey: string;
 };
 
-export type PublicShopCatalogSecretProductEntry = {
-  entryType: "secret_product";
+export type PublicShopCatalogApiQuotaProductEntry = {
+  entryType: "api_quota_product";
   id: string;
   name: string;
   description: string;
@@ -26,30 +26,32 @@ export type PublicShopCatalogSecretProductEntry = {
   currencyType: ShopCurrencyType;
   providerLabel: string | null;
   usageInstructions: string | null;
-  isInStock: boolean;
-  availableInventoryCount: number;
+  quotaAmount: number;
+  quotaUnitLabel: string;
   allowRepeatPurchase: boolean;
   perAgentPurchaseLimit: number | null;
 };
 
 export type PublicShopCatalogEntry =
   | PublicShopCatalogCosmeticEntry
-  | PublicShopCatalogSecretProductEntry;
+  | PublicShopCatalogApiQuotaProductEntry;
 
 export type AdminSecretProductRecord = {
   id: string;
   name: string;
   description: string;
-  productType: "SECRET_CREDENTIAL";
+  productType: "API_QUOTA";
   price: number;
   currencyType: "POINTS";
   isActive: boolean;
   displayConfig: {
     providerLabel?: string | null;
     usageInstructions?: string | null;
+    quotaUnitLabel?: string | null;
     [key: string]: unknown;
   };
   fulfillmentConfig: {
+    quotaAmount?: number;
     allowRepeatPurchase?: boolean;
     perAgentPurchaseLimit?: number | null;
     [key: string]: unknown;
@@ -58,16 +60,19 @@ export type AdminSecretProductRecord = {
   updatedAt: string;
 };
 
-export type SecretProductEnvelope = Pick<
-  AdminSecretProductRecord,
-  "id" | "name" | "description" | "price" | "productType"
-> & {
+export type ApiQuotaProductEnvelope = {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  productType: "API_QUOTA";
+  entryType: "api_quota_product";
   providerLabel: string | null;
   usageInstructions: string | null;
+  quotaAmount: number;
+  quotaUnitLabel: string;
   allowRepeatPurchase: boolean;
   perAgentPurchaseLimit: number | null;
-  availableInventoryCount: number;
-  isInStock: boolean;
 };
 
 export type AdminSecretProduct = AdminSecretProductRecord & {
@@ -75,12 +80,24 @@ export type AdminSecretProduct = AdminSecretProductRecord & {
   orderCount: number;
 };
 
+export type AdminProvidedApiKey = {
+  id: string;
+  label: string;
+  providerLabel: string;
+  maskedKey: string;
+  isActive: boolean;
+  createdByUserId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type SecretProductOrderStatus = "PENDING" | "FULFILLED" | "FAILED";
 
-export type SecretProductOrderDelivery = {
-  deliveredAt: string | null;
-  secretInventoryId: string | null;
-  maskedSecret: string | null;
+export type ApiQuotaOrderProvidedApiKey = {
+  id: string;
+  label: string;
+  maskedKey: string;
+  providerLabel: string;
 };
 
 export type AdminSecretProductOrder = {
@@ -90,7 +107,12 @@ export type AdminSecretProductOrder = {
   currencyType: ShopCurrencyType;
   deliveryChannel: "AGENT_CHAT";
   failureReason: string | null;
+  quota: {
+    amount: number;
+    unit: string;
+  };
   createdAt: string;
+  confirmedAt: string | null;
   fulfilledAt: string | null;
   product: {
     id: string;
@@ -103,7 +125,7 @@ export type AdminSecretProductOrder = {
     type: string;
     ownerUserId: string | null;
   };
-  delivery: SecretProductOrderDelivery;
+  providedApiKey: ApiQuotaOrderProvidedApiKey | null;
 };
 
 export type AgentSecretProductOrder = {
@@ -113,14 +135,19 @@ export type AgentSecretProductOrder = {
   currencyType: ShopCurrencyType;
   deliveryChannel: "AGENT_CHAT";
   failureReason: string | null;
+  quota: {
+    amount: number;
+    unit: string;
+  };
   createdAt: string;
+  confirmedAt: string | null;
   fulfilledAt: string | null;
   product: {
     id: string;
     name: string;
     isActive: boolean;
   };
-  delivery: SecretProductOrderDelivery;
+  providedApiKey: ApiQuotaOrderProvidedApiKey | null;
 };
 
 export type AdminSecretProductCreateInput = {
@@ -129,11 +156,26 @@ export type AdminSecretProductCreateInput = {
   price: number;
   providerLabel: string;
   usageInstructions: string;
+  quotaAmount: number;
+  quotaUnitLabel: string;
   allowRepeatPurchase: boolean;
   perAgentPurchaseLimit?: number | null;
 };
 
 export type AdminSecretProductUpdateInput = AdminSecretProductCreateInput & {
+  isActive: boolean;
+};
+
+export type AdminProvidedApiKeyCreateInput = {
+  label: string;
+  providerLabel: string;
+  apiKey: string;
+  isActive?: boolean;
+};
+
+export type AdminProvidedApiKeyUpdateInput = {
+  label: string;
+  providerLabel: string;
   isActive: boolean;
 };
 
@@ -166,7 +208,7 @@ type ApiEnvelope<T> = {
 
 export type AgentShopCatalog = {
   cosmetics: Array<Record<string, unknown>>;
-  secretProducts: SecretProductEnvelope[];
+  apiQuotaProducts: ApiQuotaProductEnvelope[];
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -226,9 +268,15 @@ function readPositiveIntegerOrNull(
   return value;
 }
 
-function readNonNegativeInteger(record: Record<string, unknown>, key: string): number | undefined {
+function requirePositiveInteger(
+  record: Record<string, unknown>,
+  key: string,
+  context: string
+): number {
   const value = record[key];
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) return undefined;
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    throw new Error(`Invalid ${context}: missing ${key}`);
+  }
   return value;
 }
 
@@ -252,7 +300,9 @@ function normalizePublicShopCatalogEntry(rawEntry: unknown): PublicShopCatalogEn
   }
 
   const entryType =
-    record.entryType === "secret_product" ? "secret_product" : "cosmetic";
+    record.entryType === "api_quota_product" || record.entryType === "secret_product"
+      ? "api_quota_product"
+      : "cosmetic";
 
   const base = {
     id: requireString(record, "id", "shop catalog entry"),
@@ -262,25 +312,21 @@ function normalizePublicShopCatalogEntry(rawEntry: unknown): PublicShopCatalogEn
     currencyType: readCurrencyType(record, "shop catalog entry"),
   };
 
-  if (entryType === "secret_product") {
-    const availableInventoryCount =
-      readNonNegativeInteger(record, "availableInventoryCount") ?? 0;
+  if (entryType === "api_quota_product") {
     const allowRepeatPurchase =
       readBoolean(record, "allowRepeatPurchase") ?? true;
     const perAgentPurchaseLimit = readPositiveIntegerOrNull(
       record,
       "perAgentPurchaseLimit"
     );
-    const isInStock =
-      readBoolean(record, "isInStock") ?? availableInventoryCount > 0;
 
     return {
       entryType,
       ...base,
       providerLabel: readStringOrNull(record, "providerLabel"),
       usageInstructions: readStringOrNull(record, "usageInstructions"),
-      isInStock,
-      availableInventoryCount,
+      quotaAmount: requirePositiveInteger(record, "quotaAmount", "shop catalog entry"),
+      quotaUnitLabel: requireString(record, "quotaUnitLabel", "shop catalog entry"),
       allowRepeatPurchase,
       perAgentPurchaseLimit,
     };
@@ -345,6 +391,11 @@ export async function fetchAdminSecretProducts(fetcher: PublicFetch = fetch) {
   return readEnvelope<AdminSecretProduct[]>(response);
 }
 
+export async function fetchAdminProvidedApiKeys(fetcher: PublicFetch = fetch) {
+  const response = await fetcher("/api/admin/shop/api-keys");
+  return readEnvelope<AdminProvidedApiKey[]>(response);
+}
+
 export async function fetchAdminSecretProductOrders(
   fetcher: PublicFetch = fetch,
   filters: AdminSecretProductOrderFilters = {}
@@ -380,6 +431,8 @@ function buildAdminSecretProductPayload(input: {
   price: number;
   providerLabel: string;
   usageInstructions: string;
+  quotaAmount: number;
+  quotaUnitLabel: string;
   allowRepeatPurchase: boolean;
   perAgentPurchaseLimit?: number | null;
   isActive: boolean;
@@ -387,8 +440,11 @@ function buildAdminSecretProductPayload(input: {
   const normalizedPrice = Number.isFinite(input.price)
     ? Math.max(0, Math.trunc(input.price))
     : 0;
+  const normalizedQuotaAmount =
+    Number.isFinite(input.quotaAmount) ? Math.max(1, Math.trunc(input.quotaAmount)) : 1;
   const usageInstructions = input.usageInstructions?.trim();
   const fulfillmentConfig: Record<string, unknown> = {
+    quotaAmount: normalizedQuotaAmount,
     allowRepeatPurchase: input.allowRepeatPurchase,
   };
 
@@ -399,12 +455,13 @@ function buildAdminSecretProductPayload(input: {
   return {
     name: input.name,
     description: input.description,
-    productType: "SECRET_CREDENTIAL" as const,
+    productType: "API_QUOTA" as const,
     price: normalizedPrice,
     isActive: input.isActive,
     displayConfig: {
       providerLabel: input.providerLabel,
       usageInstructions: usageInstructions || undefined,
+      quotaUnitLabel: input.quotaUnitLabel,
     },
     fulfillmentConfig,
   };
@@ -445,6 +502,62 @@ export async function updateAdminSecretProduct(
   });
 
   return readEnvelope<AdminSecretProductRecord>(response);
+}
+
+export async function createAdminProvidedApiKey(
+  fetcher: PublicFetch,
+  input: AdminProvidedApiKeyCreateInput
+) {
+  const response = await fetcher("/api/admin/shop/api-keys", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      label: input.label,
+      providerLabel: input.providerLabel,
+      apiKey: input.apiKey,
+      isActive: input.isActive ?? true,
+    }),
+  });
+
+  return readEnvelope<AdminProvidedApiKey>(response);
+}
+
+export async function updateAdminProvidedApiKey(
+  fetcher: PublicFetch,
+  keyId: string,
+  input: AdminProvidedApiKeyUpdateInput
+) {
+  const response = await fetcher(`/api/admin/shop/api-keys/${keyId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      label: input.label,
+      providerLabel: input.providerLabel,
+      isActive: input.isActive,
+    }),
+  });
+
+  return readEnvelope<AdminProvidedApiKey>(response);
+}
+
+export async function fulfillAdminQuotaOrder(
+  fetcher: PublicFetch,
+  orderId: string,
+  input: { providedApiKeyId: string }
+) {
+  const response = await fetcher(`/api/admin/shop/orders/${orderId}/fulfill`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  return readEnvelope<Record<string, unknown>>(response);
 }
 
 export async function importAdminSecretInventory(

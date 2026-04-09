@@ -7,14 +7,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
+  createAdminProvidedApiKey,
   createAdminSecretProduct,
+  fetchAdminProvidedApiKeys,
   fetchAdminSecretProductOrders,
   fetchAdminSecretProducts,
-  importAdminSecretInventory,
-  type AdminSecretProductOrder,
+  fulfillAdminQuotaOrder,
+  type AdminProvidedApiKey,
   type AdminSecretProduct,
+  type AdminSecretProductOrder,
   type AdminSecretProductUpdateInput,
   type SecretProductOrderStatus,
+  updateAdminProvidedApiKey,
   updateAdminSecretProduct,
 } from "@/lib/shop-client";
 
@@ -29,39 +33,19 @@ type ProductDraft = {
   price: number;
   providerLabel: string;
   usageInstructions: string;
+  quotaAmount: number;
+  quotaUnitLabel: string;
   allowRepeatPurchase: boolean;
   perAgentPurchaseLimitMode: "unlimited" | "limited";
   perAgentPurchaseLimit: number | null;
 };
 
-type InventoryDraft = {
-  productId: string;
-  sourceLabel: string;
-  note: string;
-  secrets: string;
+type ApiKeyDraft = {
+  label: string;
+  providerLabel: string;
+  apiKey: string;
+  isActive: boolean;
 };
-
-type AdminSecretInventoryRow = {
-  id: string;
-  maskedValue: string;
-  status: "AVAILABLE" | "RESERVED" | "SOLD" | "VOID";
-  createdAt: string;
-  soldAt: string | null;
-  importBatch: {
-    id: string;
-    sourceLabel: string;
-    note: string;
-    importedByUserId: string;
-    createdAt: string;
-  } | null;
-};
-
-type AdminSecretInventoryResponse = {
-  productId: string;
-  inventory: AdminSecretInventoryRow[];
-};
-
-type OrderStatusFilter = "ALL" | SecretProductOrderStatus;
 
 export function createInitialProductDraft(): ProductDraft {
   return {
@@ -70,18 +54,20 @@ export function createInitialProductDraft(): ProductDraft {
     price: 0,
     providerLabel: "",
     usageInstructions: "",
+    quotaAmount: 10000,
+    quotaUnitLabel: "tokens",
     allowRepeatPurchase: true,
     perAgentPurchaseLimitMode: "unlimited",
     perAgentPurchaseLimit: null,
   };
 }
 
-function createInitialInventoryDraft(): InventoryDraft {
+function createInitialApiKeyDraft(): ApiKeyDraft {
   return {
-    productId: "",
-    sourceLabel: "",
-    note: "",
-    secrets: "",
+    label: "",
+    providerLabel: "",
+    apiKey: "",
+    isActive: true,
   };
 }
 
@@ -97,6 +83,18 @@ function getUsageInstructions(product: AdminSecretProduct) {
     : "";
 }
 
+function getQuotaUnitLabel(product: AdminSecretProduct) {
+  return typeof product.displayConfig.quotaUnitLabel === "string"
+    ? product.displayConfig.quotaUnitLabel
+    : "tokens";
+}
+
+function getQuotaAmount(product: AdminSecretProduct) {
+  return typeof product.fulfillmentConfig.quotaAmount === "number"
+    ? product.fulfillmentConfig.quotaAmount
+    : 0;
+}
+
 function getPerAgentPurchaseLimit(product: AdminSecretProduct) {
   return typeof product.fulfillmentConfig.perAgentPurchaseLimit === "number"
     ? product.fulfillmentConfig.perAgentPurchaseLimit
@@ -107,48 +105,6 @@ export function getEffectiveAllowRepeatPurchase(product: AdminSecretProduct) {
   return typeof product.fulfillmentConfig.allowRepeatPurchase === "boolean"
     ? product.fulfillmentConfig.allowRepeatPurchase
     : true;
-}
-
-function getAvailableInventoryCount(product: AdminSecretProduct) {
-  const extended = product as AdminSecretProduct & {
-    availableInventoryCount?: number;
-  };
-  if (typeof extended.availableInventoryCount === "number") {
-    return extended.availableInventoryCount;
-  }
-  return 0;
-}
-
-function getSoldInventoryCount(product: AdminSecretProduct) {
-  const extended = product as AdminSecretProduct & { soldInventoryCount?: number };
-  return typeof extended.soldInventoryCount === "number"
-    ? extended.soldInventoryCount
-    : 0;
-}
-
-function getVoidInventoryCount(product: AdminSecretProduct) {
-  const extended = product as AdminSecretProduct & { voidInventoryCount?: number };
-  return typeof extended.voidInventoryCount === "number"
-    ? extended.voidInventoryCount
-    : 0;
-}
-
-function getInventoryStatusLabel(
-  status: string,
-  t: (key: TranslationKey, params?: Record<string, string | number>) => string
-) {
-  switch (status) {
-    case "AVAILABLE":
-      return t("admin.products.inventory.status.available");
-    case "SOLD":
-      return t("admin.products.inventory.status.sold");
-    case "VOID":
-      return t("admin.products.inventory.status.void");
-    case "RESERVED":
-      return t("admin.products.inventory.status.reserved");
-    default:
-      return status;
-  }
 }
 
 export function createProductDraftFromProduct(
@@ -162,6 +118,8 @@ export function createProductDraftFromProduct(
     price: product.price,
     providerLabel: getProviderLabel(product),
     usageInstructions: getUsageInstructions(product),
+    quotaAmount: getQuotaAmount(product),
+    quotaUnitLabel: getQuotaUnitLabel(product),
     allowRepeatPurchase: getEffectiveAllowRepeatPurchase(product),
     perAgentPurchaseLimitMode: perAgentPurchaseLimit === null ? "unlimited" : "limited",
     perAgentPurchaseLimit,
@@ -179,14 +137,27 @@ export function buildAdminSecretProductUpdateInput({
   allowRepeatPurchase: boolean;
   perAgentPurchaseLimit: number | null;
   isActive: boolean;
-  overrides?: Partial<Pick<AdminSecretProductUpdateInput, "name" | "description" | "price">>;
+  overrides?: Partial<
+    Pick<
+      AdminSecretProductUpdateInput,
+      | "name"
+      | "description"
+      | "price"
+      | "quotaAmount"
+      | "quotaUnitLabel"
+      | "providerLabel"
+      | "usageInstructions"
+    >
+  >;
 }): AdminSecretProductUpdateInput {
   return {
     name: overrides?.name ?? product.name,
     description: overrides?.description ?? product.description,
     price: overrides?.price ?? product.price,
-    providerLabel: getProviderLabel(product),
-    usageInstructions: getUsageInstructions(product),
+    providerLabel: overrides?.providerLabel ?? getProviderLabel(product),
+    usageInstructions: overrides?.usageInstructions ?? getUsageInstructions(product),
+    quotaAmount: overrides?.quotaAmount ?? getQuotaAmount(product),
+    quotaUnitLabel: overrides?.quotaUnitLabel ?? getQuotaUnitLabel(product),
     allowRepeatPurchase,
     perAgentPurchaseLimit,
     isActive,
@@ -208,6 +179,8 @@ export function buildAdminSecretProductUpdateInputFromDraft({
     price: draft.price,
     providerLabel: draft.providerLabel,
     usageInstructions: draft.usageInstructions,
+    quotaAmount: draft.quotaAmount,
+    quotaUnitLabel: draft.quotaUnitLabel,
     allowRepeatPurchase: draft.allowRepeatPurchase,
     perAgentPurchaseLimit,
     isActive,
@@ -232,6 +205,21 @@ export function resolvePerAgentPurchaseLimit(
   return { value, error: null as TranslationKey | null };
 }
 
+export function normalizeInventoryProductId(
+  products: AdminSecretProduct[],
+  productId: string
+) {
+  if (products.length === 0) {
+    return "";
+  }
+
+  if (products.some((product) => product.id === productId)) {
+    return productId;
+  }
+
+  return products[0].id;
+}
+
 function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -240,7 +228,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
-function formatInventoryTimestamp(value: string | null) {
+function formatTimestamp(value: string | null) {
   if (!value) {
     return "—";
   }
@@ -264,21 +252,6 @@ function getOrderStatusLabel(
     default:
       return t("admin.products.orders.status.fulfilled");
   }
-}
-
-export function normalizeInventoryProductId(
-  products: AdminSecretProduct[],
-  productId: string
-) {
-  if (products.length === 0) {
-    return "";
-  }
-
-  if (products.some((product) => product.id === productId)) {
-    return productId;
-  }
-
-  return products[0].id;
 }
 
 export async function performAdminSecretProductMutation({
@@ -326,119 +299,57 @@ export function AdminSecretProductsPanel({
   const [productDraft, setProductDraft] = useState<ProductDraft>(() =>
     createInitialProductDraft()
   );
-  const [inventoryDraft, setInventoryDraft] = useState<InventoryDraft>(() =>
-    createInitialInventoryDraft()
-  );
+  const [apiKeyDraft, setApiKeyDraft] = useState<ApiKeyDraft>(() => createInitialApiKeyDraft());
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [importing, setImporting] = useState(false);
+  const [submittingProduct, setSubmittingProduct] = useState(false);
+  const [submittingKey, setSubmittingKey] = useState(false);
   const [actionProductId, setActionProductId] = useState<string | null>(null);
-  const [inventoryRows, setInventoryRows] = useState<AdminSecretInventoryRow[]>([]);
-  const [inventoryLoading, setInventoryLoading] = useState(false);
-  const [inventoryError, setInventoryError] = useState<string | null>(null);
-  const [voidingInventoryId, setVoidingInventoryId] = useState<string | null>(null);
+  const [apiKeyActionId, setApiKeyActionId] = useState<string | null>(null);
+  const [fulfillingOrderId, setFulfillingOrderId] = useState<string | null>(null);
+  const [apiKeys, setApiKeys] = useState<AdminProvidedApiKey[]>([]);
+  const [apiKeysLoading, setApiKeysLoading] = useState(false);
   const [orderRows, setOrderRows] = useState<AdminSecretProductOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
-  const [ordersError, setOrdersError] = useState<string | null>(null);
-  const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatusFilter>("ALL");
-  const [orderBuyerAgentId, setOrderBuyerAgentId] = useState("");
-
-  useEffect(() => {
-    const normalizedProductId = normalizeInventoryProductId(
-      products,
-      inventoryDraft.productId
-    );
-    if (normalizedProductId !== inventoryDraft.productId) {
-      setInventoryDraft((current) => ({
-        ...current,
-        productId: normalizedProductId,
-      }));
-    }
-  }, [inventoryDraft.productId, products]);
+  const [selectedKeyByOrder, setSelectedKeyByOrder] = useState<Record<string, string>>({});
 
   const activeProducts = products.filter((product) => product.isActive);
   const inactiveProducts = products.filter((product) => !product.isActive);
-  const selectedInventoryProduct = products.find(
-    (product) => product.id === inventoryDraft.productId
-  );
+  const activeApiKeys = apiKeys.filter((key) => key.isActive);
 
-  async function fetchInventoryDetails(productId: string) {
-    const response = await fetch(`/api/admin/shop/products/${productId}/inventory`);
-    const json = (await response.json()) as {
-      success?: boolean;
-      error?: string;
-      data?: AdminSecretInventoryResponse;
-    };
-
-    if (!response.ok || !json.success || !json.data) {
-      throw new Error(json.error ?? t("admin.actionFailed"));
-    }
-
-    return json.data;
-  }
-
-  async function refreshInventory(productId = inventoryDraft.productId) {
-    if (!productId) {
-      setInventoryRows([]);
-      return;
-    }
-
-    setInventoryLoading(true);
-    setInventoryError(null);
-
+  async function refreshApiKeys() {
+    setApiKeysLoading(true);
     try {
-      const data = await fetchInventoryDetails(productId);
-      setInventoryRows(data.inventory);
+      const data = await fetchAdminProvidedApiKeys(fetch);
+      setApiKeys(data);
     } catch (error) {
-      setInventoryError(getErrorMessage(error, t("admin.actionFailed")));
-      setInventoryRows([]);
+      onError(getErrorMessage(error, t("admin.actionFailed")));
+      setApiKeys([]);
     } finally {
-      setInventoryLoading(false);
+      setApiKeysLoading(false);
     }
   }
 
-  async function fetchOrderHistory({
-    productId,
-    buyerAgentId,
-    status,
-  }: {
-    productId: string;
-    buyerAgentId: string;
-    status: OrderStatusFilter;
-  }) {
-    return fetchAdminSecretProductOrders(fetch, {
-      productId,
-      buyerAgentId: buyerAgentId.trim() || undefined,
-      status: status === "ALL" ? undefined : status,
-    });
-  }
-
-  async function refreshOrders({
-    productId = inventoryDraft.productId,
-    buyerAgentId = orderBuyerAgentId,
-    status = orderStatusFilter,
-  }: {
-    productId?: string;
-    buyerAgentId?: string;
-    status?: OrderStatusFilter;
-  } = {}) {
-    if (!productId) {
-      setOrderRows([]);
-      return;
-    }
-
+  async function refreshOrders() {
     setOrdersLoading(true);
-    setOrdersError(null);
-
     try {
-      const data = await fetchOrderHistory({
-        productId,
-        buyerAgentId,
-        status,
+      const data = await fetchAdminSecretProductOrders(fetch, {
+        status: "PENDING",
       });
       setOrderRows(data);
+      setSelectedKeyByOrder((current) => {
+        const next = { ...current };
+        const fallbackKeyId = activeApiKeys[0]?.id ?? "";
+
+        for (const order of data) {
+          if (!next[order.id] && fallbackKeyId) {
+            next[order.id] = fallbackKeyId;
+          }
+        }
+
+        return next;
+      });
     } catch (error) {
-      setOrdersError(getErrorMessage(error, t("admin.actionFailed")));
+      onError(getErrorMessage(error, t("admin.actionFailed")));
       setOrderRows([]);
     } finally {
       setOrdersLoading(false);
@@ -446,76 +357,34 @@ export function AdminSecretProductsPanel({
   }
 
   useEffect(() => {
-    let cancelled = false;
-
-    if (!inventoryDraft.productId) {
-      setInventoryRows([]);
-      return;
-    }
-
-    setInventoryLoading(true);
-    setInventoryError(null);
-
-    fetchInventoryDetails(inventoryDraft.productId)
-      .then((data) => {
-        if (!cancelled) {
-          setInventoryRows(data.inventory);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setInventoryError(getErrorMessage(error, t("admin.actionFailed")));
-          setInventoryRows([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setInventoryLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [inventoryDraft.productId, t]);
+    void refreshApiKeys();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
+    void refreshOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    if (!inventoryDraft.productId) {
-      setOrderRows([]);
+  useEffect(() => {
+    if (!activeApiKeys[0]?.id) {
       return;
     }
 
-    setOrdersLoading(true);
-    setOrdersError(null);
+    setSelectedKeyByOrder((current) => {
+      const next = { ...current };
+      let changed = false;
 
-    fetchOrderHistory({
-      productId: inventoryDraft.productId,
-      buyerAgentId: orderBuyerAgentId,
-      status: orderStatusFilter,
-    })
-      .then((data) => {
-        if (!cancelled) {
-          setOrderRows(data);
+      for (const order of orderRows) {
+        if (!next[order.id]) {
+          next[order.id] = activeApiKeys[0].id;
+          changed = true;
         }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setOrdersError(getErrorMessage(error, t("admin.actionFailed")));
-          setOrderRows([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setOrdersLoading(false);
-        }
-      });
+      }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [inventoryDraft.productId, orderBuyerAgentId, orderStatusFilter, t]);
+      return changed ? next : current;
+    });
+  }, [activeApiKeys, orderRows]);
 
   function resetProductDraft() {
     setProductDraft(createInitialProductDraft());
@@ -527,10 +396,10 @@ export function AdminSecretProductsPanel({
     setProductDraft(createProductDraftFromProduct(product));
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmitProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    setSubmitting(true);
+    setSubmittingProduct(true);
     onError(null);
     onSuccess(null);
 
@@ -541,7 +410,7 @@ export function AdminSecretProductsPanel({
 
     if (limitResolution.error) {
       onError(t(limitResolution.error));
-      setSubmitting(false);
+      setSubmittingProduct(false);
       return;
     }
 
@@ -551,7 +420,7 @@ export function AdminSecretProductsPanel({
 
     if (editingId && !editingProduct) {
       onError(t("admin.products.editMissing"));
-      setSubmitting(false);
+      setSubmittingProduct(false);
       return;
     }
 
@@ -582,6 +451,8 @@ export function AdminSecretProductsPanel({
               price: productDraft.price,
               providerLabel: productDraft.providerLabel,
               usageInstructions: productDraft.usageInstructions,
+              quotaAmount: productDraft.quotaAmount,
+              quotaUnitLabel: productDraft.quotaUnitLabel,
               allowRepeatPurchase: productDraft.allowRepeatPurchase,
               perAgentPurchaseLimit: limitResolution.value,
             });
@@ -597,20 +468,18 @@ export function AdminSecretProductsPanel({
           : t("admin.products.createSuccess"),
         errorFallback: t("admin.actionFailed"),
       });
+
       if (didSucceed) {
         resetProductDraft();
       }
     } catch (error) {
       onError(getErrorMessage(error, t("admin.actionFailed")));
     } finally {
-      setSubmitting(false);
+      setSubmittingProduct(false);
     }
   }
 
-  async function handleActivation(
-    product: AdminSecretProduct,
-    nextIsActive: boolean
-  ) {
+  async function handleActivation(product: AdminSecretProduct, nextIsActive: boolean) {
     setActionProductId(product.id);
     onError(null);
     onSuccess(null);
@@ -653,90 +522,71 @@ export function AdminSecretProductsPanel({
     }
   }
 
-  async function handleImportInventory(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmitApiKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!inventoryDraft.productId) {
-      onError(t("admin.products.inventory.noProductSelected"));
-      return;
-    }
-
-    setImporting(true);
+    setSubmittingKey(true);
     onError(null);
     onSuccess(null);
 
     try {
-      const didSucceed = await performAdminSecretProductMutation({
-        request: async () => {
-          await importAdminSecretInventory(fetch, inventoryDraft);
-          return { success: true };
-        },
-        onRefresh: async () => {
-          await onRefresh();
-          await refreshInventory();
-          await refreshOrders();
-        },
-        onError,
-        onSuccess,
-        successMessage: t("admin.products.inventory.importSuccess"),
-        errorFallback: t("admin.actionFailed"),
-      });
-      if (didSucceed) {
-        setInventoryDraft((current) => ({
-          ...createInitialInventoryDraft(),
-          productId: current.productId,
-        }));
-      }
+      await createAdminProvidedApiKey(fetch, apiKeyDraft);
+      setApiKeyDraft(createInitialApiKeyDraft());
+      await refreshApiKeys();
+      await refreshOrders();
+      onSuccess(t("admin.products.keys.createSuccess"));
     } catch (error) {
       onError(getErrorMessage(error, t("admin.actionFailed")));
     } finally {
-      setImporting(false);
+      setSubmittingKey(false);
     }
   }
 
-  async function handleVoidInventory(row: AdminSecretInventoryRow) {
-    if (row.status !== "AVAILABLE") {
-      return;
-    }
-
-    setVoidingInventoryId(row.id);
+  async function handleToggleApiKey(key: AdminProvidedApiKey, nextIsActive: boolean) {
+    setApiKeyActionId(key.id);
     onError(null);
     onSuccess(null);
 
     try {
-      await performAdminSecretProductMutation({
-        request: async () => {
-          const response = await fetch(`/api/admin/shop/inventory/${row.id}/void`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          });
-          const json = (await response.json()) as MutationResponse;
-
-          if (!response.ok || !json.success) {
-            return {
-              success: false,
-              error: json.error || t("admin.actionFailed"),
-            };
-          }
-
-          return { success: true };
-        },
-        onRefresh: async () => {
-          await onRefresh();
-          await refreshInventory();
-          await refreshOrders();
-        },
-        onError,
-        onSuccess,
-        successMessage: t("admin.actionSuccess"),
-        errorFallback: t("admin.actionFailed"),
+      await updateAdminProvidedApiKey(fetch, key.id, {
+        label: key.label,
+        providerLabel: key.providerLabel,
+        isActive: nextIsActive,
       });
+      await refreshApiKeys();
+      onSuccess(
+        nextIsActive
+          ? t("admin.products.keys.activateSuccess")
+          : t("admin.products.keys.deactivateSuccess")
+      );
     } catch (error) {
       onError(getErrorMessage(error, t("admin.actionFailed")));
     } finally {
-      setVoidingInventoryId(null);
+      setApiKeyActionId(null);
+    }
+  }
+
+  async function handleFulfillOrder(order: AdminSecretProductOrder) {
+    const providedApiKeyId = selectedKeyByOrder[order.id];
+    if (!providedApiKeyId) {
+      onError(t("admin.products.orders.keyRequired"));
+      return;
+    }
+
+    setFulfillingOrderId(order.id);
+    onError(null);
+    onSuccess(null);
+
+    try {
+      await fulfillAdminQuotaOrder(fetch, order.id, {
+        providedApiKeyId,
+      });
+      await Promise.all([onRefresh(), refreshOrders()]);
+      onSuccess(t("admin.products.orders.fulfillSuccess"));
+    } catch (error) {
+      onError(getErrorMessage(error, t("admin.actionFailed")));
+    } finally {
+      setFulfillingOrderId(null);
     }
   }
 
@@ -756,10 +606,6 @@ export function AdminSecretProductsPanel({
         <div className="divide-y divide-card-border/30">
           {itemsToRender.map((product) => {
             const perAgentPurchaseLimit = getPerAgentPurchaseLimit(product);
-            const availableInventoryCount = getAvailableInventoryCount(product);
-            const soldInventoryCount = getSoldInventoryCount(product);
-            const voidInventoryCount = getVoidInventoryCount(product);
-            const isLowStock = availableInventoryCount <= 3;
             const isActionBusy = actionProductId === product.id;
 
             return (
@@ -776,17 +622,12 @@ export function AdminSecretProductsPanel({
                         : t("admin.products.status.inactive")}
                     </Badge>
                     <Badge
-                      variant={
-                        getEffectiveAllowRepeatPurchase(product) ? "default" : "muted"
-                      }
+                      variant={getEffectiveAllowRepeatPurchase(product) ? "default" : "muted"}
                     >
                       {getEffectiveAllowRepeatPurchase(product)
                         ? t("admin.products.badge.repeatAllowed")
                         : t("admin.products.badge.repeatBlocked")}
                     </Badge>
-                    {isLowStock ? (
-                      <Badge variant="warning">{t("admin.products.badge.lowStock")}</Badge>
-                    ) : null}
                   </div>
                   <p className="mt-2 text-sm text-muted">
                     {product.description || t("admin.products.descriptionEmpty")}
@@ -802,26 +643,16 @@ export function AdminSecretProductsPanel({
                     </div>
                     <div>
                       <dt className="inline text-muted/70">
-                        {t("admin.products.inventory.count")}:{" "}
+                        {t("admin.products.form.quotaAmount")}:{" "}
                       </dt>
-                      <dd className="inline text-foreground/80">
-                        {availableInventoryCount}
-                      </dd>
+                      <dd className="inline text-foreground/80">{getQuotaAmount(product)}</dd>
                     </div>
                     <div>
                       <dt className="inline text-muted/70">
-                        {t("admin.products.inventory.breakdown.sold")}{" "}
+                        {t("admin.products.form.quotaUnitLabel")}:{" "}
                       </dt>
                       <dd className="inline text-foreground/80">
-                        {soldInventoryCount}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="inline text-muted/70">
-                        {t("admin.products.inventory.breakdown.void")}{" "}
-                      </dt>
-                      <dd className="inline text-foreground/80">
-                        {voidInventoryCount}
+                        {getQuotaUnitLabel(product)}
                       </dd>
                     </div>
                     <div>
@@ -843,11 +674,6 @@ export function AdminSecretProductsPanel({
                       </dd>
                     </div>
                   </dl>
-                  {getUsageInstructions(product) ? (
-                    <p className="mt-3 text-xs text-muted">
-                      {getUsageInstructions(product)}
-                    </p>
-                  ) : null}
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -855,7 +681,7 @@ export function AdminSecretProductsPanel({
                     type="button"
                     variant="secondary"
                     className="px-3 py-1.5 text-xs"
-                    disabled={submitting || isActionBusy}
+                    disabled={submittingProduct || isActionBusy}
                     onClick={() => startEdit(product)}
                   >
                     {t("admin.products.action.edit")}
@@ -864,7 +690,7 @@ export function AdminSecretProductsPanel({
                     type="button"
                     variant={product.isActive ? "danger" : "secondary"}
                     className="px-3 py-1.5 text-xs"
-                    disabled={submitting || isActionBusy}
+                    disabled={submittingProduct || isActionBusy}
                     onClick={() => void handleActivation(product, !product.isActive)}
                   >
                     {isActionBusy
@@ -874,19 +700,6 @@ export function AdminSecretProductsPanel({
                       : product.isActive
                         ? t("admin.products.action.deactivate")
                         : t("admin.products.action.activate")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="px-3 py-1.5 text-xs"
-                    onClick={() =>
-                      setInventoryDraft((current) => ({
-                        ...current,
-                        productId: product.id,
-                      }))
-                    }
-                  >
-                    {t("admin.products.inventory.useForImport")}
                   </Button>
                 </div>
               </div>
@@ -932,7 +745,7 @@ export function AdminSecretProductsPanel({
           </div>
         </div>
 
-        <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+        <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmitProduct}>
           <label className="space-y-2">
             <span className="text-xs font-semibold text-muted">
               {t("admin.products.form.name")}
@@ -999,6 +812,41 @@ export function AdminSecretProductsPanel({
 
           <label className="space-y-2">
             <span className="text-xs font-semibold text-muted">
+              {t("admin.products.form.quotaAmount")}
+            </span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={productDraft.quotaAmount}
+              onChange={(event) =>
+                setProductDraft((current) => ({
+                  ...current,
+                  quotaAmount: Number(event.target.value || 1),
+                }))
+              }
+              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-xs font-semibold text-muted">
+              {t("admin.products.form.quotaUnitLabel")}
+            </span>
+            <input
+              value={productDraft.quotaUnitLabel}
+              onChange={(event) =>
+                setProductDraft((current) => ({
+                  ...current,
+                  quotaUnitLabel: event.target.value,
+                }))
+              }
+              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+            />
+          </label>
+
+          <label className="space-y-2 md:col-span-2">
+            <span className="text-xs font-semibold text-muted">
               {t("admin.products.form.usageInstructions")}
             </span>
             <textarea
@@ -1044,9 +892,7 @@ export function AdminSecretProductsPanel({
                       ...current,
                       perAgentPurchaseLimitMode: mode,
                       perAgentPurchaseLimit:
-                        mode === "unlimited"
-                          ? null
-                          : current.perAgentPurchaseLimit ?? 1,
+                        mode === "unlimited" ? null : current.perAgentPurchaseLimit ?? 1,
                     };
                   })
                 }
@@ -1092,14 +938,14 @@ export function AdminSecretProductsPanel({
               <Button
                 type="button"
                 variant="ghost"
-                disabled={submitting}
+                disabled={submittingProduct}
                 onClick={resetProductDraft}
               >
                 {t("admin.products.action.cancelEdit")}
               </Button>
             ) : null}
-            <Button type="submit" disabled={submitting}>
-              {submitting
+            <Button type="submit" disabled={submittingProduct}>
+              {submittingProduct
                 ? editingId
                   ? t("admin.products.form.submittingUpdate")
                   : t("admin.products.form.submittingCreate")
@@ -1111,356 +957,251 @@ export function AdminSecretProductsPanel({
         </form>
       </Card>
 
-      <Card className="border-card-border/50 bg-card/70">
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold text-foreground">
-            {t("admin.products.inventory.title")}
-          </h3>
-          <p className="text-sm text-muted">{t("admin.products.inventory.subtitle")}</p>
-        </div>
-
-        <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleImportInventory}>
-          <label className="space-y-2">
-            <span className="text-xs font-semibold text-muted">
-              {t("admin.products.inventory.product")}
-            </span>
-            <select
-              value={inventoryDraft.productId}
-              onChange={(event) =>
-                setInventoryDraft((current) => ({
-                  ...current,
-                  productId: event.target.value,
-                }))
-              }
-              disabled={products.length === 0}
-              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-            >
-              {products.length === 0 ? (
-                <option value="">{t("admin.products.inventory.empty")}</option>
-              ) : null}
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-xs font-semibold text-muted">
-              {t("admin.products.inventory.sourceLabel")}
-            </span>
-            <input
-              value={inventoryDraft.sourceLabel}
-              onChange={(event) =>
-                setInventoryDraft((current) => ({
-                  ...current,
-                  sourceLabel: event.target.value,
-                }))
-              }
-              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-            />
-          </label>
-
-          <label className="space-y-2 md:col-span-2">
-            <span className="text-xs font-semibold text-muted">
-              {t("admin.products.inventory.note")}
-            </span>
-            <textarea
-              value={inventoryDraft.note}
-              onChange={(event) =>
-                setInventoryDraft((current) => ({
-                  ...current,
-                  note: event.target.value,
-                }))
-              }
-              className="min-h-20 w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-            />
-          </label>
-
-          <label className="space-y-2 md:col-span-2">
-            <span className="text-xs font-semibold text-muted">
-              {t("admin.products.inventory.secrets")}
-            </span>
-            <textarea
-              value={inventoryDraft.secrets}
-              onChange={(event) =>
-                setInventoryDraft((current) => ({
-                  ...current,
-                  secrets: event.target.value,
-                }))
-              }
-              className="min-h-36 w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-            />
-          </label>
-
-          <div className="flex justify-end md:col-span-2">
-            <Button type="submit" disabled={importing || products.length === 0}>
-              {importing
-                ? t("admin.products.inventory.submitting")
-                : t("admin.products.inventory.submit")}
-            </Button>
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <Card className="border-card-border/50 bg-card/70">
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-foreground">
+              {t("admin.products.keys.title")}
+            </h3>
+            <p className="text-sm text-muted">{t("admin.products.keys.subtitle")}</p>
           </div>
-        </form>
-      </Card>
 
-      <Card className="border-card-border/50 bg-card/70">
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold text-foreground">
-            {t("admin.products.inventory.details.title")}
-          </h3>
-          <p className="text-sm text-muted">
-            {t("admin.products.inventory.details.subtitle")}
-          </p>
-        </div>
+          <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmitApiKey}>
+            <label className="space-y-2">
+              <span className="text-xs font-semibold text-muted">
+                {t("admin.products.keys.form.label")}
+              </span>
+              <input
+                value={apiKeyDraft.label}
+                onChange={(event) =>
+                  setApiKeyDraft((current) => ({ ...current, label: event.target.value }))
+                }
+                className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+              />
+            </label>
+            <label className="space-y-2">
+              <span className="text-xs font-semibold text-muted">
+                {t("admin.products.keys.form.providerLabel")}
+              </span>
+              <input
+                value={apiKeyDraft.providerLabel}
+                onChange={(event) =>
+                  setApiKeyDraft((current) => ({
+                    ...current,
+                    providerLabel: event.target.value,
+                  }))
+                }
+                className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+              />
+            </label>
+            <label className="space-y-2 md:col-span-2">
+              <span className="text-xs font-semibold text-muted">
+                {t("admin.products.keys.form.apiKey")}
+              </span>
+              <textarea
+                value={apiKeyDraft.apiKey}
+                onChange={(event) =>
+                  setApiKeyDraft((current) => ({ ...current, apiKey: event.target.value }))
+                }
+                className="min-h-24 w-full rounded-xl border border-card-border bg-card px-3 py-2 font-mono text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+              />
+            </label>
+            <label className="flex items-center gap-3 rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3 md:col-span-2">
+              <input
+                type="checkbox"
+                checked={apiKeyDraft.isActive}
+                onChange={(event) =>
+                  setApiKeyDraft((current) => ({
+                    ...current,
+                    isActive: event.target.checked,
+                  }))
+                }
+                className="h-4 w-4 rounded border-card-border"
+              />
+              <span className="text-sm text-foreground">
+                {t("admin.products.keys.form.isActive")}
+              </span>
+            </label>
+            <div className="flex justify-end md:col-span-2">
+              <Button type="submit" disabled={submittingKey}>
+                {submittingKey
+                  ? t("admin.products.keys.form.submitting")
+                  : t("admin.products.keys.form.submit")}
+              </Button>
+            </div>
+          </form>
 
-        <div className="mt-4 rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3">
-          <div className="text-xs uppercase tracking-[0.16em] text-muted/70">
-            {t("admin.products.inventory.details.selectedProduct")}
-          </div>
-          <div className="mt-1 text-sm text-foreground">
-            {selectedInventoryProduct?.name ??
-              t("admin.products.inventory.details.noneSelected")}
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          {!inventoryDraft.productId ? (
-            <p className="text-sm text-muted">
-              {t("admin.products.inventory.details.selectProduct")}
-            </p>
-          ) : inventoryLoading ? (
-            <p className="text-sm text-muted">{t("common.loading")}</p>
-          ) : inventoryError ? (
-            <p className="text-sm text-danger">{inventoryError}</p>
-          ) : inventoryRows.length === 0 ? (
-            <p className="text-sm text-muted">
-              {t("admin.products.inventory.details.empty")}
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {inventoryRows.map((row) => {
-                const statusVariant =
-                  row.status === "AVAILABLE"
-                    ? "success"
-                    : row.status === "SOLD"
-                      ? "muted"
-                      : row.status === "VOID"
-                        ? "danger"
-                        : "warning";
-                const isVoidBusy = voidingInventoryId === row.id;
-
+          <div className="mt-6 space-y-3">
+            {apiKeysLoading ? (
+              <p className="text-sm text-muted">{t("common.loading")}</p>
+            ) : apiKeys.length === 0 ? (
+              <p className="text-sm text-muted">{t("admin.products.keys.empty")}</p>
+            ) : (
+              apiKeys.map((key) => {
+                const isBusy = apiKeyActionId === key.id;
                 return (
                   <div
-                    key={row.id}
-                    className="rounded-2xl border border-card-border/40 bg-background/20 p-4"
+                    key={key.id}
+                    className="rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3"
                   >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold text-foreground">
-                        {row.maskedValue}
-                      </span>
-                      <Badge variant={statusVariant}>
-                        {getInventoryStatusLabel(row.status, t)}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-                      <span>
-                        {t("admin.products.inventory.details.created")}{" "}
-                        {formatInventoryTimestamp(row.createdAt)}
-                      </span>
-                      <span>
-                        {t("admin.products.inventory.details.sold")}{" "}
-                        {formatInventoryTimestamp(row.soldAt)}
-                      </span>
-                      <span>
-                        {t("admin.products.inventory.details.batch")}{" "}
-                        {row.importBatch?.sourceLabel ??
-                          t("admin.products.inventory.details.unknown")}
-                      </span>
-                    </div>
-                    {row.importBatch?.note ? (
-                      <p className="mt-2 text-xs text-muted">
-                        {t("admin.products.inventory.details.note")}{" "}
-                        {row.importBatch.note}
-                      </p>
-                    ) : null}
-                    {row.status === "AVAILABLE" ? (
-                      <div className="mt-3">
-                        <Button
-                          type="button"
-                          variant="danger"
-                          className="px-3 py-1.5 text-xs"
-                          disabled={isVoidBusy}
-                          onClick={() => void handleVoidInventory(row)}
-                        >
-                          {isVoidBusy
-                            ? t("admin.products.inventory.details.voiding")
-                            : t("admin.products.inventory.details.void")}
-                        </Button>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="text-sm font-semibold text-foreground">{key.label}</div>
+                          <Badge variant={key.isActive ? "success" : "muted"}>
+                            {key.isActive
+                              ? t("admin.products.keys.status.active")
+                              : t("admin.products.keys.status.inactive")}
+                          </Badge>
+                        </div>
+                        <div className="mt-1 text-xs text-muted">
+                          {key.providerLabel} · {key.maskedKey}
+                        </div>
                       </div>
-                    ) : null}
+                      <Button
+                        type="button"
+                        variant={key.isActive ? "danger" : "secondary"}
+                        className="px-3 py-1.5 text-xs"
+                        disabled={isBusy}
+                        onClick={() => void handleToggleApiKey(key, !key.isActive)}
+                      >
+                        {isBusy
+                          ? key.isActive
+                            ? t("admin.products.keys.action.deactivating")
+                            : t("admin.products.keys.action.activating")
+                          : key.isActive
+                            ? t("admin.products.keys.action.deactivate")
+                            : t("admin.products.keys.action.activate")}
+                      </Button>
+                    </div>
                   </div>
                 );
-              })}
-            </div>
-          )}
-        </div>
-      </Card>
+              })
+            )}
+          </div>
+        </Card>
 
-      <Card className="border-card-border/50 bg-card/70">
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold text-foreground">
-            {t("admin.products.orders.title")}
-          </h3>
-          <p className="text-sm text-muted">{t("admin.products.orders.subtitle")}</p>
-        </div>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3">
-            <div className="text-xs uppercase tracking-[0.16em] text-muted/70">
-              {t("admin.products.inventory.details.selectedProduct")}
-            </div>
-            <div className="mt-1 text-sm text-foreground">
-              {selectedInventoryProduct?.name ??
-                t("admin.products.inventory.details.noneSelected")}
-            </div>
+        <Card className="border-card-border/50 bg-card/70">
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-foreground">
+              {t("admin.products.orders.pendingTitle")}
+            </h3>
+            <p className="text-sm text-muted">{t("admin.products.orders.pendingSubtitle")}</p>
           </div>
 
-          <label className="space-y-2">
-            <span className="text-xs font-semibold text-muted">
-              {t("admin.products.orders.filters.status")}
-            </span>
-            <select
-              value={orderStatusFilter}
-              onChange={(event) =>
-                setOrderStatusFilter(event.target.value as OrderStatusFilter)
-              }
-              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-            >
-              <option value="ALL">
-                {t("admin.products.orders.filters.allStatuses")}
-              </option>
-              <option value="FULFILLED">
-                {t("admin.products.orders.status.fulfilled")}
-              </option>
-              <option value="PENDING">
-                {t("admin.products.orders.status.pending")}
-              </option>
-              <option value="FAILED">
-                {t("admin.products.orders.status.failed")}
-              </option>
-            </select>
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-xs font-semibold text-muted">
-              {t("admin.products.orders.filters.buyerAgentId")}
-            </span>
-            <input
-              value={orderBuyerAgentId}
-              onChange={(event) => setOrderBuyerAgentId(event.target.value)}
-              placeholder={t("admin.products.orders.filters.buyerAgentIdPlaceholder")}
-              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-            />
-          </label>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          {!inventoryDraft.productId ? (
-            <p className="text-sm text-muted">
-              {t("admin.products.inventory.details.selectProduct")}
-            </p>
-          ) : ordersLoading ? (
-            <p className="text-sm text-muted">{t("common.loading")}</p>
-          ) : ordersError ? (
-            <p className="text-sm text-danger">{ordersError}</p>
-          ) : orderRows.length === 0 ? (
-            <p className="text-sm text-muted">{t("admin.products.orders.empty")}</p>
-          ) : (
-            <div className="space-y-3">
-              {orderRows.map((order) => (
+          <div className="mt-6 space-y-3">
+            {ordersLoading ? (
+              <p className="text-sm text-muted">{t("common.loading")}</p>
+            ) : orderRows.length === 0 ? (
+              <p className="text-sm text-muted">{t("admin.products.orders.empty")}</p>
+            ) : (
+              orderRows.map((order) => (
                 <div
                   key={order.id}
-                  className="rounded-2xl border border-card-border/40 bg-background/20 p-4"
+                  className="rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">
-                      {order.buyer.name}
-                    </span>
-                    <Badge variant="default">{order.buyer.agentId}</Badge>
-                    <Badge variant="muted">
+                    <div className="text-sm font-semibold text-foreground">{order.product.name}</div>
+                    <Badge variant="warning">
                       {getOrderStatusLabel(order.status, t)}
                     </Badge>
                   </div>
-                  <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                  <dl className="mt-3 grid gap-2 text-xs text-muted">
                     <div>
-                      <dt className="inline text-muted/70">
-                        {t("admin.products.orders.maskedSecret")}{" "}
-                      </dt>
+                      <dt className="inline text-muted/70">{t("admin.products.orders.buyer")}: </dt>
                       <dd className="inline text-foreground/80">
-                        {order.delivery.maskedSecret ??
-                          t("admin.products.inventory.details.unknown")}
+                        {order.buyer.name} ({order.buyer.agentId})
                       </dd>
                     </div>
                     <div>
-                      <dt className="inline text-muted/70">
-                        {t("admin.products.orders.createdAt")}{" "}
-                      </dt>
+                      <dt className="inline text-muted/70">{t("admin.products.orders.quota")}: </dt>
                       <dd className="inline text-foreground/80">
-                        {formatInventoryTimestamp(order.createdAt)}
+                        {order.quota.amount} {order.quota.unit}
                       </dd>
                     </div>
                     <div>
-                      <dt className="inline text-muted/70">
-                        {t("admin.products.orders.fulfilledAt")}{" "}
-                      </dt>
+                      <dt className="inline text-muted/70">{t("admin.products.orders.createdAt")} </dt>
                       <dd className="inline text-foreground/80">
-                        {formatInventoryTimestamp(order.fulfilledAt)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="inline text-muted/70">
-                        {t("admin.products.orders.deliveredAt")}{" "}
-                      </dt>
-                      <dd className="inline text-foreground/80">
-                        {formatInventoryTimestamp(order.delivery.deliveredAt)}
+                        {formatTimestamp(order.createdAt)}
                       </dd>
                     </div>
                   </dl>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                    <label className="space-y-2">
+                      <span className="text-xs font-semibold text-muted">
+                        {t("admin.products.orders.keyLabel")}
+                      </span>
+                      <select
+                        value={selectedKeyByOrder[order.id] ?? ""}
+                        onChange={(event) =>
+                          setSelectedKeyByOrder((current) => ({
+                            ...current,
+                            [order.id]: event.target.value,
+                          }))
+                        }
+                        className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+                      >
+                        <option value="">{t("admin.products.orders.keyPlaceholder")}</option>
+                        {activeApiKeys.map((key) => (
+                          <option key={key.id} value={key.id}>
+                            {key.label} · {key.maskedKey}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <Button
+                      type="button"
+                      disabled={
+                        fulfillingOrderId === order.id || !selectedKeyByOrder[order.id]
+                      }
+                      onClick={() => void handleFulfillOrder(order)}
+                    >
+                      {fulfillingOrderId === order.id
+                        ? t("admin.products.orders.fulfilling")
+                        : t("admin.products.orders.fulfill")}
+                    </Button>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </Card>
+              ))
+            )}
+          </div>
+        </Card>
+      </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <span className="text-muted animate-pulse">{t("common.loading")}</span>
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">
+            {t("admin.products.section.active")}
+          </h3>
+          <p className="mt-1 text-sm text-muted">{t("admin.products.section.activeSubtitle")}</p>
         </div>
-      ) : (
-        <div className="grid gap-6 xl:grid-cols-2">
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">
-                {t("admin.products.section.active")}
-              </h3>
-              <Badge variant="success">{activeProducts.length}</Badge>
-            </div>
-            {renderProducts(activeProducts, true)}
-          </section>
+        {loading ? (
+          <Card className="border-dashed border-card-border/40 bg-background/20 p-5">
+            <p className="text-sm text-muted">{t("common.loading")}</p>
+          </Card>
+        ) : (
+          renderProducts(activeProducts, true)
+        )}
+      </section>
 
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">
-                {t("admin.products.section.inactive")}
-              </h3>
-              <Badge variant="muted">{inactiveProducts.length}</Badge>
-            </div>
-            {renderProducts(inactiveProducts, false)}
-          </section>
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">
+            {t("admin.products.section.inactive")}
+          </h3>
+          <p className="mt-1 text-sm text-muted">
+            {t("admin.products.section.inactiveSubtitle")}
+          </p>
         </div>
-      )}
+        {loading ? (
+          <Card className="border-dashed border-card-border/40 bg-background/20 p-5">
+            <p className="text-sm text-muted">{t("common.loading")}</p>
+          </Card>
+        ) : (
+          renderProducts(inactiveProducts, false)
+        )}
+      </section>
     </div>
   );
 }
