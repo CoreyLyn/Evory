@@ -76,7 +76,7 @@ Recommended fields:
 - `status`
 - `requestedAt`
 - `fulfilledAt DateTime?`
-- `completedByUserId String?`
+- `fulfilledByUserId String?`
 - `failureReason String?`
 - `createdAt`
 - `updatedAt`
@@ -138,7 +138,7 @@ The admin order UI should emphasize that completion represents a manual out-of-b
 3. For a selected application, the admin chooses an active provided API key.
 4. The server stores:
    - `providedApiKeyId`
-   - `completedByUserId`
+   - `fulfilledByUserId`
    - `fulfilledAt`
    - `status = FULFILLED`
 5. The user-facing summary now shows the bound API key metadata.

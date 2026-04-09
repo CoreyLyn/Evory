@@ -102,6 +102,12 @@ enum PurchaseOrderStatus {
   FAILED
 }
 
+enum UserProvidedApiKeyApplicationStatus {
+  PENDING
+  FULFILLED
+  FAILED
+}
+
 enum PurchaseDeliveryChannel {
   AGENT_CHAT
 }
@@ -123,6 +129,9 @@ model User {
   securityEvents      SecurityEvent[]
   secretImportBatches SecretImportBatch[]
   providedApiKeys     ProvidedApiKey[] @relation("ProvidedApiKeyCreatedBy")
+  apiKeyApplications  UserProvidedApiKeyApplication[] @relation("UserProvidedApiKeyApplications")
+  apiKeyFulfillments  UserProvidedApiKeyApplication[]
+    @relation("UserProvidedApiKeyApplicationFulfilledBy")
   confirmedOrders     PurchaseOrder[]  @relation("PurchaseOrderConfirmedBy")
 }
 
@@ -657,6 +666,28 @@ model PurchaseOrder {
   @@index([confirmedByUserId])
 }
 
+model UserProvidedApiKeyApplication {
+  id                String                               @id @default(cuid())
+  userId            String
+  providedApiKeyId  String?
+  status            UserProvidedApiKeyApplicationStatus @default(PENDING)
+  requestedAt       DateTime                             @default(now())
+  fulfilledAt       DateTime?
+  fulfilledByUserId String?
+  failureReason     String?
+  createdAt         DateTime                             @default(now())
+  updatedAt         DateTime                             @updatedAt
+
+  user           User            @relation("UserProvidedApiKeyApplications", fields: [userId], references: [id], onDelete: Cascade)
+  providedApiKey ProvidedApiKey? @relation(fields: [providedApiKeyId], references: [id], onDelete: Restrict)
+  fulfilledBy    User?           @relation("UserProvidedApiKeyApplicationFulfilledBy", fields: [fulfilledByUserId], references: [id], onDelete: Restrict)
+
+  @@index([userId, status])
+  @@index([providedApiKeyId])
+  @@index([fulfilledByUserId])
+  @@index([status, requestedAt])
+}
+
 model ProvidedApiKey {
   id              String   @id @default(cuid())
   label           String
@@ -670,6 +701,7 @@ model ProvidedApiKey {
 
   createdBy User            @relation("ProvidedApiKeyCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
   orders    PurchaseOrder[]
+  applications UserProvidedApiKeyApplication[]
 
   @@index([createdByUserId])
   @@index([providerLabel, isActive])

@@ -70,18 +70,18 @@ model UserProvidedApiKeyApplication {
   status            UserProvidedApiKeyApplicationStatus @default(PENDING)
   requestedAt       DateTime                             @default(now())
   fulfilledAt       DateTime?
-  completedByUserId String?
+  fulfilledByUserId String?
   failureReason     String?
   createdAt         DateTime                             @default(now())
   updatedAt         DateTime                             @updatedAt
 
   user           User           @relation("UserProvidedApiKeyApplications", fields: [userId], references: [id], onDelete: Cascade)
   providedApiKey ProvidedApiKey? @relation(fields: [providedApiKeyId], references: [id], onDelete: Restrict)
-  completedBy    User?          @relation("UserProvidedApiKeyApplicationCompletedBy", fields: [completedByUserId], references: [id], onDelete: Restrict)
+  fulfilledBy    User?          @relation("UserProvidedApiKeyApplicationFulfilledBy", fields: [fulfilledByUserId], references: [id], onDelete: Restrict)
 
   @@index([userId, status])
   @@index([providedApiKeyId])
-  @@index([completedByUserId])
+  @@index([fulfilledByUserId])
 }
 ```
 
@@ -99,7 +99,7 @@ CREATE TABLE "UserProvidedApiKeyApplication" (
   "status" "UserProvidedApiKeyApplicationStatus" NOT NULL DEFAULT 'PENDING',
   "requestedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "fulfilledAt" TIMESTAMP(3),
-  "completedByUserId" TEXT,
+  "fulfilledByUserId" TEXT,
   "failureReason" TEXT,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -120,7 +120,7 @@ export function createUserProvidedApiKeyApplicationFixture(
     status: "PENDING",
     requestedAt: "2026-04-09T00:00:00.000Z",
     fulfilledAt: null,
-    completedByUserId: null,
+    fulfilledByUserId: null,
     failureReason: null,
     createdAt: "2026-04-09T00:00:00.000Z",
     updatedAt: "2026-04-09T00:00:00.000Z",
@@ -340,7 +340,7 @@ assert.equal(json.data[0].status, "PENDING");
 ```ts
 assert.equal(response.status, 200);
 assert.equal(json.data.providedApiKey.id, "key-1");
-assert.equal(updateArgs.data.completedByUserId, "admin-1");
+assert.equal(updateArgs.data.fulfilledByUserId, "admin-1");
 assert.equal(updateArgs.data.status, "FULFILLED");
 ```
 
@@ -398,7 +398,7 @@ const updated = await prisma.userProvidedApiKeyApplication.update({
   data: {
     status: "FULFILLED",
     providedApiKeyId: payload.providedApiKeyId,
-    completedByUserId: auth.user.id,
+    fulfilledByUserId: auth.user.id,
     fulfilledAt: now,
     failureReason: null,
   },

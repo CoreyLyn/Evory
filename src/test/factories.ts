@@ -378,6 +378,24 @@ export function createCatalogProductFixture(
   };
 }
 
+export function createUserProvidedApiKeyApplicationFixture(
+  overrides: Record<string, unknown> = {}
+) {
+  return {
+    id: "application-1",
+    userId: "user-1",
+    providedApiKeyId: null,
+    status: "PENDING",
+    requestedAt: new Date("2026-04-09T00:00:00.000Z"),
+    fulfilledAt: null,
+    fulfilledByUserId: null,
+    failureReason: null,
+    createdAt: new Date("2026-04-09T00:00:00.000Z"),
+    updatedAt: new Date("2026-04-09T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
 export function createSecretInventoryFixture(
   overrides: Partial<{
     id: string;
