@@ -9,10 +9,14 @@ import { Card } from "@/components/ui/card";
 import {
   createAdminProvidedApiKey,
   createAdminSecretProduct,
+  fetchAdminApiKeyApplications,
   fetchAdminProvidedApiKeys,
   fetchAdminSecretProductOrders,
   fetchAdminSecretProducts,
+  fulfillAdminApiKeyApplication,
   fulfillAdminQuotaOrder,
+  type AdminApiKeyApplication,
+  type AdminApiKeyApplicationStatus,
   type AdminProvidedApiKey,
   type AdminSecretProduct,
   type AdminSecretProductOrder,
@@ -254,6 +258,21 @@ function getOrderStatusLabel(
   }
 }
 
+function getApplicationStatusLabel(
+  status: AdminApiKeyApplicationStatus,
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string
+) {
+  switch (status) {
+    case "PENDING":
+      return t("admin.products.applications.status.pending");
+    case "FAILED":
+      return t("admin.products.applications.status.failed");
+    case "FULFILLED":
+    default:
+      return t("admin.products.applications.status.fulfilled");
+  }
+}
+
 export async function performAdminSecretProductMutation({
   request,
   onRefresh,
@@ -306,11 +325,18 @@ export function AdminSecretProductsPanel({
   const [actionProductId, setActionProductId] = useState<string | null>(null);
   const [apiKeyActionId, setApiKeyActionId] = useState<string | null>(null);
   const [fulfillingOrderId, setFulfillingOrderId] = useState<string | null>(null);
+  const [fulfillingApplicationId, setFulfillingApplicationId] = useState<string | null>(
+    null
+  );
   const [apiKeys, setApiKeys] = useState<AdminProvidedApiKey[]>([]);
   const [apiKeysLoading, setApiKeysLoading] = useState(false);
   const [orderRows, setOrderRows] = useState<AdminSecretProductOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
-  const [selectedKeyByOrder, setSelectedKeyByOrder] = useState<Record<string, string>>({});
+  const [applications, setApplications] = useState<AdminApiKeyApplication[]>([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(false);
+  const [selectedKeyByApplication, setSelectedKeyByApplication] = useState<
+    Record<string, string>
+  >({});
 
   const activeProducts = products.filter((product) => product.isActive);
   const inactiveProducts = products.filter((product) => !product.isActive);
@@ -336,13 +362,29 @@ export function AdminSecretProductsPanel({
         status: "PENDING",
       });
       setOrderRows(data);
-      setSelectedKeyByOrder((current) => {
+    } catch (error) {
+      onError(getErrorMessage(error, t("admin.actionFailed")));
+      setOrderRows([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }
+
+  async function refreshApplications() {
+    setApplicationsLoading(true);
+    try {
+      const data = await fetchAdminApiKeyApplications(fetch);
+      setApplications(data);
+      setSelectedKeyByApplication((current) => {
         const next = { ...current };
         const fallbackKeyId = activeApiKeys[0]?.id ?? "";
 
-        for (const order of data) {
-          if (!next[order.id] && fallbackKeyId) {
-            next[order.id] = fallbackKeyId;
+        for (const application of data) {
+          if (application.status !== "PENDING") {
+            continue;
+          }
+          if (!next[application.id] && fallbackKeyId) {
+            next[application.id] = fallbackKeyId;
           }
         }
 
@@ -350,9 +392,9 @@ export function AdminSecretProductsPanel({
       });
     } catch (error) {
       onError(getErrorMessage(error, t("admin.actionFailed")));
-      setOrderRows([]);
+      setApplications([]);
     } finally {
-      setOrdersLoading(false);
+      setApplicationsLoading(false);
     }
   }
 
@@ -367,24 +409,32 @@ export function AdminSecretProductsPanel({
   }, []);
 
   useEffect(() => {
+    void refreshApplications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     if (!activeApiKeys[0]?.id) {
       return;
     }
 
-    setSelectedKeyByOrder((current) => {
+    setSelectedKeyByApplication((current) => {
       const next = { ...current };
       let changed = false;
 
-      for (const order of orderRows) {
-        if (!next[order.id]) {
-          next[order.id] = activeApiKeys[0].id;
+      for (const application of applications) {
+        if (application.status !== "PENDING") {
+          continue;
+        }
+        if (!next[application.id]) {
+          next[application.id] = activeApiKeys[0].id;
           changed = true;
         }
       }
 
       return changed ? next : current;
     });
-  }, [activeApiKeys, orderRows]);
+  }, [activeApiKeys, applications]);
 
   function resetProductDraft() {
     setProductDraft(createInitialProductDraft());
@@ -567,26 +617,40 @@ export function AdminSecretProductsPanel({
   }
 
   async function handleFulfillOrder(order: AdminSecretProductOrder) {
-    const providedApiKeyId = selectedKeyByOrder[order.id];
-    if (!providedApiKeyId) {
-      onError(t("admin.products.orders.keyRequired"));
-      return;
-    }
-
     setFulfillingOrderId(order.id);
     onError(null);
     onSuccess(null);
 
     try {
-      await fulfillAdminQuotaOrder(fetch, order.id, {
-        providedApiKeyId,
-      });
+      await fulfillAdminQuotaOrder(fetch, order.id);
       await Promise.all([onRefresh(), refreshOrders()]);
       onSuccess(t("admin.products.orders.fulfillSuccess"));
     } catch (error) {
       onError(getErrorMessage(error, t("admin.actionFailed")));
     } finally {
       setFulfillingOrderId(null);
+    }
+  }
+
+  async function handleFulfillApplication(application: AdminApiKeyApplication) {
+    const providedApiKeyId = selectedKeyByApplication[application.id];
+    if (!providedApiKeyId) {
+      onError(t("admin.products.applications.keyRequired"));
+      return;
+    }
+
+    setFulfillingApplicationId(application.id);
+    onError(null);
+    onSuccess(null);
+
+    try {
+      await fulfillAdminApiKeyApplication(fetch, application.id, { providedApiKeyId });
+      await refreshApplications();
+      onSuccess(t("admin.products.applications.fulfillSuccess"));
+    } catch (error) {
+      onError(getErrorMessage(error, t("admin.actionFailed")));
+    } finally {
+      setFulfillingApplicationId(null);
     }
   }
 
@@ -958,128 +1022,244 @@ export function AdminSecretProductsPanel({
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <Card className="border-card-border/50 bg-card/70">
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-foreground">
-              {t("admin.products.keys.title")}
-            </h3>
-            <p className="text-sm text-muted">{t("admin.products.keys.subtitle")}</p>
-          </div>
-
-          <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmitApiKey}>
-            <label className="space-y-2">
-              <span className="text-xs font-semibold text-muted">
-                {t("admin.products.keys.form.label")}
-              </span>
-              <input
-                value={apiKeyDraft.label}
-                onChange={(event) =>
-                  setApiKeyDraft((current) => ({ ...current, label: event.target.value }))
-                }
-                className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="text-xs font-semibold text-muted">
-                {t("admin.products.keys.form.providerLabel")}
-              </span>
-              <input
-                value={apiKeyDraft.providerLabel}
-                onChange={(event) =>
-                  setApiKeyDraft((current) => ({
-                    ...current,
-                    providerLabel: event.target.value,
-                  }))
-                }
-                className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-              />
-            </label>
-            <label className="space-y-2 md:col-span-2">
-              <span className="text-xs font-semibold text-muted">
-                {t("admin.products.keys.form.apiKey")}
-              </span>
-              <textarea
-                value={apiKeyDraft.apiKey}
-                onChange={(event) =>
-                  setApiKeyDraft((current) => ({ ...current, apiKey: event.target.value }))
-                }
-                className="min-h-24 w-full rounded-xl border border-card-border bg-card px-3 py-2 font-mono text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-              />
-            </label>
-            <label className="flex items-center gap-3 rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3 md:col-span-2">
-              <input
-                type="checkbox"
-                checked={apiKeyDraft.isActive}
-                onChange={(event) =>
-                  setApiKeyDraft((current) => ({
-                    ...current,
-                    isActive: event.target.checked,
-                  }))
-                }
-                className="h-4 w-4 rounded border-card-border"
-              />
-              <span className="text-sm text-foreground">
-                {t("admin.products.keys.form.isActive")}
-              </span>
-            </label>
-            <div className="flex justify-end md:col-span-2">
-              <Button type="submit" disabled={submittingKey}>
-                {submittingKey
-                  ? t("admin.products.keys.form.submitting")
-                  : t("admin.products.keys.form.submit")}
-              </Button>
+        <div className="space-y-6">
+          <Card className="border-card-border/50 bg-card/70">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-foreground">
+                {t("admin.products.keys.title")}
+              </h3>
+              <p className="text-sm text-muted">{t("admin.products.keys.subtitle")}</p>
             </div>
-          </form>
 
-          <div className="mt-6 space-y-3">
-            {apiKeysLoading ? (
-              <p className="text-sm text-muted">{t("common.loading")}</p>
-            ) : apiKeys.length === 0 ? (
-              <p className="text-sm text-muted">{t("admin.products.keys.empty")}</p>
-            ) : (
-              apiKeys.map((key) => {
-                const isBusy = apiKeyActionId === key.id;
-                return (
-                  <div
-                    key={key.id}
-                    className="rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <div className="text-sm font-semibold text-foreground">{key.label}</div>
-                          <Badge variant={key.isActive ? "success" : "muted"}>
-                            {key.isActive
-                              ? t("admin.products.keys.status.active")
-                              : t("admin.products.keys.status.inactive")}
-                          </Badge>
+            <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmitApiKey}>
+              <label className="space-y-2">
+                <span className="text-xs font-semibold text-muted">
+                  {t("admin.products.keys.form.label")}
+                </span>
+                <input
+                  value={apiKeyDraft.label}
+                  onChange={(event) =>
+                    setApiKeyDraft((current) => ({ ...current, label: event.target.value }))
+                  }
+                  className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-xs font-semibold text-muted">
+                  {t("admin.products.keys.form.providerLabel")}
+                </span>
+                <input
+                  value={apiKeyDraft.providerLabel}
+                  onChange={(event) =>
+                    setApiKeyDraft((current) => ({
+                      ...current,
+                      providerLabel: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+                />
+              </label>
+              <label className="space-y-2 md:col-span-2">
+                <span className="text-xs font-semibold text-muted">
+                  {t("admin.products.keys.form.apiKey")}
+                </span>
+                <textarea
+                  value={apiKeyDraft.apiKey}
+                  onChange={(event) =>
+                    setApiKeyDraft((current) => ({ ...current, apiKey: event.target.value }))
+                  }
+                  className="min-h-24 w-full rounded-xl border border-card-border bg-card px-3 py-2 font-mono text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+                />
+              </label>
+              <label className="flex items-center gap-3 rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3 md:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={apiKeyDraft.isActive}
+                  onChange={(event) =>
+                    setApiKeyDraft((current) => ({
+                      ...current,
+                      isActive: event.target.checked,
+                    }))
+                  }
+                  className="h-4 w-4 rounded border-card-border"
+                />
+                <span className="text-sm text-foreground">
+                  {t("admin.products.keys.form.isActive")}
+                </span>
+              </label>
+              <div className="flex justify-end md:col-span-2">
+                <Button type="submit" disabled={submittingKey}>
+                  {submittingKey
+                    ? t("admin.products.keys.form.submitting")
+                    : t("admin.products.keys.form.submit")}
+                </Button>
+              </div>
+            </form>
+
+            <div className="mt-6 space-y-3">
+              {apiKeysLoading ? (
+                <p className="text-sm text-muted">{t("common.loading")}</p>
+              ) : apiKeys.length === 0 ? (
+                <p className="text-sm text-muted">{t("admin.products.keys.empty")}</p>
+              ) : (
+                apiKeys.map((key) => {
+                  const isBusy = apiKeyActionId === key.id;
+                  return (
+                    <div
+                      key={key.id}
+                      className="rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="text-sm font-semibold text-foreground">
+                              {key.label}
+                            </div>
+                            <Badge variant={key.isActive ? "success" : "muted"}>
+                              {key.isActive
+                                ? t("admin.products.keys.status.active")
+                                : t("admin.products.keys.status.inactive")}
+                            </Badge>
+                          </div>
+                          <div className="mt-1 text-xs text-muted">
+                            {key.providerLabel} · {key.maskedKey}
+                          </div>
                         </div>
-                        <div className="mt-1 text-xs text-muted">
-                          {key.providerLabel} · {key.maskedKey}
-                        </div>
+                        <Button
+                          type="button"
+                          variant={key.isActive ? "danger" : "secondary"}
+                          className="px-3 py-1.5 text-xs"
+                          disabled={isBusy}
+                          onClick={() => void handleToggleApiKey(key, !key.isActive)}
+                        >
+                          {isBusy
+                            ? key.isActive
+                              ? t("admin.products.keys.action.deactivating")
+                              : t("admin.products.keys.action.activating")
+                            : key.isActive
+                              ? t("admin.products.keys.action.deactivate")
+                              : t("admin.products.keys.action.activate")}
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        variant={key.isActive ? "danger" : "secondary"}
-                        className="px-3 py-1.5 text-xs"
-                        disabled={isBusy}
-                        onClick={() => void handleToggleApiKey(key, !key.isActive)}
-                      >
-                        {isBusy
-                          ? key.isActive
-                            ? t("admin.products.keys.action.deactivating")
-                            : t("admin.products.keys.action.activating")
-                          : key.isActive
-                            ? t("admin.products.keys.action.deactivate")
-                            : t("admin.products.keys.action.activate")}
-                      </Button>
                     </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </Card>
+                  );
+                })
+              )}
+            </div>
+          </Card>
+
+          <Card className="border-card-border/50 bg-card/70">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-foreground">
+                {t("admin.products.applications.title")}
+              </h3>
+              <p className="text-sm text-muted">{t("admin.products.applications.subtitle")}</p>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              {applicationsLoading ? (
+                <p className="text-sm text-muted">{t("common.loading")}</p>
+              ) : applications.length === 0 ? (
+                <p className="text-sm text-muted">{t("admin.products.applications.empty")}</p>
+              ) : (
+                applications.map((application) => {
+                  const isPending = application.status === "PENDING";
+                  const selectedKeyId = selectedKeyByApplication[application.id] ?? "";
+                  const isBusy = fulfillingApplicationId === application.id;
+                  const userLabel = application.user.name
+                    ? `${application.user.name} (${application.user.email})`
+                    : application.user.email;
+
+                  return (
+                    <div
+                      key={application.id}
+                      className="rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-sm font-semibold text-foreground">{userLabel}</div>
+                        <Badge
+                          variant={
+                            application.status === "PENDING"
+                              ? "warning"
+                              : application.status === "FAILED"
+                                ? "muted"
+                                : "success"
+                          }
+                        >
+                          {getApplicationStatusLabel(application.status, t)}
+                        </Badge>
+                      </div>
+
+                      <dl className="mt-3 grid gap-2 text-xs text-muted">
+                        <div>
+                          <dt className="inline text-muted/70">
+                            {t("admin.products.applications.requestedAt")} </dt>
+                          <dd className="inline text-foreground/80">
+                            {formatTimestamp(application.requestedAt)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="inline text-muted/70">
+                            {t("admin.products.applications.fulfilledAt")} </dt>
+                          <dd className="inline text-foreground/80">
+                            {formatTimestamp(application.fulfilledAt)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="inline text-muted/70">
+                            {t("admin.products.applications.providedKey")} </dt>
+                          <dd className="inline text-foreground/80">
+                            {application.providedApiKey
+                              ? `${application.providedApiKey.label} · ${application.providedApiKey.maskedKey}`
+                              : "—"}
+                          </dd>
+                        </div>
+                      </dl>
+
+                      {isPending ? (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                          <label className="space-y-2">
+                            <span className="text-xs font-semibold text-muted">
+                              {t("admin.products.applications.keyLabel")}
+                            </span>
+                            <select
+                              value={selectedKeyId}
+                              onChange={(event) =>
+                                setSelectedKeyByApplication((current) => ({
+                                  ...current,
+                                  [application.id]: event.target.value,
+                                }))
+                              }
+                              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+                            >
+                              <option value="">
+                                {t("admin.products.applications.keyPlaceholder")}
+                              </option>
+                              {activeApiKeys.map((key) => (
+                                <option key={key.id} value={key.id}>
+                                  {key.label} · {key.maskedKey}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <Button
+                            type="button"
+                            disabled={isBusy || !selectedKeyId}
+                            onClick={() => void handleFulfillApplication(application)}
+                          >
+                            {isBusy
+                              ? t("admin.products.applications.fulfilling")
+                              : t("admin.products.applications.fulfill")}
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </Card>
+        </div>
 
         <Card className="border-card-border/50 bg-card/70">
           <div className="space-y-2">
@@ -1127,34 +1307,10 @@ export function AdminSecretProductsPanel({
                     </div>
                   </dl>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                    <label className="space-y-2">
-                      <span className="text-xs font-semibold text-muted">
-                        {t("admin.products.orders.keyLabel")}
-                      </span>
-                      <select
-                        value={selectedKeyByOrder[order.id] ?? ""}
-                        onChange={(event) =>
-                          setSelectedKeyByOrder((current) => ({
-                            ...current,
-                            [order.id]: event.target.value,
-                          }))
-                        }
-                        className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-                      >
-                        <option value="">{t("admin.products.orders.keyPlaceholder")}</option>
-                        {activeApiKeys.map((key) => (
-                          <option key={key.id} value={key.id}>
-                            {key.label} · {key.maskedKey}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                  <div className="mt-4 flex justify-end">
                     <Button
                       type="button"
-                      disabled={
-                        fulfillingOrderId === order.id || !selectedKeyByOrder[order.id]
-                      }
+                      disabled={fulfillingOrderId === order.id}
                       onClick={() => void handleFulfillOrder(order)}
                     >
                       {fulfillingOrderId === order.id

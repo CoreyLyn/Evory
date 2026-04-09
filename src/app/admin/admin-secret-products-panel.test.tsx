@@ -324,7 +324,7 @@ async function renderPanelWithDom(props: {
   return { rootNode, cleanup };
 }
 
-test("AdminSecretProductsPanel renders quota, provided key, and pending order sections", () => {
+test("AdminSecretProductsPanel renders quota, provided key, applications, and pending order sections", () => {
   const html = renderToStaticMarkup(
     <AdminSecretProductsPanel
       t={(key) => key}
@@ -339,6 +339,7 @@ test("AdminSecretProductsPanel renders quota, provided key, and pending order se
   assert.match(html, /admin\.products\.form\.quotaAmount/);
   assert.match(html, /admin\.products\.form\.quotaUnitLabel/);
   assert.match(html, /admin\.products\.keys\.title/);
+  assert.match(html, /admin\.products\.applications\.title/);
   assert.match(html, /admin\.products\.orders\.pendingTitle/);
   assert.doesNotMatch(html, /admin\.products\.inventory\.secrets/);
 });
@@ -367,6 +368,16 @@ test("AdminSecretProductsPanel loads keys and can fulfill a pending order", asyn
               updatedAt: "2026-04-08T10:00:00.000Z",
             },
           ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (input === "/api/admin/shop/api-key-applications") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
@@ -432,6 +443,7 @@ test("AdminSecretProductsPanel loads keys and can fulfill a pending order", asyn
     for (let attempt = 0; attempt < 5; attempt += 1) {
       if (
         requests.some((request) => request.input === "/api/admin/shop/api-keys") &&
+        requests.some((request) => request.input === "/api/admin/shop/api-key-applications") &&
         requests.some((request) => request.input === "/api/admin/shop/orders?status=PENDING")
       ) {
         break;
@@ -463,11 +475,145 @@ test("AdminSecretProductsPanel loads keys and can fulfill a pending order", asyn
       requests.some(
         (request) =>
           request.input === "/api/admin/shop/orders/order-1/fulfill" &&
-          request.init?.method === "POST"
+          request.init?.method === "POST" &&
+          !request.init?.body
       ),
       true
     );
     assert.equal(refreshCount, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("AdminSecretProductsPanel shows API key applications and fulfills pending assignment", async () => {
+  const products = [createProduct()];
+  const requests: Array<{ input: string; init?: RequestInit }> = [];
+
+  const fetchMock = async (input: string, init?: RequestInit) => {
+    requests.push({ input, init });
+
+    if (input === "/api/admin/shop/api-keys") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: "key-1",
+              label: "Primary OpenAI key",
+              providerLabel: "OpenAI",
+              maskedKey: "sk-****1234",
+              isActive: true,
+              createdByUserId: "admin-1",
+              createdAt: "2026-04-08T10:00:00.000Z",
+              updatedAt: "2026-04-08T10:00:00.000Z",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (input === "/api/admin/shop/api-key-applications") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: "application-1",
+              status: "PENDING",
+              requestedAt: "2026-04-07T10:00:00.000Z",
+              fulfilledAt: null,
+              user: {
+                id: "user-1",
+                email: "agent@example.com",
+                name: "Agent Owner",
+              },
+              providedApiKey: null,
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (input === "/api/admin/shop/orders?status=PENDING") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (input === "/api/admin/shop/api-key-applications/application-1/fulfill") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            id: "application-1",
+            status: "FULFILLED",
+            providedApiKeyId: "key-1",
+            fulfilledByUserId: "admin-1",
+            fulfilledAt: "2026-04-08T11:00:00.000Z",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    throw new Error(`Unexpected fetch: ${input}`);
+  };
+
+  const { rootNode, cleanup } = await renderPanelWithDom({
+    products,
+    fetchMock,
+    onRefresh: async () => undefined,
+  });
+
+  try {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      if (
+        requests.some((request) => request.input === "/api/admin/shop/api-keys") &&
+        requests.some((request) => request.input === "/api/admin/shop/api-key-applications")
+      ) {
+        break;
+      }
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+
+    assert.match(getNodeText(rootNode), /Agent Owner/);
+    assert.match(getNodeText(rootNode), /agent@example\.com/);
+
+    const buttons = findElements(rootNode, (node) => node.tagName === "BUTTON");
+    const fulfillButton = buttons.find((button) =>
+      getNodeText(button).includes("admin.products.applications.fulfill")
+    );
+    assert.ok(fulfillButton);
+
+    await act(async () => {
+      rootNode.dispatchEvent({
+        type: "click",
+        target: fulfillButton!,
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const fulfillRequest = requests.find(
+      (request) => request.input === "/api/admin/shop/api-key-applications/application-1/fulfill"
+    );
+    assert.ok(fulfillRequest);
+    assert.equal(fulfillRequest?.init?.method, "POST");
+    assert.equal(
+      fulfillRequest?.init?.body,
+      JSON.stringify({
+        providedApiKeyId: "key-1",
+      })
+    );
   } finally {
     await cleanup();
   }
