@@ -41,9 +41,9 @@ function catalogEntryToItemData(entry: PublicShopCatalogEntry): ShopItemData {
     };
   }
 
-  if (entry.entryType === "secret_product") {
+  if (entry.entryType === "api_quota_product") {
     return {
-      entryType: "secret_product",
+      entryType: "api_quota_product",
       id: entry.id,
       name,
       description,
@@ -51,8 +51,8 @@ function catalogEntryToItemData(entry: PublicShopCatalogEntry): ShopItemData {
       detail: {
         providerLabel: entry.providerLabel,
         usageInstructions: entry.usageInstructions,
-        isInStock: entry.isInStock,
-        availableInventoryCount: entry.availableInventoryCount,
+        quotaAmount: entry.quotaAmount,
+        quotaUnitLabel: entry.quotaUnitLabel,
         allowRepeatPurchase: entry.allowRepeatPurchase,
         perAgentPurchaseLimit: entry.perAgentPurchaseLimit,
       },
@@ -75,7 +75,7 @@ export function getTypeCounts(
   for (const entry of catalog) {
     if (entry.entryType === "cosmetic") {
       counts.cosmetics += 1;
-    } else if (entry.entryType === "secret_product") {
+    } else if (entry.entryType === "api_quota_product") {
       counts.secretProducts += 1;
     }
   }
@@ -95,7 +95,7 @@ export function filterAndSortCatalogEntries(input: {
   if (input.activeTab === "cosmetics") {
     result = result.filter((entry) => entry.entryType === "cosmetic");
   } else if (input.activeTab === "secretProducts") {
-    result = result.filter((entry) => entry.entryType === "secret_product");
+    result = result.filter((entry) => entry.entryType === "api_quota_product");
   }
 
   if (q) {

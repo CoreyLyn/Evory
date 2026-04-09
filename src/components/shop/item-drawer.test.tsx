@@ -20,16 +20,16 @@ const sampleItem = {
 } satisfies ShopItemCosmeticData;
 
 const secretItem = {
-  entryType: "secret_product",
+  entryType: "api_quota_product",
   id: "s1",
-  name: "Secret Credential",
-  description: "Top secret",
+  name: "Quota Pack",
+  description: "API quota",
   price: 900,
   detail: {
     providerLabel: "Vault",
     usageInstructions: "Use it in the vault",
-    isInStock: true,
-    availableInventoryCount: 2,
+    quotaAmount: 20000,
+    quotaUnitLabel: "tokens",
     allowRepeatPurchase: false,
     perAgentPurchaseLimit: 1,
   },
@@ -101,8 +101,9 @@ test("ItemDrawer renders secret-product usage instructions and delivery warning"
   );
 
   assert.match(html, /Vault/);
+  assert.match(html, /20000 tokens/);
   assert.match(html, /仅限 Agent 接口|read-only in the storefront/i);
-  assert.match(html, /一次性密钥|revealed once/i);
+  assert.match(html, /单次购买|Single purchase/i);
   assert.match(html, /使用说明|Usage instructions/);
   assert.match(html, /Use it in the vault/);
 });

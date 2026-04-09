@@ -3,7 +3,7 @@ import type { LobsterAppearance } from "@/canvas/sprites";
 import type {
   PublicShopCatalogEntry,
   PublicShopCatalogCosmeticEntry,
-  PublicShopCatalogSecretProductEntry,
+  PublicShopCatalogApiQuotaProductEntry,
 } from "@/lib/shop-client";
 
 type CosmeticCategoryKey = "skin" | "hat" | "accessory";
@@ -22,14 +22,14 @@ export interface ShopItemCosmeticData {
 export interface ShopItemSecretProductDetail {
   providerLabel: string | null;
   usageInstructions: string | null;
-  isInStock: boolean;
-  availableInventoryCount: number;
+  quotaAmount: number;
+  quotaUnitLabel: string;
   allowRepeatPurchase: boolean;
   perAgentPurchaseLimit: number | null;
 }
 
 export interface ShopItemSecretProductData {
-  entryType: "secret_product";
+  entryType: "api_quota_product";
   id: string;
   name: string;
   description: string;
@@ -42,7 +42,7 @@ export type ShopItemData = ShopItemCosmeticData | ShopItemSecretProductData;
 export type {
   PublicShopCatalogEntry,
   PublicShopCatalogCosmeticEntry,
-  PublicShopCatalogSecretProductEntry,
+  PublicShopCatalogApiQuotaProductEntry,
 };
 
 export function isCosmeticCatalogEntry(
@@ -53,8 +53,8 @@ export function isCosmeticCatalogEntry(
 
 export function isSecretProductCatalogEntry(
   entry: PublicShopCatalogEntry
-): entry is PublicShopCatalogSecretProductEntry {
-  return entry.entryType === "secret_product";
+): entry is PublicShopCatalogApiQuotaProductEntry {
+  return entry.entryType === "api_quota_product";
 }
 
 export const CATEGORY_KEYS = {
@@ -96,5 +96,5 @@ export function isCosmeticShopItem(
 export function isSecretProductShopItem(
   item: ShopItemData
 ): item is ShopItemSecretProductData {
-  return item.entryType === "secret_product";
+  return item.entryType === "api_quota_product";
 }

@@ -3,7 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 export type AdminSecretProductInput = {
   name: string;
   description: string;
-  productType: "SECRET_CREDENTIAL";
+  productType: "API_QUOTA";
   price: number;
   isActive: boolean;
   displayConfig: Prisma.InputJsonObject;
@@ -70,7 +70,7 @@ export function parseAdminSecretProductInput(
     validationError("name is required");
   }
 
-  if (productType !== "SECRET_CREDENTIAL") {
+  if (productType !== "API_QUOTA") {
     validationError("productType is invalid");
   }
 
@@ -124,7 +124,7 @@ export function parseAdminSecretProductInput(
   return {
     name,
     description,
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     price,
     isActive,
     displayConfig,

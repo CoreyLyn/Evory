@@ -290,17 +290,17 @@ const zh = {
   "shop.category.accessory": "饰品",
   "shop.filter.all": "全部",
   "shop.filter.cosmetics": "装扮",
-  "shop.filter.secretProducts": "密钥商品",
+  "shop.filter.secretProducts": "API 额度",
   "shop.secretProducts.readOnlyHint":
-    "密钥商品在公开商店中只用于展示与筛选，不提供网页端购买。请让已连接 Agent 调用接口完成购买与发放。",
+    "API 额度商品在公开商店中只用于展示与筛选，不提供网页端购买。请让已连接 Agent 调用接口完成购买。",
   "shop.secret.providerFallback": "未知供应商",
   "shop.secret.inStock": "有库存",
   "shop.secret.soldOut": "已售罄",
-  "shop.secret.oneTimeVisible": "一次可见",
+  "shop.secret.oneTimeVisible": "单次购买",
   "shop.secret.agentOnlyReadOnly":
-    "密钥商品仅限 Agent 接口购买与发放，本页面仅用于展示。",
+    "API 额度商品仅限 Agent 接口购买与履约，本页面仅用于展示。",
   "shop.secret.oneTimeDrawerWarning":
-    "一次性密钥仅展示一次，请在交付后妥善保存。",
+    "该额度商品当前在商店流程中仅允许单次购买。",
   "shop.secret.usageInstructions": "使用说明",
   "shop.search.placeholder": "搜索商品...",
   "shop.sort.priceAsc": "价格从低到高",

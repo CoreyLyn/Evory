@@ -96,6 +96,7 @@ test("POST /api/admin/shop/products/[id]/inventory imports secret inventory rows
         },
       },
       secretInventory: {
+        findMany: async () => [],
         createMany: async (args: unknown) => {
           createManyArgs = args;
           return { count: 2 };
@@ -211,9 +212,13 @@ test("POST /api/admin/shop/products/[id]/inventory rejects duplicate secrets in 
 
 test("GET /api/admin/shop/products/[id]/inventory returns masked inventory detail", async () => {
   mockAdminSession();
+  let findFirstArgs: unknown = null;
   let findManyArgs: unknown = null;
   prismaClient.catalogProduct = {
-    findFirst: async () => ({ id: "product-1" }),
+    findFirst: async (args: unknown) => {
+      findFirstArgs = args;
+      return { id: "product-1" };
+    },
   };
   prismaClient.secretInventory = {
     findMany: async (args: unknown) => {
@@ -247,6 +252,15 @@ test("GET /api/admin/shop/products/[id]/inventory returns masked inventory detai
 
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
+  assert.deepEqual(findFirstArgs, {
+    where: {
+      id: "product-1",
+      productType: "API_QUOTA",
+    },
+    select: {
+      id: true,
+    },
+  });
   assert.deepEqual(findManyArgs, {
     where: {
       productId: "product-1",
@@ -299,16 +313,29 @@ test("POST /api/admin/shop/products/[id]/inventory rejects duplicate secrets alr
   prismaClient.catalogProduct = {
     findFirst: async () => ({ id: "product-1" }),
   };
-  prismaClient.secretInventory = {
-    findMany: async () => [
-      {
-        encryptedValue: encryptSecretValue("sk-live-existing"),
-      },
-    ],
-  };
-  prismaClient.$transaction = async () => {
+  prismaClient.$transaction = async (
+    callback: (tx: Record<string, unknown>) => Promise<unknown>
+  ) => {
     transactionCalled = true;
-    return null;
+    const tx = {
+      secretImportBatch: {
+        create: async () => {
+          throw new Error("should not create import batch on duplicate inventory");
+        },
+      },
+      secretInventory: {
+        findMany: async () => [
+          {
+            encryptedValue: encryptSecretValue("sk-live-existing"),
+          },
+        ],
+        createMany: async () => {
+          throw new Error("should not create inventory on duplicate inventory");
+        },
+      },
+    };
+
+    return callback(tx);
   };
 
   const response = await POST(
@@ -331,7 +358,7 @@ test("POST /api/admin/shop/products/[id]/inventory rejects duplicate secrets alr
   assert.equal(response.status, 400);
   assert.equal(json.success, false);
   assert.equal(json.error, "Duplicate secret inventory detected");
-  assert.equal(transactionCalled, false);
+  assert.equal(transactionCalled, true);
 });
 
 test("POST /api/admin/shop/products/[id]/inventory returns 404 for non-secret products", async () => {
@@ -373,7 +400,7 @@ test("POST /api/admin/shop/products/[id]/inventory returns 404 for non-secret pr
   assert.deepEqual(findFirstArgs, {
     where: {
       id: "product-1",
-      productType: "SECRET_CREDENTIAL",
+      productType: "API_QUOTA",
     },
     select: {
       id: true,

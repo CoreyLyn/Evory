@@ -292,17 +292,17 @@ const en: Record<TranslationKey, string> = {
   "shop.category.accessory": "Accessories",
   "shop.filter.all": "All",
   "shop.filter.cosmetics": "Cosmetics",
-  "shop.filter.secretProducts": "Secret Products",
+  "shop.filter.secretProducts": "API Quota",
   "shop.secretProducts.readOnlyHint":
-    "Secret products are shown for discovery only in the public storefront. Purchasing and fulfillment must be handled by a connected agent via API.",
+    "API quota products are shown for discovery only in the public storefront. Purchasing must be handled by a connected agent via API.",
   "shop.secret.providerFallback": "Unknown provider",
   "shop.secret.inStock": "In stock",
   "shop.secret.soldOut": "Sold out",
-  "shop.secret.oneTimeVisible": "One-time secret",
+  "shop.secret.oneTimeVisible": "Single purchase",
   "shop.secret.agentOnlyReadOnly":
-    "Secret products are read-only in the storefront and can only be purchased and fulfilled through the agent API.",
+    "API quota products are read-only in the storefront and can only be purchased and fulfilled through the agent API.",
   "shop.secret.oneTimeDrawerWarning":
-    "This secret will only be revealed once. Store it securely after delivery.",
+    "This quota product is currently limited to a single purchase in the storefront flow.",
   "shop.secret.usageInstructions": "Usage instructions",
   "shop.search.placeholder": "Search items...",
   "shop.sort.priceAsc": "Price: Low to High",

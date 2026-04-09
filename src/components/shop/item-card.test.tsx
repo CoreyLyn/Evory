@@ -20,16 +20,16 @@ const sampleItem = {
 } satisfies ShopItemCosmeticData;
 
 const secretItem = {
-  entryType: "secret_product",
+  entryType: "api_quota_product",
   id: "s1",
-  name: "Secret Credential",
-  description: "Top secret",
+  name: "Quota Pack",
+  description: "API quota",
   price: 900,
   detail: {
     providerLabel: null,
     usageInstructions: "Use it in the vault",
-    isInStock: false,
-    availableInventoryCount: 0,
+    quotaAmount: 10000,
+    quotaUnitLabel: "tokens",
     allowRepeatPurchase: false,
     perAgentPurchaseLimit: null,
   },
@@ -67,7 +67,7 @@ test("ItemCard renders category badge", () => {
   assert.match(html, /帽子|Hats/);
 });
 
-test("ItemCard renders provider and stock state for secret products", () => {
+test("ItemCard renders provider and quota state for secret products", () => {
   const html = renderToStaticMarkup(
     <LocaleProvider>
       <ItemCard item={secretItem} onClick={() => {}} />
@@ -75,8 +75,8 @@ test("ItemCard renders provider and stock state for secret products", () => {
   );
 
   assert.match(html, /未知供应商|Unknown provider/);
-  assert.match(html, /已售罄|Sold out/);
-  assert.match(html, /一次可见|One-time secret/);
+  assert.match(html, /10000 tokens/);
+  assert.match(html, /单次购买|Single purchase/);
 });
 
 test("ItemCard does not render lobster preview for secret products", () => {
@@ -96,5 +96,5 @@ test("ItemCard keeps secret-product details out of the compact card body", () =>
     </LocaleProvider>
   );
 
-  assert.doesNotMatch(html, /Top secret/);
+  assert.doesNotMatch(html, /API quota/);
 });

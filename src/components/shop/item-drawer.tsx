@@ -34,9 +34,7 @@ export function ItemDrawer({ item, onClose }: ItemDrawerProps) {
   if (isSecretProductShopItem(item)) {
     const providerLabel =
       item.detail.providerLabel?.trim() || t("shop.secret.providerFallback");
-    const stockLabel = item.detail.isInStock
-      ? t("shop.secret.inStock")
-      : t("shop.secret.soldOut");
+    const quotaLabel = `${item.detail.quotaAmount} ${item.detail.quotaUnitLabel}`;
     const showOneTime = !item.detail.allowRepeatPurchase;
     const usageInstructions = item.detail.usageInstructions?.trim();
 
@@ -86,7 +84,7 @@ export function ItemDrawer({ item, onClose }: ItemDrawerProps) {
                 {providerLabel}
               </span>
               <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-muted/10 text-muted/80 border border-muted/10">
-                {stockLabel}
+                {quotaLabel}
               </span>
               {showOneTime && (
                 <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-warning/10 text-warning border border-warning/20">

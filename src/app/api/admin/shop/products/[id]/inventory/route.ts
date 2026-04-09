@@ -41,7 +41,7 @@ export async function GET(
   const product = await prisma.catalogProduct.findFirst({
     where: {
       id,
-      productType: "SECRET_CREDENTIAL",
+      productType: "API_QUOTA",
     },
     select: { id: true },
   });
@@ -115,7 +115,7 @@ export async function POST(
     const product = await prisma.catalogProduct.findFirst({
       where: {
         id,
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
       },
       select: { id: true },
     });

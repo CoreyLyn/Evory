@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
     const json = await response.json();
     const cosmetics = Array.isArray(json.data)
       ? json.data.filter(
-          (entry): entry is Record<string, unknown> =>
+          (entry: unknown): entry is Record<string, unknown> =>
             Boolean(entry) &&
             typeof entry === "object" &&
             !Array.isArray(entry) &&

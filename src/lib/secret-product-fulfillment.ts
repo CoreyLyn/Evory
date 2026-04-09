@@ -63,16 +63,29 @@ function isRetryableTransactionConflict(error: unknown) {
   );
 }
 
-function readFulfillmentRules(value: unknown) {
+function readFulfillmentRules(displayValue: unknown, fulfillmentValue: unknown) {
+  const display =
+    displayValue && typeof displayValue === "object" && !Array.isArray(displayValue)
+      ? (displayValue as Record<string, unknown>)
+      : null;
   const config =
-    value && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
+    fulfillmentValue && typeof fulfillmentValue === "object" && !Array.isArray(fulfillmentValue)
+      ? (fulfillmentValue as Record<string, unknown>)
       : null;
 
   const allowRepeatPurchase =
     typeof config?.allowRepeatPurchase === "boolean"
       ? config.allowRepeatPurchase
       : true;
+  const quotaAmount =
+    typeof config?.quotaAmount === "number" &&
+    Number.isInteger(config.quotaAmount) &&
+    config.quotaAmount > 0
+      ? config.quotaAmount
+      : null;
+  if (!quotaAmount) {
+    throw new Error("Invalid API quota product configuration");
+  }
   const perAgentPurchaseLimit =
     typeof config?.perAgentPurchaseLimit === "number" &&
     Number.isInteger(config.perAgentPurchaseLimit) &&
@@ -82,6 +95,11 @@ function readFulfillmentRules(value: unknown) {
 
   return {
     allowRepeatPurchase,
+    quotaAmount,
+    quotaUnitLabel:
+      typeof display?.quotaUnitLabel === "string" && display.quotaUnitLabel.trim()
+        ? display.quotaUnitLabel.trim()
+        : "tokens",
     perAgentPurchaseLimit,
   };
 }
@@ -99,11 +117,14 @@ export async function fulfillSecretCredentialPurchase({
     where: { id: productId },
   });
 
-  if (!product || !product.isActive || product.productType !== "SECRET_CREDENTIAL") {
+  if (!product || !product.isActive || product.productType !== "API_QUOTA") {
     throw new ProductNotFoundError();
   }
 
-  const fulfillmentRules = readFulfillmentRules(product.fulfillmentConfig);
+  const fulfillmentRules = readFulfillmentRules(
+    product.displayConfig,
+    product.fulfillmentConfig
+  );
   let sawTransactionConflict = false;
   let sawInventoryClaimConflict = false;
 
@@ -160,6 +181,8 @@ export async function fulfillSecretCredentialPurchase({
               buyerAgentId: agentId,
               productId: product.id,
               pricePaid: product.price,
+              quotaAmount: fulfillmentRules.quotaAmount,
+              quotaUnitLabel: fulfillmentRules.quotaUnitLabel,
               currencyType: product.currencyType,
               status: "FULFILLED",
               deliveryChannel: "AGENT_CHAT",

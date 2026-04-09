@@ -10,7 +10,7 @@ test("parseAdminSecretProductInput trims strings and accepts valid values", () =
   const parsed = parseAdminSecretProductInput({
     name: "  API Key  ",
     description: "  Provisioned credentials  ",
-    productType: " SECRET_CREDENTIAL ",
+    productType: " API_QUOTA ",
     price: 150,
     isActive: true,
     displayConfig: {
@@ -25,7 +25,7 @@ test("parseAdminSecretProductInput trims strings and accepts valid values", () =
   assert.deepEqual(parsed, {
     name: "API Key",
     description: "Provisioned credentials",
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     price: 150,
     isActive: true,
     displayConfig: {
@@ -64,7 +64,7 @@ test("parseAdminSecretProductInput rejects non-object displayConfig", () => {
       parseAdminSecretProductInput({
         name: "API Key",
         description: "",
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
         price: 150,
         isActive: true,
         displayConfig: ["Acme"],
@@ -82,7 +82,7 @@ test("parseAdminSecretProductInput rejects non-object fulfillmentConfig", () => 
       parseAdminSecretProductInput({
         name: "API Key",
         description: "",
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
         price: 150,
         isActive: true,
         displayConfig: {
@@ -100,7 +100,7 @@ test("parseAdminSecretProductInput rejects missing displayConfig fields", () => 
       parseAdminSecretProductInput({
         name: "API Key",
         description: "",
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
         price: 150,
         isActive: true,
         displayConfig: {
@@ -120,7 +120,7 @@ test("parseAdminSecretProductInput rejects missing allowRepeatPurchase", () => {
       parseAdminSecretProductInput({
         name: "API Key",
         description: "",
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
         price: 150,
         isActive: true,
         displayConfig: {
@@ -140,7 +140,7 @@ test("parseAdminSecretProductInput rejects invalid perAgentPurchaseLimit", () =>
       parseAdminSecretProductInput({
         name: "API Key",
         description: "",
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
         price: 150,
         isActive: true,
         displayConfig: {

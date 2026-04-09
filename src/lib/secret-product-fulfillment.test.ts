@@ -37,7 +37,7 @@ test("fulfillSecretCredentialPurchase marks inventory sold and returns the decry
     id: "product-1",
     name: "Provider Key Pack",
     price: 200,
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     isActive: true,
   });
   const inventory = createSecretInventoryFixture({
@@ -131,7 +131,7 @@ test("fulfillSecretCredentialPurchase retries when inventory claim loses the rac
     id: "product-1",
     name: "Provider Key Pack",
     price: 200,
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     isActive: true,
   });
   const inventoryA = createSecretInventoryFixture({
@@ -205,7 +205,7 @@ test("fulfillSecretCredentialPurchase retries when the transaction hits a serial
     id: "product-1",
     name: "Provider Key Pack",
     price: 200,
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     isActive: true,
   });
   const inventory = createSecretInventoryFixture({
@@ -276,7 +276,7 @@ test("fulfillSecretCredentialPurchase surfaces exhausted serialization conflicts
     id: "product-1",
     name: "Provider Key Pack",
     price: 200,
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     isActive: true,
   });
 
@@ -315,7 +315,7 @@ test("fulfillSecretCredentialPurchase returns out-of-stock after a claim conflic
     id: "product-1",
     name: "Provider Key Pack",
     price: 200,
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     isActive: true,
   });
   const inventory = createSecretInventoryFixture({
@@ -374,7 +374,7 @@ test("fulfillSecretCredentialPurchase surfaces repeated claim conflicts as retry
     id: "product-1",
     name: "Provider Key Pack",
     price: 200,
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     isActive: true,
   });
   const inventory = createSecretInventoryFixture({
@@ -427,7 +427,7 @@ test("fulfillSecretCredentialPurchase rolls back when decrypting the sold secret
     id: "product-1",
     name: "Provider Key Pack",
     price: 200,
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     isActive: true,
   });
   const inventory = createSecretInventoryFixture({
@@ -493,7 +493,7 @@ test("fulfillSecretCredentialPurchase throws InsufficientPointsError when deduct
     id: "product-1",
     name: "Provider Key Pack",
     price: 200,
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     isActive: true,
   });
   const inventory = createSecretInventoryFixture({
@@ -546,9 +546,10 @@ test("fulfillSecretCredentialPurchase throws InsufficientPointsError when deduct
 test("fulfillSecretCredentialPurchase rejects repeat purchases when disabled", async () => {
   const product = createCatalogProductFixture({
     id: "product-1",
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     isActive: true,
     fulfillmentConfig: {
+      quotaAmount: 10000,
       allowRepeatPurchase: false,
     },
   });
@@ -599,9 +600,10 @@ test("fulfillSecretCredentialPurchase rejects repeat purchases when disabled", a
 test("fulfillSecretCredentialPurchase rejects purchases beyond per-agent limit", async () => {
   const product = createCatalogProductFixture({
     id: "product-1",
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     isActive: true,
     fulfillmentConfig: {
+      quotaAmount: 10000,
       allowRepeatPurchase: true,
       perAgentPurchaseLimit: 1,
     },
