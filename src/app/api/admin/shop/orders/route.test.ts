@@ -11,6 +11,8 @@ import {
 import { hashSessionToken } from "@/lib/user-auth";
 
 import { GET } from "./route";
+// Node test discovery can miss dynamic-segment siblings when invoked by path.
+import "./[id]/fulfill/route.test";
 
 const prismaClient = prisma as Record<string, unknown>;
 
@@ -39,7 +41,7 @@ afterEach(() => {
   prismaClient.purchaseOrder = originalMethods.purchaseOrder;
 });
 
-test("GET /api/admin/shop/orders returns filtered secret-product order history", async () => {
+test("GET /api/admin/shop/orders returns filtered api quota order history", async () => {
   mockAdminSession();
 
   let receivedArgs: unknown = null;
@@ -55,12 +57,15 @@ test("GET /api/admin/shop/orders returns filtered secret-product order history",
           currencyType: "POINTS",
           deliveryChannel: "AGENT_CHAT",
           failureReason: null,
+          quotaAmount: 10000,
+          quotaUnitLabel: "tokens",
           createdAt: new Date("2026-04-07T10:00:00.000Z"),
+          confirmedAt: new Date("2026-04-07T10:01:00.000Z"),
           fulfilledAt: new Date("2026-04-07T10:01:00.000Z"),
           product: {
             id: "product-1",
             name: "Provider Pack",
-            productType: "SECRET_CREDENTIAL",
+            productType: "API_QUOTA",
             isActive: true,
           },
           buyerAgent: createAgentFixture({
@@ -69,12 +74,11 @@ test("GET /api/admin/shop/orders returns filtered secret-product order history",
             type: "CUSTOM",
             ownerUserId: "user-2",
           }),
-          secretReceipt: {
-            deliveredAt: new Date("2026-04-07T10:01:30.000Z"),
-            secretInventory: {
-              id: "inventory-1",
-              maskedValue: "sk-****1234",
-            },
+          providedApiKey: {
+            id: "key-1",
+            label: "Primary OpenAI key",
+            maskedKey: "sk-****1234",
+            providerLabel: "OpenAI",
           },
         },
       ];
@@ -98,7 +102,7 @@ test("GET /api/admin/shop/orders returns filtered secret-product order history",
       buyerAgentId: "agent-2",
       status: "FULFILLED",
       product: {
-        productType: "SECRET_CREDENTIAL",
+        productType: "API_QUOTA",
       },
     },
     orderBy: [{ createdAt: "desc" }],
@@ -109,7 +113,10 @@ test("GET /api/admin/shop/orders returns filtered secret-product order history",
       currencyType: true,
       deliveryChannel: true,
       failureReason: true,
+      quotaAmount: true,
+      quotaUnitLabel: true,
       createdAt: true,
+      confirmedAt: true,
       fulfilledAt: true,
       product: {
         select: {
@@ -126,15 +133,12 @@ test("GET /api/admin/shop/orders returns filtered secret-product order history",
           ownerUserId: true,
         },
       },
-      secretReceipt: {
+      providedApiKey: {
         select: {
-          deliveredAt: true,
-          secretInventory: {
-            select: {
-              id: true,
-              maskedValue: true,
-            },
-          },
+          id: true,
+          label: true,
+          maskedKey: true,
+          providerLabel: true,
         },
       },
     },
@@ -148,7 +152,12 @@ test("GET /api/admin/shop/orders returns filtered secret-product order history",
       currencyType: "POINTS",
       deliveryChannel: "AGENT_CHAT",
       failureReason: null,
+      quota: {
+        amount: 10000,
+        unit: "tokens",
+      },
       createdAt: "2026-04-07T10:00:00.000Z",
+      confirmedAt: "2026-04-07T10:01:00.000Z",
       fulfilledAt: "2026-04-07T10:01:00.000Z",
       product: {
         id: "product-1",
@@ -161,10 +170,11 @@ test("GET /api/admin/shop/orders returns filtered secret-product order history",
         type: "CUSTOM",
         ownerUserId: "user-2",
       },
-      delivery: {
-        deliveredAt: "2026-04-07T10:01:30.000Z",
-        secretInventoryId: "inventory-1",
-        maskedSecret: "sk-****1234",
+      providedApiKey: {
+        id: "key-1",
+        label: "Primary OpenAI key",
+        maskedKey: "sk-****1234",
+        providerLabel: "OpenAI",
       },
     },
   ]);

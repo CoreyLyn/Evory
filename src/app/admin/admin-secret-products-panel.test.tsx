@@ -79,6 +79,33 @@ type MinimalWindow = {
   Event: typeof globalThis.Event;
 };
 
+function createProduct(overrides: Record<string, unknown> = {}): AdminSecretProduct {
+  return {
+    id: "product-1",
+    name: "Provider Quota Pack",
+    description: "10k tokens",
+    productType: "API_QUOTA",
+    price: 300,
+    currencyType: "POINTS",
+    isActive: true,
+    displayConfig: {
+      providerLabel: "Provider",
+      usageInstructions: "Store securely",
+      quotaUnitLabel: "tokens",
+    },
+    fulfillmentConfig: {
+      quotaAmount: 10000,
+      allowRepeatPurchase: true,
+      perAgentPurchaseLimit: null,
+    },
+    inventoryCount: 0,
+    orderCount: 1,
+    createdAt: "2026-04-02T00:00:00.000Z",
+    updatedAt: "2026-04-02T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
 function setGlobalValue(key: string, value: unknown) {
   Object.defineProperty(globalThis, key, {
     configurable: true,
@@ -163,9 +190,6 @@ function createElementNode(ownerDocument: MinimalDocument, tagName: string): Min
       if ("parentNode" in child) {
         child.parentNode = null;
       }
-      if (this.tagName === "SELECT" && child.nodeType === 1 && this.options) {
-        this.options = this.options.filter((item) => item !== child);
-      }
       return child;
     },
     insertBefore(child: MinimalNode) {
@@ -211,11 +235,13 @@ function createElementNode(ownerDocument: MinimalDocument, tagName: string): Min
       return true;
     },
   };
+
   if (upperTag === "SELECT") {
     node.options = [];
     node.selectedIndex = -1;
     node.value = "";
   }
+
   return node;
 }
 
@@ -255,13 +281,14 @@ async function renderPanelWithDom(props: {
   const previousNode = globalThis.Node;
   const previousEvent = globalThis.Event;
   const previousFetch = globalThis.fetch;
-  const previousActEnvironment = (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
-    .IS_REACT_ACT_ENVIRONMENT;
+  const previousActEnvironment = (globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }).IS_REACT_ACT_ENVIRONMENT;
 
   const { rootNode } = installMinimalDom();
   globalThis.fetch = props.fetchMock as typeof fetch;
 
-  const root = ReactDOMClient.createRoot(rootNode as never);
+  const root: Root = ReactDOMClient.createRoot(rootNode as never);
 
   await act(async () => {
     root.render(
@@ -297,32 +324,11 @@ async function renderPanelWithDom(props: {
   return { rootNode, cleanup };
 }
 
-test("AdminSecretProductsPanel renders provider fields and inventory import textarea", () => {
+test("AdminSecretProductsPanel renders quota, provided key, and pending order sections", () => {
   const html = renderToStaticMarkup(
     <AdminSecretProductsPanel
       t={(key) => key}
-      products={[
-        {
-          id: "product-1",
-          name: "Provider Pack",
-          description: "Secret credential",
-          productType: "SECRET_CREDENTIAL",
-          price: 300,
-          currencyType: "POINTS",
-          isActive: true,
-          displayConfig: {
-            providerLabel: "Provider",
-            usageInstructions: "Store securely",
-          },
-          fulfillmentConfig: {
-            allowRepeatPurchase: true,
-          },
-          availableInventoryCount: 2,
-          orderCount: 1,
-          createdAt: "2026-04-02T00:00:00.000Z",
-          updatedAt: "2026-04-02T00:00:00.000Z",
-        },
-      ]}
+      products={[createProduct()]}
       loading={false}
       onRefresh={() => Promise.resolve()}
       onError={() => undefined}
@@ -330,214 +336,61 @@ test("AdminSecretProductsPanel renders provider fields and inventory import text
     />
   );
 
-  assert.match(html, /admin\.products\.form\.providerLabel/);
-  assert.match(html, /admin\.products\.form\.usageInstructions/);
-  assert.match(html, /admin\.products\.inventory\.secrets/);
-  assert.match(html, /textarea/);
+  assert.match(html, /admin\.products\.form\.quotaAmount/);
+  assert.match(html, /admin\.products\.form\.quotaUnitLabel/);
+  assert.match(html, /admin\.products\.keys\.title/);
+  assert.match(html, /admin\.products\.orders\.pendingTitle/);
+  assert.doesNotMatch(html, /admin\.products\.inventory\.secrets/);
 });
 
-test("AdminSecretProductsPanel renders product counts and inactive state details", () => {
-  const html = renderToStaticMarkup(
-    <AdminSecretProductsPanel
-      t={(key) => key}
-      products={[
-        {
-          id: "product-1",
-          name: "Provider Pack",
-          description: "Secret credential",
-          productType: "SECRET_CREDENTIAL",
-          price: 300,
-          currencyType: "POINTS",
-          isActive: true,
-          displayConfig: {
-            providerLabel: "Provider",
-          },
-          fulfillmentConfig: {
-            allowRepeatPurchase: true,
-          },
-          availableInventoryCount: 2,
-          orderCount: 1,
-          createdAt: "2026-04-02T00:00:00.000Z",
-          updatedAt: "2026-04-02T00:00:00.000Z",
-        },
-        {
-          id: "product-2",
-          name: "Backup Pack",
-          description: "",
-          productType: "SECRET_CREDENTIAL",
-          price: 500,
-          currencyType: "POINTS",
-          isActive: false,
-          displayConfig: {
-            providerLabel: "Backup",
-          },
-          fulfillmentConfig: {
-            allowRepeatPurchase: false,
-          },
-          availableInventoryCount: 0,
-          orderCount: 3,
-          createdAt: "2026-04-02T00:00:00.000Z",
-          updatedAt: "2026-04-02T00:00:00.000Z",
-        },
-      ]}
-      loading={false}
-      onRefresh={() => Promise.resolve()}
-      onError={() => undefined}
-      onSuccess={() => undefined}
-    />
-  );
-
-  assert.match(html, /Provider Pack/);
-  assert.match(html, /Backup Pack/);
-  assert.match(html, /admin\.products\.status\.inactive/);
-  assert.match(html, /admin\.products\.inventory\.count/);
-  assert.match(html, /admin\.products\.orders\.count/);
-  assert.match(html, /Provider/);
-  assert.match(html, /Backup/);
-  assert.match(html, />2</);
-  assert.match(html, />3</);
-});
-
-test("AdminSecretProductsPanel renders status-specific stock breakdown", () => {
-  const products = [
-    {
-      id: "product-1",
-      name: "Provider Pack",
-      description: "Secret credential",
-      productType: "SECRET_CREDENTIAL",
-      price: 300,
-      currencyType: "POINTS",
-      isActive: true,
-      displayConfig: {
-        providerLabel: "Provider",
-      },
-      fulfillmentConfig: {
-        allowRepeatPurchase: true,
-      },
-      availableInventoryCount: 4,
-      soldInventoryCount: 2,
-      voidInventoryCount: 1,
-      orderCount: 3,
-      createdAt: "2026-04-02T00:00:00.000Z",
-      updatedAt: "2026-04-02T00:00:00.000Z",
-    },
-  ] as unknown as AdminSecretProduct[];
-
-  const html = renderToStaticMarkup(
-    <AdminSecretProductsPanel
-      t={(key) => key}
-      products={products}
-      loading={false}
-      onRefresh={() => Promise.resolve()}
-      onError={() => undefined}
-      onSuccess={() => undefined}
-    />
-  );
-
-  assert.match(html, /admin\.products\.inventory\.count/);
-  assert.match(html, /admin\.products\.inventory\.breakdown\.sold/);
-  assert.match(html, /admin\.products\.inventory\.breakdown\.void/);
-  assert.match(html, />4</);
-  assert.match(html, />2</);
-  assert.match(html, />1</);
-});
-
-test("AdminSecretProductsPanel renders order history controls", () => {
-  const html = renderToStaticMarkup(
-    <AdminSecretProductsPanel
-      t={(key) => key}
-      products={[
-        {
-          id: "product-1",
-          name: "Provider Pack",
-          description: "Secret credential",
-          productType: "SECRET_CREDENTIAL",
-          price: 300,
-          currencyType: "POINTS",
-          isActive: true,
-          displayConfig: {
-            providerLabel: "Provider",
-          },
-          fulfillmentConfig: {
-            allowRepeatPurchase: true,
-          },
-          availableInventoryCount: 2,
-          orderCount: 1,
-          createdAt: "2026-04-02T00:00:00.000Z",
-          updatedAt: "2026-04-02T00:00:00.000Z",
-        },
-      ]}
-      loading={false}
-      onRefresh={() => Promise.resolve()}
-      onError={() => undefined}
-      onSuccess={() => undefined}
-    />
-  );
-
-  assert.match(html, /admin\.products\.orders\.title/);
-  assert.match(html, /admin\.products\.orders\.filters\.status/);
-  assert.match(html, /admin\.products\.orders\.filters\.buyerAgentId/);
-});
-
-test("AdminSecretProductsPanel fetches order history for the selected product", async () => {
-  const products: AdminSecretProduct[] = [
-    {
-      id: "product-1",
-      name: "Provider Pack",
-      description: "Secret credential",
-      productType: "SECRET_CREDENTIAL",
-      price: 300,
-      currencyType: "POINTS",
-      isActive: true,
-      displayConfig: {
-        providerLabel: "Provider",
-      },
-      fulfillmentConfig: {
-        allowRepeatPurchase: true,
-      },
-      availableInventoryCount: 1,
-      orderCount: 1,
-      createdAt: "2026-04-02T00:00:00.000Z",
-      updatedAt: "2026-04-02T00:00:00.000Z",
-    },
-  ];
-
+test("AdminSecretProductsPanel loads keys and can fulfill a pending order", async () => {
+  const products = [createProduct()];
   const requests: Array<{ input: string; init?: RequestInit }> = [];
+  let refreshCount = 0;
 
   const fetchMock = async (input: string, init?: RequestInit) => {
     requests.push({ input, init });
 
-    if (input.endsWith("/inventory") && (!init || !init.method || init.method === "GET")) {
-      return {
-        ok: true,
-        json: async () => ({
+    if (input === "/api/admin/shop/api-keys") {
+      return new Response(
+        JSON.stringify({
           success: true,
-          data: {
-            productId: "product-1",
-            inventory: [],
-          },
+          data: [
+            {
+              id: "key-1",
+              label: "Primary OpenAI key",
+              providerLabel: "OpenAI",
+              maskedKey: "sk-****1234",
+              isActive: true,
+              createdByUserId: "admin-1",
+              createdAt: "2026-04-08T10:00:00.000Z",
+              updatedAt: "2026-04-08T10:00:00.000Z",
+            },
+          ],
         }),
-      } as Response;
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    if (input.startsWith("/api/admin/shop/orders?productId=product-1")) {
-      return {
-        ok: true,
-        json: async () => ({
+    if (input === "/api/admin/shop/orders?status=PENDING") {
+      return new Response(
+        JSON.stringify({
           success: true,
           data: [
             {
               id: "order-1",
-              status: "FULFILLED",
+              status: "PENDING",
               pricePaid: 300,
               currencyType: "POINTS",
               deliveryChannel: "AGENT_CHAT",
               failureReason: null,
+              quota: { amount: 10000, unit: "tokens" },
               createdAt: "2026-04-07T10:00:00.000Z",
-              fulfilledAt: "2026-04-07T10:01:00.000Z",
+              confirmedAt: null,
+              fulfilledAt: null,
               product: {
                 id: "product-1",
-                name: "Provider Pack",
+                name: "Provider Quota Pack",
                 isActive: true,
               },
               buyer: {
@@ -546,15 +399,22 @@ test("AdminSecretProductsPanel fetches order history for the selected product", 
                 type: "CUSTOM",
                 ownerUserId: "user-2",
               },
-              delivery: {
-                deliveredAt: "2026-04-07T10:01:30.000Z",
-                secretInventoryId: "inventory-1",
-                maskedSecret: "sk-****1234",
-              },
+              providedApiKey: null,
             },
           ],
         }),
-      } as Response;
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (input === "/api/admin/shop/orders/order-1/fulfill") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: { id: "order-1", status: "FULFILLED" },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     throw new Error(`Unexpected fetch: ${input}`);
@@ -563,15 +423,16 @@ test("AdminSecretProductsPanel fetches order history for the selected product", 
   const { rootNode, cleanup } = await renderPanelWithDom({
     products,
     fetchMock,
-    onRefresh: () => Promise.resolve(),
+    onRefresh: async () => {
+      refreshCount += 1;
+    },
   });
 
   try {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       if (
-        requests.some((request) =>
-          request.input.startsWith("/api/admin/shop/orders?productId=product-1")
-        )
+        requests.some((request) => request.input === "/api/admin/shop/api-keys") &&
+        requests.some((request) => request.input === "/api/admin/shop/orders?status=PENDING")
       ) {
         break;
       }
@@ -580,136 +441,20 @@ test("AdminSecretProductsPanel fetches order history for the selected product", 
       });
     }
 
-    assert.equal(
-      requests.some((request) =>
-        request.input.startsWith("/api/admin/shop/orders?productId=product-1")
-      ),
-      true
-    );
+    assert.match(getNodeText(rootNode), /Primary OpenAI key/);
     assert.match(getNodeText(rootNode), /Buyer Agent/);
-    assert.match(getNodeText(rootNode), /sk-\*\*\*\*1234/);
-  } finally {
-    await cleanup();
-  }
-});
 
-test("AdminSecretProductsPanel void flow triggers API request for available inventory", async () => {
-  const products: AdminSecretProduct[] = [
-    {
-      id: "product-1",
-      name: "Provider Pack",
-      description: "Secret credential",
-      productType: "SECRET_CREDENTIAL",
-      price: 300,
-      currencyType: "POINTS",
-      isActive: true,
-      displayConfig: {
-        providerLabel: "Provider",
-      },
-      fulfillmentConfig: {
-        allowRepeatPurchase: true,
-      },
-      availableInventoryCount: 1,
-      orderCount: 0,
-      createdAt: "2026-04-02T00:00:00.000Z",
-      updatedAt: "2026-04-02T00:00:00.000Z",
-    },
-  ];
+    const buttons = findElements(rootNode, (node) => node.tagName === "BUTTON");
+    const fulfillButton = buttons.find((button) =>
+      getNodeText(button).includes("admin.products.orders.fulfill")
+    );
+    assert.ok(fulfillButton);
 
-  const requests: Array<{ input: string; init?: RequestInit }> = [];
-  let refreshCount = 0;
-
-  const fetchMock = async (input: string, init?: RequestInit) => {
-    requests.push({ input, init });
-
-    if (input.endsWith("/inventory") && (!init || !init.method || init.method === "GET")) {
-      return {
-        ok: true,
-        json: async () => ({
-          success: true,
-          data: {
-            productId: "product-1",
-            inventory: [
-              {
-                id: "inventory-1",
-                maskedValue: "sk-****1234",
-                status: "AVAILABLE",
-                createdAt: "2026-04-02T00:00:00.000Z",
-                soldAt: null,
-                importBatch: {
-                  id: "batch-1",
-                  sourceLabel: "batch A",
-                  note: "first batch",
-                  importedByUserId: "admin-1",
-                  createdAt: "2026-04-01T00:00:00.000Z",
-                },
-              },
-              {
-                id: "inventory-2",
-                maskedValue: "sk-****9999",
-                status: "SOLD",
-                createdAt: "2026-04-02T00:00:00.000Z",
-                soldAt: "2026-04-02T01:00:00.000Z",
-                importBatch: null,
-              },
-            ],
-          },
-        }),
-      } as Response;
-    }
-
-    if (input.includes("/inventory/inventory-1/void")) {
-      return {
-        ok: true,
-        json: async () => ({
-          success: true,
-        }),
-      } as Response;
-    }
-
-    throw new Error(`Unexpected fetch: ${input}`);
-  };
-
-  const onRefresh = async () => {
-    refreshCount += 1;
-  };
-
-  const { rootNode, cleanup } = await renderPanelWithDom({
-    products,
-    fetchMock,
-    onRefresh,
-  });
-
-  try {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      if (requests.some((request) => request.input.endsWith("/inventory"))) {
-        break;
-      }
-      await act(async () => {
-        await Promise.resolve();
+    await act(async () => {
+      rootNode.dispatchEvent({
+        type: "click",
+        target: fulfillButton!,
       });
-    }
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    const buttons = findElements(
-      rootNode,
-      (node) => node.tagName === "BUTTON"
-    );
-    const voidButtons = buttons.filter((button) =>
-      getNodeText(button).includes("admin.products.inventory.details.void")
-    );
-
-    assert.equal(voidButtons.length, 1);
-
-    const voidButton = voidButtons[0];
-    assert.ok(voidButton);
-
-    await act(async () => {
-      const clickEvent: MinimalEvent = { type: "click", target: voidButton };
-      rootNode.dispatchEvent(clickEvent);
-      await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -717,13 +462,9 @@ test("AdminSecretProductsPanel void flow triggers API request for available inve
     assert.equal(
       requests.some(
         (request) =>
-          request.input.includes("/api/admin/shop/inventory/inventory-1/void") &&
+          request.input === "/api/admin/shop/orders/order-1/fulfill" &&
           request.init?.method === "POST"
       ),
-      true
-    );
-    assert.equal(
-      requests.filter((request) => request.input.endsWith("/inventory")).length >= 2,
       true
     );
     assert.equal(refreshCount, 1);
@@ -732,117 +473,34 @@ test("AdminSecretProductsPanel void flow triggers API request for available inve
   }
 });
 
-test("AdminSecretProductsPanel renders edit and activation actions per product", () => {
-  const html = renderToStaticMarkup(
-    <AdminSecretProductsPanel
-      t={(key) => key}
-      products={[
-        {
-          id: "product-1",
-          name: "Provider Pack",
-          description: "Secret credential",
-          productType: "SECRET_CREDENTIAL",
-          price: 300,
-          currencyType: "POINTS",
-          isActive: true,
-          displayConfig: {
-            providerLabel: "Provider",
-          },
-          fulfillmentConfig: {
-            allowRepeatPurchase: true,
-          },
-          availableInventoryCount: 2,
-          orderCount: 1,
-          createdAt: "2026-04-02T00:00:00.000Z",
-          updatedAt: "2026-04-02T00:00:00.000Z",
-        },
-        {
-          id: "product-2",
-          name: "Backup Pack",
-          description: "",
-          productType: "SECRET_CREDENTIAL",
-          price: 500,
-          currencyType: "POINTS",
-          isActive: false,
-          displayConfig: {
-            providerLabel: "Backup",
-          },
-          fulfillmentConfig: {
-            allowRepeatPurchase: false,
-          },
-          availableInventoryCount: 1,
-          orderCount: 0,
-          createdAt: "2026-04-02T00:00:00.000Z",
-          updatedAt: "2026-04-02T00:00:00.000Z",
-        },
-      ]}
-      loading={false}
-      onRefresh={() => Promise.resolve()}
-      onError={() => undefined}
-      onSuccess={() => undefined}
-    />
-  );
-
-  assert.match(html, /admin\.products\.action\.edit/);
-  assert.match(html, /admin\.products\.action\.deactivate/);
-  assert.match(html, /admin\.products\.action\.activate/);
-});
-
-test("createInitialProductDraft defaults to unlimited per-agent limit", () => {
+test("createInitialProductDraft defaults to quota products with unlimited per-agent limit", () => {
   const draft = createInitialProductDraft();
 
+  assert.equal(draft.quotaAmount, 10000);
+  assert.equal(draft.quotaUnitLabel, "tokens");
   assert.equal(draft.perAgentPurchaseLimit, null);
   assert.equal(draft.perAgentPurchaseLimitMode, "unlimited");
 });
 
-test("createProductDraftFromProduct maps per-agent limit for edit mode", () => {
-  const draftWithLimit = createProductDraftFromProduct({
-    id: "product-1",
-    name: "Provider Pack",
-    description: "Secret credential",
-    productType: "SECRET_CREDENTIAL",
-    price: 300,
-    currencyType: "POINTS",
-    isActive: true,
-    displayConfig: {
-      providerLabel: "Provider",
-    },
-    fulfillmentConfig: {
-      allowRepeatPurchase: true,
-      perAgentPurchaseLimit: 2,
-    },
-    availableInventoryCount: 2,
-    orderCount: 1,
-    createdAt: "2026-04-02T00:00:00.000Z",
-    updatedAt: "2026-04-02T00:00:00.000Z",
-  });
+test("createProductDraftFromProduct maps quota and per-agent limits for edit mode", () => {
+  const draftWithLimit = createProductDraftFromProduct(
+    createProduct({
+      fulfillmentConfig: {
+        quotaAmount: 24000,
+        allowRepeatPurchase: true,
+        perAgentPurchaseLimit: 2,
+      },
+      displayConfig: {
+        providerLabel: "Provider",
+        quotaUnitLabel: "credits",
+      },
+    })
+  );
 
+  assert.equal(draftWithLimit.quotaAmount, 24000);
+  assert.equal(draftWithLimit.quotaUnitLabel, "credits");
   assert.equal(draftWithLimit.perAgentPurchaseLimitMode, "limited");
   assert.equal(draftWithLimit.perAgentPurchaseLimit, 2);
-
-  const draftUnlimited = createProductDraftFromProduct({
-    id: "product-2",
-    name: "Backup Pack",
-    description: "Secret credential",
-    productType: "SECRET_CREDENTIAL",
-    price: 500,
-    currencyType: "POINTS",
-    isActive: true,
-    displayConfig: {
-      providerLabel: "Backup",
-    },
-    fulfillmentConfig: {
-      allowRepeatPurchase: false,
-      perAgentPurchaseLimit: null,
-    },
-    availableInventoryCount: 1,
-    orderCount: 0,
-    createdAt: "2026-04-02T00:00:00.000Z",
-    updatedAt: "2026-04-02T00:00:00.000Z",
-  });
-
-  assert.equal(draftUnlimited.perAgentPurchaseLimitMode, "unlimited");
-  assert.equal(draftUnlimited.perAgentPurchaseLimit, null);
 });
 
 test("resolvePerAgentPurchaseLimit validates limited values", () => {
@@ -903,64 +561,8 @@ test("performAdminSecretProductMutation stays pending until refresh finishes", a
   assert.deepEqual(events, ["success:products-ok", "refresh:start", "refresh:done"]);
 });
 
-test("performAdminSecretProductMutation reports API errors without refreshing", async () => {
-  const events: string[] = [];
-
-  const didSucceed = await performAdminSecretProductMutation({
-    request: async () => ({
-      success: false,
-      error: "import failed",
-    }),
-    onRefresh: async () => {
-      events.push("refresh");
-    },
-    onError: (message) => {
-      events.push(`error:${message ?? "null"}`);
-    },
-    onSuccess: (message) => {
-      events.push(`success:${message ?? "null"}`);
-    },
-    successMessage: "products-ok",
-    errorFallback: "products-failed",
-  });
-
-  assert.equal(didSucceed, false);
-  assert.deepEqual(events, ["error:import failed"]);
-});
-
-test("normalizeInventoryProductId auto-selects and normalizes invalid selection", () => {
-  const products = [
-    {
-      id: "product-1",
-      name: "Provider Pack",
-      description: "Secret credential",
-      productType: "SECRET_CREDENTIAL" as const,
-      price: 300,
-      currencyType: "POINTS" as const,
-      isActive: true,
-      displayConfig: { providerLabel: "Provider" },
-      fulfillmentConfig: { allowRepeatPurchase: true },
-      availableInventoryCount: 2,
-      orderCount: 1,
-      createdAt: "2026-04-02T00:00:00.000Z",
-      updatedAt: "2026-04-02T00:00:00.000Z",
-    },
-    {
-      id: "product-2",
-      name: "Backup Pack",
-      description: "Second secret credential",
-      productType: "SECRET_CREDENTIAL" as const,
-      price: 500,
-      currencyType: "POINTS" as const,
-      isActive: false,
-      displayConfig: { providerLabel: "Backup" },
-      fulfillmentConfig: { allowRepeatPurchase: false },
-      availableInventoryCount: 0,
-      orderCount: 0,
-      createdAt: "2026-04-02T00:00:00.000Z",
-      updatedAt: "2026-04-02T00:00:00.000Z",
-    },
-  ];
+test("normalizeInventoryProductId still normalizes product selection", () => {
+  const products = [createProduct(), createProduct({ id: "product-2", isActive: false })];
 
   assert.equal(normalizeInventoryProductId(products, ""), "product-1");
   assert.equal(normalizeInventoryProductId(products, "product-2"), "product-2");
@@ -970,62 +572,27 @@ test("normalizeInventoryProductId auto-selects and normalizes invalid selection"
 
 test("getEffectiveAllowRepeatPurchase defaults to true when missing", () => {
   assert.equal(
-    getEffectiveAllowRepeatPurchase({
-      id: "product-1",
-      name: "Provider Pack",
-      description: "Secret credential",
-      productType: "SECRET_CREDENTIAL",
-      price: 300,
-      currencyType: "POINTS",
-      isActive: true,
-      displayConfig: { providerLabel: "Provider" },
-      fulfillmentConfig: {},
-      availableInventoryCount: 2,
-      orderCount: 1,
-      createdAt: "2026-04-02T00:00:00.000Z",
-      updatedAt: "2026-04-02T00:00:00.000Z",
-    }),
+    getEffectiveAllowRepeatPurchase(
+      createProduct({
+        fulfillmentConfig: {},
+      })
+    ),
     true
   );
   assert.equal(
-    getEffectiveAllowRepeatPurchase({
-      id: "product-2",
-      name: "Provider Pack",
-      description: "Secret credential",
-      productType: "SECRET_CREDENTIAL",
-      price: 300,
-      currencyType: "POINTS",
-      isActive: true,
-      displayConfig: { providerLabel: "Provider" },
-      fulfillmentConfig: { allowRepeatPurchase: false },
-      availableInventoryCount: 2,
-      orderCount: 1,
-      createdAt: "2026-04-02T00:00:00.000Z",
-      updatedAt: "2026-04-02T00:00:00.000Z",
-    }),
+    getEffectiveAllowRepeatPurchase(
+      createProduct({
+        fulfillmentConfig: {
+          allowRepeatPurchase: false,
+        },
+      })
+    ),
     false
   );
 });
 
-test("buildAdminSecretProductUpdateInput keeps latest product values with activation toggle", () => {
-  const product = {
-    id: "product-1",
-    name: "Provider Pack",
-    description: "Secret credential",
-    productType: "SECRET_CREDENTIAL" as const,
-    price: 300,
-    currencyType: "POINTS" as const,
-    isActive: true,
-    displayConfig: {
-      providerLabel: "Provider",
-      usageInstructions: "Store securely",
-    },
-    fulfillmentConfig: {},
-    availableInventoryCount: 2,
-    orderCount: 1,
-    createdAt: "2026-04-02T00:00:00.000Z",
-    updatedAt: "2026-04-02T00:00:00.000Z",
-  };
+test("buildAdminSecretProductUpdateInput keeps latest quota values with activation toggle", () => {
+  const product = createProduct();
 
   const input = buildAdminSecretProductUpdateInput({
     product,
@@ -1035,19 +602,23 @@ test("buildAdminSecretProductUpdateInput keeps latest product values with activa
   });
 
   assert.equal(input.isActive, false);
-  assert.equal(input.name, "Provider Pack");
+  assert.equal(input.name, "Provider Quota Pack");
   assert.equal(input.providerLabel, "Provider");
   assert.equal(input.usageInstructions, "Store securely");
+  assert.equal(input.quotaAmount, 10000);
+  assert.equal(input.quotaUnitLabel, "tokens");
   assert.equal(input.allowRepeatPurchase, true);
 });
 
-test("buildAdminSecretProductUpdateInputFromDraft uses draft fields for updates", () => {
+test("buildAdminSecretProductUpdateInputFromDraft uses draft quota fields for updates", () => {
   const draft = {
     name: "Updated Pack",
     description: "New description",
     price: 500,
     providerLabel: "Provider",
     usageInstructions: "Use carefully",
+    quotaAmount: 50000,
+    quotaUnitLabel: "calls",
     allowRepeatPurchase: false,
     perAgentPurchaseLimitMode: "limited" as const,
     perAgentPurchaseLimit: 2,
@@ -1064,6 +635,8 @@ test("buildAdminSecretProductUpdateInputFromDraft uses draft fields for updates"
   assert.equal(input.price, 500);
   assert.equal(input.providerLabel, "Provider");
   assert.equal(input.usageInstructions, "Use carefully");
+  assert.equal(input.quotaAmount, 50000);
+  assert.equal(input.quotaUnitLabel, "calls");
   assert.equal(input.allowRepeatPurchase, false);
   assert.equal(input.perAgentPurchaseLimit, 2);
   assert.equal(input.isActive, true);

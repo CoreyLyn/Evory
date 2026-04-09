@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createAdminProvidedApiKey,
   createAdminSecretProduct,
   equipInventoryItem,
+  fetchAdminProvidedApiKeys,
   fetchAdminSecretProductOrders,
   fetchAdminSecretProducts,
   fetchAgentSecretProductOrders,
@@ -11,8 +13,10 @@ import {
   fetchAgentInventory,
   fetchPointsBalance,
   fetchShopItems,
+  fulfillAdminQuotaOrder,
   importAdminSecretInventory,
   purchaseShopItem,
+  updateAdminProvidedApiKey,
 } from "./shop-client";
 
 test("fetchShopItems reads the public catalog", async () => {
@@ -65,12 +69,13 @@ test("fetchShopItems normalizes mixed public catalog entries", async () => {
             spriteKey: "crown",
           },
           {
-            entryType: "secret_product",
+            entryType: "api_quota_product",
             id: "product-1",
-            name: "Provider Pack",
-            description: "Secret credential",
+            name: "Provider Quota Pack",
+            description: "10k tokens",
             price: 300,
-            availableInventoryCount: 3,
+            quotaAmount: 10000,
+            quotaUnitLabel: "tokens",
           },
         ],
       }),
@@ -85,7 +90,7 @@ test("fetchShopItems normalizes mixed public catalog entries", async () => {
 
   const [first, second] = items;
   assert.equal(first?.entryType, "cosmetic");
-  assert.equal(second?.entryType, "secret_product");
+  assert.equal(second?.entryType, "api_quota_product");
 
   assert.equal(first?.currencyType, "POINTS");
   assert.equal(second?.currencyType, "POINTS");
@@ -96,34 +101,34 @@ test("fetchShopItems normalizes mixed public catalog entries", async () => {
     assert.equal(first.type, "hat");
   }
 
-  if (second?.entryType === "secret_product") {
+  if (second?.entryType === "api_quota_product") {
     assert.equal(second.providerLabel, null);
     assert.equal(second.usageInstructions, null);
+    assert.equal(second.quotaAmount, 10000);
+    assert.equal(second.quotaUnitLabel, "tokens");
     assert.equal(second.allowRepeatPurchase, true);
     assert.equal(second.perAgentPurchaseLimit, null);
-    assert.equal(second.availableInventoryCount, 3);
-    assert.equal(second.isInStock, true);
   }
 });
 
-test("fetchShopItems preserves secret-product detail fields", async () => {
+test("fetchShopItems preserves api quota detail fields", async () => {
   const items = await fetchShopItems(async () => {
     return new Response(
       JSON.stringify({
         success: true,
         data: [
           {
-            entryType: "secret_product",
+            entryType: "api_quota_product",
             id: "product-1",
-            name: "Provider Pack",
-            description: "Secret credential",
+            name: "Provider Quota Pack",
+            description: "10k tokens",
             price: 300,
             providerLabel: "Provider",
             usageInstructions: "Store securely",
+            quotaAmount: 10000,
+            quotaUnitLabel: "tokens",
             allowRepeatPurchase: false,
             perAgentPurchaseLimit: 2,
-            availableInventoryCount: 0,
-            isInStock: false,
           },
         ],
       }),
@@ -134,16 +139,16 @@ test("fetchShopItems preserves secret-product detail fields", async () => {
     );
   });
 
-  assert.equal(items[0]?.entryType, "secret_product");
+  assert.equal(items[0]?.entryType, "api_quota_product");
 
   const entry = items[0];
-  if (entry?.entryType === "secret_product") {
+  if (entry?.entryType === "api_quota_product") {
     assert.equal(entry.providerLabel, "Provider");
     assert.equal(entry.usageInstructions, "Store securely");
+    assert.equal(entry.quotaAmount, 10000);
+    assert.equal(entry.quotaUnitLabel, "tokens");
     assert.equal(entry.allowRepeatPurchase, false);
     assert.equal(entry.perAgentPurchaseLimit, 2);
-    assert.equal(entry.availableInventoryCount, 0);
-    assert.equal(entry.isInStock, false);
   }
 });
 
@@ -154,12 +159,13 @@ test("fetchShopItems tolerates entries with missing descriptions", async () => {
         success: true,
         data: [
           {
-            entryType: "secret_product",
+            entryType: "api_quota_product",
             id: "product-1",
-            name: "Provider Pack",
+            name: "Provider Quota Pack",
             price: 300,
             providerLabel: "Provider",
-            availableInventoryCount: 1,
+            quotaAmount: 5000,
+            quotaUnitLabel: "credits",
           },
         ],
       }),
@@ -170,11 +176,13 @@ test("fetchShopItems tolerates entries with missing descriptions", async () => {
     );
   });
 
-  assert.equal(items[0]?.entryType, "secret_product");
+  assert.equal(items[0]?.entryType, "api_quota_product");
 
   const entry = items[0];
-  if (entry?.entryType === "secret_product") {
+  if (entry?.entryType === "api_quota_product") {
     assert.equal(entry.description, "");
+    assert.equal(entry.quotaAmount, 5000);
+    assert.equal(entry.quotaUnitLabel, "credits");
   }
 });
 
@@ -257,19 +265,20 @@ test("fetchAgentShopCatalog reads the agent shop response", async () => {
         success: true,
         data: {
           cosmetics: [{ id: "crown", name: "Crown" }],
-          secretProducts: [
+          apiQuotaProducts: [
             {
               id: "product-1",
-              name: "Provider Pack",
-              description: "Secret credential",
+              name: "Provider Quota Pack",
+              description: "10k tokens",
               price: 300,
-              productType: "SECRET_CREDENTIAL",
+              productType: "API_QUOTA",
+              entryType: "api_quota_product",
               providerLabel: "Provider",
               usageInstructions: "Store securely",
+              quotaAmount: 10000,
+              quotaUnitLabel: "tokens",
               allowRepeatPurchase: false,
               perAgentPurchaseLimit: 2,
-              availableInventoryCount: 0,
-              isInStock: false,
             },
           ],
         },
@@ -283,12 +292,12 @@ test("fetchAgentShopCatalog reads the agent shop response", async () => {
 
   assert.equal(requestInput, "/api/agent/shop");
   assert.equal(catalog.cosmetics[0]?.id, "crown");
-  assert.equal(catalog.secretProducts[0]?.id, "product-1");
-  assert.equal(catalog.secretProducts[0]?.usageInstructions, "Store securely");
-  assert.equal(catalog.secretProducts[0]?.allowRepeatPurchase, false);
-  assert.equal(catalog.secretProducts[0]?.perAgentPurchaseLimit, 2);
-  assert.equal(catalog.secretProducts[0]?.availableInventoryCount, 0);
-  assert.equal(catalog.secretProducts[0]?.isInStock, false);
+  assert.equal(catalog.apiQuotaProducts[0]?.id, "product-1");
+  assert.equal(catalog.apiQuotaProducts[0]?.usageInstructions, "Store securely");
+  assert.equal(catalog.apiQuotaProducts[0]?.quotaAmount, 10000);
+  assert.equal(catalog.apiQuotaProducts[0]?.quotaUnitLabel, "tokens");
+  assert.equal(catalog.apiQuotaProducts[0]?.allowRepeatPurchase, false);
+  assert.equal(catalog.apiQuotaProducts[0]?.perAgentPurchaseLimit, 2);
 });
 
 test("fetchAdminSecretProducts reads the admin secret products list shape", async () => {
@@ -330,6 +339,35 @@ test("fetchAdminSecretProducts reads the admin secret products list shape", asyn
   assert.equal(products[0]?.orderCount, 1);
 });
 
+test("fetchAdminProvidedApiKeys reads the admin provided api key list", async () => {
+  const keys = await fetchAdminProvidedApiKeys(async () =>
+    new Response(
+      JSON.stringify({
+        success: true,
+        data: [
+          {
+            id: "key-1",
+            label: "Primary OpenAI key",
+            providerLabel: "OpenAI",
+            maskedKey: "sk-****1234",
+            isActive: true,
+            createdByUserId: "admin-1",
+            createdAt: "2026-04-08T10:00:00.000Z",
+            updatedAt: "2026-04-08T10:00:00.000Z",
+          },
+        ],
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    )
+  );
+
+  assert.equal(keys[0]?.id, "key-1");
+  assert.equal(keys[0]?.maskedKey, "sk-****1234");
+});
+
 test("fetchAdminSecretProductOrders reads admin order history with filters", async () => {
   const requests: string[] = [];
 
@@ -348,7 +386,12 @@ test("fetchAdminSecretProductOrders reads admin order history with filters", asy
               currencyType: "POINTS",
               deliveryChannel: "AGENT_CHAT",
               failureReason: null,
+              quota: {
+                amount: 10000,
+                unit: "tokens",
+              },
               createdAt: "2026-04-07T10:00:00.000Z",
+              confirmedAt: "2026-04-07T10:01:00.000Z",
               fulfilledAt: "2026-04-07T10:01:00.000Z",
               product: {
                 id: "product-1",
@@ -361,10 +404,11 @@ test("fetchAdminSecretProductOrders reads admin order history with filters", asy
                 type: "CUSTOM",
                 ownerUserId: "user-2",
               },
-              delivery: {
-                deliveredAt: "2026-04-07T10:01:30.000Z",
-                secretInventoryId: "inventory-1",
-                maskedSecret: "sk-****1234",
+              providedApiKey: {
+                id: "key-1",
+                label: "Primary OpenAI key",
+                maskedKey: "sk-****1234",
+                providerLabel: "OpenAI",
               },
             },
           ],
@@ -387,7 +431,8 @@ test("fetchAdminSecretProductOrders reads admin order history with filters", asy
     "/api/admin/shop/orders?productId=product-1&buyerAgentId=agent-2&status=FULFILLED"
   );
   assert.equal(orders[0]?.buyer.agentId, "agent-2");
-  assert.equal(orders[0]?.delivery.maskedSecret, "sk-****1234");
+  assert.equal(orders[0]?.quota.amount, 10000);
+  assert.equal(orders[0]?.providedApiKey?.maskedKey, "sk-****1234");
 });
 
 test("fetchAgentSecretProductOrders reads masked buyer order history", async () => {
@@ -408,17 +453,23 @@ test("fetchAgentSecretProductOrders reads masked buyer order history", async () 
               currencyType: "POINTS",
               deliveryChannel: "AGENT_CHAT",
               failureReason: null,
+              quota: {
+                amount: 10000,
+                unit: "tokens",
+              },
               createdAt: "2026-04-07T10:00:00.000Z",
+              confirmedAt: "2026-04-07T10:01:00.000Z",
               fulfilledAt: "2026-04-07T10:01:00.000Z",
               product: {
                 id: "product-1",
                 name: "Provider Pack",
                 isActive: true,
               },
-              delivery: {
-                deliveredAt: "2026-04-07T10:01:30.000Z",
-                secretInventoryId: "inventory-1",
-                maskedSecret: "sk-****1234",
+              providedApiKey: {
+                id: "key-1",
+                label: "Primary OpenAI key",
+                maskedKey: "sk-****1234",
+                providerLabel: "OpenAI",
               },
             },
           ],
@@ -440,7 +491,8 @@ test("fetchAgentSecretProductOrders reads masked buyer order history", async () 
     "/api/agent/shop/orders?productId=product-1&status=FULFILLED"
   );
   assert.equal(orders[0]?.product.id, "product-1");
-  assert.equal(orders[0]?.delivery.maskedSecret, "sk-****1234");
+  assert.equal(orders[0]?.quota.unit, "tokens");
+  assert.equal(orders[0]?.providedApiKey?.maskedKey, "sk-****1234");
 });
 
 test("createAdminSecretProduct posts the create payload and reads the raw product response", async () => {
@@ -456,15 +508,17 @@ test("createAdminSecretProduct posts the create payload and reads the raw produc
           id: "product-1",
           name: "Provider Pack",
           description: "Secret credential",
-          productType: "SECRET_CREDENTIAL",
+          productType: "API_QUOTA",
           price: 300,
           currencyType: "POINTS",
           isActive: true,
           displayConfig: {
             providerLabel: "Provider",
             usageInstructions: "Store securely",
+            quotaUnitLabel: "tokens",
           },
           fulfillmentConfig: {
+            quotaAmount: 10000,
             allowRepeatPurchase: true,
           },
           createdAt: "2026-04-02T00:00:00.000Z",
@@ -482,6 +536,8 @@ test("createAdminSecretProduct posts the create payload and reads the raw produc
     price: 300,
     providerLabel: "Provider",
     usageInstructions: "Store securely",
+    quotaAmount: 10000,
+    quotaUnitLabel: "tokens",
     allowRepeatPurchase: true,
   });
 
@@ -490,14 +546,16 @@ test("createAdminSecretProduct posts the create payload and reads the raw produc
   assert.deepEqual(JSON.parse(String(requests[0]?.init?.body)), {
     name: "Provider Pack",
     description: "Secret credential",
-    productType: "SECRET_CREDENTIAL",
+    productType: "API_QUOTA",
     price: 300,
     isActive: true,
     displayConfig: {
       providerLabel: "Provider",
       usageInstructions: "Store securely",
+      quotaUnitLabel: "tokens",
     },
     fulfillmentConfig: {
+      quotaAmount: 10000,
       allowRepeatPurchase: true,
     },
   });
@@ -542,6 +600,61 @@ test("importAdminSecretInventory posts the selected product inventory payload", 
   assert.deepEqual(result, {
     importBatchId: "batch-1",
     importCount: 2,
+  });
+});
+
+test("createAdminProvidedApiKey, updateAdminProvidedApiKey, and fulfillAdminQuotaOrder call admin endpoints", async () => {
+  const requests: Array<{ input: string; init?: RequestInit }> = [];
+
+  const fetcher = async (input: string, init?: RequestInit) => {
+    requests.push({ input, init });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: { id: "ok" },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  };
+
+  await createAdminProvidedApiKey(fetcher, {
+    label: "Primary OpenAI key",
+    providerLabel: "OpenAI",
+    apiKey: "sk-live-123",
+  });
+  await updateAdminProvidedApiKey(fetcher, "key-1", {
+    label: "Primary OpenAI key",
+    providerLabel: "OpenAI",
+    isActive: false,
+  });
+  await fulfillAdminQuotaOrder(fetcher, "order-1", {
+    providedApiKeyId: "key-1",
+  });
+
+  assert.equal(requests[0]?.input, "/api/admin/shop/api-keys");
+  assert.equal(requests[0]?.init?.method, "POST");
+  assert.deepEqual(JSON.parse(String(requests[0]?.init?.body)), {
+    label: "Primary OpenAI key",
+    providerLabel: "OpenAI",
+    apiKey: "sk-live-123",
+    isActive: true,
+  });
+
+  assert.equal(requests[1]?.input, "/api/admin/shop/api-keys/key-1");
+  assert.equal(requests[1]?.init?.method, "PUT");
+  assert.deepEqual(JSON.parse(String(requests[1]?.init?.body)), {
+    label: "Primary OpenAI key",
+    providerLabel: "OpenAI",
+    isActive: false,
+  });
+
+  assert.equal(requests[2]?.input, "/api/admin/shop/orders/order-1/fulfill");
+  assert.equal(requests[2]?.init?.method, "POST");
+  assert.deepEqual(JSON.parse(String(requests[2]?.init?.body)), {
+    providedApiKeyId: "key-1",
   });
 });
 

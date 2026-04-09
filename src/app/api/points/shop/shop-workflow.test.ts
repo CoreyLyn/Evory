@@ -8,14 +8,12 @@ import {
   createAvatarConfigFixture,
   createCatalogProductFixture,
   createSecurityEventFixture,
-  createSecretInventoryFixture,
   createShopItemFixture,
 } from "@/test/factories";
 import { resetRateLimitStore } from "@/lib/rate-limit";
 import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteRequest } from "@/test/request-helpers";
 import { hashApiKey } from "@/lib/auth";
-import { encryptSecretValue } from "@/lib/secret-crypto";
 import { POST as purchaseItem } from "./purchase/route";
 import { PUT as equipItem } from "@/app/api/agents/me/equipment/route";
 
@@ -308,7 +306,9 @@ test("legacy cosmetic purchase still accepts itemId and creates inventory atomic
 });
 
 test("purchase creates pending api quota orders via productId", async () => {
-  const encrypted = encryptSecretValue("sk-live-abcdef1234");
+  const pointTransactions: Array<Record<string, unknown>> = [];
+  let purchaseOrderCreateInput: Record<string, unknown> | null = null;
+  let transactionOptions: Record<string, unknown> | null = null;
 
   mockAgentCredential("agent-key", {
     id: "agent-1",
@@ -325,46 +325,44 @@ test("purchase creates pending api quota orders via productId", async () => {
         price: 100,
       }),
   };
-  prismaClient.secretInventory = {
-    findFirst: async () =>
-      createSecretInventoryFixture({
-        id: "secret-1",
-        productId: "product-1",
-        encryptedValue: encrypted,
-        maskedValue: "sk-****1234",
-        status: "AVAILABLE",
-      }),
-    updateMany: async () => ({ count: 1 }),
-    findUnique: async () =>
-      createSecretInventoryFixture({
-        id: "secret-1",
-        productId: "product-1",
-        encryptedValue: encrypted,
-        maskedValue: "sk-****1234",
-        status: "SOLD",
-      }),
-  };
   prismaClient.purchaseOrder = {
-    create: async () => ({ id: "order-1" }),
-  };
-  prismaClient.secretDeliveryReceipt = {
-    create: async () => ({ id: "receipt-1" }),
+    count: async () => 0,
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      purchaseOrderCreateInput = data;
+      return {
+        id: "order-1",
+        buyerAgentId: "agent-1",
+        productId: "product-1",
+        pricePaid: 100,
+        currencyType: "POINTS",
+        status: "PENDING",
+        deliveryChannel: "AGENT_CHAT",
+        quotaAmount: 10000,
+        quotaUnitLabel: "tokens",
+        createdAt: new Date().toISOString(),
+      };
+    },
   };
 
-  prismaClient.$transaction = async (input) => {
+  prismaClient.$transaction = async (input, options?: unknown) => {
     if (typeof input !== "function") {
       throw new Error("Expected transaction callback");
     }
+    transactionOptions =
+      options && typeof options === "object"
+        ? (options as Record<string, unknown>)
+        : null;
 
     return input({
-      secretInventory: prismaClient.secretInventory,
       purchaseOrder: prismaClient.purchaseOrder,
-      secretDeliveryReceipt: prismaClient.secretDeliveryReceipt,
       agent: {
         updateMany: async () => ({ count: 1 }),
       },
       pointTransaction: {
-        create: async () => ({ id: "txn-1" }),
+        create: async ({ data }: { data: Record<string, unknown> }) => {
+          pointTransactions.push(data);
+          return data;
+        },
       },
       agentActivity: {
         create: async () => ({}),
@@ -384,12 +382,25 @@ test("purchase creates pending api quota orders via productId", async () => {
   const json = await response.json();
 
   assert.equal(response.status, 200);
+  assert.equal(json.data.orderId, "order-1");
   assert.equal(json.data.status, "PENDING");
+  assert.deepEqual(json.data.product, {
+    id: "product-1",
+    name: "Provider Key Pack",
+    description: "Token quota order pending fulfillment",
+  });
   assert.deepEqual(json.data.quota, {
     amount: 10000,
     unit: "tokens",
   });
+  assert.match(json.data.message, /admin/i);
   assert.equal("delivery" in json.data, false);
+  assert.equal(pointTransactions.length, 1);
+  assert.equal(purchaseOrderCreateInput?.buyerAgentId, "agent-1");
+  assert.equal(purchaseOrderCreateInput?.status, "PENDING");
+  assert.equal(purchaseOrderCreateInput?.quotaAmount, 10000);
+  assert.equal(purchaseOrderCreateInput?.quotaUnitLabel, "tokens");
+  assert.equal(transactionOptions?.isolationLevel, "Serializable");
 });
 
 test("purchase returns 404 when the api quota product is missing", async () => {
@@ -417,7 +428,7 @@ test("purchase returns 404 when the api quota product is missing", async () => {
   assert.equal(json.error, "Product not found");
 });
 
-test("purchase returns 409 when api quota fulfillment is unavailable", async () => {
+test("purchase returns 404 when productId does not point to an API quota product", async () => {
   mockAgentCredential("agent-key", {
     id: "agent-1",
     points: 120,
@@ -429,35 +440,9 @@ test("purchase returns 409 when api quota fulfillment is unavailable", async () 
       createCatalogProductFixture({
         id: "product-1",
         name: "Provider Key Pack",
-        productType: "API_QUOTA",
+        productType: "COSMETIC",
         price: 100,
       }),
-  };
-  prismaClient.secretInventory = {
-    findFirst: async () => null,
-    updateMany: async () => ({ count: 0 }),
-    findUnique: async () => null,
-  };
-
-  prismaClient.$transaction = async (input) => {
-    if (typeof input !== "function") {
-      throw new Error("Expected transaction callback");
-    }
-
-    return input({
-      secretInventory: prismaClient.secretInventory,
-      purchaseOrder: prismaClient.purchaseOrder,
-      secretDeliveryReceipt: prismaClient.secretDeliveryReceipt,
-      agent: {
-        updateMany: async () => ({ count: 1 }),
-      },
-      pointTransaction: {
-        create: async () => ({ id: "txn-1" }),
-      },
-      agentActivity: {
-        create: async () => ({}),
-      },
-    });
   };
 
   const response = await purchaseItem(
@@ -471,9 +456,9 @@ test("purchase returns 409 when api quota fulfillment is unavailable", async () 
   );
   const json = await response.json();
 
-  assert.equal(response.status, 409);
+  assert.equal(response.status, 404);
   assert.equal(json.success, false);
-  assert.equal(json.error, "Product is out of stock");
+  assert.equal(json.error, "Product not found");
   assert.equal("data" in json, false);
 });
 
@@ -492,6 +477,7 @@ test("purchase returns 409 when api quota purchase exceeds configured limits", a
         productType: "API_QUOTA",
         price: 100,
         fulfillmentConfig: {
+          quotaAmount: 10000,
           allowRepeatPurchase: false,
         },
       }),
@@ -502,23 +488,13 @@ test("purchase returns 409 when api quota purchase exceeds configured limits", a
       throw new Error("purchase order create should not run");
     },
   };
-  prismaClient.secretInventory = {
-    findFirst: async () => {
-      throw new Error("inventory lookup should not run for api quota limits");
-    },
-    updateMany: async () => ({ count: 0 }),
-    findUnique: async () => null,
-  };
-
   prismaClient.$transaction = async (input) => {
     if (typeof input !== "function") {
       throw new Error("Expected transaction callback");
     }
 
     return input({
-      secretInventory: prismaClient.secretInventory,
       purchaseOrder: prismaClient.purchaseOrder,
-      secretDeliveryReceipt: prismaClient.secretDeliveryReceipt,
       agent: {
         updateMany: async () => ({ count: 1 }),
       },
@@ -547,7 +523,7 @@ test("purchase returns 409 when api quota purchase exceeds configured limits", a
   assert.equal(json.error, "Product purchase limit reached");
 });
 
-test("purchase returns a retryable conflict when api quota purchase exhausts serialization retries", async () => {
+test("purchase returns 503 on retryable API quota purchase conflicts", async () => {
   mockAgentCredential("agent-key", {
     id: "agent-1",
     points: 120,
@@ -633,64 +609,6 @@ test("purchase returns 400 when both itemId and productId are provided", async (
   assert.equal(response.status, 400);
   assert.equal(json.success, false);
   assert.equal(json.error, "Provide exactly one of itemId or productId");
-});
-
-test("purchase treats unavailable api quota fulfillment as out of stock", async () => {
-  mockAgentCredential("agent-key", {
-    id: "agent-1",
-    points: 120,
-    avatarConfig: createAvatarConfigFixture(),
-  });
-
-  prismaClient.catalogProduct = {
-    findUnique: async () =>
-      createCatalogProductFixture({
-        id: "product-1",
-        name: "Provider Key Pack",
-        productType: "API_QUOTA",
-        price: 100,
-      }),
-  };
-  prismaClient.secretInventory = {
-    findFirst: async () => null,
-    updateMany: async () => ({ count: 0 }),
-    findUnique: async () => null,
-  };
-
-  prismaClient.$transaction = async (input) => {
-    if (typeof input !== "function") {
-      throw new Error("Expected transaction callback");
-    }
-
-    return input({
-      secretInventory: prismaClient.secretInventory,
-      purchaseOrder: prismaClient.purchaseOrder,
-      secretDeliveryReceipt: prismaClient.secretDeliveryReceipt,
-      agent: {
-        updateMany: async () => ({ count: 1 }),
-      },
-      pointTransaction: {
-        create: async () => ({ id: "txn-1" }),
-      },
-      agentActivity: {
-        create: async () => ({}),
-      },
-    });
-  };
-
-  const response = await purchaseItem(
-    createRouteRequest("http://localhost/api/points/shop/purchase", {
-      method: "POST",
-      apiKey: "agent-key",
-      json: {
-        productId: "product-1",
-      },
-    })
-  );
-  const json = await response.json();
-
-  assert.equal(response.status, 409);
-  assert.equal(json.error, "Product is out of stock");
 });
 
 test("purchase rejects credentials missing points:shop scope", async () => {

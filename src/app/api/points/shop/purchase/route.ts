@@ -8,16 +8,8 @@ import {
   unauthorizedResponse,
 } from "@/lib/auth";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { PointActionType } from "@/generated/prisma/client";
+import { Prisma, PointActionType } from "@/generated/prisma/client";
 import { deductPoints } from "@/lib/points";
-import {
-  FulfillmentConflictError,
-  fulfillSecretCredentialPurchase,
-  InsufficientPointsError as SecretProductInsufficientPointsError,
-  OutOfStockError,
-  PurchaseLimitExceededError,
-  ProductNotFoundError,
-} from "@/lib/secret-product-fulfillment";
 
 class InsufficientPointsError extends Error {
   constructor() {
@@ -27,6 +19,7 @@ class InsufficientPointsError extends Error {
 }
 
 type PurchaseLogLevel = "info" | "warn" | "error";
+const MAX_API_QUOTA_PURCHASE_ATTEMPTS = 3;
 
 function logPurchaseEvent(
   level: PurchaseLogLevel,
@@ -80,6 +73,79 @@ function readPurchaseRequestBody(body: unknown) {
   return {
     itemId: typeof payload.itemId === "string" ? payload.itemId : null,
     productId: typeof payload.productId === "string" ? payload.productId : null,
+  };
+}
+
+type ApiQuotaProductConfig = {
+  quotaAmount: number;
+  quotaUnitLabel: string;
+  allowRepeatPurchase: boolean;
+  perAgentPurchaseLimit: number | null;
+};
+
+class PurchaseLimitExceededError extends Error {
+  constructor() {
+    super("Product purchase limit reached");
+    this.name = "PurchaseLimitExceededError";
+  }
+}
+
+function isRetryableTransactionConflict(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "P2034"
+  );
+}
+
+function readApiQuotaProductConfig(
+  fulfillmentConfig: unknown,
+  displayConfig: unknown
+): ApiQuotaProductConfig {
+  const fulfillment =
+    fulfillmentConfig &&
+    typeof fulfillmentConfig === "object" &&
+    !Array.isArray(fulfillmentConfig)
+      ? (fulfillmentConfig as Record<string, unknown>)
+      : null;
+  const display =
+    displayConfig && typeof displayConfig === "object" && !Array.isArray(displayConfig)
+      ? (displayConfig as Record<string, unknown>)
+      : null;
+
+  const quotaAmount =
+    typeof fulfillment?.quotaAmount === "number" &&
+    Number.isInteger(fulfillment.quotaAmount) &&
+    fulfillment.quotaAmount > 0
+      ? fulfillment.quotaAmount
+      : null;
+
+  if (!quotaAmount) {
+    throw new Error("Product quota configuration is invalid");
+  }
+
+  const quotaUnitLabel =
+    typeof display?.quotaUnitLabel === "string" && display.quotaUnitLabel.trim()
+      ? display.quotaUnitLabel.trim()
+      : "tokens";
+
+  const allowRepeatPurchase =
+    typeof fulfillment?.allowRepeatPurchase === "boolean"
+      ? fulfillment.allowRepeatPurchase
+      : true;
+  const perAgentPurchaseLimit =
+    typeof fulfillment?.perAgentPurchaseLimit === "number" &&
+    Number.isInteger(fulfillment.perAgentPurchaseLimit) &&
+    fulfillment.perAgentPurchaseLimit > 0
+      ? fulfillment.perAgentPurchaseLimit
+      : null;
+
+  return {
+    quotaAmount,
+    quotaUnitLabel,
+    allowRepeatPurchase,
+    perAgentPurchaseLimit,
   };
 }
 
@@ -144,35 +210,119 @@ export async function POST(request: NextRequest) {
     }
 
     if (productId) {
+      const product = await prisma.catalogProduct.findUnique({
+        where: { id: productId },
+      });
+
+      if (!product || !product.isActive || product.productType !== "API_QUOTA") {
+        return notForAgentsResponse(Response.json(
+          { success: false, error: "Product not found" },
+          { status: 404 }
+        ));
+      }
+
+      const quotaConfig = readApiQuotaProductConfig(
+        product.fulfillmentConfig,
+        product.displayConfig
+      );
+
       try {
-        const fulfilled = await fulfillSecretCredentialPurchase({
-          agentId: agent.id,
-          productId,
-        });
+        let order: Awaited<ReturnType<typeof prisma.purchaseOrder.create>> | null = null;
 
-        return notForAgentsResponse(Response.json({ success: true, data: fulfilled }));
+        for (let attempt = 0; attempt < MAX_API_QUOTA_PURCHASE_ATTEMPTS; attempt += 1) {
+          try {
+            order = await prisma.$transaction(
+              async (tx) => {
+                const qualifyingOrderCount = await tx.purchaseOrder.count({
+                  where: {
+                    buyerAgentId: agent.id,
+                    productId: product.id,
+                    status: { in: ["PENDING", "FULFILLED"] },
+                  },
+                });
+
+                if (!quotaConfig.allowRepeatPurchase && qualifyingOrderCount >= 1) {
+                  throw new PurchaseLimitExceededError();
+                }
+                if (
+                  quotaConfig.perAgentPurchaseLimit !== null &&
+                  qualifyingOrderCount >= quotaConfig.perAgentPurchaseLimit
+                ) {
+                  throw new PurchaseLimitExceededError();
+                }
+
+                const deducted = await deductPoints(
+                  agent.id,
+                  product.price,
+                  PointActionType.SHOP_PURCHASE,
+                  product.id,
+                  `Purchased: ${product.name}`,
+                  tx
+                );
+
+                if (!deducted) {
+                  throw new InsufficientPointsError();
+                }
+
+                return tx.purchaseOrder.create({
+                  data: {
+                    buyerAgentId: agent.id,
+                    productId: product.id,
+                    pricePaid: product.price,
+                    currencyType: product.currencyType,
+                    status: "PENDING",
+                    deliveryChannel: "AGENT_CHAT",
+                    quotaAmount: quotaConfig.quotaAmount,
+                    quotaUnitLabel: quotaConfig.quotaUnitLabel,
+                  },
+                });
+              },
+              {
+                isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+              }
+            );
+            break;
+          } catch (error) {
+            if (isRetryableTransactionConflict(error)) {
+              if (attempt === MAX_API_QUOTA_PURCHASE_ATTEMPTS - 1) {
+                throw error;
+              }
+              continue;
+            }
+
+            throw error;
+          }
+        }
+
+        if (!order) {
+          throw new Error("Purchase order was not created");
+        }
+
+        return notForAgentsResponse(Response.json({
+          success: true,
+          data: {
+            orderId: order.id,
+            id: order.id,
+            status: order.status,
+            product: {
+              id: product.id,
+              name: product.name,
+              description: product.description,
+            },
+            pricePaid: order.pricePaid,
+            currencyType: order.currencyType,
+            deliveryChannel: order.deliveryChannel,
+            quota: {
+              amount: order.quotaAmount,
+              unit: order.quotaUnitLabel,
+            },
+            createdAt: order.createdAt,
+            message: "Order created. An admin must confirm the API quota fulfillment.",
+          },
+        }));
       } catch (err) {
-        if (err instanceof OutOfStockError) {
-          logPurchaseEvent("warn", "secret_purchase_out_of_stock", {
-            category: "business",
-            agentId: agent.id,
-            productId,
-          });
-          return notForAgentsResponse(Response.json(
-            { success: false, error: err.message },
-            { status: 409 }
-          ));
-        }
-
-        if (err instanceof ProductNotFoundError) {
-          return notForAgentsResponse(Response.json(
-            { success: false, error: err.message },
-            { status: 404 }
-          ));
-        }
-
         if (err instanceof PurchaseLimitExceededError) {
-          logPurchaseEvent("warn", "secret_purchase_limit_rejected", {
+          logPurchaseEvent("warn", "api_quota_purchase_limit_rejected", {
             category: "business",
             agentId: agent.id,
             productId,
@@ -183,22 +333,25 @@ export async function POST(request: NextRequest) {
           ));
         }
 
-        if (err instanceof FulfillmentConflictError) {
-          const conflictCode =
-            err.code ?? "secret_purchase_retryable_conflict";
-          logPurchaseEvent("error", "secret_purchase_conflict_exhausted", {
+        if (isRetryableTransactionConflict(err)) {
+          const conflictCode = "api_quota_purchase_retryable_conflict";
+          logPurchaseEvent("error", "api_quota_purchase_conflict_exhausted", {
             category: "platform",
             agentId: agent.id,
             productId,
             code: conflictCode,
           });
           return notForAgentsResponse(Response.json(
-            { success: false, error: err.message, code: conflictCode },
+            {
+              success: false,
+              error: "Purchase is temporarily unavailable, please retry",
+              code: conflictCode,
+            },
             { status: 503 }
           ));
         }
 
-        if (err instanceof SecretProductInsufficientPointsError) {
+        if (err instanceof InsufficientPointsError) {
           return notForAgentsResponse(Response.json(
             { success: false, error: err.message },
             { status: 400 }

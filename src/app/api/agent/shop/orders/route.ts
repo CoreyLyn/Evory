@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         ...(productId ? { productId } : {}),
         ...(status ? { status } : {}),
         product: {
-          productType: "SECRET_CREDENTIAL",
+          productType: "API_QUOTA",
         },
       },
       orderBy: [{ createdAt: "desc" }],
@@ -60,7 +60,10 @@ export async function GET(request: NextRequest) {
         currencyType: true,
         deliveryChannel: true,
         failureReason: true,
+        quotaAmount: true,
+        quotaUnitLabel: true,
         createdAt: true,
+        confirmedAt: true,
         fulfilledAt: true,
         product: {
           select: {
@@ -69,15 +72,12 @@ export async function GET(request: NextRequest) {
             isActive: true,
           },
         },
-        secretReceipt: {
+        providedApiKey: {
           select: {
-            deliveredAt: true,
-            secretInventory: {
-              select: {
-                id: true,
-                maskedValue: true,
-              },
-            },
+            id: true,
+            label: true,
+            maskedKey: true,
+            providerLabel: true,
           },
         },
       },
@@ -93,18 +93,26 @@ export async function GET(request: NextRequest) {
           currencyType: order.currencyType,
           deliveryChannel: order.deliveryChannel,
           failureReason: order.failureReason,
+          quota: {
+            amount: order.quotaAmount,
+            unit: order.quotaUnitLabel,
+          },
           createdAt: serializeTimestamp(order.createdAt),
+          confirmedAt: serializeTimestamp(order.confirmedAt),
           fulfilledAt: serializeTimestamp(order.fulfilledAt),
           product: {
             id: order.product.id,
             name: order.product.name,
             isActive: order.product.isActive,
           },
-          delivery: {
-            deliveredAt: serializeTimestamp(order.secretReceipt?.deliveredAt ?? null),
-            secretInventoryId: order.secretReceipt?.secretInventory.id ?? null,
-            maskedSecret: order.secretReceipt?.secretInventory.maskedValue ?? null,
-          },
+          providedApiKey: order.providedApiKey
+            ? {
+                id: order.providedApiKey.id,
+                label: order.providedApiKey.label,
+                maskedKey: order.providedApiKey.maskedKey,
+                providerLabel: order.providedApiKey.providerLabel,
+              }
+            : null,
         })),
       })
     );
