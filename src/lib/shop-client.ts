@@ -100,6 +100,24 @@ export type ApiQuotaOrderProvidedApiKey = {
   providerLabel: string;
 };
 
+export type UserProvidedApiKeySummaryStatus =
+  | "NONE"
+  | "PENDING"
+  | "FULFILLED"
+  | "FAILED";
+
+export type UserProvidedApiKeySummary = {
+  status: UserProvidedApiKeySummaryStatus;
+  application: {
+    id: string;
+    status: Exclude<UserProvidedApiKeySummaryStatus, "NONE">;
+    requestedAt: string;
+    fulfilledAt: string | null;
+    failureReason: string | null;
+  } | null;
+  providedApiKey: ApiQuotaOrderProvidedApiKey | null;
+};
+
 export type AdminSecretProductOrder = {
   id: string;
   status: SecretProductOrderStatus;
@@ -394,6 +412,23 @@ export async function fetchAdminSecretProducts(fetcher: PublicFetch = fetch) {
 export async function fetchAdminProvidedApiKeys(fetcher: PublicFetch = fetch) {
   const response = await fetcher("/api/admin/shop/api-keys");
   return readEnvelope<AdminProvidedApiKey[]>(response);
+}
+
+export async function fetchUserProvidedApiKeySummary(
+  fetcher: PublicFetch = fetch
+) {
+  const response = await fetcher("/api/users/me/provided-api-key");
+  return readEnvelope<UserProvidedApiKeySummary>(response);
+}
+
+export async function createUserProvidedApiKeyApplication(
+  fetcher: PublicFetch = fetch
+) {
+  // Browser/same-origin usage only: relies on Origin/Referer headers set by the user agent.
+  const response = await fetcher("/api/users/me/provided-api-key/applications", {
+    method: "POST",
+  });
+  return readEnvelope<UserProvidedApiKeySummary>(response);
 }
 
 export async function fetchAdminSecretProductOrders(

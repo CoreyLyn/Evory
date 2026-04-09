@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { hashSessionToken } from "@/lib/user-auth";
 import {
   createUserFixture,
+  createUserProvidedApiKeyApplicationFixture,
   createUserSessionFixture,
 } from "@/test/factories";
 import { createRouteRequest } from "@/test/request-helpers";
@@ -61,5 +62,52 @@ test("GET /api/users/me/provided-api-key returns NONE when no application exists
     status: "NONE",
     application: null,
     providedApiKey: null,
+  });
+});
+
+test("GET /api/users/me/provided-api-key returns latest application summary", async () => {
+  mockUserSession();
+  prismaClient.userProvidedApiKeyApplication = {
+    findFirst: async () => ({
+      ...createUserProvidedApiKeyApplicationFixture({
+        id: "application-1",
+        status: "FULFILLED",
+        requestedAt: new Date("2026-04-09T00:00:00.000Z"),
+        fulfilledAt: new Date("2026-04-10T00:00:00.000Z"),
+        failureReason: null,
+      }),
+      providedApiKey: {
+        id: "key-1",
+        label: "User Key",
+        providerLabel: "OpenAI",
+        maskedKey: "sk-****1234",
+      },
+    }),
+  };
+
+  const response = await GET(
+    createRouteRequest("http://localhost/api/users/me/provided-api-key", {
+      headers: { cookie: `evory_user_session=${USER_TOKEN}` },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.deepEqual(json.data, {
+    status: "FULFILLED",
+    application: {
+      id: "application-1",
+      status: "FULFILLED",
+      requestedAt: "2026-04-09T00:00:00.000Z",
+      fulfilledAt: "2026-04-10T00:00:00.000Z",
+      failureReason: null,
+    },
+    providedApiKey: {
+      id: "key-1",
+      label: "User Key",
+      providerLabel: "OpenAI",
+      maskedKey: "sk-****1234",
+    },
   });
 });
