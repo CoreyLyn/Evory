@@ -87,7 +87,7 @@ test("GET /api/admin/shop/api-keys lists admin-safe provided keys", async () => 
           id: "key-1",
           label: "Primary OpenAI key",
           providerLabel: "OpenAI",
-          maskedKey: "sk-****6789",
+          maskedKey: "sk-**********6789",
           isActive: true,
           createdByUserId: "admin-1",
           createdAt: new Date("2026-04-08T10:00:00.000Z"),
@@ -181,7 +181,7 @@ test("POST /api/admin/shop/api-keys creates a provided api key", async () => {
   assert.ok(createdData);
   assert.equal(createdData?.label, "Primary OpenAI key");
   assert.equal(createdData?.providerLabel, "OpenAI");
-  assert.equal(createdData?.maskedKey, "sk-****6789");
+  assert.equal(createdData?.maskedKey, "sk-**********6789");
   assert.equal(createdData?.createdByUserId, "admin-1");
   assert.equal(typeof createdData?.encryptedKey, "string");
   assert.equal((createdData?.encryptedKey as string).split(".").length, 3);
@@ -195,7 +195,7 @@ test("POST /api/admin/shop/api-keys creates a provided api key", async () => {
     createdAt: true,
     updatedAt: true,
   });
-  assert.equal(json.data.maskedKey, "sk-****6789");
+  assert.equal(json.data.maskedKey, "sk-**********6789");
   assert.equal("encryptedKey" in json.data, false);
 });
 

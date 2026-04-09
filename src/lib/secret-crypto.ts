@@ -30,16 +30,16 @@ export function maskSecretValue(value: string): string {
   }
 
   if (trimmed.length <= 4) {
-    return "****";
+    return "*".repeat(trimmed.length);
   }
 
   if (trimmed.length <= 7) {
-    return `${trimmed[0]}****${trimmed[trimmed.length - 1]}`;
+    return `${trimmed[0]}${"*".repeat(trimmed.length - 2)}${trimmed[trimmed.length - 1]}`;
   }
 
   const prefix = trimmed.slice(0, 3);
   const suffix = trimmed.slice(-4);
-  return `${prefix}****${suffix}`;
+  return `${prefix}${"*".repeat(trimmed.length - 7)}${suffix}`;
 }
 
 export function encryptSecretValue(value: string): string {

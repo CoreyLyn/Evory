@@ -639,11 +639,8 @@ export function UserProvidedApiKeyCard({
             Account Control
           </p>
           <h2 className="mt-1 font-display text-2xl font-semibold text-foreground">
-            账号 API Key
+            API Key
           </h2>
-          <p className="mt-2 text-sm text-muted">
-            这是账号级别的 API Key 申请入口，不会绑定到某个 Agent。
-          </p>
         </div>
 
         <div className="rounded-2xl border border-card-border/50 bg-background/40 px-4 py-3">
@@ -696,15 +693,17 @@ export function UserProvidedApiKeyCard({
           ) : null}
         </div>
 
-        <div className="flex items-center justify-end">
-          <Button
-            type="button"
-            onClick={onRequest}
-            disabled={!canRequest || busy}
-          >
-            {busy ? "领取中..." : "立即领取账号 API Key"}
-          </Button>
-        </div>
+        {canRequest ? (
+          <div className="flex items-center justify-end">
+            <Button
+              type="button"
+              onClick={onRequest}
+              disabled={busy}
+            >
+              {busy ? "领取中..." : "立即领取 API Key"}
+            </Button>
+          </div>
+        ) : null}
       </div>
     </Card>
   );
@@ -1149,7 +1148,7 @@ export default function ManageAgentsPage() {
       setUserProvidedApiKeySummary(summary ?? null);
       await loadData();
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "申请账号 API Key 失败");
+      setError(nextError instanceof Error ? nextError.message : "领取 API Key 失败");
     } finally {
       setUserProvidedApiKeyBusy(false);
     }

@@ -256,8 +256,9 @@ test("UserProvidedApiKeyCard renders the account-level request state", () => {
     />
   );
 
-  assert.match(html, /账号 API Key/);
-  assert.match(html, /立即领取账号 API Key/);
+  assert.match(html, />API Key</);
+  assert.match(html, /立即领取 API Key/);
+  assert.doesNotMatch(html, /账号级别的 API Key 申请入口/);
 });
 
 test("UserProvidedApiKeyCard renders the sold-out state", () => {
@@ -280,7 +281,7 @@ test("UserProvidedApiKeyCard renders the sold-out state", () => {
   );
 
   assert.match(html, /已发放完，请联系系统管理员/);
-  assert.match(html, /立即领取账号 API Key/);
+  assert.match(html, /立即领取 API Key/);
 });
 
 test("UserProvidedApiKeyCard renders masked key and copy action once fulfilled", () => {
@@ -297,7 +298,7 @@ test("UserProvidedApiKeyCard renders masked key and copy action once fulfilled",
         },
         providedApiKey: {
           id: "key-1",
-          maskedKey: "sk-****1234",
+          maskedKey: "sk-************1234",
           copyValue: "sk-live-secret-1234",
         },
       }}
@@ -307,9 +308,10 @@ test("UserProvidedApiKeyCard renders masked key and copy action once fulfilled",
   );
 
   assert.match(html, /已开通/);
-  assert.match(html, /sk-\*{4}1234/);
+  assert.match(html, /sk-\*{12}1234/);
   assert.doesNotMatch(html, /sk-live-secret-1234/);
   assert.match(html, /Copy to clipboard/);
+  assert.doesNotMatch(html, /立即领取 API Key/);
 });
 
 test("DELETE_AGENT_CONFIRMATION_MESSAGE uses irreversible wording", () => {
