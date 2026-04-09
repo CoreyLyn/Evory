@@ -13,10 +13,8 @@ import {
   fetchAdminProvidedApiKeys,
   fetchAdminSecretProductOrders,
   fetchAdminSecretProducts,
-  fulfillAdminApiKeyApplication,
   fulfillAdminQuotaOrder,
   type AdminApiKeyApplication,
-  type AdminApiKeyApplicationStatus,
   type AdminProvidedApiKey,
   type AdminSecretProduct,
   type AdminSecretProductOrder,
@@ -258,21 +256,6 @@ function getOrderStatusLabel(
   }
 }
 
-function getApplicationStatusLabel(
-  status: AdminApiKeyApplicationStatus,
-  t: (key: TranslationKey, params?: Record<string, string | number>) => string
-) {
-  switch (status) {
-    case "PENDING":
-      return t("admin.products.applications.status.pending");
-    case "FAILED":
-      return t("admin.products.applications.status.failed");
-    case "FULFILLED":
-    default:
-      return t("admin.products.applications.status.fulfilled");
-  }
-}
-
 export async function performAdminSecretProductMutation({
   request,
   onRefresh,
@@ -325,22 +308,15 @@ export function AdminSecretProductsPanel({
   const [actionProductId, setActionProductId] = useState<string | null>(null);
   const [apiKeyActionId, setApiKeyActionId] = useState<string | null>(null);
   const [fulfillingOrderId, setFulfillingOrderId] = useState<string | null>(null);
-  const [fulfillingApplicationId, setFulfillingApplicationId] = useState<string | null>(
-    null
-  );
   const [apiKeys, setApiKeys] = useState<AdminProvidedApiKey[]>([]);
   const [apiKeysLoading, setApiKeysLoading] = useState(false);
   const [orderRows, setOrderRows] = useState<AdminSecretProductOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [applications, setApplications] = useState<AdminApiKeyApplication[]>([]);
   const [applicationsLoading, setApplicationsLoading] = useState(false);
-  const [selectedKeyByApplication, setSelectedKeyByApplication] = useState<
-    Record<string, string>
-  >({});
 
   const activeProducts = products.filter((product) => product.isActive);
   const inactiveProducts = products.filter((product) => !product.isActive);
-  const activeApiKeys = apiKeys.filter((key) => key.isActive);
 
   async function refreshApiKeys() {
     setApiKeysLoading(true);
@@ -375,21 +351,6 @@ export function AdminSecretProductsPanel({
     try {
       const data = await fetchAdminApiKeyApplications(fetch);
       setApplications(data);
-      setSelectedKeyByApplication((current) => {
-        const next = { ...current };
-        const fallbackKeyId = activeApiKeys[0]?.id ?? "";
-
-        for (const application of data) {
-          if (application.status !== "PENDING") {
-            continue;
-          }
-          if (!next[application.id] && fallbackKeyId) {
-            next[application.id] = fallbackKeyId;
-          }
-        }
-
-        return next;
-      });
     } catch (error) {
       onError(getErrorMessage(error, t("admin.actionFailed")));
       setApplications([]);
@@ -412,29 +373,6 @@ export function AdminSecretProductsPanel({
     void refreshApplications();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (!activeApiKeys[0]?.id) {
-      return;
-    }
-
-    setSelectedKeyByApplication((current) => {
-      const next = { ...current };
-      let changed = false;
-
-      for (const application of applications) {
-        if (application.status !== "PENDING") {
-          continue;
-        }
-        if (!next[application.id]) {
-          next[application.id] = activeApiKeys[0].id;
-          changed = true;
-        }
-      }
-
-      return changed ? next : current;
-    });
-  }, [activeApiKeys, applications]);
 
   function resetProductDraft() {
     setProductDraft(createInitialProductDraft());
@@ -603,7 +541,7 @@ export function AdminSecretProductsPanel({
         providerLabel: key.providerLabel,
         isActive: nextIsActive,
       });
-      await refreshApiKeys();
+      await Promise.all([refreshApiKeys(), refreshApplications()]);
       onSuccess(
         nextIsActive
           ? t("admin.products.keys.activateSuccess")
@@ -629,28 +567,6 @@ export function AdminSecretProductsPanel({
       onError(getErrorMessage(error, t("admin.actionFailed")));
     } finally {
       setFulfillingOrderId(null);
-    }
-  }
-
-  async function handleFulfillApplication(application: AdminApiKeyApplication) {
-    const providedApiKeyId = selectedKeyByApplication[application.id];
-    if (!providedApiKeyId) {
-      onError(t("admin.products.applications.keyRequired"));
-      return;
-    }
-
-    setFulfillingApplicationId(application.id);
-    onError(null);
-    onSuccess(null);
-
-    try {
-      await fulfillAdminApiKeyApplication(fetch, application.id, { providedApiKeyId });
-      await refreshApplications();
-      onSuccess(t("admin.products.applications.fulfillSuccess"));
-    } catch (error) {
-      onError(getErrorMessage(error, t("admin.actionFailed")));
-    } finally {
-      setFulfillingApplicationId(null);
     }
   }
 
@@ -1151,21 +1067,18 @@ export function AdminSecretProductsPanel({
           <Card className="border-card-border/50 bg-card/70">
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-foreground">
-                {t("admin.products.applications.title")}
+                {t("admin.products.bindings.title")}
               </h3>
-              <p className="text-sm text-muted">{t("admin.products.applications.subtitle")}</p>
+              <p className="text-sm text-muted">{t("admin.products.bindings.subtitle")}</p>
             </div>
 
             <div className="mt-6 space-y-3">
               {applicationsLoading ? (
                 <p className="text-sm text-muted">{t("common.loading")}</p>
               ) : applications.length === 0 ? (
-                <p className="text-sm text-muted">{t("admin.products.applications.empty")}</p>
+                <p className="text-sm text-muted">{t("admin.products.bindings.empty")}</p>
               ) : (
                 applications.map((application) => {
-                  const isPending = application.status === "PENDING";
-                  const selectedKeyId = selectedKeyByApplication[application.id] ?? "";
-                  const isBusy = fulfillingApplicationId === application.id;
                   const userLabel = application.user.name
                     ? `${application.user.name} (${application.user.email})`
                     : application.user.email;
@@ -1177,16 +1090,10 @@ export function AdminSecretProductsPanel({
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <div className="text-sm font-semibold text-foreground">{userLabel}</div>
-                        <Badge
-                          variant={
-                            application.status === "PENDING"
-                              ? "warning"
-                              : application.status === "FAILED"
-                                ? "muted"
-                                : "success"
-                          }
-                        >
-                          {getApplicationStatusLabel(application.status, t)}
+                        <Badge variant={application.providedApiKey?.isActive ? "success" : "muted"}>
+                          {application.providedApiKey?.isActive
+                            ? t("admin.products.bindings.status.active")
+                            : t("admin.products.bindings.status.inactive")}
                         </Badge>
                       </div>
 
@@ -1207,52 +1114,12 @@ export function AdminSecretProductsPanel({
                         </div>
                         <div>
                           <dt className="inline text-muted/70">
-                            {t("admin.products.applications.providedKey")} </dt>
+                            {t("admin.products.bindings.providedKey")} </dt>
                           <dd className="inline text-foreground/80">
-                            {application.providedApiKey
-                              ? `${application.providedApiKey.label} · ${application.providedApiKey.maskedKey}`
-                              : "—"}
+                            {application.providedApiKey?.maskedKey ?? "—"}
                           </dd>
                         </div>
                       </dl>
-
-                      {isPending ? (
-                        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                          <label className="space-y-2">
-                            <span className="text-xs font-semibold text-muted">
-                              {t("admin.products.applications.keyLabel")}
-                            </span>
-                            <select
-                              value={selectedKeyId}
-                              onChange={(event) =>
-                                setSelectedKeyByApplication((current) => ({
-                                  ...current,
-                                  [application.id]: event.target.value,
-                                }))
-                              }
-                              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-                            >
-                              <option value="">
-                                {t("admin.products.applications.keyPlaceholder")}
-                              </option>
-                              {activeApiKeys.map((key) => (
-                                <option key={key.id} value={key.id}>
-                                  {key.label} · {key.maskedKey}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <Button
-                            type="button"
-                            disabled={isBusy || !selectedKeyId}
-                            onClick={() => void handleFulfillApplication(application)}
-                          >
-                            {isBusy
-                              ? t("admin.products.applications.fulfilling")
-                              : t("admin.products.applications.fulfill")}
-                          </Button>
-                        </div>
-                      ) : null}
                     </div>
                   );
                 })

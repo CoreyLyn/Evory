@@ -257,20 +257,20 @@ test("UserProvidedApiKeyCard renders the account-level request state", () => {
   );
 
   assert.match(html, /账号 API Key/);
-  assert.match(html, /申请账号 API Key/);
+  assert.match(html, /立即领取账号 API Key/);
 });
 
-test("UserProvidedApiKeyCard renders the pending state", () => {
+test("UserProvidedApiKeyCard renders the sold-out state", () => {
   const html = renderToStaticMarkup(
     <UserProvidedApiKeyCard
       summary={{
-        status: "PENDING",
+        status: "FAILED",
         application: {
-          id: "application-1",
-          status: "PENDING",
+          id: "application-2",
+          status: "FAILED",
           requestedAt: "2026-04-09T00:00:00.000Z",
-          fulfilledAt: null,
-          failureReason: null,
+          fulfilledAt: "2026-04-09T00:00:00.000Z",
+          failureReason: "已发放完，请联系系统管理员。",
         },
         providedApiKey: null,
       }}
@@ -279,11 +279,11 @@ test("UserProvidedApiKeyCard renders the pending state", () => {
     />
   );
 
-  assert.match(html, /申请处理中/);
-  assert.match(html, /申请账号 API Key/);
+  assert.match(html, /已发放完，请联系系统管理员/);
+  assert.match(html, /立即领取账号 API Key/);
 });
 
-test("UserProvidedApiKeyCard renders masked metadata once fulfilled", () => {
+test("UserProvidedApiKeyCard renders masked key and copy action once fulfilled", () => {
   const html = renderToStaticMarkup(
     <UserProvidedApiKeyCard
       summary={{
@@ -297,9 +297,8 @@ test("UserProvidedApiKeyCard renders masked metadata once fulfilled", () => {
         },
         providedApiKey: {
           id: "key-1",
-          label: "Personal",
-          providerLabel: "OpenAI",
           maskedKey: "sk-****1234",
+          copyValue: "sk-live-secret-1234",
         },
       }}
       busy={false}
@@ -308,9 +307,9 @@ test("UserProvidedApiKeyCard renders masked metadata once fulfilled", () => {
   );
 
   assert.match(html, /已开通/);
-  assert.match(html, /Personal/);
-  assert.match(html, /OpenAI/);
   assert.match(html, /sk-\*{4}1234/);
+  assert.doesNotMatch(html, /sk-live-secret-1234/);
+  assert.match(html, /Copy to clipboard/);
 });
 
 test("DELETE_AGENT_CONFIRMATION_MESSAGE uses irreversible wording", () => {

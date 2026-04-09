@@ -1,8 +1,9 @@
+import { decryptSecretValue } from "@/lib/secret-crypto";
+
 export type ProvidedApiKeyRow = {
   id: string;
-  label: string;
-  providerLabel: string;
   maskedKey: string;
+  encryptedKey: string;
 };
 
 export type ApplicationRow = {
@@ -23,14 +24,17 @@ export type UserProvidedApiKeySummary = {
     fulfilledAt: string | null;
     failureReason: string | null;
   } | null;
-  providedApiKey: ProvidedApiKeyRow | null;
+  providedApiKey: {
+    id: string;
+    maskedKey: string;
+    copyValue: string;
+  } | null;
 };
 
 export const providedApiKeySelect = {
   id: true,
-  label: true,
-  providerLabel: true,
   maskedKey: true,
+  encryptedKey: true,
 } as const;
 
 export const applicationSummarySelect = {
@@ -67,9 +71,8 @@ export function toSummary(
     providedApiKey: application.providedApiKey
       ? {
           id: application.providedApiKey.id,
-          label: application.providedApiKey.label,
-          providerLabel: application.providedApiKey.providerLabel,
           maskedKey: application.providedApiKey.maskedKey,
+          copyValue: decryptSecretValue(application.providedApiKey.encryptedKey),
         }
       : null,
   };

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
+import { encryptSecretValue } from "@/lib/secret-crypto";
 import { hashSessionToken } from "@/lib/user-auth";
 import {
   createUserFixture,
@@ -19,6 +20,7 @@ const originalMethods = {
 };
 
 const USER_TOKEN = "user-session-token";
+const previousEncryptionKey = process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
 
 function mockUserSession() {
   prismaClient.userSession = {
@@ -41,6 +43,11 @@ afterEach(() => {
   prismaClient.userSession = originalMethods.userSession;
   prismaClient.userProvidedApiKeyApplication =
     originalMethods.userProvidedApiKeyApplication;
+  if (previousEncryptionKey === undefined) {
+    delete process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
+  } else {
+    process.env.SECRET_INVENTORY_ENCRYPTION_KEY = previousEncryptionKey;
+  }
 });
 
 test("GET /api/users/me/provided-api-key returns NONE when no application exists", async () => {
@@ -66,6 +73,7 @@ test("GET /api/users/me/provided-api-key returns NONE when no application exists
 });
 
 test("GET /api/users/me/provided-api-key returns latest application summary", async () => {
+  process.env.SECRET_INVENTORY_ENCRYPTION_KEY = "test-secret-encryption-key";
   mockUserSession();
   prismaClient.userProvidedApiKeyApplication = {
     findFirst: async () => ({
@@ -78,9 +86,8 @@ test("GET /api/users/me/provided-api-key returns latest application summary", as
       }),
       providedApiKey: {
         id: "key-1",
-        label: "User Key",
-        providerLabel: "OpenAI",
         maskedKey: "sk-****1234",
+        encryptedKey: encryptSecretValue("sk-live-secret-1234"),
       },
     }),
   };
@@ -105,9 +112,8 @@ test("GET /api/users/me/provided-api-key returns latest application summary", as
     },
     providedApiKey: {
       id: "key-1",
-      label: "User Key",
-      providerLabel: "OpenAI",
       maskedKey: "sk-****1234",
+      copyValue: "sk-live-secret-1234",
     },
   });
 });

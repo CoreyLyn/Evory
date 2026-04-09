@@ -627,7 +627,7 @@ export function UserProvidedApiKeyCard({
       : summary.status === "FULFILLED"
         ? "已开通"
         : summary.status === "FAILED"
-          ? "申请未通过"
+          ? "已发放完"
           : "尚未申请";
   const canRequest = summary.status === "NONE" || summary.status === "FAILED";
 
@@ -675,35 +675,23 @@ export function UserProvidedApiKeyCard({
           ) : null}
           {summary.status === "FAILED" ? (
             <p className="mt-3 text-sm text-danger">
-              申请未通过{summary.application?.failureReason ? `：${summary.application.failureReason}` : "。"}
+              {summary.application?.failureReason ?? "已发放完，请联系系统管理员。"}
             </p>
           ) : null}
           {summary.status === "FULFILLED" ? (
-            <div className="mt-3 grid gap-3 text-sm text-muted sm:grid-cols-3">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
-                  Label
-                </p>
-                <p className="mt-1 text-foreground">
-                  {summary.providedApiKey?.label ?? "未命名"}
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
-                  Provider
-                </p>
-                <p className="mt-1 text-foreground">
-                  {summary.providedApiKey?.providerLabel ?? "未知"}
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
-                  Masked Key
-                </p>
-                <p className="mt-1 font-mono text-foreground">
-                  {summary.providedApiKey?.maskedKey ?? "暂无"}
-                </p>
-              </div>
+            <div className="mt-3 space-y-2">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
+                API Key
+              </p>
+              <CopyableCodeBlock
+                value={summary.providedApiKey?.copyValue ?? ""}
+                copyButtonClassName={PROMPT_CODE_BLOCK_CHROME.copyButtonClassName}
+                style={PROMPT_CODE_BLOCK_CHROME.style}
+                preStyle={PROMPT_CODE_BLOCK_CHROME.preStyle}
+                preClassName="font-mono text-sm"
+              >
+                {summary.providedApiKey?.maskedKey ?? "暂无"}
+              </CopyableCodeBlock>
             </div>
           ) : null}
         </div>
@@ -714,7 +702,7 @@ export function UserProvidedApiKeyCard({
             onClick={onRequest}
             disabled={!canRequest || busy}
           >
-            {busy ? "提交中..." : "申请账号 API Key"}
+            {busy ? "领取中..." : "立即领取账号 API Key"}
           </Button>
         </div>
       </div>

@@ -53,16 +53,16 @@ afterEach(() => {
     originalMethods.userProvidedApiKeyApplication;
 });
 
-test("GET /api/admin/shop/api-key-applications returns applications with user info", async () => {
+test("GET /api/admin/shop/api-key-applications returns bound account keys with user info", async () => {
   mockAdminSession();
   prismaClient.userProvidedApiKeyApplication = {
     findMany: async () => [
       createUserProvidedApiKeyApplicationFixture({
         id: "application-1",
-        status: "PENDING",
+        status: "FULFILLED",
         requestedAt: new Date("2026-04-09T00:00:00.000Z"),
-        fulfilledAt: null,
-        fulfilledByUserId: null,
+        fulfilledAt: new Date("2026-04-09T01:00:00.000Z"),
+        fulfilledByUserId: "user-1",
         user: createUserFixture({
           id: "user-1",
           email: "owner@example.com",
@@ -70,9 +70,8 @@ test("GET /api/admin/shop/api-key-applications returns applications with user in
         }),
         providedApiKey: {
           id: "provided-key-1",
-          label: "OpenAI key",
-          providerLabel: "OpenAI",
           maskedKey: "sk-****1234",
+          isActive: true,
         },
       }),
     ],
@@ -89,9 +88,9 @@ test("GET /api/admin/shop/api-key-applications returns applications with user in
   assert.equal(json.success, true);
   assert.deepEqual(json.data[0], {
     id: "application-1",
-    status: "PENDING",
+    status: "FULFILLED",
     requestedAt: "2026-04-09T00:00:00.000Z",
-    fulfilledAt: null,
+    fulfilledAt: "2026-04-09T01:00:00.000Z",
     user: {
       id: "user-1",
       email: "owner@example.com",
@@ -99,9 +98,8 @@ test("GET /api/admin/shop/api-key-applications returns applications with user in
     },
     providedApiKey: {
       id: "provided-key-1",
-      label: "OpenAI key",
-      providerLabel: "OpenAI",
       maskedKey: "sk-****1234",
+      isActive: true,
     },
   });
 });

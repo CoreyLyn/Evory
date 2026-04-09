@@ -115,7 +115,11 @@ export type UserProvidedApiKeySummary = {
     fulfilledAt: string | null;
     failureReason: string | null;
   } | null;
-  providedApiKey: ApiQuotaOrderProvidedApiKey | null;
+  providedApiKey: {
+    id: string;
+    maskedKey: string;
+    copyValue: string;
+  } | null;
 };
 
 export type AdminSecretProductOrder = {
@@ -158,7 +162,11 @@ export type AdminApiKeyApplication = {
     email: string;
     name: string | null;
   };
-  providedApiKey: ApiQuotaOrderProvidedApiKey | null;
+  providedApiKey: {
+    id: string;
+    maskedKey: string;
+    isActive: boolean;
+  } | null;
 };
 
 export type AdminApiKeyApplicationFulfillment = {

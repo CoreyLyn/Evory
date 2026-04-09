@@ -24,6 +24,9 @@ const applicationPrisma = prisma as unknown as {
         findFirst: (args: unknown) => Promise<{ id: string } | null>;
         create: (args: unknown) => Promise<ApplicationRow>;
       };
+      providedApiKey: {
+        findFirst: (args: unknown) => Promise<{ id: string } | null>;
+      };
     }) => Promise<T>,
     options?: { isolationLevel?: Prisma.TransactionIsolationLevel }
   ) => Promise<T>;
@@ -78,8 +81,40 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
             );
           }
 
+          const availableKey = await tx.providedApiKey.findFirst({
+            where: {
+              isActive: true,
+              applications: {
+                none: {
+                  status: "FULFILLED",
+                },
+              },
+            },
+            orderBy: { createdAt: "asc" },
+            select: { id: true },
+          });
+
+          if (!availableKey) {
+            return tx.userProvidedApiKeyApplication.create({
+              data: {
+                userId: user.id,
+                status: "FAILED",
+                fulfilledAt: new Date(),
+                fulfilledByUserId: user.id,
+                failureReason: "已发放完，请联系系统管理员。",
+              },
+              select: applicationSummarySelect,
+            });
+          }
+
           return tx.userProvidedApiKeyApplication.create({
-            data: { userId: user.id },
+            data: {
+              userId: user.id,
+              providedApiKeyId: availableKey.id,
+              status: "FULFILLED",
+              fulfilledAt: new Date(),
+              fulfilledByUserId: user.id,
+            },
             select: applicationSummarySelect,
           });
         },

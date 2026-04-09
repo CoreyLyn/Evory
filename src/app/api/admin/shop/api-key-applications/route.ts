@@ -16,9 +16,8 @@ type AdminApiKeyApplicationRow = {
   };
   providedApiKey: {
     id: string;
-    label: string;
-    providerLabel: string;
     maskedKey: string;
+    isActive: boolean;
   } | null;
 };
 
@@ -37,9 +36,8 @@ const ADMIN_API_KEY_APPLICATION_SELECT = {
   providedApiKey: {
     select: {
       id: true,
-      label: true,
-      providerLabel: true,
       maskedKey: true,
+      isActive: true,
     },
   },
 } as const;
@@ -58,9 +56,8 @@ function toAdminApiKeyApplicationResponse(application: AdminApiKeyApplicationRow
     providedApiKey: application.providedApiKey
       ? {
           id: application.providedApiKey.id,
-          label: application.providedApiKey.label,
-          providerLabel: application.providedApiKey.providerLabel,
           maskedKey: application.providedApiKey.maskedKey,
+          isActive: application.providedApiKey.isActive,
         }
       : null,
   };
@@ -73,7 +70,11 @@ export async function GET(request: NextRequest) {
   }
 
   const applications = await prisma.userProvidedApiKeyApplication.findMany({
-    orderBy: { requestedAt: "desc" },
+    where: {
+      status: "FULFILLED",
+      providedApiKeyId: { not: null },
+    },
+    orderBy: [{ fulfilledAt: "desc" }, { requestedAt: "desc" }],
     select: ADMIN_API_KEY_APPLICATION_SELECT,
   });
 
