@@ -1,4 +1,5 @@
 import { decryptSecretValue } from "@/lib/secret-crypto";
+import { deriveMaskedProvidedApiKey } from "@/lib/provided-api-key-presentation";
 
 export type ProvidedApiKeyRow = {
   id: string;
@@ -68,10 +69,10 @@ export function toSummary(
       fulfilledAt: application.fulfilledAt?.toISOString() ?? null,
       failureReason: application.failureReason ?? null,
     },
-    providedApiKey: application.providedApiKey
+        providedApiKey: application.providedApiKey
       ? {
           id: application.providedApiKey.id,
-          maskedKey: application.providedApiKey.maskedKey,
+          maskedKey: deriveMaskedProvidedApiKey(application.providedApiKey),
           copyValue: decryptSecretValue(application.providedApiKey.encryptedKey),
         }
       : null,

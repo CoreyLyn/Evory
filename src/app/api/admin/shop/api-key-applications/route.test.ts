@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
+import { encryptSecretValue } from "@/lib/secret-crypto";
 import { hashSessionToken } from "@/lib/user-auth";
 import {
   createUserFixture,
@@ -24,6 +25,7 @@ const originalMethods = {
 };
 
 const ADMIN_TOKEN = "admin-session-token";
+const previousEncryptionKey = process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
 
 function mockAdminSession() {
   prismaClient.userSession = {
@@ -43,6 +45,7 @@ beforeEach(() => {
   prismaClient.securityEvent = {
     create: async () => ({ id: "se-1", type: "TEST" }),
   };
+  process.env.SECRET_INVENTORY_ENCRYPTION_KEY = "test-secret-encryption-key";
 });
 
 afterEach(() => {
@@ -51,6 +54,11 @@ afterEach(() => {
   prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.userProvidedApiKeyApplication =
     originalMethods.userProvidedApiKeyApplication;
+  if (previousEncryptionKey === undefined) {
+    delete process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
+  } else {
+    process.env.SECRET_INVENTORY_ENCRYPTION_KEY = previousEncryptionKey;
+  }
 });
 
 test("GET /api/admin/shop/api-key-applications returns bound account keys with user info", async () => {
@@ -71,6 +79,7 @@ test("GET /api/admin/shop/api-key-applications returns bound account keys with u
         providedApiKey: {
           id: "provided-key-1",
           maskedKey: "sk-****1234",
+          encryptedKey: encryptSecretValue("sk-live-secret-1234"),
           isActive: true,
         },
       }),
@@ -98,7 +107,7 @@ test("GET /api/admin/shop/api-key-applications returns bound account keys with u
     },
     providedApiKey: {
       id: "provided-key-1",
-      maskedKey: "sk-****1234",
+      maskedKey: "sk-************1234",
       isActive: true,
     },
   });

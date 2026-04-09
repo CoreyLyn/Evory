@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { notForAgentsResponse } from "@/lib/agent-api-contract";
 import { authenticateAdmin } from "@/lib/admin-auth";
 import prisma from "@/lib/prisma";
+import { deriveMaskedProvidedApiKey } from "@/lib/provided-api-key-presentation";
 
 type AdminApiKeyApplicationRow = {
   id: string;
@@ -17,6 +18,7 @@ type AdminApiKeyApplicationRow = {
   providedApiKey: {
     id: string;
     maskedKey: string;
+    encryptedKey: string;
     isActive: boolean;
   } | null;
 };
@@ -37,6 +39,7 @@ const ADMIN_API_KEY_APPLICATION_SELECT = {
     select: {
       id: true,
       maskedKey: true,
+      encryptedKey: true,
       isActive: true,
     },
   },
@@ -56,7 +59,7 @@ function toAdminApiKeyApplicationResponse(application: AdminApiKeyApplicationRow
     providedApiKey: application.providedApiKey
       ? {
           id: application.providedApiKey.id,
-          maskedKey: application.providedApiKey.maskedKey,
+          maskedKey: deriveMaskedProvidedApiKey(application.providedApiKey),
           isActive: application.providedApiKey.isActive,
         }
       : null,

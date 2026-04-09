@@ -8,6 +8,7 @@ import {
   parseAdminProvidedApiKeyUpdateInput,
 } from "@/lib/admin-provided-api-keys";
 import prisma from "@/lib/prisma";
+import { deriveMaskedProvidedApiKey } from "@/lib/provided-api-key-presentation";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 
@@ -16,6 +17,7 @@ type AdminProvidedApiKeyRow = {
   label: string;
   providerLabel: string;
   maskedKey: string;
+  encryptedKey: string;
   isActive: boolean;
   createdByUserId: string;
   createdAt: Date;
@@ -27,6 +29,7 @@ const ADMIN_PROVIDED_API_KEY_SELECT = {
   label: true,
   providerLabel: true,
   maskedKey: true,
+  encryptedKey: true,
   isActive: true,
   createdByUserId: true,
   createdAt: true,
@@ -38,7 +41,7 @@ function toAdminProvidedApiKeyResponse(key: AdminProvidedApiKeyRow) {
     id: key.id,
     label: key.label,
     providerLabel: key.providerLabel,
-    maskedKey: key.maskedKey,
+    maskedKey: deriveMaskedProvidedApiKey(key),
     isActive: key.isActive,
     createdByUserId: key.createdByUserId,
     createdAt: key.createdAt,

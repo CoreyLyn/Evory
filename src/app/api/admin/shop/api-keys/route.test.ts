@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
+import { encryptSecretValue } from "@/lib/secret-crypto";
 import {
   createUserFixture,
   createUserSessionFixture,
@@ -87,7 +88,8 @@ test("GET /api/admin/shop/api-keys lists admin-safe provided keys", async () => 
           id: "key-1",
           label: "Primary OpenAI key",
           providerLabel: "OpenAI",
-          maskedKey: "sk-**********6789",
+          maskedKey: "sk-****6789",
+          encryptedKey: encryptSecretValue("sk-live-123456789"),
           isActive: true,
           createdByUserId: "admin-1",
           createdAt: new Date("2026-04-08T10:00:00.000Z"),
@@ -116,6 +118,7 @@ test("GET /api/admin/shop/api-keys lists admin-safe provided keys", async () => 
       label: true,
       providerLabel: true,
       maskedKey: true,
+      encryptedKey: true,
       isActive: true,
       createdByUserId: true,
       createdAt: true,
@@ -155,6 +158,7 @@ test("POST /api/admin/shop/api-keys creates a provided api key", async () => {
         createdByUserId: data.createdByUserId,
         createdAt: new Date("2026-04-08T10:00:00.000Z"),
         updatedAt: new Date("2026-04-08T10:00:00.000Z"),
+        encryptedKey: data.encryptedKey,
       };
     },
   };
@@ -190,6 +194,7 @@ test("POST /api/admin/shop/api-keys creates a provided api key", async () => {
     label: true,
     providerLabel: true,
     maskedKey: true,
+    encryptedKey: true,
     isActive: true,
     createdByUserId: true,
     createdAt: true,

@@ -113,7 +113,7 @@ test("POST /api/users/me/provided-api-key/applications assigns an available key 
     },
     providedApiKey: {
       id: "key-1",
-      maskedKey: "sk-****1234",
+      maskedKey: "sk-************1234",
       copyValue: "sk-live-secret-1234",
     },
   });
