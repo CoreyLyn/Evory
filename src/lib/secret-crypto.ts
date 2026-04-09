@@ -16,6 +16,13 @@ function getEncryptionKey(): Buffer {
   return createHash("sha256").update(key, "utf8").digest();
 }
 
+export function isMissingSecretEncryptionKeyError(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message === "SECRET_INVENTORY_ENCRYPTION_KEY is required"
+  );
+}
+
 export function maskSecretValue(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) {

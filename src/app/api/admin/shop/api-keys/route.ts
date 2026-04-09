@@ -9,7 +9,11 @@ import {
 import prisma from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
-import { encryptSecretValue, maskSecretValue } from "@/lib/secret-crypto";
+import {
+  encryptSecretValue,
+  isMissingSecretEncryptionKeyError,
+  maskSecretValue,
+} from "@/lib/secret-crypto";
 
 type AdminProvidedApiKeyListRow = {
   id: string;
@@ -159,6 +163,18 @@ export async function POST(request: NextRequest) {
             error: message,
           },
           { status: 400 }
+        )
+      );
+    }
+
+    if (isMissingSecretEncryptionKeyError(error)) {
+      return notForAgentsResponse(
+        Response.json(
+          {
+            success: false,
+            error: "Server encryption key is not configured",
+          },
+          { status: 500 }
         )
       );
     }

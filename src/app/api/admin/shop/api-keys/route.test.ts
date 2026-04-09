@@ -217,3 +217,35 @@ test("POST /api/admin/shop/api-keys returns 400 for malformed JSON", async () =>
   assert.equal(json.success, false);
   assert.equal(json.error, "Invalid request body");
 });
+
+test("POST /api/admin/shop/api-keys returns a clear 500 when encryption key is missing", async () => {
+  mockAdminSession();
+  delete process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
+
+  prismaClient.providedApiKey = {
+    create: async () => {
+      throw new Error("create should not run when encryption key is missing");
+    },
+  };
+
+  const response = await POST(
+    createRouteRequest("http://localhost/api/admin/shop/api-keys", {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+      json: {
+        label: "Primary OpenAI key",
+        providerLabel: "OpenAI",
+        apiKey: "sk-live-123456789",
+        isActive: true,
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 500);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Server encryption key is not configured");
+});
