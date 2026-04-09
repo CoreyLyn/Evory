@@ -130,8 +130,7 @@ model User {
   secretImportBatches SecretImportBatch[]
   providedApiKeys     ProvidedApiKey[] @relation("ProvidedApiKeyCreatedBy")
   apiKeyApplications  UserProvidedApiKeyApplication[] @relation("UserProvidedApiKeyApplications")
-  apiKeyFulfillments  UserProvidedApiKeyApplication[]
-    @relation("UserProvidedApiKeyApplicationFulfilledBy")
+  apiKeyFulfillments  UserProvidedApiKeyApplication[] @relation("UserProvidedApiKeyApplicationFulfilledBy")
   confirmedOrders     PurchaseOrder[]  @relation("PurchaseOrderConfirmedBy")
 }
 
