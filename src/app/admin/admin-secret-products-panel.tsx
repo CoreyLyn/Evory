@@ -7,6 +7,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
+  API_QUOTA_PROVIDER_PRESETS,
+  applyProviderPresetToDraft,
+  applyPurchasePolicyToDraft,
+  buildAdminSecretProductCreateInputFromDraft,
+  buildAdminSecretProductUpdateInput,
+  buildAdminSecretProductUpdateInputFromDraft,
+  createInitialProductDraft,
+  createProductDraftFromProduct,
+  formatApiQuotaProductPreview,
+  getPurchasePolicyConfig,
+  getPurchasePolicyLabel,
+  type ApiQuotaProductDraft,
+  type ApiQuotaProductProviderPresetId,
+  type ApiQuotaProductPurchasePolicy,
+} from "./api-quota-product-draft";
+import {
   createAdminProvidedApiKey,
   createAdminSecretProduct,
   fetchAdminApiKeyApplications,
@@ -18,7 +34,6 @@ import {
   type AdminProvidedApiKey,
   type AdminSecretProduct,
   type AdminSecretProductOrder,
-  type AdminSecretProductUpdateInput,
   type SecretProductOrderStatus,
   updateAdminProvidedApiKey,
   updateAdminSecretProduct,
@@ -27,19 +42,6 @@ import {
 type MutationResponse = {
   success: boolean;
   error?: string;
-};
-
-type ProductDraft = {
-  name: string;
-  description: string;
-  price: number;
-  providerLabel: string;
-  usageInstructions: string;
-  quotaAmount: number;
-  quotaUnitLabel: string;
-  allowRepeatPurchase: boolean;
-  perAgentPurchaseLimitMode: "unlimited" | "limited";
-  perAgentPurchaseLimit: number | null;
 };
 
 type ApiKeyDraft = {
@@ -61,21 +63,6 @@ type ApiBaseUrlDraft = {
   anthropicBaseUrl: string;
 };
 
-export function createInitialProductDraft(): ProductDraft {
-  return {
-    name: "",
-    description: "",
-    price: 0,
-    providerLabel: "",
-    usageInstructions: "",
-    quotaAmount: 10000,
-    quotaUnitLabel: "tokens",
-    allowRepeatPurchase: true,
-    perAgentPurchaseLimitMode: "unlimited",
-    perAgentPurchaseLimit: null,
-  };
-}
-
 function createInitialApiKeyDraft(): ApiKeyDraft {
   return {
     label: "",
@@ -90,140 +77,6 @@ function createInitialApiBaseUrlDraft(): ApiBaseUrlDraft {
     openAiBaseUrl: "",
     anthropicBaseUrl: "",
   };
-}
-
-function getProviderLabel(product: AdminSecretProduct) {
-  return typeof product.displayConfig.providerLabel === "string"
-    ? product.displayConfig.providerLabel
-    : "";
-}
-
-function getUsageInstructions(product: AdminSecretProduct) {
-  return typeof product.displayConfig.usageInstructions === "string"
-    ? product.displayConfig.usageInstructions
-    : "";
-}
-
-function getQuotaUnitLabel(product: AdminSecretProduct) {
-  return typeof product.displayConfig.quotaUnitLabel === "string"
-    ? product.displayConfig.quotaUnitLabel
-    : "tokens";
-}
-
-function getQuotaAmount(product: AdminSecretProduct) {
-  return typeof product.fulfillmentConfig.quotaAmount === "number"
-    ? product.fulfillmentConfig.quotaAmount
-    : 0;
-}
-
-function getPerAgentPurchaseLimit(product: AdminSecretProduct) {
-  return typeof product.fulfillmentConfig.perAgentPurchaseLimit === "number"
-    ? product.fulfillmentConfig.perAgentPurchaseLimit
-    : null;
-}
-
-export function getEffectiveAllowRepeatPurchase(product: AdminSecretProduct) {
-  return typeof product.fulfillmentConfig.allowRepeatPurchase === "boolean"
-    ? product.fulfillmentConfig.allowRepeatPurchase
-    : true;
-}
-
-export function createProductDraftFromProduct(
-  product: AdminSecretProduct
-): ProductDraft {
-  const perAgentPurchaseLimit = getPerAgentPurchaseLimit(product);
-
-  return {
-    name: product.name,
-    description: product.description,
-    price: product.price,
-    providerLabel: getProviderLabel(product),
-    usageInstructions: getUsageInstructions(product),
-    quotaAmount: getQuotaAmount(product),
-    quotaUnitLabel: getQuotaUnitLabel(product),
-    allowRepeatPurchase: getEffectiveAllowRepeatPurchase(product),
-    perAgentPurchaseLimitMode: perAgentPurchaseLimit === null ? "unlimited" : "limited",
-    perAgentPurchaseLimit,
-  };
-}
-
-export function buildAdminSecretProductUpdateInput({
-  product,
-  allowRepeatPurchase,
-  perAgentPurchaseLimit,
-  isActive,
-  overrides,
-}: {
-  product: AdminSecretProduct;
-  allowRepeatPurchase: boolean;
-  perAgentPurchaseLimit: number | null;
-  isActive: boolean;
-  overrides?: Partial<
-    Pick<
-      AdminSecretProductUpdateInput,
-      | "name"
-      | "description"
-      | "price"
-      | "quotaAmount"
-      | "quotaUnitLabel"
-      | "providerLabel"
-      | "usageInstructions"
-    >
-  >;
-}): AdminSecretProductUpdateInput {
-  return {
-    name: overrides?.name ?? product.name,
-    description: overrides?.description ?? product.description,
-    price: overrides?.price ?? product.price,
-    providerLabel: overrides?.providerLabel ?? getProviderLabel(product),
-    usageInstructions: overrides?.usageInstructions ?? getUsageInstructions(product),
-    quotaAmount: overrides?.quotaAmount ?? getQuotaAmount(product),
-    quotaUnitLabel: overrides?.quotaUnitLabel ?? getQuotaUnitLabel(product),
-    allowRepeatPurchase,
-    perAgentPurchaseLimit,
-    isActive,
-  };
-}
-
-export function buildAdminSecretProductUpdateInputFromDraft({
-  draft,
-  perAgentPurchaseLimit,
-  isActive,
-}: {
-  draft: ProductDraft;
-  perAgentPurchaseLimit: number | null;
-  isActive: boolean;
-}): AdminSecretProductUpdateInput {
-  return {
-    name: draft.name,
-    description: draft.description,
-    price: draft.price,
-    providerLabel: draft.providerLabel,
-    usageInstructions: draft.usageInstructions,
-    quotaAmount: draft.quotaAmount,
-    quotaUnitLabel: draft.quotaUnitLabel,
-    allowRepeatPurchase: draft.allowRepeatPurchase,
-    perAgentPurchaseLimit,
-    isActive,
-  };
-}
-
-export function resolvePerAgentPurchaseLimit(
-  mode: ProductDraft["perAgentPurchaseLimitMode"],
-  value: ProductDraft["perAgentPurchaseLimit"]
-) {
-  if (mode === "unlimited") {
-    return { value: null, error: null as TranslationKey | null };
-  }
-
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
-    return {
-      value: null,
-      error: "admin.products.form.perAgentPurchaseLimitInvalid" as TranslationKey,
-    };
-  }
-
-  return { value, error: null as TranslationKey | null };
 }
 
 export function normalizeInventoryProductId(
@@ -317,7 +170,7 @@ export function AdminSecretProductsPanel({
   onError: (message: string | null) => void;
   onSuccess: (message: string | null) => void;
 }) {
-  const [productDraft, setProductDraft] = useState<ProductDraft>(() =>
+  const [productDraft, setProductDraft] = useState<ApiQuotaProductDraft>(() =>
     createInitialProductDraft()
   );
   const [apiKeyDraft, setApiKeyDraft] = useState<ApiKeyDraft>(() => createInitialApiKeyDraft());
@@ -342,6 +195,7 @@ export function AdminSecretProductsPanel({
 
   const activeProducts = products.filter((product) => product.isActive);
   const inactiveProducts = products.filter((product) => !product.isActive);
+  const preview = formatApiQuotaProductPreview(t, productDraft);
 
   async function refreshApiKeys() {
     setApiKeysLoading(true);
@@ -454,13 +308,13 @@ export function AdminSecretProductsPanel({
     onError(null);
     onSuccess(null);
 
-    const limitResolution = resolvePerAgentPurchaseLimit(
-      productDraft.perAgentPurchaseLimitMode,
+    const purchasePolicyConfig = getPurchasePolicyConfig(
+      productDraft.purchasePolicy,
       productDraft.perAgentPurchaseLimit
     );
 
-    if (limitResolution.error) {
-      onError(t(limitResolution.error));
+    if (purchasePolicyConfig.error) {
+      onError(t(purchasePolicyConfig.error));
       setSubmittingProduct(false);
       return;
     }
@@ -491,22 +345,14 @@ export function AdminSecretProductsPanel({
               editingId,
               buildAdminSecretProductUpdateInputFromDraft({
                 draft: productDraft,
-                perAgentPurchaseLimit: limitResolution.value,
                 isActive: latestProduct.isActive,
               })
             );
           } else {
-            await createAdminSecretProduct(fetch, {
-              name: productDraft.name,
-              description: productDraft.description,
-              price: productDraft.price,
-              providerLabel: productDraft.providerLabel,
-              usageInstructions: productDraft.usageInstructions,
-              quotaAmount: productDraft.quotaAmount,
-              quotaUnitLabel: productDraft.quotaUnitLabel,
-              allowRepeatPurchase: productDraft.allowRepeatPurchase,
-              perAgentPurchaseLimit: limitResolution.value,
-            });
+            await createAdminSecretProduct(
+              fetch,
+              buildAdminSecretProductCreateInputFromDraft(productDraft)
+            );
           }
 
           return { success: true };
@@ -550,8 +396,6 @@ export function AdminSecretProductsPanel({
             latestProduct.id,
             buildAdminSecretProductUpdateInput({
               product: latestProduct,
-              allowRepeatPurchase: getEffectiveAllowRepeatPurchase(latestProduct),
-              perAgentPurchaseLimit: getPerAgentPurchaseLimit(latestProduct),
               isActive: nextIsActive,
             })
           );
@@ -703,7 +547,8 @@ export function AdminSecretProductsPanel({
       <Card className="overflow-hidden p-0">
         <div className="divide-y divide-card-border/30">
           {itemsToRender.map((product) => {
-            const perAgentPurchaseLimit = getPerAgentPurchaseLimit(product);
+            const productDraft = createProductDraftFromProduct(product);
+            const isRepeatable = productDraft.purchasePolicy !== "single";
             const isActionBusy = actionProductId === product.id;
 
             return (
@@ -719,10 +564,8 @@ export function AdminSecretProductsPanel({
                         ? t("admin.products.status.active")
                         : t("admin.products.status.inactive")}
                     </Badge>
-                    <Badge
-                      variant={getEffectiveAllowRepeatPurchase(product) ? "default" : "muted"}
-                    >
-                      {getEffectiveAllowRepeatPurchase(product)
+                    <Badge variant={isRepeatable ? "default" : "muted"}>
+                      {isRepeatable
                         ? t("admin.products.badge.repeatAllowed")
                         : t("admin.products.badge.repeatBlocked")}
                     </Badge>
@@ -736,21 +579,21 @@ export function AdminSecretProductsPanel({
                         {t("admin.products.form.providerLabel")}:{" "}
                       </dt>
                       <dd className="inline text-foreground/80">
-                        {getProviderLabel(product) || t("admin.products.providerLabelEmpty")}
+                        {productDraft.providerLabel || t("admin.products.providerLabelEmpty")}
                       </dd>
                     </div>
                     <div>
                       <dt className="inline text-muted/70">
                         {t("admin.products.form.quotaAmount")}:{" "}
                       </dt>
-                      <dd className="inline text-foreground/80">{getQuotaAmount(product)}</dd>
+                      <dd className="inline text-foreground/80">{productDraft.quotaAmount}</dd>
                     </div>
                     <div>
                       <dt className="inline text-muted/70">
                         {t("admin.products.form.quotaUnitLabel")}:{" "}
                       </dt>
                       <dd className="inline text-foreground/80">
-                        {getQuotaUnitLabel(product)}
+                        {productDraft.quotaUnitLabel}
                       </dd>
                     </div>
                     <div>
@@ -761,14 +604,14 @@ export function AdminSecretProductsPanel({
                     </div>
                     <div>
                       <dt className="inline text-muted/70">
-                        {t("admin.products.form.perAgentPurchaseLimit")}:{" "}
+                        {t("admin.products.form.purchasePolicy")}:{" "}
                       </dt>
                       <dd className="inline text-foreground/80">
-                        {perAgentPurchaseLimit === null
-                          ? t("admin.products.limit.unlimited")
-                          : t("admin.products.limit.value", {
-                              count: perAgentPurchaseLimit,
-                            })}
+                        {getPurchasePolicyLabel(
+                          t,
+                          productDraft.purchasePolicy,
+                          productDraft.perAgentPurchaseLimit
+                        )}
                       </dd>
                     </div>
                   </dl>
@@ -843,216 +686,264 @@ export function AdminSecretProductsPanel({
           </div>
         </div>
 
-        <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmitProduct}>
-          <label className="space-y-2">
-            <span className="text-xs font-semibold text-muted">
-              {t("admin.products.form.name")}
-            </span>
-            <input
-              value={productDraft.name}
-              onChange={(event) =>
-                setProductDraft((current) => ({ ...current, name: event.target.value }))
-              }
-              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-            />
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-xs font-semibold text-muted">
-              {t("admin.products.form.price")}
-            </span>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              value={productDraft.price}
-              onChange={(event) =>
-                setProductDraft((current) => ({
-                  ...current,
-                  price: Number(event.target.value || 0),
-                }))
-              }
-              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-            />
-          </label>
-
-          <label className="space-y-2 md:col-span-2">
-            <span className="text-xs font-semibold text-muted">
-              {t("admin.products.form.description")}
-            </span>
-            <textarea
-              value={productDraft.description}
-              onChange={(event) =>
-                setProductDraft((current) => ({
-                  ...current,
-                  description: event.target.value,
-                }))
-              }
-              className="min-h-24 w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-            />
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-xs font-semibold text-muted">
-              {t("admin.products.form.providerLabel")}
-            </span>
-            <input
-              value={productDraft.providerLabel}
-              onChange={(event) =>
-                setProductDraft((current) => ({
-                  ...current,
-                  providerLabel: event.target.value,
-                }))
-              }
-              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-            />
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-xs font-semibold text-muted">
-              {t("admin.products.form.quotaAmount")}
-            </span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              value={productDraft.quotaAmount}
-              onChange={(event) =>
-                setProductDraft((current) => ({
-                  ...current,
-                  quotaAmount: Number(event.target.value || 1),
-                }))
-              }
-              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-            />
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-xs font-semibold text-muted">
-              {t("admin.products.form.quotaUnitLabel")}
-            </span>
-            <input
-              value={productDraft.quotaUnitLabel}
-              onChange={(event) =>
-                setProductDraft((current) => ({
-                  ...current,
-                  quotaUnitLabel: event.target.value,
-                }))
-              }
-              className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-            />
-          </label>
-
-          <label className="space-y-2 md:col-span-2">
-            <span className="text-xs font-semibold text-muted">
-              {t("admin.products.form.usageInstructions")}
-            </span>
-            <textarea
-              value={productDraft.usageInstructions}
-              onChange={(event) =>
-                setProductDraft((current) => ({
-                  ...current,
-                  usageInstructions: event.target.value,
-                }))
-              }
-              className="min-h-24 w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-            />
-          </label>
-
-          <label className="flex items-center gap-3 rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3 md:col-span-2">
-            <input
-              type="checkbox"
-              checked={productDraft.allowRepeatPurchase}
-              onChange={(event) =>
-                setProductDraft((current) => ({
-                  ...current,
-                  allowRepeatPurchase: event.target.checked,
-                }))
-              }
-              className="h-4 w-4 rounded border-card-border"
-            />
-            <span className="text-sm text-foreground">
-              {t("admin.products.form.allowRepeatPurchase")}
-            </span>
-          </label>
-
-          <div className="rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3 md:col-span-2">
-            <label className="space-y-2">
+        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.85fr)]">
+          <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmitProduct}>
+            <label className="space-y-2 md:col-span-2">
               <span className="text-xs font-semibold text-muted">
-                {t("admin.products.form.perAgentPurchaseLimit")}
+                {t("admin.products.form.providerPreset")}
               </span>
               <select
-                value={productDraft.perAgentPurchaseLimitMode}
+                value={productDraft.providerPresetId}
                 onChange={(event) =>
-                  setProductDraft((current) => {
-                    const mode = event.target.value as ProductDraft["perAgentPurchaseLimitMode"];
-                    return {
-                      ...current,
-                      perAgentPurchaseLimitMode: mode,
-                      perAgentPurchaseLimit:
-                        mode === "unlimited" ? null : current.perAgentPurchaseLimit ?? 1,
-                    };
-                  })
+                  setProductDraft((current) =>
+                    applyProviderPresetToDraft(
+                      current,
+                      event.target.value as ApiQuotaProductProviderPresetId
+                    )
+                  )
                 }
                 className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
               >
-                <option value="unlimited">
-                  {t("admin.products.form.perAgentPurchaseLimitUnlimited")}
-                </option>
-                <option value="limited">
-                  {t("admin.products.form.perAgentPurchaseLimitLimited")}
-                </option>
+                {API_QUOTA_PROVIDER_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {t(preset.labelKey)}
+                  </option>
+                ))}
               </select>
+              <p className="text-xs text-muted">{t("admin.products.form.providerPresetHint")}</p>
             </label>
-            <p className="mt-2 text-xs text-muted">
-              {t("admin.products.form.perAgentPurchaseLimitHint")}
-            </p>
-            {productDraft.perAgentPurchaseLimitMode === "limited" ? (
-              <label className="mt-3 block space-y-2">
+
+            <label className="space-y-2">
+              <span className="text-xs font-semibold text-muted">
+                {t("admin.products.form.name")}
+              </span>
+              <input
+                value={productDraft.name}
+                onChange={(event) =>
+                  setProductDraft((current) => ({ ...current, name: event.target.value }))
+                }
+                className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-xs font-semibold text-muted">
+                {t("admin.products.form.price")}
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={productDraft.price}
+                onChange={(event) =>
+                  setProductDraft((current) => ({
+                    ...current,
+                    price: Number(event.target.value || 0),
+                  }))
+                }
+                className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+              />
+            </label>
+
+            <label className="space-y-2 md:col-span-2">
+              <span className="text-xs font-semibold text-muted">
+                {t("admin.products.form.description")}
+              </span>
+              <textarea
+                value={productDraft.description}
+                onChange={(event) =>
+                  setProductDraft((current) => ({
+                    ...current,
+                    description: event.target.value,
+                  }))
+                }
+                className="min-h-24 w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-xs font-semibold text-muted">
+                {t("admin.products.form.providerLabel")}
+              </span>
+              <input
+                value={productDraft.providerLabel}
+                onChange={(event) =>
+                  setProductDraft((current) => ({
+                    ...current,
+                    providerLabel: event.target.value,
+                    providerPresetId: "custom",
+                  }))
+                }
+                className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-xs font-semibold text-muted">
+                {t("admin.products.form.quotaAmount")}
+              </span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={productDraft.quotaAmount}
+                onChange={(event) =>
+                  setProductDraft((current) => ({
+                    ...current,
+                    quotaAmount: Number(event.target.value || 1),
+                  }))
+                }
+                className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-xs font-semibold text-muted">
+                {t("admin.products.form.quotaUnitLabel")}
+              </span>
+              <input
+                value={productDraft.quotaUnitLabel}
+                onChange={(event) =>
+                  setProductDraft((current) => ({
+                    ...current,
+                    quotaUnitLabel: event.target.value,
+                    providerPresetId: "custom",
+                  }))
+                }
+                className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+              />
+            </label>
+
+            <div className="rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3 md:col-span-2">
+              <label className="space-y-2">
                 <span className="text-xs font-semibold text-muted">
-                  {t("admin.products.form.perAgentPurchaseLimitValue")}
+                  {t("admin.products.form.purchasePolicy")}
                 </span>
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={productDraft.perAgentPurchaseLimit ?? ""}
+                <select
+                  value={productDraft.purchasePolicy}
                   onChange={(event) =>
-                    setProductDraft((current) => ({
-                      ...current,
-                      perAgentPurchaseLimit: event.target.value
-                        ? Number(event.target.value)
-                        : null,
-                    }))
+                    setProductDraft((current) =>
+                      applyPurchasePolicyToDraft(
+                        current,
+                        event.target.value as ApiQuotaProductPurchasePolicy
+                      )
+                    )
                   }
                   className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-                />
+                >
+                  <option value="repeat">{t("admin.products.policy.repeat")}</option>
+                  <option value="single">{t("admin.products.policy.single")}</option>
+                  <option value="limited">{t("admin.products.policy.limited", { count: 1 })}</option>
+                </select>
               </label>
-            ) : null}
-          </div>
+              <p className="mt-2 text-xs text-muted">
+                {t("admin.products.form.purchasePolicyHint")}
+              </p>
+              {productDraft.purchasePolicy === "limited" ? (
+                <label className="mt-3 block space-y-2">
+                  <span className="text-xs font-semibold text-muted">
+                    {t("admin.products.form.perAgentPurchaseLimitValue")}
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={productDraft.perAgentPurchaseLimit ?? ""}
+                    onChange={(event) =>
+                      setProductDraft((current) => ({
+                        ...current,
+                        perAgentPurchaseLimit: event.target.value
+                          ? Number(event.target.value)
+                          : null,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+                  />
+                </label>
+              ) : null}
+            </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2 md:col-span-2">
-            {editingId ? (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={submittingProduct}
-                onClick={resetProductDraft}
-              >
-                {t("admin.products.action.cancelEdit")}
+            <label className="space-y-2 md:col-span-2">
+              <span className="text-xs font-semibold text-muted">
+                {t("admin.products.form.usageInstructions")}
+              </span>
+              <textarea
+                value={productDraft.usageInstructions}
+                onChange={(event) =>
+                  setProductDraft((current) => ({
+                    ...current,
+                    usageInstructions: event.target.value,
+                  }))
+                }
+                className="min-h-24 w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+              />
+            </label>
+
+            <div className="flex flex-wrap items-center justify-end gap-2 md:col-span-2">
+              {editingId ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={submittingProduct}
+                  onClick={resetProductDraft}
+                >
+                  {t("admin.products.action.cancelEdit")}
+                </Button>
+              ) : null}
+              <Button type="submit" disabled={submittingProduct}>
+                {submittingProduct
+                  ? editingId
+                    ? t("admin.products.form.submittingUpdate")
+                    : t("admin.products.form.submittingCreate")
+                  : editingId
+                    ? t("admin.products.form.submitUpdate")
+                    : t("admin.products.form.submitCreate")}
               </Button>
-            ) : null}
-            <Button type="submit" disabled={submittingProduct}>
-              {submittingProduct
-                ? editingId
-                  ? t("admin.products.form.submittingUpdate")
-                  : t("admin.products.form.submittingCreate")
-                : editingId
-                  ? t("admin.products.form.submitUpdate")
-                  : t("admin.products.form.submitCreate")}
-            </Button>
-          </div>
-        </form>
+            </div>
+          </form>
+
+          <aside className="rounded-3xl border border-card-border/40 bg-background/30 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-secondary">
+                {t("admin.products.preview.title")}
+              </p>
+              <p className="text-sm text-muted">{t("admin.products.preview.subtitle")}</p>
+            </div>
+
+            <div className="mt-5 rounded-[1.75rem] border border-card-border/50 bg-card/80 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <Badge variant="secondary">{preview.provider}</Badge>
+                <div className="text-sm font-semibold text-foreground">{preview.price}</div>
+              </div>
+              <div className="mt-4">
+                <div className="text-lg font-semibold text-foreground">{preview.name}</div>
+                <div className="mt-2 text-sm text-muted">{productDraft.description || "—"}</div>
+              </div>
+              <dl className="mt-5 space-y-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted">{t("admin.products.preview.provider")}</dt>
+                  <dd className="text-right font-medium text-foreground">{preview.provider}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted">{t("admin.products.preview.name")}</dt>
+                  <dd className="text-right font-medium text-foreground">{preview.name}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted">{t("admin.products.preview.quota")}</dt>
+                  <dd className="text-right font-medium text-foreground">{preview.quota}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted">{t("admin.products.preview.policy")}</dt>
+                  <dd className="text-right font-medium text-foreground">{preview.policy}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted">{t("admin.products.preview.price")}</dt>
+                  <dd className="text-right font-medium text-foreground">{preview.price}</dd>
+                </div>
+              </dl>
+            </div>
+          </aside>
+        </div>
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
