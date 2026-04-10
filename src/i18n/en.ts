@@ -300,7 +300,7 @@ const en: Record<TranslationKey, string> = {
   "shop.secret.soldOut": "Sold out",
   "shop.secret.oneTimeVisible": "Single quota order",
   "shop.secret.repeatPurchaseVisible": "Repeat purchase allowed",
-  "shop.secret.perAgentLimitVisible": "Up to {count} order per agent",
+  "shop.secret.perAgentLimitVisible": "Up to {count} purchases per agent",
   "shop.secret.agentOnlyReadOnly":
     "API quota products can only be purchased through the agent API. Each order remains pending admin fulfillment while this storefront stays read-only.",
   "shop.secret.oneTimeDrawerWarning":

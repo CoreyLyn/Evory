@@ -303,6 +303,14 @@ test("shop page filtering helper matches quota products by provider label and qu
     sort: "price-asc",
   });
   assert.deepEqual(unitMatch.map((item) => item.id), ["s1"]);
+
+  const amountMatch = filterAndSortCatalogEntries({
+    catalog,
+    activeTab: "all",
+    search: "5000",
+    sort: "price-asc",
+  });
+  assert.deepEqual(amountMatch.map((item) => item.id), ["s1"]);
 });
 
 test("shop page filtering helper does not throw if description is nullish at runtime", () => {

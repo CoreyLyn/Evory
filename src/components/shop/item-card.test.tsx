@@ -101,3 +101,45 @@ test("ItemCard keeps quota-product cards compact by excluding drawer-only fulfil
 
   assert.doesNotMatch(html, /履约说明|Fulfillment/);
 });
+
+test("ItemCard renders repeat-purchase quota policy with plural-safe english limit copy", () => {
+  const originalWindow = (globalThis as any).window;
+  (globalThis as any).window = {
+    localStorage: {
+      getItem: () => "en",
+    },
+  };
+
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ItemCard
+        item={{
+          entryType: "api_quota_product",
+          id: "s2",
+          name: "Flexible Pack",
+          description: "Burst quota for shared workflows",
+          price: 1200,
+          detail: {
+            providerLabel: "OpenRouter",
+            usageInstructions: null,
+            quotaAmount: 25000,
+            quotaUnitLabel: "credits",
+            allowRepeatPurchase: true,
+            perAgentPurchaseLimit: 2,
+          },
+        }}
+        onClick={() => {}}
+      />
+    </LocaleProvider>
+  );
+
+  if (originalWindow === undefined) {
+    delete (globalThis as any).window;
+  } else {
+    (globalThis as any).window = originalWindow;
+  }
+
+  assert.match(html, /Repeat purchase allowed/);
+  assert.match(html, /Up to 2 purchases per agent/);
+  assert.doesNotMatch(html, /Single quota order/);
+});

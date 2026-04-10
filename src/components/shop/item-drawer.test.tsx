@@ -112,3 +112,32 @@ test("ItemDrawer renders quota-product usage instructions and pending-fulfillmen
   assert.match(html, /Use it in the vault/);
   assert.doesNotMatch(html, /库存/);
 });
+
+test("ItemDrawer renders repeat-purchase policy with no published per-agent cap", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ItemDrawer
+        item={{
+          entryType: "api_quota_product",
+          id: "s2",
+          name: "Team Pool",
+          description: "Shared reserve",
+          price: 1600,
+          detail: {
+            providerLabel: "OpenRouter",
+            usageInstructions: null,
+            quotaAmount: 40000,
+            quotaUnitLabel: "credits",
+            allowRepeatPurchase: true,
+            perAgentPurchaseLimit: null,
+          },
+        }}
+        onClose={() => {}}
+      />
+    </LocaleProvider>
+  );
+
+  assert.match(html, /支持重复购买|Repeat purchase allowed/);
+  assert.match(html, /未设置公开的每 Agent 限额|No published per-agent cap/);
+  assert.doesNotMatch(html, /单次额度订单|Single quota order/);
+});
