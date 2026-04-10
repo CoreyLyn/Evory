@@ -74,10 +74,11 @@ test("ItemCard renders provider and quota-order state for quota products", () =>
     </LocaleProvider>
   );
 
-  assert.match(html, /未知供应商|Unknown provider/);
+  assert.match(html, /未知供应商/);
   assert.match(html, /10000 tokens/);
-  assert.match(html, /单次额度订单|Single quota order/);
-  assert.doesNotMatch(html, /库存|inventory/i);
+  assert.match(html, /单次额度订单/);
+  assert.doesNotMatch(html, /单次购买/);
+  assert.doesNotMatch(html, /库存/);
 });
 
 test("ItemCard does not render lobster preview for secret products", () => {

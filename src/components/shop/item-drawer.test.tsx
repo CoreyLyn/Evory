@@ -102,10 +102,11 @@ test("ItemDrawer renders quota-product usage instructions and pending-fulfillmen
 
   assert.match(html, /Vault/);
   assert.match(html, /20000 tokens/);
-  assert.match(html, /仅限 Agent 接口|agent API/i);
-  assert.match(html, /待管理员履约|pending admin fulfillment/i);
-  assert.match(html, /单次额度订单|Single quota order/i);
-  assert.match(html, /使用说明|Usage instructions/);
+  assert.match(html, /仅支持 Agent API 购买/);
+  assert.match(html, /待管理员履约状态/);
+  assert.match(html, /单次额度订单/);
+  assert.doesNotMatch(html, /单次购买/);
+  assert.match(html, /使用说明/);
   assert.match(html, /Use it in the vault/);
-  assert.doesNotMatch(html, /库存|inventory/i);
+  assert.doesNotMatch(html, /库存/);
 });
