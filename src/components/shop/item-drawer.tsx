@@ -34,9 +34,18 @@ export function ItemDrawer({ item, onClose }: ItemDrawerProps) {
   if (isSecretProductShopItem(item)) {
     const providerLabel =
       item.detail.providerLabel?.trim() || t("shop.secret.providerFallback");
+    const description = item.description.trim();
     const quotaLabel = `${item.detail.quotaAmount} ${item.detail.quotaUnitLabel}`;
-    const showOneTime = !item.detail.allowRepeatPurchase;
     const usageInstructions = item.detail.usageInstructions?.trim();
+    const purchasePolicyLabel = item.detail.allowRepeatPurchase
+      ? t("shop.secret.repeatPurchaseVisible")
+      : t("shop.secret.oneTimeVisible");
+    const perAgentLimitLabel =
+      item.detail.perAgentPurchaseLimit === null
+        ? t("shop.secret.noPerAgentLimit")
+        : t("shop.secret.perAgentLimitVisible", {
+            count: item.detail.perAgentPurchaseLimit,
+          });
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-end" role="dialog" aria-modal="true">
@@ -86,9 +95,12 @@ export function ItemDrawer({ item, onClose }: ItemDrawerProps) {
               <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-muted/10 text-muted/80 border border-muted/10">
                 {quotaLabel}
               </span>
-              {showOneTime && (
-                <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-warning/10 text-warning border border-warning/20">
-                  {t("shop.secret.oneTimeVisible")}
+              <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-warning/10 text-warning border border-warning/20">
+                {purchasePolicyLabel}
+              </span>
+              {item.detail.perAgentPurchaseLimit !== null && (
+                <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/15">
+                  {perAgentLimitLabel}
                 </span>
               )}
             </div>
@@ -99,23 +111,68 @@ export function ItemDrawer({ item, onClose }: ItemDrawerProps) {
                 {t("shop.drawer.description")}
               </h3>
               <p className="text-sm text-foreground/80 leading-relaxed">
-                {item.description}
+                {description}
               </p>
             </div>
 
-            <div className="rounded-xl border border-card-border/30 bg-card/40 px-4 py-3">
-              <p className="text-xs text-muted leading-relaxed">
+            <div className="space-y-2.5">
+              <h3 className="text-xs uppercase tracking-[0.2em] text-muted">
+                {t("shop.secret.fulfillment")}
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-xl border border-card-border/30 bg-card/40 p-3 space-y-1">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted">
+                    {t("shop.secret.fulfillmentStateLabel")}
+                  </p>
+                  <p className="text-sm font-medium text-foreground">
+                    {t("shop.secret.fulfillmentStatePending")}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-card-border/30 bg-card/40 p-3 space-y-1">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted">
+                    {t("shop.secret.fulfillmentTimingLabel")}
+                  </p>
+                  <p className="text-sm font-medium text-foreground leading-relaxed">
+                    {t("shop.secret.fulfillmentTimingValue")}
+                  </p>
+                </div>
+              </div>
+              <p className="rounded-xl border border-card-border/30 bg-card/40 px-4 py-3 text-xs text-muted leading-relaxed">
                 {t("shop.secret.agentOnlyReadOnly")}
               </p>
             </div>
 
-            {showOneTime && (
-              <div className="rounded-xl border border-warning/20 bg-warning/10 px-4 py-3">
-                <p className="text-xs text-warning leading-relaxed">
-                  {t("shop.secret.oneTimeDrawerWarning")}
-                </p>
+            <div className="space-y-2.5">
+              <h3 className="text-xs uppercase tracking-[0.2em] text-muted">
+                {t("shop.secret.purchasePolicy")}
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-xl border border-card-border/30 bg-card/40 p-3 space-y-1">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted">
+                    {t("shop.secret.purchaseChannelLabel")}
+                  </p>
+                  <p className="text-sm font-medium text-foreground leading-relaxed">
+                    {t("shop.secret.purchaseChannelAgentApi")}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-card-border/30 bg-card/40 p-3 space-y-1">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted">
+                    {t("shop.secret.orderTypeLabel")}
+                  </p>
+                  <p className="text-sm font-medium text-foreground">
+                    {purchasePolicyLabel}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-card-border/30 bg-card/40 p-3 space-y-1 col-span-2">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted">
+                    {t("shop.secret.perAgentLimitLabel")}
+                  </p>
+                  <p className="text-sm font-medium text-foreground">
+                    {perAgentLimitLabel}
+                  </p>
+                </div>
               </div>
-            )}
+            </div>
 
             {usageInstructions && (
               <div className="space-y-1.5">

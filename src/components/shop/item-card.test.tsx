@@ -23,15 +23,15 @@ const secretItem = {
   entryType: "api_quota_product",
   id: "s1",
   name: "Quota Pack",
-  description: "API quota",
+  description: "Extra throughput for vault-backed agent calls",
   price: 900,
   detail: {
-    providerLabel: null,
+    providerLabel: "Vault",
     usageInstructions: "Use it in the vault",
     quotaAmount: 10000,
     quotaUnitLabel: "tokens",
     allowRepeatPurchase: false,
-    perAgentPurchaseLimit: null,
+    perAgentPurchaseLimit: 1,
   },
 } satisfies ShopItemSecretProductData;
 
@@ -67,17 +67,18 @@ test("ItemCard renders category badge", () => {
   assert.match(html, /帽子|Hats/);
 });
 
-test("ItemCard renders provider and quota-order state for quota products", () => {
+test("ItemCard renders compact description and policy signals for quota products", () => {
   const html = renderToStaticMarkup(
     <LocaleProvider>
       <ItemCard item={secretItem} onClick={() => {}} />
     </LocaleProvider>
   );
 
-  assert.match(html, /未知供应商/);
+  assert.match(html, /Vault/);
+  assert.match(html, /Extra throughput for vault-backed agent calls/);
   assert.match(html, /10000 tokens/);
-  assert.match(html, /单次额度订单/);
-  assert.doesNotMatch(html, /单次购买/);
+  assert.match(html, /单次额度订单|Single quota order/);
+  assert.match(html, /每个 Agent 最多 1 单|Up to 1 order per agent/);
   assert.doesNotMatch(html, /库存/);
 });
 
@@ -91,12 +92,12 @@ test("ItemCard does not render lobster preview for secret products", () => {
   assert.doesNotMatch(html, /<canvas/);
 });
 
-test("ItemCard keeps secret-product details out of the compact card body", () => {
+test("ItemCard keeps quota-product cards compact by excluding drawer-only fulfillment copy", () => {
   const html = renderToStaticMarkup(
     <LocaleProvider>
       <ItemCard item={secretItem} onClick={() => {}} />
     </LocaleProvider>
   );
 
-  assert.doesNotMatch(html, /API quota/);
+  assert.doesNotMatch(html, /履约说明|Fulfillment/);
 });
