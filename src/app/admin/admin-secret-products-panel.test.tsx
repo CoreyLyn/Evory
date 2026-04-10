@@ -106,6 +106,24 @@ function createProduct(overrides: Record<string, unknown> = {}): AdminSecretProd
   };
 }
 
+test("AdminSecretProductsPanel renders the api key base url settings card", () => {
+  const html = renderToStaticMarkup(
+    <AdminSecretProductsPanel
+      t={(key) => key}
+      products={[createProduct()]}
+      loading={false}
+      onRefresh={() => Promise.resolve()}
+      onError={() => undefined}
+      onSuccess={() => undefined}
+    />
+  );
+
+  assert.match(html, /admin\.products\.baseUrls\.title/);
+  assert.match(html, /admin\.products\.baseUrls\.openAiLabel/);
+  assert.match(html, /admin\.products\.baseUrls\.anthropicLabel/);
+  assert.match(html, /admin\.products\.baseUrls\.save/);
+});
+
 function setGlobalValue(key: string, value: unknown) {
   Object.defineProperty(globalThis, key, {
     configurable: true,

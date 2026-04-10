@@ -25,9 +25,13 @@ import { AgentConnectSummaryCard } from "./agent-connect-summary-card";
 import { formatLocalDateTime } from "@/lib/format";
 import {
   createUserProvidedApiKeyApplication,
+  fetchUserApiBaseUrls,
   fetchUserProvidedApiKeySummary,
+  type UserApiBaseUrls as ShopUserApiBaseUrls,
   type UserProvidedApiKeySummary,
 } from "@/lib/shop-client";
+
+export type UserApiBaseUrls = ShopUserApiBaseUrls;
 
 type UserSummary = {
   id: string;
@@ -614,10 +618,12 @@ export function ClaimAgentCard({
 
 export function UserProvidedApiKeyCard({
   summary,
+  baseUrls,
   busy,
   onRequest,
 }: {
   summary: UserProvidedApiKeySummary;
+  baseUrls: UserApiBaseUrls;
   busy: boolean;
   onRequest: () => void;
 }) {
@@ -630,6 +636,8 @@ export function UserProvidedApiKeyCard({
           ? "已发放完"
           : "尚未申请";
   const canRequest = summary.status === "NONE" || summary.status === "FAILED";
+  const hasBaseUrls =
+    Boolean(baseUrls.openAiBaseUrl) || Boolean(baseUrls.anthropicBaseUrl);
 
   return (
     <Card className="border-card-border/60 bg-card/75">
@@ -689,6 +697,39 @@ export function UserProvidedApiKeyCard({
               >
                 {summary.providedApiKey?.maskedKey ?? "暂无"}
               </CopyableCodeBlock>
+            </div>
+          ) : null}
+          {summary.status === "FULFILLED" && hasBaseUrls ? (
+            <div className="mt-4 space-y-3">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
+                Base URL
+              </p>
+
+              {baseUrls.openAiBaseUrl ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted">兼容 OpenAI 接口协议工具</p>
+                  <CopyableCodeBlock
+                    value={baseUrls.openAiBaseUrl}
+                    copyButtonClassName={PROMPT_CODE_BLOCK_CHROME.copyButtonClassName}
+                    style={PROMPT_CODE_BLOCK_CHROME.style}
+                    preStyle={PROMPT_CODE_BLOCK_CHROME.preStyle}
+                    preClassName="font-mono text-sm"
+                  />
+                </div>
+              ) : null}
+
+              {baseUrls.anthropicBaseUrl ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted">兼容 Anthropic 接口协议工具</p>
+                  <CopyableCodeBlock
+                    value={baseUrls.anthropicBaseUrl}
+                    copyButtonClassName={PROMPT_CODE_BLOCK_CHROME.copyButtonClassName}
+                    style={PROMPT_CODE_BLOCK_CHROME.style}
+                    preStyle={PROMPT_CODE_BLOCK_CHROME.preStyle}
+                    preClassName="font-mono text-sm"
+                  />
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -753,6 +794,10 @@ export default function ManageAgentsPage() {
   const [userPostsPage, setUserPostsPage] = useState(1);
   const [userProvidedApiKeySummary, setUserProvidedApiKeySummary] =
     useState<UserProvidedApiKeySummary | null>(null);
+  const [userApiBaseUrls, setUserApiBaseUrls] = useState<UserApiBaseUrls>({
+    openAiBaseUrl: null,
+    anthropicBaseUrl: null,
+  });
   const [userProvidedApiKeyBusy, setUserProvidedApiKeyBusy] = useState(false);
   const [connectedAgentId, setConnectedAgentId] = useState<string | null>(null);
   const [deliveredEngagementSummary, setDeliveredEngagementSummary] =
@@ -814,6 +859,10 @@ export default function ManageAgentsPage() {
         setUser(null);
         setAgents([]);
         setUserProvidedApiKeySummary(null);
+        setUserApiBaseUrls({
+          openAiBaseUrl: null,
+          anthropicBaseUrl: null,
+        });
         return;
       }
 
@@ -821,6 +870,7 @@ export default function ManageAgentsPage() {
       const agentsResponse = await fetch("/api/users/me/agents");
       const agentsJson = await agentsResponse.json();
       const providedApiKeySummary = await resolveUserProvidedApiKeySummary();
+      const baseUrls = await fetchUserApiBaseUrls();
 
       if (!agentsResponse.ok || !agentsJson.success) {
         throw new Error(agentsJson.error ?? "加载 Agent 列表失败");
@@ -828,6 +878,7 @@ export default function ManageAgentsPage() {
 
       setAgents(agentsJson.data ?? []);
       setUserProvidedApiKeySummary(providedApiKeySummary ?? null);
+      setUserApiBaseUrls(baseUrls);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "加载失败");
     } finally {
@@ -1233,6 +1284,7 @@ export default function ManageAgentsPage() {
                 providedApiKey: null,
               }
             }
+            baseUrls={userApiBaseUrls}
             busy={userProvidedApiKeyBusy}
             onRequest={() => void handleUserProvidedApiKeyRequest()}
           />

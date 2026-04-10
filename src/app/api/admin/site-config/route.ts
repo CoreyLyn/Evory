@@ -7,6 +7,21 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 import { getSiteConfig, upsertSiteConfig } from "@/lib/site-config";
 
+const INVALID_BASE_URL = Symbol("INVALID_BASE_URL");
+
+function normalizeOptionalBaseUrl(value: unknown) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    return INVALID_BASE_URL;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export async function GET(request: NextRequest) {
   const auth = await authenticateAdmin(request);
   if (auth.type === "error") {
@@ -64,12 +79,29 @@ export async function PUT(request: NextRequest) {
     );
   }
 
+  const openAiBaseUrl = normalizeOptionalBaseUrl(body.openAiBaseUrl);
+  const anthropicBaseUrl = normalizeOptionalBaseUrl(body.anthropicBaseUrl);
+
+  if (openAiBaseUrl === INVALID_BASE_URL || anthropicBaseUrl === INVALID_BASE_URL) {
+    return notForAgentsResponse(
+      Response.json(
+        {
+          success: false,
+          error: "openAiBaseUrl and anthropicBaseUrl must be strings when provided",
+        },
+        { status: 400 }
+      )
+    );
+  }
+
   return notForAgentsResponse(
     Response.json({
       success: true,
       data: await upsertSiteConfig(prisma as never, {
         registrationEnabled: body.registrationEnabled,
         publicContentEnabled: body.publicContentEnabled,
+        openAiBaseUrl,
+        anthropicBaseUrl,
       }),
     })
   );

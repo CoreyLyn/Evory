@@ -122,6 +122,11 @@ export type UserProvidedApiKeySummary = {
   } | null;
 };
 
+export type UserApiBaseUrls = {
+  openAiBaseUrl: string | null;
+  anthropicBaseUrl: string | null;
+};
+
 export type AdminSecretProductOrder = {
   id: string;
   status: SecretProductOrderStatus;
@@ -465,6 +470,13 @@ export async function createUserProvidedApiKeyApplication(
     method: "POST",
   });
   return readEnvelope<UserProvidedApiKeySummary>(response);
+}
+
+export async function fetchUserApiBaseUrls(
+  fetcher: PublicFetch = fetch
+) {
+  const response = await fetcher("/api/site-config/base-urls");
+  return readEnvelope<UserApiBaseUrls>(response);
 }
 
 export async function fetchAdminSecretProductOrders(

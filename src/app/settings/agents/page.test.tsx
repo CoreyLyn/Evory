@@ -12,6 +12,7 @@ import {
   LatestIssuedCredentialCard,
   ManagedAgentActions,
   ManagedAgentOwnerVisibilityControl,
+  type UserApiBaseUrls,
   UserForumPostManagementList,
   UserProvidedApiKeyCard,
   resolveUserProvidedApiKeySummary,
@@ -251,6 +252,7 @@ test("UserProvidedApiKeyCard renders the account-level request state", () => {
   const html = renderToStaticMarkup(
     <UserProvidedApiKeyCard
       summary={{ status: "NONE", application: null, providedApiKey: null }}
+      baseUrls={{ openAiBaseUrl: null, anthropicBaseUrl: null }}
       busy={false}
       onRequest={() => undefined}
     />
@@ -275,6 +277,7 @@ test("UserProvidedApiKeyCard renders the sold-out state", () => {
         },
         providedApiKey: null,
       }}
+      baseUrls={{ openAiBaseUrl: null, anthropicBaseUrl: null }}
       busy={false}
       onRequest={() => undefined}
     />
@@ -302,6 +305,7 @@ test("UserProvidedApiKeyCard renders masked key and copy action once fulfilled",
           copyValue: "sk-live-secret-1234",
         },
       }}
+      baseUrls={{ openAiBaseUrl: null, anthropicBaseUrl: null }}
       busy={false}
       onRequest={() => undefined}
     />
@@ -312,6 +316,69 @@ test("UserProvidedApiKeyCard renders masked key and copy action once fulfilled",
   assert.doesNotMatch(html, /sk-live-secret-1234/);
   assert.match(html, /Copy to clipboard/);
   assert.doesNotMatch(html, /立即领取 API Key/);
+});
+
+test("UserProvidedApiKeyCard renders both base urls when the key is fulfilled", () => {
+  const baseUrls: UserApiBaseUrls = {
+    openAiBaseUrl: "https://coding.example.com/v1",
+    anthropicBaseUrl: "https://coding.example.com/apps/anthropic",
+  };
+  const html = renderToStaticMarkup(
+    <UserProvidedApiKeyCard
+      summary={{
+        status: "FULFILLED",
+        application: {
+          id: "application-1",
+          status: "FULFILLED",
+          requestedAt: "2026-04-09T00:00:00.000Z",
+          fulfilledAt: "2026-04-09T01:00:00.000Z",
+          failureReason: null,
+        },
+        providedApiKey: {
+          id: "key-1",
+          maskedKey: "sk-************1234",
+          copyValue: "sk-live-secret-1234",
+        },
+      }}
+      baseUrls={baseUrls}
+      busy={false}
+      onRequest={() => undefined}
+    />
+  );
+
+  assert.match(html, />Base URL</);
+  assert.match(html, /兼容 OpenAI 接口协议工具/);
+  assert.match(html, /https:\/\/coding\.example\.com\/v1/);
+  assert.match(html, /兼容 Anthropic 接口协议工具/);
+  assert.match(html, /https:\/\/coding\.example\.com\/apps\/anthropic/);
+});
+
+test("UserProvidedApiKeyCard hides the base url section before fulfillment", () => {
+  const html = renderToStaticMarkup(
+    <UserProvidedApiKeyCard
+      summary={{
+        status: "PENDING",
+        application: {
+          id: "application-1",
+          status: "PENDING",
+          requestedAt: "2026-04-09T00:00:00.000Z",
+          fulfilledAt: null,
+          failureReason: null,
+        },
+        providedApiKey: null,
+      }}
+      baseUrls={{
+        openAiBaseUrl: "https://coding.example.com/v1",
+        anthropicBaseUrl: "https://coding.example.com/apps/anthropic",
+      }}
+      busy={false}
+      onRequest={() => undefined}
+    />
+  );
+
+  assert.doesNotMatch(html, />Base URL</);
+  assert.doesNotMatch(html, /兼容 OpenAI 接口协议工具/);
+  assert.doesNotMatch(html, /兼容 Anthropic 接口协议工具/);
 });
 
 test("DELETE_AGENT_CONFIRMATION_MESSAGE uses irreversible wording", () => {

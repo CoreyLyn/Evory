@@ -49,6 +49,18 @@ type ApiKeyDraft = {
   isActive: boolean;
 };
 
+type SiteConfigSnapshot = {
+  registrationEnabled: boolean;
+  publicContentEnabled: boolean;
+  openAiBaseUrl: string | null;
+  anthropicBaseUrl: string | null;
+};
+
+type ApiBaseUrlDraft = {
+  openAiBaseUrl: string;
+  anthropicBaseUrl: string;
+};
+
 export function createInitialProductDraft(): ProductDraft {
   return {
     name: "",
@@ -70,6 +82,13 @@ function createInitialApiKeyDraft(): ApiKeyDraft {
     providerLabel: "",
     apiKey: "",
     isActive: true,
+  };
+}
+
+function createInitialApiBaseUrlDraft(): ApiBaseUrlDraft {
+  return {
+    openAiBaseUrl: "",
+    anthropicBaseUrl: "",
   };
 }
 
@@ -314,6 +333,12 @@ export function AdminSecretProductsPanel({
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [applications, setApplications] = useState<AdminApiKeyApplication[]>([]);
   const [applicationsLoading, setApplicationsLoading] = useState(false);
+  const [siteConfig, setSiteConfig] = useState<SiteConfigSnapshot | null>(null);
+  const [apiBaseUrlDraft, setApiBaseUrlDraft] = useState<ApiBaseUrlDraft>(
+    () => createInitialApiBaseUrlDraft()
+  );
+  const [apiBaseUrlLoading, setApiBaseUrlLoading] = useState(false);
+  const [savingApiBaseUrls, setSavingApiBaseUrls] = useState(false);
 
   const activeProducts = products.filter((product) => product.isActive);
   const inactiveProducts = products.filter((product) => !product.isActive);
@@ -359,6 +384,39 @@ export function AdminSecretProductsPanel({
     }
   }
 
+  async function refreshApiBaseUrls() {
+    setApiBaseUrlLoading(true);
+    try {
+      const response = await fetch("/api/admin/site-config");
+      const json = await response.json();
+
+      if (!json.success) {
+        throw new Error(json.error || t("admin.actionFailed"));
+      }
+
+      const nextConfig: SiteConfigSnapshot = {
+        registrationEnabled: Boolean(json.data?.registrationEnabled),
+        publicContentEnabled: Boolean(json.data?.publicContentEnabled),
+        openAiBaseUrl:
+          typeof json.data?.openAiBaseUrl === "string" ? json.data.openAiBaseUrl : null,
+        anthropicBaseUrl:
+          typeof json.data?.anthropicBaseUrl === "string"
+            ? json.data.anthropicBaseUrl
+            : null,
+      };
+
+      setSiteConfig(nextConfig);
+      setApiBaseUrlDraft({
+        openAiBaseUrl: nextConfig.openAiBaseUrl ?? "",
+        anthropicBaseUrl: nextConfig.anthropicBaseUrl ?? "",
+      });
+    } catch (error) {
+      onError(getErrorMessage(error, t("admin.actionFailed")));
+    } finally {
+      setApiBaseUrlLoading(false);
+    }
+  }
+
   useEffect(() => {
     void refreshApiKeys();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -371,6 +429,11 @@ export function AdminSecretProductsPanel({
 
   useEffect(() => {
     void refreshApplications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    void refreshApiBaseUrls();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -551,6 +614,61 @@ export function AdminSecretProductsPanel({
       onError(getErrorMessage(error, t("admin.actionFailed")));
     } finally {
       setApiKeyActionId(null);
+    }
+  }
+
+  async function handleSaveApiBaseUrls(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!siteConfig) {
+      return;
+    }
+
+    setSavingApiBaseUrls(true);
+    onError(null);
+    onSuccess(null);
+
+    try {
+      const response = await fetch("/api/admin/site-config", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: window.location.origin,
+        },
+        body: JSON.stringify({
+          registrationEnabled: siteConfig.registrationEnabled,
+          publicContentEnabled: siteConfig.publicContentEnabled,
+          openAiBaseUrl: apiBaseUrlDraft.openAiBaseUrl,
+          anthropicBaseUrl: apiBaseUrlDraft.anthropicBaseUrl,
+        }),
+      });
+      const json = await response.json();
+
+      if (!json.success) {
+        throw new Error(json.error || t("admin.actionFailed"));
+      }
+
+      const nextConfig: SiteConfigSnapshot = {
+        registrationEnabled: Boolean(json.data?.registrationEnabled),
+        publicContentEnabled: Boolean(json.data?.publicContentEnabled),
+        openAiBaseUrl:
+          typeof json.data?.openAiBaseUrl === "string" ? json.data.openAiBaseUrl : null,
+        anthropicBaseUrl:
+          typeof json.data?.anthropicBaseUrl === "string"
+            ? json.data.anthropicBaseUrl
+            : null,
+      };
+
+      setSiteConfig(nextConfig);
+      setApiBaseUrlDraft({
+        openAiBaseUrl: nextConfig.openAiBaseUrl ?? "",
+        anthropicBaseUrl: nextConfig.anthropicBaseUrl ?? "",
+      });
+      onSuccess(t("admin.products.baseUrls.saveSuccess"));
+    } catch (error) {
+      onError(getErrorMessage(error, t("admin.actionFailed")));
+    } finally {
+      setSavingApiBaseUrls(false);
     }
   }
 
@@ -1062,6 +1180,62 @@ export function AdminSecretProductsPanel({
                 })
               )}
             </div>
+          </Card>
+
+          <Card className="border-card-border/50 bg-card/70">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-foreground">
+                {t("admin.products.baseUrls.title")}
+              </h3>
+              <p className="text-sm text-muted">{t("admin.products.baseUrls.subtitle")}</p>
+            </div>
+
+            <form className="mt-6 grid gap-4" onSubmit={handleSaveApiBaseUrls}>
+              <label className="space-y-2">
+                <span className="text-xs font-semibold text-muted">
+                  {t("admin.products.baseUrls.openAiLabel")}
+                </span>
+                <input
+                  value={apiBaseUrlDraft.openAiBaseUrl}
+                  onChange={(event) =>
+                    setApiBaseUrlDraft((current) => ({
+                      ...current,
+                      openAiBaseUrl: event.target.value,
+                    }))
+                  }
+                  placeholder="https://coding.example.com/v1"
+                  className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-xs font-semibold text-muted">
+                  {t("admin.products.baseUrls.anthropicLabel")}
+                </span>
+                <input
+                  value={apiBaseUrlDraft.anthropicBaseUrl}
+                  onChange={(event) =>
+                    setApiBaseUrlDraft((current) => ({
+                      ...current,
+                      anthropicBaseUrl: event.target.value,
+                    }))
+                  }
+                  placeholder="https://coding.example.com/apps/anthropic"
+                  className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
+                />
+              </label>
+
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-muted">
+                  {t("admin.products.baseUrls.optionalHint")}
+                </p>
+                <Button type="submit" disabled={apiBaseUrlLoading || savingApiBaseUrls || !siteConfig}>
+                  {savingApiBaseUrls
+                    ? t("admin.products.baseUrls.saving")
+                    : t("admin.products.baseUrls.save")}
+                </Button>
+              </div>
+            </form>
           </Card>
 
           <Card className="border-card-border/50 bg-card/70">

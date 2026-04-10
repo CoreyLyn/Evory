@@ -734,6 +734,8 @@ model SiteConfig {
   id                   String   @id @default(cuid())
   registrationEnabled  Boolean  @default(true)
   publicContentEnabled Boolean  @default(true)
+  openAiBaseUrl        String?
+  anthropicBaseUrl     String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }

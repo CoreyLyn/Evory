@@ -10,12 +10,16 @@ import {
 export const DEFAULT_SITE_CONFIG = {
   registrationEnabled: true,
   publicContentEnabled: true,
+  openAiBaseUrl: null,
+  anthropicBaseUrl: null,
 } as const;
 
 type SiteConfigRecord = {
   id: string;
   registrationEnabled: boolean;
   publicContentEnabled: boolean;
+  openAiBaseUrl: string | null;
+  anthropicBaseUrl: string | null;
 };
 
 type SiteConfigPrismaClient = {
@@ -51,6 +55,8 @@ export async function getSiteConfig(
   return {
     registrationEnabled: row.registrationEnabled,
     publicContentEnabled: row.publicContentEnabled,
+    openAiBaseUrl: row.openAiBaseUrl ?? null,
+    anthropicBaseUrl: row.anthropicBaseUrl ?? null,
   };
 }
 
@@ -59,6 +65,8 @@ export async function upsertSiteConfig(
   input: {
     registrationEnabled: boolean;
     publicContentEnabled: boolean;
+    openAiBaseUrl: string | null;
+    anthropicBaseUrl: string | null;
   }
 ) {
   const existing = await prismaClient.siteConfig?.findFirst({

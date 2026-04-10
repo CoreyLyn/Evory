@@ -20,6 +20,8 @@ test("getSiteConfig returns default-open values when no row exists", async () =>
   const config = await getSiteConfig(prisma as never);
 
   assert.deepEqual(config, DEFAULT_SITE_CONFIG);
+  assert.equal(config.openAiBaseUrl, null);
+  assert.equal(config.anthropicBaseUrl, null);
 });
 
 test("upsertSiteConfig persists booleans on the singleton row", async () => {
@@ -41,6 +43,8 @@ test("upsertSiteConfig persists booleans on the singleton row", async () => {
           id: "site-config-singleton",
           registrationEnabled: false,
           publicContentEnabled: false,
+          openAiBaseUrl: "https://openai.example/v1",
+          anthropicBaseUrl: null,
         };
       },
     },
@@ -49,10 +53,14 @@ test("upsertSiteConfig persists booleans on the singleton row", async () => {
   const config = await upsertSiteConfig(prisma as never, {
     registrationEnabled: false,
     publicContentEnabled: false,
+    openAiBaseUrl: "https://openai.example/v1",
+    anthropicBaseUrl: null,
   });
 
   assert.equal(config.registrationEnabled, false);
   assert.equal(config.publicContentEnabled, false);
+  assert.equal(config.openAiBaseUrl, "https://openai.example/v1");
+  assert.equal(config.anthropicBaseUrl, null);
   assert.deepEqual(calls, [
     {
       where: { id: "site-config-singleton" },
@@ -60,10 +68,14 @@ test("upsertSiteConfig persists booleans on the singleton row", async () => {
         id: "site-config-singleton",
         registrationEnabled: false,
         publicContentEnabled: false,
+        openAiBaseUrl: "https://openai.example/v1",
+        anthropicBaseUrl: null,
       },
       update: {
         registrationEnabled: false,
         publicContentEnabled: false,
+        openAiBaseUrl: "https://openai.example/v1",
+        anthropicBaseUrl: null,
       },
     },
   ]);

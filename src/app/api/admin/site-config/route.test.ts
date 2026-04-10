@@ -63,6 +63,8 @@ test("GET /api/admin/site-config returns the current site config for admins", as
       id: "site-config-singleton",
       registrationEnabled: false,
       publicContentEnabled: true,
+      openAiBaseUrl: "https://openai.example/v1",
+      anthropicBaseUrl: "https://anthropic.example/v1",
     }),
   };
 
@@ -76,6 +78,8 @@ test("GET /api/admin/site-config returns the current site config for admins", as
   assert.equal(json.success, true);
   assert.equal(json.data.registrationEnabled, false);
   assert.equal(json.data.publicContentEnabled, true);
+  assert.equal(json.data.openAiBaseUrl, "https://openai.example/v1");
+  assert.equal(json.data.anthropicBaseUrl, "https://anthropic.example/v1");
 });
 
 test("PUT /api/admin/site-config returns 403 when origin header is missing", async () => {
@@ -102,6 +106,8 @@ test("PUT /api/admin/site-config updates the singleton config for admins", async
       id: "site-config-singleton",
       registrationEnabled: true,
       publicContentEnabled: true,
+      openAiBaseUrl: null,
+      anthropicBaseUrl: null,
     }),
     upsert: async ({
       create,
@@ -117,6 +123,8 @@ test("PUT /api/admin/site-config updates the singleton config for admins", async
         id: "site-config-singleton",
         registrationEnabled: false,
         publicContentEnabled: false,
+        openAiBaseUrl: "https://openai.example/v1",
+        anthropicBaseUrl: null,
       };
     },
   };
@@ -130,6 +138,8 @@ test("PUT /api/admin/site-config updates the singleton config for admins", async
     json: {
       registrationEnabled: false,
       publicContentEnabled: false,
+      openAiBaseUrl: "  https://openai.example/v1  ",
+      anthropicBaseUrl: "   ",
     },
   });
   const response = await PUT(request);
@@ -139,16 +149,22 @@ test("PUT /api/admin/site-config updates the singleton config for admins", async
   assert.equal(json.success, true);
   assert.equal(json.data.registrationEnabled, false);
   assert.equal(json.data.publicContentEnabled, false);
+  assert.equal(json.data.openAiBaseUrl, "https://openai.example/v1");
+  assert.equal(json.data.anthropicBaseUrl, null);
   assert.deepEqual(savedArgs, {
     where: { id: "site-config-singleton" },
     create: {
       id: "site-config-singleton",
       registrationEnabled: false,
       publicContentEnabled: false,
+      openAiBaseUrl: "https://openai.example/v1",
+      anthropicBaseUrl: null,
     },
     update: {
       registrationEnabled: false,
       publicContentEnabled: false,
+      openAiBaseUrl: "https://openai.example/v1",
+      anthropicBaseUrl: null,
     },
   });
 });
