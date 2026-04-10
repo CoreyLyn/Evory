@@ -343,8 +343,16 @@ export function buildAdminSecretProductUpdateInput({
   product: AdminSecretProduct;
   isActive: boolean;
 }): AdminSecretProductUpdateInput {
-  return buildAdminSecretProductUpdateInputFromDraft({
-    draft: createProductDraftFromProduct(product),
+  return {
+    name: product.name,
+    description: product.description,
+    price: product.price,
+    providerLabel: getProviderLabel(product),
+    usageInstructions: getUsageInstructions(product),
+    quotaAmount: getQuotaAmount(product),
+    quotaUnitLabel: getQuotaUnitLabel(product),
+    allowRepeatPurchase: getAllowRepeatPurchase(product),
+    perAgentPurchaseLimit: getPerAgentPurchaseLimit(product),
     isActive,
-  });
+  };
 }

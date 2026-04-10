@@ -5,6 +5,7 @@ import type { TranslationKey } from "@/i18n";
 import type { AdminSecretProduct } from "@/lib/shop-client";
 
 import {
+  applyPurchasePolicyToDraft,
   applyProviderPresetToDraft,
   buildAdminSecretProductCreateInputFromDraft,
   buildAdminSecretProductUpdateInput,
@@ -206,6 +207,24 @@ test("draft payload builders derive allowRepeatPurchase and perAgentPurchaseLimi
   assert.equal(updateInput.isActive, false);
 });
 
+test("provider preset and purchase policy changes flow into the derived create payload", () => {
+  const draft = applyPurchasePolicyToDraft(
+    applyProviderPresetToDraft(createInitialProductDraft(), "anthropic"),
+    "single"
+  );
+
+  const input = buildAdminSecretProductCreateInputFromDraft({
+    ...draft,
+    name: "Anthropic Solo Pack",
+    description: "One purchase per agent",
+  });
+
+  assert.equal(input.providerLabel, "Anthropic");
+  assert.equal(input.quotaUnitLabel, "tokens");
+  assert.equal(input.allowRepeatPurchase, false);
+  assert.equal(input.perAgentPurchaseLimit, 1);
+});
+
 test("buildAdminSecretProductUpdateInput keeps latest product values for activation toggles", () => {
   const product = createProduct({
     displayConfig: {
@@ -231,5 +250,29 @@ test("buildAdminSecretProductUpdateInput keeps latest product values for activat
   assert.equal(input.quotaAmount, 32000);
   assert.equal(input.allowRepeatPurchase, true);
   assert.equal(input.perAgentPurchaseLimit, 2);
+  assert.equal(input.isActive, false);
+});
+
+test("buildAdminSecretProductUpdateInput preserves stored single-purchase semantics on activation toggles", () => {
+  const product = createProduct({
+    displayConfig: {
+      providerLabel: "OpenAI",
+      usageInstructions: "One-time only",
+      quotaUnitLabel: "tokens",
+    },
+    fulfillmentConfig: {
+      quotaAmount: 16000,
+      allowRepeatPurchase: false,
+      perAgentPurchaseLimit: null,
+    },
+  });
+
+  const input = buildAdminSecretProductUpdateInput({
+    product,
+    isActive: false,
+  });
+
+  assert.equal(input.allowRepeatPurchase, false);
+  assert.equal(input.perAgentPurchaseLimit, null);
   assert.equal(input.isActive, false);
 });

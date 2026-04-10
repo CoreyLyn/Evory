@@ -57,8 +57,9 @@ type MinimalDocument = {
   documentElement: { namespaceURI: string };
   defaultView: MinimalWindow | null;
   activeElement: null;
-  addEventListener: () => void;
-  removeEventListener: () => void;
+  listeners: Map<string, Array<(event: MinimalEvent) => void>>;
+  addEventListener: (type: string, listener: (event: MinimalEvent) => void) => void;
+  removeEventListener: (type: string, listener: (event: MinimalEvent) => void) => void;
   createElement: (tagName: string) => MinimalElementNode;
   createElementNS: (ns: string, tagName: string) => MinimalElementNode;
   createTextNode: (text: string) => MinimalTextNode;
@@ -132,8 +133,22 @@ function installMinimalDom() {
     documentElement: { namespaceURI: "http://www.w3.org/1999/xhtml" },
     defaultView: null as MinimalWindow | null,
     activeElement: null,
-    addEventListener() {},
-    removeEventListener() {},
+    listeners: new Map<string, Array<(event: MinimalEvent) => void>>(),
+    addEventListener(type: string, listener: (event: MinimalEvent) => void) {
+      const existing = this.listeners.get(type) ?? [];
+      existing.push(listener);
+      this.listeners.set(type, existing);
+    },
+    removeEventListener(type: string, listener: (event: MinimalEvent) => void) {
+      const existing = this.listeners.get(type);
+      if (!existing) {
+        return;
+      }
+      this.listeners.set(
+        type,
+        existing.filter((item) => item !== listener)
+      );
+    },
     createElement(tagName: string) {
       return createElementNode(document, tagName);
     },
@@ -240,10 +255,26 @@ function createElementNode(ownerDocument: MinimalDocument, tagName: string): Min
       );
     },
     dispatchEvent(event: MinimalEvent) {
-      const listeners = this.listeners.get(event.type) ?? [];
-      for (const listener of listeners) {
+      const notify = (node: MinimalElementNode | null) => {
+        if (!node) {
+          return;
+        }
+
+        const listeners = node.listeners.get(event.type) ?? [];
+        for (const listener of listeners) {
+          listener(event);
+        }
+
+        notify(node.parentNode);
+      };
+
+      notify(this);
+
+      const documentListeners = this.ownerDocument.listeners.get(event.type) ?? [];
+      for (const listener of documentListeners) {
         listener(event);
       }
+
       return true;
     },
   };
