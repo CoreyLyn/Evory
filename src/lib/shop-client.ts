@@ -223,14 +223,14 @@ export type AdminSecretProductUpdateInput = AdminSecretProductCreateInput & {
 
 export type AdminProvidedApiKeyCreateInput = {
   label: string;
-  providerLabel: string;
+  providerLabel?: string | null;
   apiKey: string;
   isActive?: boolean;
 };
 
 export type AdminProvidedApiKeyUpdateInput = {
   label: string;
-  providerLabel: string;
+  providerLabel?: string | null;
   isActive: boolean;
 };
 
@@ -599,7 +599,7 @@ export async function createAdminProvidedApiKey(
     },
     body: JSON.stringify({
       label: input.label,
-      providerLabel: input.providerLabel,
+      providerLabel: input.providerLabel ?? null,
       apiKey: input.apiKey,
       isActive: input.isActive ?? true,
     }),
@@ -620,7 +620,7 @@ export async function updateAdminProvidedApiKey(
     },
     body: JSON.stringify({
       label: input.label,
-      providerLabel: input.providerLabel,
+      providerLabel: input.providerLabel ?? null,
       isActive: input.isActive,
     }),
   });

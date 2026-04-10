@@ -44,7 +44,6 @@ type ProductDraft = {
 
 type ApiKeyDraft = {
   label: string;
-  providerLabel: string;
   apiKey: string;
   isActive: boolean;
 };
@@ -79,7 +78,6 @@ export function createInitialProductDraft(): ProductDraft {
 function createInitialApiKeyDraft(): ApiKeyDraft {
   return {
     label: "",
-    providerLabel: "",
     apiKey: "",
     isActive: true,
   };
@@ -601,7 +599,6 @@ export function AdminSecretProductsPanel({
     try {
       await updateAdminProvidedApiKey(fetch, key.id, {
         label: key.label,
-        providerLabel: key.providerLabel,
         isActive: nextIsActive,
       });
       await Promise.all([refreshApiKeys(), refreshApplications()]);
@@ -1065,7 +1062,7 @@ export function AdminSecretProductsPanel({
               <p className="text-sm text-muted">{t("admin.products.keys.subtitle")}</p>
             </div>
 
-            <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmitApiKey}>
+            <form className="mt-6 grid gap-4" onSubmit={handleSubmitApiKey}>
               <label className="space-y-2">
                 <span className="text-xs font-semibold text-muted">
                   {t("admin.products.keys.form.label")}
@@ -1080,21 +1077,6 @@ export function AdminSecretProductsPanel({
               </label>
               <label className="space-y-2">
                 <span className="text-xs font-semibold text-muted">
-                  {t("admin.products.keys.form.providerLabel")}
-                </span>
-                <input
-                  value={apiKeyDraft.providerLabel}
-                  onChange={(event) =>
-                    setApiKeyDraft((current) => ({
-                      ...current,
-                      providerLabel: event.target.value,
-                    }))
-                  }
-                  className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-                />
-              </label>
-              <label className="space-y-2 md:col-span-2">
-                <span className="text-xs font-semibold text-muted">
                   {t("admin.products.keys.form.apiKey")}
                 </span>
                 <textarea
@@ -1105,7 +1087,7 @@ export function AdminSecretProductsPanel({
                   className="min-h-24 w-full rounded-xl border border-card-border bg-card px-3 py-2 font-mono text-sm text-foreground outline-none transition-colors focus:border-accent/40"
                 />
               </label>
-              <label className="flex items-center gap-3 rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3 md:col-span-2">
+              <label className="flex items-center gap-3 rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3">
                 <input
                   type="checkbox"
                   checked={apiKeyDraft.isActive}
@@ -1121,7 +1103,7 @@ export function AdminSecretProductsPanel({
                   {t("admin.products.keys.form.isActive")}
                 </span>
               </label>
-              <div className="flex justify-end md:col-span-2">
+              <div className="flex justify-end">
                 <Button type="submit" disabled={submittingKey}>
                   {submittingKey
                     ? t("admin.products.keys.form.submitting")
@@ -1156,7 +1138,7 @@ export function AdminSecretProductsPanel({
                             </Badge>
                           </div>
                           <div className="mt-1 text-xs text-muted">
-                            {key.providerLabel} · {key.maskedKey}
+                            {key.maskedKey}
                           </div>
                         </div>
                         <Button
