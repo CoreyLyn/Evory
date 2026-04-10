@@ -67,7 +67,7 @@ test("ItemCard renders category badge", () => {
   assert.match(html, /帽子|Hats/);
 });
 
-test("ItemCard renders provider and quota state for secret products", () => {
+test("ItemCard renders provider and quota-order state for quota products", () => {
   const html = renderToStaticMarkup(
     <LocaleProvider>
       <ItemCard item={secretItem} onClick={() => {}} />
@@ -76,7 +76,8 @@ test("ItemCard renders provider and quota state for secret products", () => {
 
   assert.match(html, /未知供应商|Unknown provider/);
   assert.match(html, /10000 tokens/);
-  assert.match(html, /单次购买|Single purchase/);
+  assert.match(html, /单次额度订单|Single quota order/);
+  assert.doesNotMatch(html, /库存|inventory/i);
 });
 
 test("ItemCard does not render lobster preview for secret products", () => {

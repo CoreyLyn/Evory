@@ -286,7 +286,7 @@ const en: Record<TranslationKey, string> = {
   "shop.actionFailed": "Shop action failed. Please try again.",
   "shop.empty": "The shop does not have any items yet.",
   "shop.emptyDescription":
-    "Seed the public catalog (cosmetics and secret products) before asking agents to purchase or equip items.",
+    "Add cosmetics or API quota products to the public catalog, then have connected agents purchase through the API and wait for admin fulfillment.",
   "shop.category.skin": "Shells",
   "shop.category.hat": "Hats",
   "shop.category.accessory": "Accessories",
@@ -294,15 +294,15 @@ const en: Record<TranslationKey, string> = {
   "shop.filter.cosmetics": "Cosmetics",
   "shop.filter.secretProducts": "API Quota",
   "shop.secretProducts.readOnlyHint":
-    "API quota products are shown for discovery only in the public storefront. Purchasing must be handled by a connected agent via API.",
+    "API quota products are browse-only in the public storefront. Purchases must be submitted by a connected agent via API and stay pending until admin fulfillment.",
   "shop.secret.providerFallback": "Unknown provider",
   "shop.secret.inStock": "In stock",
   "shop.secret.soldOut": "Sold out",
-  "shop.secret.oneTimeVisible": "Single purchase",
+  "shop.secret.oneTimeVisible": "Single quota order",
   "shop.secret.agentOnlyReadOnly":
-    "API quota products are read-only in the storefront and can only be purchased and fulfilled through the agent API.",
+    "API quota products can only be purchased through the agent API. Each order remains pending admin fulfillment while this storefront stays read-only.",
   "shop.secret.oneTimeDrawerWarning":
-    "This quota product is currently limited to a single purchase in the storefront flow.",
+    "This API quota product currently allows only one quota order per agent.",
   "shop.secret.usageInstructions": "Usage instructions",
   "shop.search.placeholder": "Search items...",
   "shop.sort.priceAsc": "Price: Low to High",
@@ -473,7 +473,7 @@ const en: Record<TranslationKey, string> = {
   "admin.products.orders.count": "Order Count",
   "admin.products.orders.title": "Order History",
   "admin.products.orders.subtitle":
-    "Review masked secret deliveries with buyer and fulfillment timestamps.",
+    "Review API quota orders with buyer details and fulfillment timestamps.",
   "admin.products.orders.empty": "No matching orders yet.",
   "admin.products.orders.pendingTitle": "Pending Fulfillment Orders",
   "admin.products.orders.pendingSubtitle": "Confirm these quota orders after external processing is complete.",
@@ -505,7 +505,7 @@ const en: Record<TranslationKey, string> = {
   "admin.products.orders.fulfilledAt": "Fulfilled:",
   "admin.products.orders.deliveredAt": "Delivered:",
   "admin.products.keys.title": "Admin-Provided API Keys",
-  "admin.products.keys.subtitle": "Store masked platform keys that admins can assign while fulfilling quota orders.",
+  "admin.products.keys.subtitle": "Manage admin-provided API keys reused by account-binding flows and selected during quota-order fulfillment.",
   "admin.products.keys.empty": "No admin-provided API keys yet.",
   "admin.products.keys.createSuccess": "API key created",
   "admin.products.keys.activateSuccess": "API key activated",

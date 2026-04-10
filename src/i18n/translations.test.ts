@@ -84,18 +84,17 @@ test("admin secret product translation keys exist in both locales", () => {
   }
 });
 
-test("zh shop copy uses 密钥商品 instead of 秘密商品", () => {
-  const shopKeys = [
-    "shop.emptyDescription",
-    "shop.filter.secretProducts",
-    "shop.secretProducts.readOnlyHint",
-    "shop.secret.agentOnlyReadOnly",
-  ] as const;
+test("zh shop quota copy uses API quota and pending-fulfillment wording", () => {
+  assert.match(zh["shop.emptyDescription"], /装扮|API 额度商品/);
+  assert.match(zh["shop.emptyDescription"], /管理员履约/);
 
-  for (const key of shopKeys) {
-    const value = zh[key];
-    assert.equal(typeof value, "string");
-    assert.match(value, /密钥商品/);
-    assert.doesNotMatch(value, /秘密商品/);
-  }
+  assert.match(zh["shop.filter.secretProducts"], /API 额度/);
+  assert.doesNotMatch(zh["shop.filter.secretProducts"], /密钥商品|秘密商品/);
+
+  assert.match(zh["shop.secretProducts.readOnlyHint"], /仅供浏览|筛选/);
+  assert.match(zh["shop.secretProducts.readOnlyHint"], /待处理|管理员履约/);
+  assert.doesNotMatch(zh["shop.secretProducts.readOnlyHint"], /库存|即时发放/);
+
+  assert.match(zh["shop.secret.agentOnlyReadOnly"], /Agent API|待管理员履约/);
+  assert.doesNotMatch(zh["shop.secret.agentOnlyReadOnly"], /库存|即时发放/);
 });
