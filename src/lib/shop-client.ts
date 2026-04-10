@@ -76,7 +76,6 @@ export type ApiQuotaProductEnvelope = {
 };
 
 export type AdminSecretProduct = AdminSecretProductRecord & {
-  inventoryCount: number;
   orderCount: number;
 };
 
@@ -402,6 +401,48 @@ function normalizePublicShopCatalog(raw: unknown): PublicShopCatalogEntry[] {
   return raw.map((entry) => normalizePublicShopCatalogEntry(entry));
 }
 
+function normalizeAdminSecretProductRecord(rawEntry: unknown): AdminSecretProductRecord {
+  const record = asRecord(rawEntry);
+  if (!record) {
+    throw new Error("Invalid admin shop product");
+  }
+
+  const displayConfig = asRecord(record.displayConfig) ?? {};
+  const fulfillmentConfig = asRecord(record.fulfillmentConfig) ?? {};
+
+  return {
+    id: requireString(record, "id", "admin shop product"),
+    name: requireString(record, "name", "admin shop product"),
+    description: readStringOrDefault(record, "description", ""),
+    productType: "API_QUOTA",
+    price: requireNumber(record, "price", "admin shop product"),
+    currencyType: readCurrencyType(record, "admin shop product"),
+    isActive: readBoolean(record, "isActive") ?? false,
+    displayConfig,
+    fulfillmentConfig,
+    createdAt: requireString(record, "createdAt", "admin shop product"),
+    updatedAt: requireString(record, "updatedAt", "admin shop product"),
+  };
+}
+
+function normalizeAdminSecretProducts(raw: unknown): AdminSecretProduct[] {
+  if (!Array.isArray(raw)) {
+    throw new Error("Invalid admin shop products");
+  }
+
+  return raw.map((entry) => {
+    const record = asRecord(entry);
+    if (!record) {
+      throw new Error("Invalid admin shop product");
+    }
+
+    return {
+      ...normalizeAdminSecretProductRecord(record),
+      orderCount: requireNumber(record, "orderCount", "admin shop product"),
+    };
+  });
+}
+
 async function readEnvelope<T>(response: Response): Promise<T> {
   const json = (await response.json()) as ApiEnvelope<T>;
 
@@ -442,7 +483,8 @@ export async function fetchAgentShopCatalog(agentFetch: AgentFetch) {
 
 export async function fetchAdminSecretProducts(fetcher: PublicFetch = fetch) {
   const response = await fetcher("/api/admin/shop/products");
-  return readEnvelope<AdminSecretProduct[]>(response);
+  const raw = await readEnvelope<unknown>(response);
+  return normalizeAdminSecretProducts(raw);
 }
 
 export async function fetchAdminProvidedApiKeys(fetcher: PublicFetch = fetch) {
