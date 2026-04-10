@@ -490,6 +490,7 @@ const en: Record<TranslationKey, string> = {
   "admin.products.bindings.title": "Bound Account API Keys",
   "admin.products.bindings.subtitle": "Review which user accounts are currently bound to admin-provided API keys.",
   "admin.products.bindings.empty": "No bound account API keys yet.",
+  "admin.products.bindings.keyLabel": "Key Label:",
   "admin.products.bindings.providedKey": "Bound API Key:",
   "admin.products.bindings.status.active": "Key Active",
   "admin.products.bindings.status.inactive": "Key Inactive",

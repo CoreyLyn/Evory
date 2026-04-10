@@ -485,6 +485,7 @@ const zh = {
   "admin.products.bindings.title": "已绑定账号 API Key",
   "admin.products.bindings.subtitle": "查看哪些用户账号已经绑定到管理员提供的 API Key。",
   "admin.products.bindings.empty": "暂无已绑定账号 API Key。",
+  "admin.products.bindings.keyLabel": "Key 标签：",
   "admin.products.bindings.providedKey": "绑定的 API Key：",
   "admin.products.bindings.status.active": "Key 可用",
   "admin.products.bindings.status.inactive": "Key 已停用",

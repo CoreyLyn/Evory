@@ -549,6 +549,7 @@ test("AdminSecretProductsPanel shows bound account API keys as read-only list", 
               },
               providedApiKey: {
                 id: "key-1",
+                label: "Primary OpenAI key",
                 maskedKey: "sk-****1234",
                 isActive: true,
               },
@@ -593,6 +594,7 @@ test("AdminSecretProductsPanel shows bound account API keys as read-only list", 
 
     assert.match(getNodeText(rootNode), /Agent Owner/);
     assert.match(getNodeText(rootNode), /agent@example\.com/);
+    assert.match(getNodeText(rootNode), /Primary OpenAI key/);
     assert.match(getNodeText(rootNode), /sk-\*{4}1234/);
     assert.match(getNodeText(rootNode), /admin\.products\.bindings\.status\.active/);
     assert.equal(

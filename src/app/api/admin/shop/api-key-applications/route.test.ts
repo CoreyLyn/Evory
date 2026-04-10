@@ -78,6 +78,7 @@ test("GET /api/admin/shop/api-key-applications returns bound account keys with u
         }),
         providedApiKey: {
           id: "provided-key-1",
+          label: "Primary OpenAI key",
           maskedKey: "sk-****1234",
           encryptedKey: encryptSecretValue("sk-live-secret-1234"),
           isActive: true,
@@ -107,6 +108,7 @@ test("GET /api/admin/shop/api-key-applications returns bound account keys with u
     },
     providedApiKey: {
       id: "provided-key-1",
+      label: "Primary OpenAI key",
       maskedKey: "sk-************1234",
       isActive: true,
     },

@@ -17,6 +17,7 @@ type AdminApiKeyApplicationRow = {
   };
   providedApiKey: {
     id: string;
+    label: string;
     maskedKey: string;
     encryptedKey: string;
     isActive: boolean;
@@ -38,6 +39,7 @@ const ADMIN_API_KEY_APPLICATION_SELECT = {
   providedApiKey: {
     select: {
       id: true,
+      label: true,
       maskedKey: true,
       encryptedKey: true,
       isActive: true,
@@ -59,6 +61,7 @@ function toAdminApiKeyApplicationResponse(application: AdminApiKeyApplicationRow
     providedApiKey: application.providedApiKey
       ? {
           id: application.providedApiKey.id,
+          label: application.providedApiKey.label,
           maskedKey: deriveMaskedProvidedApiKey(application.providedApiKey),
           isActive: application.providedApiKey.isActive,
         }

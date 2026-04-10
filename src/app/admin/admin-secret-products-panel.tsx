@@ -1288,6 +1288,13 @@ export function AdminSecretProductsPanel({
                         </div>
                         <div>
                           <dt className="inline text-muted/70">
+                            {t("admin.products.bindings.keyLabel")} </dt>
+                          <dd className="inline text-foreground/80">
+                            {application.providedApiKey?.label ?? "—"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="inline text-muted/70">
                             {t("admin.products.bindings.providedKey")} </dt>
                           <dd className="inline text-foreground/80">
                             {application.providedApiKey?.maskedKey ?? "—"}

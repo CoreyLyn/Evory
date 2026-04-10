@@ -169,6 +169,7 @@ export type AdminApiKeyApplication = {
   };
   providedApiKey: {
     id: string;
+    label: string;
     maskedKey: string;
     isActive: boolean;
   } | null;
