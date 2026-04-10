@@ -381,6 +381,33 @@ test("UserProvidedApiKeyCard hides the base url section before fulfillment", () 
   assert.doesNotMatch(html, /兼容 Anthropic 接口协议工具/);
 });
 
+test("UserProvidedApiKeyCard shows deactivated state when key is inactive", () => {
+  const html = renderToStaticMarkup(
+    <UserProvidedApiKeyCard
+      summary={{
+        status: "FULFILLED",
+        application: {
+          id: "application-1",
+          status: "FULFILLED",
+          requestedAt: "2026-04-09T00:00:00.000Z",
+          fulfilledAt: "2026-04-09T01:00:00.000Z",
+          failureReason: null,
+        },
+        // Key is deactivated (isActive: false in DB, so providedApiKey is null)
+        providedApiKey: null,
+      }}
+      baseUrls={{ openAiBaseUrl: null, anthropicBaseUrl: null }}
+      busy={false}
+      onRequest={() => undefined}
+    />
+  );
+
+  assert.match(html, /已停用/);
+  assert.match(html, /已被管理员停用/);
+  assert.match(html, /立即领取 API Key/);
+  assert.doesNotMatch(html, /sk-\*{12}1234/);
+});
+
 test("DELETE_AGENT_CONFIRMATION_MESSAGE uses irreversible wording", () => {
   assert.match(DELETE_AGENT_CONFIRMATION_MESSAGE, /不可恢复/);
   assert.match(DELETE_AGENT_CONFIRMATION_MESSAGE, /已删除 Agent/);

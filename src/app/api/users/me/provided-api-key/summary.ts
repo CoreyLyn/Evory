@@ -5,6 +5,7 @@ export type ProvidedApiKeyRow = {
   id: string;
   maskedKey: string;
   encryptedKey: string;
+  isActive: boolean;
 };
 
 export type ApplicationRow = {
@@ -36,6 +37,7 @@ export const providedApiKeySelect = {
   id: true,
   maskedKey: true,
   encryptedKey: true,
+  isActive: true,
 } as const;
 
 export const applicationSummarySelect = {
@@ -69,12 +71,14 @@ export function toSummary(
       fulfilledAt: application.fulfilledAt?.toISOString() ?? null,
       failureReason: application.failureReason ?? null,
     },
-        providedApiKey: application.providedApiKey
-      ? {
-          id: application.providedApiKey.id,
-          maskedKey: deriveMaskedProvidedApiKey(application.providedApiKey),
-          copyValue: decryptSecretValue(application.providedApiKey.encryptedKey),
-        }
-      : null,
+    // Only return providedApiKey info if the key is active
+    providedApiKey:
+      application.providedApiKey && application.providedApiKey.isActive
+        ? {
+            id: application.providedApiKey.id,
+            maskedKey: deriveMaskedProvidedApiKey(application.providedApiKey),
+            copyValue: decryptSecretValue(application.providedApiKey.encryptedKey),
+          }
+        : null,
   };
 }

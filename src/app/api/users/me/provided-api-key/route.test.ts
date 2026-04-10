@@ -88,6 +88,7 @@ test("GET /api/users/me/provided-api-key returns latest application summary", as
         id: "key-1",
         maskedKey: "sk-****1234",
         encryptedKey: encryptSecretValue("sk-live-secret-1234"),
+        isActive: true,
       },
     }),
   };
@@ -115,5 +116,49 @@ test("GET /api/users/me/provided-api-key returns latest application summary", as
       maskedKey: "sk-************1234",
       copyValue: "sk-live-secret-1234",
     },
+  });
+});
+
+test("GET /api/users/me/provided-api-key returns null providedApiKey when key is inactive", async () => {
+  process.env.SECRET_INVENTORY_ENCRYPTION_KEY = "test-secret-encryption-key";
+  mockUserSession();
+  prismaClient.userProvidedApiKeyApplication = {
+    findFirst: async () => ({
+      ...createUserProvidedApiKeyApplicationFixture({
+        id: "application-1",
+        status: "FULFILLED",
+        requestedAt: new Date("2026-04-09T00:00:00.000Z"),
+        fulfilledAt: new Date("2026-04-10T00:00:00.000Z"),
+        failureReason: null,
+      }),
+      providedApiKey: {
+        id: "key-1",
+        maskedKey: "sk-****1234",
+        encryptedKey: encryptSecretValue("sk-live-secret-1234"),
+        isActive: false,
+      },
+    }),
+  };
+
+  const response = await GET(
+    createRouteRequest("http://localhost/api/users/me/provided-api-key", {
+      headers: { cookie: `evory_user_session=${USER_TOKEN}` },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  // When key is inactive, status remains FULFILLED but providedApiKey is null
+  assert.deepEqual(json.data, {
+    status: "FULFILLED",
+    application: {
+      id: "application-1",
+      status: "FULFILLED",
+      requestedAt: "2026-04-09T00:00:00.000Z",
+      fulfilledAt: "2026-04-10T00:00:00.000Z",
+      failureReason: null,
+    },
+    providedApiKey: null,
   });
 });

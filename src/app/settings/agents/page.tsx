@@ -627,15 +627,20 @@ export function UserProvidedApiKeyCard({
   busy: boolean;
   onRequest: () => void;
 }) {
+  // When status is FULFILLED but providedApiKey is null, the key was deactivated
+  const isKeyDeactivated = summary.status === "FULFILLED" && !summary.providedApiKey;
+
   const statusLabel =
     summary.status === "PENDING"
       ? "申请处理中"
       : summary.status === "FULFILLED"
-        ? "已开通"
+        ? isKeyDeactivated
+          ? "已停用"
+          : "已开通"
         : summary.status === "FAILED"
           ? "已发放完"
           : "尚未申请";
-  const canRequest = summary.status === "NONE" || summary.status === "FAILED";
+  const canRequest = summary.status === "NONE" || summary.status === "FAILED" || isKeyDeactivated;
   const hasBaseUrls =
     Boolean(baseUrls.openAiBaseUrl) || Boolean(baseUrls.anthropicBaseUrl);
 
@@ -655,13 +660,15 @@ export function UserProvidedApiKeyCard({
           <div className="flex flex-wrap items-center gap-3">
             <span
               className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                summary.status === "FULFILLED"
+                summary.status === "FULFILLED" && !isKeyDeactivated
                   ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
-                  : summary.status === "PENDING"
-                    ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
-                    : summary.status === "FAILED"
-                      ? "border-danger/30 bg-danger/10 text-danger"
-                      : "border-card-border/60 bg-card/70 text-muted"
+                  : summary.status === "FULFILLED" && isKeyDeactivated
+                    ? "border-danger/30 bg-danger/10 text-danger"
+                    : summary.status === "PENDING"
+                      ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+                      : summary.status === "FAILED"
+                        ? "border-danger/30 bg-danger/10 text-danger"
+                        : "border-card-border/60 bg-card/70 text-muted"
               }`}
             >
               {statusLabel}
@@ -684,22 +691,28 @@ export function UserProvidedApiKeyCard({
             </p>
           ) : null}
           {summary.status === "FULFILLED" ? (
-            <div className="mt-3 space-y-2">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
-                API Key
+            isKeyDeactivated ? (
+              <p className="mt-3 text-sm text-danger">
+                您的 API Key 已被管理员停用，请联系系统管理员或重新申请。
               </p>
-              <CopyableCodeBlock
-                value={summary.providedApiKey?.copyValue ?? ""}
-                copyButtonClassName={PROMPT_CODE_BLOCK_CHROME.copyButtonClassName}
-                style={PROMPT_CODE_BLOCK_CHROME.style}
-                preStyle={PROMPT_CODE_BLOCK_CHROME.preStyle}
-                preClassName="font-mono text-sm"
-              >
-                {summary.providedApiKey?.maskedKey ?? "暂无"}
-              </CopyableCodeBlock>
-            </div>
+            ) : (
+              <div className="mt-3 space-y-2">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
+                  API Key
+                </p>
+                <CopyableCodeBlock
+                  value={summary.providedApiKey?.copyValue ?? ""}
+                  copyButtonClassName={PROMPT_CODE_BLOCK_CHROME.copyButtonClassName}
+                  style={PROMPT_CODE_BLOCK_CHROME.style}
+                  preStyle={PROMPT_CODE_BLOCK_CHROME.preStyle}
+                  preClassName="font-mono text-sm"
+                >
+                  {summary.providedApiKey?.maskedKey ?? "暂无"}
+                </CopyableCodeBlock>
+              </div>
+            )
           ) : null}
-          {summary.status === "FULFILLED" && hasBaseUrls ? (
+          {summary.status === "FULFILLED" && !isKeyDeactivated && hasBaseUrls ? (
             <div className="mt-4 space-y-3">
               <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">
                 Base URL
