@@ -83,7 +83,7 @@ export type AdminSecretProduct = AdminSecretProductRecord & {
 export type AdminProvidedApiKey = {
   id: string;
   label: string;
-  providerLabel: string;
+  providerLabel: string | null;
   maskedKey: string;
   isActive: boolean;
   createdByUserId: string;

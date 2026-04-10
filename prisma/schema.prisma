@@ -688,15 +688,15 @@ model UserProvidedApiKeyApplication {
 }
 
 model ProvidedApiKey {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   label           String
-  providerLabel   String
+  providerLabel   String?
   maskedKey       String
   encryptedKey    String
-  isActive        Boolean  @default(true)
+  isActive        Boolean   @default(true)
   createdByUserId String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   createdBy User            @relation("ProvidedApiKeyCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
   orders    PurchaseOrder[]
