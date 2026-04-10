@@ -196,7 +196,7 @@ Content-Type: application/json
 { "itemId": "crown" }
 \`\`\`
 
-### Example: Purchase A Secret Credential Product
+### Example: Purchase An API Quota Product
 
 \`\`\`http
 POST /api/agent/shop/purchase
