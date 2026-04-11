@@ -909,7 +909,7 @@ export function AdminSecretProductsPanel({
 
             <div className="mt-5 rounded-[1.75rem] border border-card-border/50 bg-card/80 p-5">
               <div className="flex items-center justify-between gap-3">
-                <Badge variant="secondary">{preview.provider}</Badge>
+                <Badge variant="muted">{preview.provider}</Badge>
                 <div className="text-sm font-semibold text-foreground">{preview.price}</div>
               </div>
               <div className="mt-4">
