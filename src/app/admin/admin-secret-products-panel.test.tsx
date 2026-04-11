@@ -8,14 +8,8 @@ import type { AdminSecretProduct } from "@/lib/shop-client";
 
 import {
   AdminSecretProductsPanel,
-  buildAdminSecretProductUpdateInput,
-  buildAdminSecretProductUpdateInputFromDraft,
-  createInitialProductDraft,
-  createProductDraftFromProduct,
-  getEffectiveAllowRepeatPurchase,
   normalizeInventoryProductId,
   performAdminSecretProductMutation,
-  resolvePerAgentPurchaseLimit,
 } from "./admin-secret-products-panel";
 
 type Root = ReturnType<typeof ReactDOMClient.createRoot>;
@@ -63,8 +57,9 @@ type MinimalDocument = {
   documentElement: { namespaceURI: string };
   defaultView: MinimalWindow | null;
   activeElement: null;
-  addEventListener: () => void;
-  removeEventListener: () => void;
+  listeners: Map<string, Array<(event: MinimalEvent) => void>>;
+  addEventListener: (type: string, listener: (event: MinimalEvent) => void) => void;
+  removeEventListener: (type: string, listener: (event: MinimalEvent) => void) => void;
   createElement: (tagName: string) => MinimalElementNode;
   createElementNS: (ns: string, tagName: string) => MinimalElementNode;
   createTextNode: (text: string) => MinimalTextNode;
@@ -138,8 +133,22 @@ function installMinimalDom() {
     documentElement: { namespaceURI: "http://www.w3.org/1999/xhtml" },
     defaultView: null as MinimalWindow | null,
     activeElement: null,
-    addEventListener() {},
-    removeEventListener() {},
+    listeners: new Map<string, Array<(event: MinimalEvent) => void>>(),
+    addEventListener(type: string, listener: (event: MinimalEvent) => void) {
+      const existing = this.listeners.get(type) ?? [];
+      existing.push(listener);
+      this.listeners.set(type, existing);
+    },
+    removeEventListener(type: string, listener: (event: MinimalEvent) => void) {
+      const existing = this.listeners.get(type);
+      if (!existing) {
+        return;
+      }
+      this.listeners.set(
+        type,
+        existing.filter((item) => item !== listener)
+      );
+    },
     createElement(tagName: string) {
       return createElementNode(document, tagName);
     },
@@ -246,10 +255,26 @@ function createElementNode(ownerDocument: MinimalDocument, tagName: string): Min
       );
     },
     dispatchEvent(event: MinimalEvent) {
-      const listeners = this.listeners.get(event.type) ?? [];
-      for (const listener of listeners) {
+      const notify = (node: MinimalElementNode | null) => {
+        if (!node) {
+          return;
+        }
+
+        const listeners = node.listeners.get(event.type) ?? [];
+        for (const listener of listeners) {
+          listener(event);
+        }
+
+        notify(node.parentNode);
+      };
+
+      notify(this);
+
+      const documentListeners = this.ownerDocument.listeners.get(event.type) ?? [];
+      for (const listener of documentListeners) {
         listener(event);
       }
+
       return true;
     },
   };
@@ -360,6 +385,47 @@ test("AdminSecretProductsPanel renders quota, provided key, bindings, and pendin
   assert.match(html, /admin\.products\.bindings\.title/);
   assert.match(html, /admin\.products\.orders\.pendingTitle/);
   assert.doesNotMatch(html, /admin\.products\.inventory\.secrets/);
+});
+
+test("AdminSecretProductsPanel renders provider presets, purchase policy controls, and a storefront preview", () => {
+  const t = (key: string) => {
+    switch (key) {
+      case "admin.products.form.providerPreset":
+        return "Provider preset";
+      case "admin.products.form.purchasePolicy":
+        return "Purchase policy";
+      case "admin.products.preview.title":
+        return "Storefront preview";
+      case "admin.products.preview.policy":
+        return "Policy";
+      case "admin.products.policy.repeat":
+        return "Repeat purchase";
+      case "common.pts":
+        return "pts";
+      default:
+        return key;
+    }
+  };
+
+  const html = renderToStaticMarkup(
+    <AdminSecretProductsPanel
+      t={t as never}
+      products={[createProduct()]}
+      loading={false}
+      onRefresh={() => Promise.resolve()}
+      onError={() => undefined}
+      onSuccess={() => undefined}
+    />
+  );
+
+  assert.match(html, /Provider preset/);
+  assert.match(html, /Purchase policy/);
+  assert.match(html, /Storefront preview/);
+  assert.match(html, /OpenAI/);
+  assert.match(html, /10000 tokens/);
+  assert.match(html, /Repeat purchase/);
+  assert.match(html, /0 pts/);
+  assert.doesNotMatch(html, /admin\.products\.form\.allowRepeatPurchase/);
 });
 
 test("AdminSecretProductsPanel loads keys and can fulfill a pending order", async () => {
@@ -608,51 +674,6 @@ test("AdminSecretProductsPanel shows bound account API keys as read-only list", 
   }
 });
 
-test("createInitialProductDraft defaults to quota products with unlimited per-agent limit", () => {
-  const draft = createInitialProductDraft();
-
-  assert.equal(draft.quotaAmount, 10000);
-  assert.equal(draft.quotaUnitLabel, "tokens");
-  assert.equal(draft.perAgentPurchaseLimit, null);
-  assert.equal(draft.perAgentPurchaseLimitMode, "unlimited");
-});
-
-test("createProductDraftFromProduct maps quota and per-agent limits for edit mode", () => {
-  const draftWithLimit = createProductDraftFromProduct(
-    createProduct({
-      fulfillmentConfig: {
-        quotaAmount: 24000,
-        allowRepeatPurchase: true,
-        perAgentPurchaseLimit: 2,
-      },
-      displayConfig: {
-        providerLabel: "Provider",
-        quotaUnitLabel: "credits",
-      },
-    })
-  );
-
-  assert.equal(draftWithLimit.quotaAmount, 24000);
-  assert.equal(draftWithLimit.quotaUnitLabel, "credits");
-  assert.equal(draftWithLimit.perAgentPurchaseLimitMode, "limited");
-  assert.equal(draftWithLimit.perAgentPurchaseLimit, 2);
-});
-
-test("resolvePerAgentPurchaseLimit validates limited values", () => {
-  assert.deepEqual(resolvePerAgentPurchaseLimit("unlimited", null), {
-    value: null,
-    error: null,
-  });
-  assert.deepEqual(resolvePerAgentPurchaseLimit("limited", null), {
-    value: null,
-    error: "admin.products.form.perAgentPurchaseLimitInvalid",
-  });
-  assert.deepEqual(resolvePerAgentPurchaseLimit("limited", 2), {
-    value: 2,
-    error: null,
-  });
-});
-
 test("performAdminSecretProductMutation stays pending until refresh finishes", async () => {
   const events: string[] = [];
   let resolveRefresh: (() => void) | null = null;
@@ -703,76 +724,4 @@ test("normalizeInventoryProductId still normalizes product selection", () => {
   assert.equal(normalizeInventoryProductId(products, "product-2"), "product-2");
   assert.equal(normalizeInventoryProductId(products, "missing"), "product-1");
   assert.equal(normalizeInventoryProductId([], "product-1"), "");
-});
-
-test("getEffectiveAllowRepeatPurchase defaults to true when missing", () => {
-  assert.equal(
-    getEffectiveAllowRepeatPurchase(
-      createProduct({
-        fulfillmentConfig: {},
-      })
-    ),
-    true
-  );
-  assert.equal(
-    getEffectiveAllowRepeatPurchase(
-      createProduct({
-        fulfillmentConfig: {
-          allowRepeatPurchase: false,
-        },
-      })
-    ),
-    false
-  );
-});
-
-test("buildAdminSecretProductUpdateInput keeps latest quota values with activation toggle", () => {
-  const product = createProduct();
-
-  const input = buildAdminSecretProductUpdateInput({
-    product,
-    allowRepeatPurchase: getEffectiveAllowRepeatPurchase(product),
-    perAgentPurchaseLimit: null,
-    isActive: false,
-  });
-
-  assert.equal(input.isActive, false);
-  assert.equal(input.name, "Provider Quota Pack");
-  assert.equal(input.providerLabel, "Provider");
-  assert.equal(input.usageInstructions, "Store securely");
-  assert.equal(input.quotaAmount, 10000);
-  assert.equal(input.quotaUnitLabel, "tokens");
-  assert.equal(input.allowRepeatPurchase, true);
-});
-
-test("buildAdminSecretProductUpdateInputFromDraft uses draft quota fields for updates", () => {
-  const draft = {
-    name: "Updated Pack",
-    description: "New description",
-    price: 500,
-    providerLabel: "Provider",
-    usageInstructions: "Use carefully",
-    quotaAmount: 50000,
-    quotaUnitLabel: "calls",
-    allowRepeatPurchase: false,
-    perAgentPurchaseLimitMode: "limited" as const,
-    perAgentPurchaseLimit: 2,
-  };
-
-  const input = buildAdminSecretProductUpdateInputFromDraft({
-    draft,
-    perAgentPurchaseLimit: 2,
-    isActive: true,
-  });
-
-  assert.equal(input.name, "Updated Pack");
-  assert.equal(input.description, "New description");
-  assert.equal(input.price, 500);
-  assert.equal(input.providerLabel, "Provider");
-  assert.equal(input.usageInstructions, "Use carefully");
-  assert.equal(input.quotaAmount, 50000);
-  assert.equal(input.quotaUnitLabel, "calls");
-  assert.equal(input.allowRepeatPurchase, false);
-  assert.equal(input.perAgentPurchaseLimit, 2);
-  assert.equal(input.isActive, true);
 });

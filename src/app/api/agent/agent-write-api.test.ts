@@ -9,7 +9,6 @@ import {
   createForumPostFixture,
   createForumPostTagFixture,
   createSecurityEventFixture,
-  createSecretInventoryFixture,
   createShopItemFixture,
   createTaskEngagementInboxItemFixture,
   createTaskFixture,
@@ -18,7 +17,6 @@ import { resetRateLimitStore } from "@/lib/rate-limit";
 import { installRateLimitStoreMock } from "@/test/rate-limit-store-mock";
 import { createRouteParams, createRouteRequest } from "@/test/request-helpers";
 import { hashApiKey } from "@/lib/auth";
-import { encryptSecretValue } from "@/lib/secret-crypto";
 import { POST as createAgentForumPost } from "./forum/posts/route";
 import { PUT as equipAgentEquipment } from "./equipment/route";
 import { POST as publishAgentKnowledge } from "./knowledge/articles/route";
@@ -85,6 +83,7 @@ type AgentWritePrismaMock = {
     findUnique: AsyncMethod;
   };
   purchaseOrder?: {
+    count?: AsyncMethod;
     create: AsyncMethod;
   };
   secretDeliveryReceipt?: {
@@ -625,125 +624,124 @@ test("claimed agent shop purchase promotes the agent to SHOPPING", async () => {
   );
 });
 
-test("claimed agent shop purchase supports secret products via productId", async () => {
-  const previousKey = process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
-  process.env.SECRET_INVENTORY_ENCRYPTION_KEY = "test-secret-key";
+test("claimed agent shop purchase creates a pending api quota order via productId", async () => {
+  const updateCalls: Array<Record<string, unknown>> = [];
+  const pointTransactions: Array<Record<string, unknown>> = [];
+  let purchaseOrderCreateInput: Record<string, unknown> | null = null;
 
-  try {
-    const updateCalls: Array<Record<string, unknown>> = [];
+  mockAgentCredential("buyer-key", {
+    id: "buyer-1",
+    name: "Buyer",
+    points: 150,
+    status: "OFFLINE",
+  });
+  prismaClient.agent.update = async ({
+    where,
+    data,
+  }: {
+    where: { id: string };
+    data: Record<string, unknown>;
+  }) => {
+    updateCalls.push(data);
 
-    mockAgentCredential("buyer-key", {
-      id: "buyer-1",
+    return {
+      id: where.id,
       name: "Buyer",
+      type: "CUSTOM",
+      status: typeof data.status === "string" ? data.status : "OFFLINE",
       points: 150,
-      status: "OFFLINE",
-    });
-    prismaClient.agent.update = async ({
-      where,
-      data,
-    }: {
-      where: { id: string };
-      data: Record<string, unknown>;
-    }) => {
-      updateCalls.push(data);
-
+      avatarConfig: createAgentFixture().avatarConfig,
+      bio: "",
+      createdAt: new Date("2026-03-07T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-07T00:00:00.000Z"),
+    };
+  };
+  prismaClient.catalogProduct = {
+    findUnique: async () =>
+      createCatalogProductFixture({
+        id: "product-1",
+        name: "Provider Key Pack",
+        price: 100,
+      }),
+  };
+  prismaClient.purchaseOrder = {
+    count: async () => 0,
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      purchaseOrderCreateInput = data;
       return {
-        id: where.id,
-        name: "Buyer",
-        type: "CUSTOM",
-        status: typeof data.status === "string" ? data.status : "OFFLINE",
-        points: 150,
-        avatarConfig: createAgentFixture().avatarConfig,
-        bio: "",
-        createdAt: new Date("2026-03-07T00:00:00.000Z"),
-        updatedAt: new Date("2026-03-07T00:00:00.000Z"),
+        id: "order-1",
+        buyerAgentId: "buyer-1",
+        productId: "product-1",
+        pricePaid: 100,
+        currencyType: "POINTS",
+        status: "PENDING",
+        deliveryChannel: "AGENT_CHAT",
+        quotaAmount: 10000,
+        quotaUnitLabel: "tokens",
+        createdAt: new Date("2026-03-08T00:00:00.000Z").toISOString(),
       };
-    };
-
-    const encrypted = encryptSecretValue("sk-live-abcdef1234");
-    prismaClient.catalogProduct = {
-      findUnique: async () =>
-        createCatalogProductFixture({
-          id: "product-1",
-          name: "Secret Pack",
-          productType: "SECRET_CREDENTIAL",
-          price: 100,
-        }),
-    };
-    prismaClient.secretInventory = {
-      findFirst: async () =>
-        createSecretInventoryFixture({
-          id: "secret-1",
-          productId: "product-1",
-          encryptedValue: encrypted,
-          maskedValue: "sk-****1234",
-          status: "AVAILABLE",
-        }),
-      updateMany: async () => ({ count: 1 }),
-      findUnique: async () =>
-        createSecretInventoryFixture({
-          id: "secret-1",
-          productId: "product-1",
-          encryptedValue: encrypted,
-          maskedValue: "sk-****1234",
-          status: "SOLD",
-        }),
-    };
-    prismaClient.purchaseOrder = {
-      create: async () => ({ id: "order-1" }),
-    };
-    prismaClient.secretDeliveryReceipt = {
-      create: async () => ({ id: "receipt-1" }),
-    };
-    prismaClient.$transaction = async (input: unknown) => {
-      if (typeof input !== "function") {
-        throw new Error("Expected transaction callback");
-      }
-
-      return input({
-        secretInventory: prismaClient.secretInventory,
-        purchaseOrder: prismaClient.purchaseOrder,
-        secretDeliveryReceipt: prismaClient.secretDeliveryReceipt,
-        agent: {
-          updateMany: async () => ({ count: 1 }),
-        },
-        pointTransaction: {
-          create: async () => ({ id: "txn-1" }),
-        },
-        agentActivity: {
-          create: async () => ({ id: "activity-1" }),
-        },
-      });
-    };
-
-    const response = await purchaseAgentShopItem(
-      createRouteRequest("http://localhost/api/agent/shop/purchase", {
-        method: "POST",
-        apiKey: "buyer-key",
-        json: {
-          productId: "product-1",
-        },
-      })
-    );
-    const json = await response.json();
-
-    assert.equal(response.status, 200);
-    assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
-    assert.equal(json.success, true);
-    assert.equal(json.data.delivery.type, "secret_credential");
-    assert.ok(
-      updateCalls.some(
-        (data) =>
-          data.status === "SHOPPING" && data.statusExpiresAt instanceof Date
-      )
-    );
-  } finally {
-    if (previousKey === undefined) {
-      delete process.env.SECRET_INVENTORY_ENCRYPTION_KEY;
-    } else {
-      process.env.SECRET_INVENTORY_ENCRYPTION_KEY = previousKey;
+    },
+  };
+  prismaClient.$transaction = async (input: unknown) => {
+    if (typeof input !== "function") {
+      throw new Error("Expected transaction callback");
     }
-  }
+
+    return input({
+      purchaseOrder: prismaClient.purchaseOrder,
+      agent: {
+        updateMany: async () => ({ count: 1 }),
+      },
+      pointTransaction: {
+        create: async ({ data }: { data: Record<string, unknown> }) => {
+          pointTransactions.push(data);
+          return data;
+        },
+      },
+      agentActivity: {
+        create: async () => ({ id: "activity-1" }),
+      },
+    });
+  };
+
+  const response = await purchaseAgentShopItem(
+    createRouteRequest("http://localhost/api/agent/shop/purchase", {
+      method: "POST",
+      apiKey: "buyer-key",
+      json: {
+        productId: "product-1",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("X-Evory-Agent-API"), "official");
+  assert.equal(json.success, true);
+  assert.equal(json.data.orderId, "order-1");
+  assert.equal(json.data.status, "PENDING");
+  assert.deepEqual(json.data.product, {
+    id: "product-1",
+    name: "Provider Key Pack",
+    description: "Token quota order pending fulfillment",
+  });
+  assert.deepEqual(json.data.quota, {
+    amount: 10000,
+    unit: "tokens",
+  });
+  assert.match(json.data.message, /admin/i);
+  assert.equal("delivery" in json.data, false);
+  assert.equal(pointTransactions.length, 1);
+  assert.equal(purchaseOrderCreateInput?.buyerAgentId, "buyer-1");
+  assert.equal(purchaseOrderCreateInput?.status, "PENDING");
+  assert.equal(purchaseOrderCreateInput?.quotaAmount, 10000);
+  assert.equal(purchaseOrderCreateInput?.quotaUnitLabel, "tokens");
+  assert.ok(
+    updateCalls.some(
+      (data) =>
+        data.status === "SHOPPING" && data.statusExpiresAt instanceof Date
+    )
+  );
 });
 
 test("claimed agent can purchase a shop item via the official agent shop endpoint", async () => {

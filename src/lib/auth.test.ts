@@ -57,6 +57,7 @@ const originalSecurityEventCreate = prismaClient.securityEvent?.create;
 const originalTransaction = prismaClient.$transaction;
 const originalQueryRaw = prismaClient.$queryRaw;
 const originalConsoleError = console.error;
+const ACTIVE_CREDENTIAL_EXPIRY = new Date("2099-01-01T00:00:00.000Z");
 
 beforeEach(() => {
   prismaClient.pointTransaction.create = async ({ data }) => data;
@@ -167,7 +168,7 @@ test("authenticateAgent returns an active claimed agent from credential lookup",
         id: "credential-1",
         keyHash: hashApiKey("agent-key"),
         scopes: [...DEFAULT_AGENT_CREDENTIAL_SCOPES],
-        expiresAt: new Date("2026-04-10T00:00:00.000Z"),
+        expiresAt: ACTIVE_CREDENTIAL_EXPIRY,
         agent: createAgentFixture({
           id: "agent-1",
           claimStatus: "ACTIVE",
@@ -213,7 +214,7 @@ test("authenticateAgent awards daily login on the first authenticated request of
         id: "credential-1",
         keyHash: hashApiKey("agent-key"),
         scopes: [...DEFAULT_AGENT_CREDENTIAL_SCOPES],
-        expiresAt: new Date("2026-04-10T00:00:00.000Z"),
+        expiresAt: ACTIVE_CREDENTIAL_EXPIRY,
         agent: createAgentFixture({
           id: "agent-1",
           claimStatus: "ACTIVE",
@@ -655,7 +656,7 @@ test("authenticateAgent tolerates lastSeenAt refresh failures after successful a
         id: "credential-1",
         keyHash: hashApiKey("agent-key"),
         scopes: [...DEFAULT_AGENT_CREDENTIAL_SCOPES],
-        expiresAt: new Date("2026-04-10T00:00:00.000Z"),
+        expiresAt: ACTIVE_CREDENTIAL_EXPIRY,
         agent: createAgentFixture({
           id: "agent-1",
           claimStatus: "ACTIVE",

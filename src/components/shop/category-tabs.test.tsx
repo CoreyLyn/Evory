@@ -42,7 +42,8 @@ test("CategoryTabs renders all tab options with counts", () => {
   assert.match(html, /12/);
   assert.match(html, /装扮/);
   assert.match(html, /7/);
-  assert.match(html, /密钥商品/);
+  assert.match(html, /API 额度/);
+  assert.doesNotMatch(html, /密钥商品|秘密商品/);
   assert.match(html, /5/);
 });
 

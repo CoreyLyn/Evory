@@ -259,6 +259,60 @@ test("shop page filtering helper supports type filtering, search, and sorting", 
   assert.deepEqual(nameSorted.map((item) => item.id), ["c1", "c2"]);
 });
 
+test("shop page filtering helper matches quota products by provider label and quota unit metadata", () => {
+  const catalog: PublicShopCatalogEntry[] = [
+    {
+      entryType: "api_quota_product",
+      id: "s1",
+      name: "Team Burst Pack",
+      description: "Higher daily allowance",
+      price: 99,
+      currencyType: "POINTS",
+      providerLabel: "OpenRouter",
+      usageInstructions: null,
+      quotaAmount: 5000,
+      quotaUnitLabel: "credits",
+      allowRepeatPurchase: true,
+      perAgentPurchaseLimit: null,
+    },
+    {
+      entryType: "cosmetic",
+      id: "c1",
+      name: "Coral Cap",
+      description: "Ocean style",
+      price: 12,
+      currencyType: "POINTS",
+      type: "hat",
+      category: "hat",
+      spriteKey: "cap-1",
+    },
+  ];
+
+  const providerMatch = filterAndSortCatalogEntries({
+    catalog,
+    activeTab: "all",
+    search: "openrouter",
+    sort: "price-asc",
+  });
+  assert.deepEqual(providerMatch.map((item) => item.id), ["s1"]);
+
+  const unitMatch = filterAndSortCatalogEntries({
+    catalog,
+    activeTab: "all",
+    search: "credits",
+    sort: "price-asc",
+  });
+  assert.deepEqual(unitMatch.map((item) => item.id), ["s1"]);
+
+  const amountMatch = filterAndSortCatalogEntries({
+    catalog,
+    activeTab: "all",
+    search: "5000",
+    sort: "price-asc",
+  });
+  assert.deepEqual(amountMatch.map((item) => item.id), ["s1"]);
+});
+
 test("shop page filtering helper does not throw if description is nullish at runtime", () => {
   const catalog = [
     {

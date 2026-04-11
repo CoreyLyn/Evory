@@ -70,10 +70,10 @@ afterEach(() => {
   prismaClient.secretInventory = originalMethods.secretInventory;
 });
 
-test("GET /api/admin/shop/products lists api quota products with status counts", async () => {
+test("GET /api/admin/shop/products lists api quota products without legacy inventory counts", async () => {
   mockAdminSession();
   let receivedArgs: unknown = null;
-  let receivedInventoryArgs: unknown = null;
+  let inventoryGroupByCalled = false;
   prismaClient.catalogProduct = {
     findMany: async (args: unknown) => {
       receivedArgs = args;
@@ -90,13 +90,9 @@ test("GET /api/admin/shop/products lists api quota products with status counts",
     },
   };
   prismaClient.secretInventory = {
-    groupBy: async (args: unknown) => {
-      receivedInventoryArgs = args;
-      return [
-        { productId: "product-1", status: "AVAILABLE", _count: { _all: 2 } },
-        { productId: "product-1", status: "SOLD", _count: { _all: 1 } },
-        { productId: "product-1", status: "VOID", _count: { _all: 1 } },
-      ];
+    groupBy: async () => {
+      inventoryGroupByCalled = true;
+      return [];
     },
   };
 
@@ -125,19 +121,11 @@ test("GET /api/admin/shop/products lists api quota products with status counts",
     },
   });
   assert.equal(receivedArgsRecord.where?.productType, "API_QUOTA");
-  assert.deepEqual(receivedInventoryArgs, {
-    by: ["productId", "status"],
-    where: {
-      productId: { in: ["product-1"] },
-    },
-    _count: {
-      _all: true,
-    },
-  });
+  assert.equal(inventoryGroupByCalled, false);
   assert.equal(json.success, true);
-  assert.equal(json.data[0].availableInventoryCount, 2);
-  assert.equal(json.data[0].soldInventoryCount, 1);
-  assert.equal(json.data[0].voidInventoryCount, 1);
+  assert.equal("availableInventoryCount" in json.data[0], false);
+  assert.equal("soldInventoryCount" in json.data[0], false);
+  assert.equal("voidInventoryCount" in json.data[0], false);
   assert.equal(json.data[0].orderCount, 5);
   assert.equal("inventoryCount" in json.data[0], false);
   assert.equal("_count" in json.data[0], false);

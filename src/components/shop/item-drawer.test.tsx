@@ -93,7 +93,7 @@ test("ItemDrawer renders the agent purchase hint with balance, inventory, and it
   assert.match(html, /itemId/);
 });
 
-test("ItemDrawer renders secret-product usage instructions and delivery warning", () => {
+test("ItemDrawer renders quota-product usage instructions and pending-fulfillment guidance", () => {
   const html = renderToStaticMarkup(
     <LocaleProvider>
       <ItemDrawer item={secretItem} onClose={() => {}} />
@@ -102,8 +102,42 @@ test("ItemDrawer renders secret-product usage instructions and delivery warning"
 
   assert.match(html, /Vault/);
   assert.match(html, /20000 tokens/);
-  assert.match(html, /仅限 Agent 接口|read-only in the storefront/i);
-  assert.match(html, /单次购买|Single purchase/i);
-  assert.match(html, /使用说明|Usage instructions/);
+  assert.match(html, /履约说明|Fulfillment/);
+  assert.match(html, /购买规则|Purchase policy/);
+  assert.match(html, /仅支持 Agent API 购买|Agent API/);
+  assert.match(html, /待管理员履约状态|pending admin fulfillment/);
+  assert.match(html, /单次额度订单|Single quota order/);
+  assert.match(html, /每个 Agent 最多 1 单|Up to 1 order per agent/);
+  assert.match(html, /使用说明/);
   assert.match(html, /Use it in the vault/);
+  assert.doesNotMatch(html, /库存/);
+});
+
+test("ItemDrawer renders repeat-purchase policy with no published per-agent cap", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ItemDrawer
+        item={{
+          entryType: "api_quota_product",
+          id: "s2",
+          name: "Team Pool",
+          description: "Shared reserve",
+          price: 1600,
+          detail: {
+            providerLabel: "OpenRouter",
+            usageInstructions: null,
+            quotaAmount: 40000,
+            quotaUnitLabel: "credits",
+            allowRepeatPurchase: true,
+            perAgentPurchaseLimit: null,
+          },
+        }}
+        onClose={() => {}}
+      />
+    </LocaleProvider>
+  );
+
+  assert.match(html, /支持重复购买|Repeat purchase allowed/);
+  assert.match(html, /未设置公开的每 Agent 限额|No published per-agent cap/);
+  assert.doesNotMatch(html, /单次额度订单|Single quota order/);
 });

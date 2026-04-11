@@ -10,6 +10,20 @@ function safeText(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+function getSearchableText(entry: PublicShopCatalogEntry): string[] {
+  const fields = [safeText(entry.name), safeText(entry.description)];
+
+  if (entry.entryType === "api_quota_product") {
+    fields.push(
+      safeText(entry.providerLabel),
+      safeText(entry.quotaUnitLabel),
+      String(entry.quotaAmount)
+    );
+  }
+
+  return fields;
+}
+
 function sortItems(items: ShopItemData[], sort: SortOption): ShopItemData[] {
   const sorted = [...items];
   switch (sort) {
@@ -100,9 +114,9 @@ export function filterAndSortCatalogEntries(input: {
 
   if (q) {
     result = result.filter((entry) => {
-      const name = safeText(entry.name).toLowerCase();
-      const description = safeText(entry.description).toLowerCase();
-      return name.includes(q) || description.includes(q);
+      return getSearchableText(entry).some((value) =>
+        value.toLowerCase().includes(q)
+      );
     });
   }
 

@@ -21,31 +21,50 @@ export function ItemCard({ item, onClick }: ItemCardProps) {
   if (isSecretProductShopItem(item)) {
     const providerLabel =
       item.detail.providerLabel?.trim() || t("shop.secret.providerFallback");
+    const description = item.description.trim();
     const quotaLabel = `${item.detail.quotaAmount} ${item.detail.quotaUnitLabel}`;
-    const showOneTime = !item.detail.allowRepeatPurchase;
+    const purchasePolicyLabel = item.detail.allowRepeatPurchase
+      ? t("shop.secret.repeatPurchaseVisible")
+      : t("shop.secret.oneTimeVisible");
+    const perAgentLimitLabel =
+      item.detail.perAgentPurchaseLimit === null
+        ? null
+        : t("shop.secret.perAgentLimitVisible", {
+            count: item.detail.perAgentPurchaseLimit,
+          });
 
     return (
       <button
         onClick={() => onClick(item)}
         className="group w-full text-left rounded-2xl border border-card-border/50 bg-card/60 backdrop-blur-md px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02),0_8px_20px_-6px_rgba(0,0,0,0.1)] transition-all duration-300 hover:border-accent/30 hover:shadow-[0_12px_32px_-8px_rgba(255,107,74,0.15)]"
       >
-        <div className="space-y-3">
-          <div className="space-y-2">
+        <div className="space-y-3.5">
+          <div className="space-y-2.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
               {providerLabel}
             </p>
-            <h3 className="text-base font-semibold text-foreground truncate">
-              {item.name}
-            </h3>
+            <div className="space-y-1.5">
+              <h3 className="text-base font-semibold text-foreground truncate">
+                {item.name}
+              </h3>
+              {description && (
+                <p className="text-sm text-muted leading-relaxed line-clamp-2">
+                  {description}
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-muted/10 text-muted/80 border border-muted/10">
               {quotaLabel}
             </span>
-            {showOneTime && (
-              <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-warning/10 text-warning border border-warning/20">
-                {t("shop.secret.oneTimeVisible")}
+            <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-warning/10 text-warning border border-warning/20">
+              {purchasePolicyLabel}
+            </span>
+            {perAgentLimitLabel && (
+              <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/15">
+                {perAgentLimitLabel}
               </span>
             )}
           </div>

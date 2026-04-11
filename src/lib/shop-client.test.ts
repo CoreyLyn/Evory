@@ -300,7 +300,7 @@ test("fetchAgentShopCatalog reads the agent shop response", async () => {
   assert.equal(catalog.apiQuotaProducts[0]?.perAgentPurchaseLimit, 2);
 });
 
-test("fetchAdminSecretProducts reads the admin secret products list shape", async () => {
+test("fetchAdminSecretProducts reads the lean admin secret products list shape", async () => {
   let requestInput = "";
 
   const products = await fetchAdminSecretProducts(async (input) => {
@@ -320,7 +320,6 @@ test("fetchAdminSecretProducts reads the admin secret products list shape", asyn
             isActive: true,
             displayConfig: { providerLabel: "Provider" },
             fulfillmentConfig: { allowRepeatPurchase: true },
-            inventoryCount: 2,
             orderCount: 1,
             createdAt: "2026-04-02T00:00:00.000Z",
             updatedAt: "2026-04-02T00:00:00.000Z",
@@ -335,7 +334,9 @@ test("fetchAdminSecretProducts reads the admin secret products list shape", asyn
   });
 
   assert.equal(requestInput, "/api/admin/shop/products");
-  assert.equal(products[0]?.inventoryCount, 2);
+  assert.equal("availableInventoryCount" in (products[0] ?? {}), false);
+  assert.equal("soldInventoryCount" in (products[0] ?? {}), false);
+  assert.equal("voidInventoryCount" in (products[0] ?? {}), false);
   assert.equal(products[0]?.orderCount, 1);
 });
 
