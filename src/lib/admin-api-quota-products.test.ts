@@ -14,7 +14,6 @@ test("parseAdminApiQuotaProductInput accepts valid api quota payload", () => {
     price: 300,
     isActive: true,
     displayConfig: {
-      providerLabel: "  OpenAI  ",
       quotaUnitLabel: "  tokens  ",
       usageInstructions: "  use in settings  ",
     },
@@ -32,7 +31,6 @@ test("parseAdminApiQuotaProductInput accepts valid api quota payload", () => {
     price: 300,
     isActive: true,
     displayConfig: {
-      providerLabel: "OpenAI",
       quotaUnitLabel: "tokens",
       usageInstructions: "use in settings",
     },
@@ -54,7 +52,6 @@ test("parseAdminApiQuotaProductInput rejects missing quota fields", () => {
         price: 300,
         isActive: true,
         displayConfig: {
-          providerLabel: "OpenAI",
           quotaUnitLabel: "",
         },
         fulfillmentConfig: {

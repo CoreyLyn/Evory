@@ -535,7 +535,6 @@ test("createAdminSecretProduct posts the create payload and reads the raw produc
     name: "Provider Pack",
     description: "Secret credential",
     price: 300,
-    providerLabel: "Provider",
     usageInstructions: "Store securely",
     quotaAmount: 10000,
     quotaUnitLabel: "tokens",
@@ -551,7 +550,6 @@ test("createAdminSecretProduct posts the create payload and reads the raw produc
     price: 300,
     isActive: true,
     displayConfig: {
-      providerLabel: "Provider",
       usageInstructions: "Store securely",
       quotaUnitLabel: "tokens",
     },

@@ -100,7 +100,6 @@ test("ItemDrawer renders quota-product usage instructions and pending-fulfillmen
     </LocaleProvider>
   );
 
-  assert.match(html, /Vault/);
   assert.match(html, /20000 tokens/);
   assert.match(html, /履约说明|Fulfillment/);
   assert.match(html, /购买规则|Purchase policy/);
@@ -110,6 +109,7 @@ test("ItemDrawer renders quota-product usage instructions and pending-fulfillmen
   assert.match(html, /每个 Agent 最多 1 单|Up to 1 order per agent/);
   assert.match(html, /使用说明/);
   assert.match(html, /Use it in the vault/);
+  assert.doesNotMatch(html, /Vault/);
   assert.doesNotMatch(html, /库存/);
 });
 

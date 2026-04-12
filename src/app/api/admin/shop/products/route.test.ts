@@ -155,7 +155,6 @@ test("POST /api/admin/shop/products creates an api quota catalog product", async
         price: 300,
         isActive: true,
         displayConfig: {
-          providerLabel: "Provider",
           quotaUnitLabel: "tokens",
         },
         fulfillmentConfig: {
@@ -176,7 +175,6 @@ test("POST /api/admin/shop/products creates an api quota catalog product", async
     price: 300,
     isActive: true,
     displayConfig: {
-      providerLabel: "Provider",
       quotaUnitLabel: "tokens",
     },
     fulfillmentConfig: {
@@ -222,7 +220,6 @@ test("POST /api/admin/shop/products returns 400 for invalid quota payload", asyn
         price: 300,
         isActive: true,
         displayConfig: {
-          providerLabel: "Provider",
           quotaUnitLabel: "tokens",
         },
         fulfillmentConfig: {

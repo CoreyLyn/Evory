@@ -7,8 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-  API_QUOTA_PROVIDER_PRESETS,
-  applyProviderPresetToDraft,
   applyPurchasePolicyToDraft,
   buildAdminSecretProductCreateInputFromDraft,
   buildAdminSecretProductUpdateInput,
@@ -19,7 +17,6 @@ import {
   getPurchasePolicyConfig,
   getPurchasePolicyLabel,
   type ApiQuotaProductDraft,
-  type ApiQuotaProductProviderPresetId,
   type ApiQuotaProductPurchasePolicy,
 } from "./api-quota-product-draft";
 import {
@@ -573,14 +570,6 @@ export function AdminSecretProductsPanel({
                   <dl className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted">
                     <div>
                       <dt className="inline text-muted/70">
-                        {t("admin.products.form.providerLabel")}:{" "}
-                      </dt>
-                      <dd className="inline text-foreground/80">
-                        {productDraft.providerLabel || t("admin.products.providerLabelEmpty")}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="inline text-muted/70">
                         {t("admin.products.form.quotaAmount")}:{" "}
                       </dt>
                       <dd className="inline text-foreground/80">{productDraft.quotaAmount}</dd>
@@ -685,31 +674,6 @@ export function AdminSecretProductsPanel({
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.85fr)]">
           <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmitProduct}>
-            <label className="space-y-2 md:col-span-2">
-              <span className="text-xs font-semibold text-muted">
-                {t("admin.products.form.providerPreset")}
-              </span>
-              <select
-                value={productDraft.providerPresetId}
-                onChange={(event) =>
-                  setProductDraft((current) =>
-                    applyProviderPresetToDraft(
-                      current,
-                      event.target.value as ApiQuotaProductProviderPresetId
-                    )
-                  )
-                }
-                className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-              >
-                {API_QUOTA_PROVIDER_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {t(preset.labelKey)}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-muted">{t("admin.products.form.providerPresetHint")}</p>
-            </label>
-
             <label className="space-y-2">
               <span className="text-xs font-semibold text-muted">
                 {t("admin.products.form.name")}
@@ -760,23 +724,6 @@ export function AdminSecretProductsPanel({
 
             <label className="space-y-2">
               <span className="text-xs font-semibold text-muted">
-                {t("admin.products.form.providerLabel")}
-              </span>
-              <input
-                value={productDraft.providerLabel}
-                onChange={(event) =>
-                  setProductDraft((current) => ({
-                    ...current,
-                    providerLabel: event.target.value,
-                    providerPresetId: "custom",
-                  }))
-                }
-                className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-              />
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-xs font-semibold text-muted">
                 {t("admin.products.form.quotaAmount")}
               </span>
               <input
@@ -804,7 +751,6 @@ export function AdminSecretProductsPanel({
                   setProductDraft((current) => ({
                     ...current,
                     quotaUnitLabel: event.target.value,
-                    providerPresetId: "custom",
                   }))
                 }
                 className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
@@ -909,7 +855,7 @@ export function AdminSecretProductsPanel({
 
             <div className="mt-5 rounded-[1.75rem] border border-card-border/50 bg-card/80 p-5">
               <div className="flex items-center justify-between gap-3">
-                <Badge variant="muted">{preview.provider}</Badge>
+                <Badge variant="muted">{preview.quota}</Badge>
                 <div className="text-sm font-semibold text-foreground">{preview.price}</div>
               </div>
               <div className="mt-4">
@@ -917,10 +863,6 @@ export function AdminSecretProductsPanel({
                 <div className="mt-2 text-sm text-muted">{productDraft.description || "—"}</div>
               </div>
               <dl className="mt-5 space-y-3 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-muted">{t("admin.products.preview.provider")}</dt>
-                  <dd className="text-right font-medium text-foreground">{preview.provider}</dd>
-                </div>
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-muted">{t("admin.products.preview.name")}</dt>
                   <dd className="text-right font-medium text-foreground">{preview.name}</dd>

@@ -208,7 +208,7 @@ export type AdminSecretProductCreateInput = {
   name: string;
   description: string;
   price: number;
-  providerLabel: string;
+  providerLabel?: string | null;
   usageInstructions: string;
   quotaAmount: number;
   quotaUnitLabel: string;
@@ -555,7 +555,7 @@ function buildAdminSecretProductPayload(input: {
   name: string;
   description: string;
   price: number;
-  providerLabel: string;
+  providerLabel?: string | null;
   usageInstructions: string;
   quotaAmount: number;
   quotaUnitLabel: string;
@@ -568,6 +568,7 @@ function buildAdminSecretProductPayload(input: {
     : 0;
   const normalizedQuotaAmount =
     Number.isFinite(input.quotaAmount) ? Math.max(1, Math.trunc(input.quotaAmount)) : 1;
+  const providerLabel = input.providerLabel?.trim();
   const usageInstructions = input.usageInstructions?.trim();
   const fulfillmentConfig: Record<string, unknown> = {
     quotaAmount: normalizedQuotaAmount,
@@ -585,7 +586,7 @@ function buildAdminSecretProductPayload(input: {
     price: normalizedPrice,
     isActive: input.isActive,
     displayConfig: {
-      providerLabel: input.providerLabel,
+      providerLabel: providerLabel || undefined,
       usageInstructions: usageInstructions || undefined,
       quotaUnitLabel: input.quotaUnitLabel,
     },

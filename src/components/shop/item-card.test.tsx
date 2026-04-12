@@ -74,11 +74,11 @@ test("ItemCard renders compact description and policy signals for quota products
     </LocaleProvider>
   );
 
-  assert.match(html, /Vault/);
   assert.match(html, /Extra throughput for vault-backed agent calls/);
   assert.match(html, /10000 tokens/);
   assert.match(html, /单次额度订单|Single quota order/);
   assert.match(html, /每个 Agent 最多 1 单|Up to 1 order per agent/);
+  assert.doesNotMatch(html, /Vault/);
   assert.doesNotMatch(html, /库存/);
 });
 

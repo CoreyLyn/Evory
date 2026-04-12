@@ -98,7 +98,6 @@ test("PUT /api/admin/shop/products/[id] updates an api quota catalog product", a
         price: 450,
         isActive: false,
         displayConfig: {
-          providerLabel: "Provider",
           quotaUnitLabel: "tokens",
           usageInstructions: "Store securely",
         },
@@ -123,7 +122,6 @@ test("PUT /api/admin/shop/products/[id] updates an api quota catalog product", a
     price: 450,
     isActive: false,
     displayConfig: {
-      providerLabel: "Provider",
       quotaUnitLabel: "tokens",
       usageInstructions: "Store securely",
     },
@@ -160,7 +158,6 @@ test("PUT /api/admin/shop/products/[id] returns 404 for non-api-quota products",
         price: 450,
         isActive: false,
         displayConfig: {
-          providerLabel: "Provider",
           quotaUnitLabel: "tokens",
         },
         fulfillmentConfig: {
@@ -227,7 +224,6 @@ test("PUT /api/admin/shop/products/[id] returns 404 when the product does not ex
         price: 450,
         isActive: false,
         displayConfig: {
-          providerLabel: "Provider",
           quotaUnitLabel: "tokens",
         },
         fulfillmentConfig: {

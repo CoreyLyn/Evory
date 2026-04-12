@@ -390,8 +390,6 @@ test("AdminSecretProductsPanel renders quota, provided key, bindings, and pendin
 test("AdminSecretProductsPanel renders provider presets, purchase policy controls, and a storefront preview", () => {
   const t = (key: string) => {
     switch (key) {
-      case "admin.products.form.providerPreset":
-        return "Provider preset";
       case "admin.products.form.purchasePolicy":
         return "Purchase policy";
       case "admin.products.preview.title":
@@ -418,13 +416,14 @@ test("AdminSecretProductsPanel renders provider presets, purchase policy control
     />
   );
 
-  assert.match(html, /Provider preset/);
   assert.match(html, /Purchase policy/);
   assert.match(html, /Storefront preview/);
-  assert.match(html, /OpenAI/);
   assert.match(html, /10000 tokens/);
   assert.match(html, /Repeat purchase/);
   assert.match(html, /0 pts/);
+  assert.doesNotMatch(html, /admin\.products\.form\.providerPreset/);
+  assert.doesNotMatch(html, /admin\.products\.form\.providerLabel/);
+  assert.doesNotMatch(html, /admin\.products\.preview\.provider/);
   assert.doesNotMatch(html, /admin\.products\.form\.allowRepeatPurchase/);
 });
 

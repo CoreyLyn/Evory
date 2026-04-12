@@ -5,15 +5,12 @@ import type {
   AdminSecretProductUpdateInput,
 } from "@/lib/shop-client";
 
-export type ApiQuotaProductProviderPresetId = "openai" | "anthropic" | "custom";
 export type ApiQuotaProductPurchasePolicy = "repeat" | "single" | "limited";
 
 export type ApiQuotaProductDraft = {
   name: string;
   description: string;
   price: number;
-  providerPresetId: ApiQuotaProductProviderPresetId;
-  providerLabel: string;
   usageInstructions: string;
   quotaAmount: number;
   quotaUnitLabel: string;
@@ -21,60 +18,11 @@ export type ApiQuotaProductDraft = {
   perAgentPurchaseLimit: number | null;
 };
 
-type ProviderPreset = {
-  id: ApiQuotaProductProviderPresetId;
-  labelKey: TranslationKey;
-  providerLabel: string;
-  quotaUnitLabel: string;
-  quotaAmount: number;
-  usageInstructions: string;
-};
-
 type PurchasePolicyConfig = {
   allowRepeatPurchase: boolean;
   perAgentPurchaseLimit: number | null;
   error: TranslationKey | null;
 };
-
-export const API_QUOTA_PROVIDER_PRESETS: ProviderPreset[] = [
-  {
-    id: "openai",
-    labelKey: "admin.products.form.providerPresetOpenAi",
-    providerLabel: "OpenAI",
-    quotaUnitLabel: "tokens",
-    quotaAmount: 10000,
-    usageInstructions: "",
-  },
-  {
-    id: "anthropic",
-    labelKey: "admin.products.form.providerPresetAnthropic",
-    providerLabel: "Anthropic",
-    quotaUnitLabel: "tokens",
-    quotaAmount: 10000,
-    usageInstructions: "",
-  },
-  {
-    id: "custom",
-    labelKey: "admin.products.form.providerPresetCustom",
-    providerLabel: "",
-    quotaUnitLabel: "credits",
-    quotaAmount: 10000,
-    usageInstructions: "",
-  },
-];
-
-function getProviderPreset(presetId: ApiQuotaProductProviderPresetId) {
-  return (
-    API_QUOTA_PROVIDER_PRESETS.find((preset) => preset.id === presetId) ??
-    API_QUOTA_PROVIDER_PRESETS[0]
-  );
-}
-
-function getProviderLabel(product: AdminSecretProduct) {
-  return typeof product.displayConfig.providerLabel === "string"
-    ? product.displayConfig.providerLabel
-    : "";
-}
 
 function getUsageInstructions(product: AdminSecretProduct) {
   return typeof product.displayConfig.usageInstructions === "string"
@@ -106,26 +54,6 @@ function getAllowRepeatPurchase(product: AdminSecretProduct) {
     : true;
 }
 
-function normalizeProviderLabel(value: string) {
-  return value.trim().toLowerCase();
-}
-
-function getPresetIdFromProviderLabel(providerLabel: string): ApiQuotaProductProviderPresetId {
-  const normalized = normalizeProviderLabel(providerLabel);
-
-  for (const preset of API_QUOTA_PROVIDER_PRESETS) {
-    if (!preset.providerLabel) {
-      continue;
-    }
-
-    if (normalizeProviderLabel(preset.providerLabel) === normalized) {
-      return preset.id;
-    }
-  }
-
-  return "custom";
-}
-
 function getPurchasePolicyFromProduct(
   product: AdminSecretProduct
 ): ApiQuotaProductPurchasePolicy {
@@ -149,36 +77,15 @@ function assertValidPurchasePolicyConfig(config: PurchasePolicyConfig) {
 }
 
 export function createInitialProductDraft(): ApiQuotaProductDraft {
-  return applyProviderPresetToDraft(
-    {
-      name: "",
-      description: "",
-      price: 0,
-      providerPresetId: "openai",
-      providerLabel: "",
-      usageInstructions: "",
-      quotaAmount: 10000,
-      quotaUnitLabel: "tokens",
-      purchasePolicy: "repeat",
-      perAgentPurchaseLimit: null,
-    },
-    "openai"
-  );
-}
-
-export function applyProviderPresetToDraft(
-  draft: ApiQuotaProductDraft,
-  presetId: ApiQuotaProductProviderPresetId
-): ApiQuotaProductDraft {
-  const preset = getProviderPreset(presetId);
-
   return {
-    ...draft,
-    providerPresetId: preset.id,
-    providerLabel: preset.providerLabel,
-    usageInstructions: preset.usageInstructions,
-    quotaAmount: preset.quotaAmount,
-    quotaUnitLabel: preset.quotaUnitLabel,
+    name: "",
+    description: "",
+    price: 0,
+    usageInstructions: "",
+    quotaAmount: 10000,
+    quotaUnitLabel: "tokens",
+    purchasePolicy: "repeat",
+    perAgentPurchaseLimit: null,
   };
 }
 
@@ -222,8 +129,6 @@ export function createProductDraftFromProduct(
     name: product.name,
     description: product.description,
     price: product.price,
-    providerPresetId: getPresetIdFromProviderLabel(getProviderLabel(product)),
-    providerLabel: getProviderLabel(product),
     usageInstructions: getUsageInstructions(product),
     quotaAmount: getQuotaAmount(product),
     quotaUnitLabel: getQuotaUnitLabel(product),
@@ -295,7 +200,6 @@ export function formatApiQuotaProductPreview(
   draft: ApiQuotaProductDraft
 ) {
   return {
-    provider: draft.providerLabel || "—",
     name: draft.name || "—",
     quota: formatQuota(draft.quotaAmount, draft.quotaUnitLabel),
     policy: getPurchasePolicyLabel(t, draft.purchasePolicy, draft.perAgentPurchaseLimit),
@@ -314,7 +218,6 @@ export function buildAdminSecretProductCreateInputFromDraft(
     name: draft.name,
     description: draft.description,
     price: draft.price,
-    providerLabel: draft.providerLabel,
     usageInstructions: draft.usageInstructions,
     quotaAmount: draft.quotaAmount,
     quotaUnitLabel: draft.quotaUnitLabel,
@@ -347,7 +250,10 @@ export function buildAdminSecretProductUpdateInput({
     name: product.name,
     description: product.description,
     price: product.price,
-    providerLabel: getProviderLabel(product),
+    providerLabel:
+      typeof product.displayConfig.providerLabel === "string"
+        ? product.displayConfig.providerLabel
+        : null,
     usageInstructions: getUsageInstructions(product),
     quotaAmount: getQuotaAmount(product),
     quotaUnitLabel: getQuotaUnitLabel(product),

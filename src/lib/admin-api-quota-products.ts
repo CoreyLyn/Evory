@@ -48,6 +48,20 @@ function normalizeOptionalNonEmptyString(value: unknown): string | undefined {
   return trimmed;
 }
 
+function normalizeOptionalProviderLabel(value: unknown): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    validationError("displayConfig.providerLabel must be a non-empty string");
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    validationError("displayConfig.providerLabel must be a non-empty string");
+  }
+  return trimmed;
+}
+
 function normalizePositiveInteger(value: unknown, errorMessage: string): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
     validationError(errorMessage);
@@ -100,10 +114,7 @@ export function parseAdminApiQuotaProductInput(
     validationError("fulfillmentConfig is required");
   }
 
-  const providerLabel = normalizeNonEmptyString(
-    input.displayConfig.providerLabel,
-    "displayConfig.providerLabel is required"
-  );
+  const providerLabel = normalizeOptionalProviderLabel(input.displayConfig.providerLabel);
   const quotaUnitLabel = normalizeNonEmptyString(
     input.displayConfig.quotaUnitLabel,
     "displayConfig.quotaUnitLabel is required"
@@ -139,7 +150,7 @@ export function parseAdminApiQuotaProductInput(
     price,
     isActive,
     displayConfig: {
-      providerLabel,
+      ...(providerLabel ? { providerLabel } : {}),
       quotaUnitLabel,
       ...(usageInstructions ? { usageInstructions } : {}),
     },

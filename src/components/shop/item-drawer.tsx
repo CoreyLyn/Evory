@@ -32,8 +32,6 @@ export function ItemDrawer({ item, onClose }: ItemDrawerProps) {
   if (!item) return null;
 
   if (isSecretProductShopItem(item)) {
-    const providerLabel =
-      item.detail.providerLabel?.trim() || t("shop.secret.providerFallback");
     const description = item.description.trim();
     const quotaLabel = `${item.detail.quotaAmount} ${item.detail.quotaUnitLabel}`;
     const usageInstructions = item.detail.usageInstructions?.trim();
@@ -89,9 +87,6 @@ export function ItemDrawer({ item, onClose }: ItemDrawerProps) {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-muted/10 text-muted/80 border border-muted/10">
-                {providerLabel}
-              </span>
               <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-muted/10 text-muted/80 border border-muted/10">
                 {quotaLabel}
               </span>

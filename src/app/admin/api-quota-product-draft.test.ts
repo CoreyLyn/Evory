@@ -6,7 +6,6 @@ import type { AdminSecretProduct } from "@/lib/shop-client";
 
 import {
   applyPurchasePolicyToDraft,
-  applyProviderPresetToDraft,
   buildAdminSecretProductCreateInputFromDraft,
   buildAdminSecretProductUpdateInput,
   buildAdminSecretProductUpdateInputFromDraft,
@@ -61,37 +60,17 @@ function createTranslator() {
   };
 }
 
-test("createInitialProductDraft defaults to the OpenAI preset and repeat policy", () => {
+test("createInitialProductDraft defaults to quota-only fields and repeat policy", () => {
   const draft = createInitialProductDraft();
 
-  assert.equal(draft.providerPresetId, "openai");
-  assert.equal(draft.providerLabel, "OpenAI");
   assert.equal(draft.quotaAmount, 10000);
   assert.equal(draft.quotaUnitLabel, "tokens");
+  assert.equal(draft.usageInstructions, "");
   assert.equal(draft.purchasePolicy, "repeat");
   assert.equal(draft.perAgentPurchaseLimit, null);
 });
 
-test("applyProviderPresetToDraft swaps provider defaults while preserving typed fields", () => {
-  const draft = applyProviderPresetToDraft(
-    {
-      ...createInitialProductDraft(),
-      name: "Premium Pack",
-      description: "Launch promo",
-      price: 480,
-    },
-    "anthropic"
-  );
-
-  assert.equal(draft.providerPresetId, "anthropic");
-  assert.equal(draft.providerLabel, "Anthropic");
-  assert.equal(draft.quotaUnitLabel, "tokens");
-  assert.equal(draft.name, "Premium Pack");
-  assert.equal(draft.description, "Launch promo");
-  assert.equal(draft.price, 480);
-});
-
-test("createProductDraftFromProduct derives preset and purchase policy for editing", () => {
+test("createProductDraftFromProduct derives purchase policy for editing", () => {
   const singleDraft = createProductDraftFromProduct(
     createProduct({
       displayConfig: {
@@ -107,7 +86,6 @@ test("createProductDraftFromProduct derives preset and purchase policy for editi
     })
   );
 
-  assert.equal(singleDraft.providerPresetId, "openai");
   assert.equal(singleDraft.purchasePolicy, "single");
   assert.equal(singleDraft.perAgentPurchaseLimit, 1);
 
@@ -126,7 +104,6 @@ test("createProductDraftFromProduct derives preset and purchase policy for editi
     })
   );
 
-  assert.equal(limitedDraft.providerPresetId, "anthropic");
   assert.equal(limitedDraft.purchasePolicy, "limited");
   assert.equal(limitedDraft.perAgentPurchaseLimit, 2);
 });
@@ -169,7 +146,6 @@ test("getPurchasePolicyLabel and preview formatting reuse the derived purchase p
       quotaAmount: 20000,
     }),
     {
-      provider: "OpenAI",
       name: "OpenAI Boost",
       quota: "20000 tokens",
       policy: "Repeat purchase",
@@ -207,19 +183,15 @@ test("draft payload builders derive allowRepeatPurchase and perAgentPurchaseLimi
   assert.equal(updateInput.isActive, false);
 });
 
-test("provider preset and purchase policy changes flow into the derived create payload", () => {
-  const draft = applyPurchasePolicyToDraft(
-    applyProviderPresetToDraft(createInitialProductDraft(), "anthropic"),
-    "single"
-  );
+test("purchase policy changes flow into the derived create payload without provider metadata", () => {
+  const draft = applyPurchasePolicyToDraft(createInitialProductDraft(), "single");
 
   const input = buildAdminSecretProductCreateInputFromDraft({
     ...draft,
-    name: "Anthropic Solo Pack",
+    name: "Solo Pack",
     description: "One purchase per agent",
   });
 
-  assert.equal(input.providerLabel, "Anthropic");
   assert.equal(input.quotaUnitLabel, "tokens");
   assert.equal(input.allowRepeatPurchase, false);
   assert.equal(input.perAgentPurchaseLimit, 1);
@@ -245,7 +217,6 @@ test("buildAdminSecretProductUpdateInput keeps latest product values for activat
   });
 
   assert.equal(input.name, "Provider Quota Pack");
-  assert.equal(input.providerLabel, "Anthropic");
   assert.equal(input.usageInstructions, "Keep internal");
   assert.equal(input.quotaAmount, 32000);
   assert.equal(input.allowRepeatPurchase, true);
