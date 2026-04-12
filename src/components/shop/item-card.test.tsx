@@ -19,6 +19,17 @@ const sampleItem = {
   spriteKey: "crown",
 } satisfies ShopItemCosmeticData;
 
+const sampleColorItem = {
+  entryType: "cosmetic",
+  id: "orange",
+  name: "Orange Shell",
+  description: "A bright orange lobster shell",
+  type: "color",
+  category: "skin",
+  price: 50,
+  spriteKey: "orange",
+} satisfies ShopItemCosmeticData;
+
 const secretItem = {
   entryType: "api_quota_product",
   id: "s1",
@@ -55,6 +66,16 @@ test("ItemCard renders a canvas preview element", () => {
   );
 
   assert.match(html, /<canvas/);
+});
+
+test("ItemCard shifts cosmetic preview content upward to avoid a white strip above shell items", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ItemCard item={sampleColorItem} onClick={() => {}} />
+    </LocaleProvider>
+  );
+
+  assert.match(html, /pt-3 pb-7/);
 });
 
 test("ItemCard renders category badge", () => {

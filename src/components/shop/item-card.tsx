@@ -86,7 +86,7 @@ export function ItemCard({ item, onClick }: ItemCardProps) {
         className="group w-full text-left rounded-2xl border border-card-border/50 bg-card/60 backdrop-blur-md p-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.02),0_8px_20px_-6px_rgba(0,0,0,0.1)] transition-all duration-300 hover:border-accent/30 hover:shadow-[0_12px_32px_-8px_rgba(255,107,74,0.15)] overflow-hidden"
       >
         {/* Preview area */}
-        <div className="flex items-center justify-center bg-gradient-to-b from-foreground/[0.03] to-transparent py-5 group-hover:from-accent/[0.04] transition-colors duration-300">
+        <div className="flex items-center justify-center bg-gradient-to-b from-foreground/[0.03] to-transparent pt-3 pb-7 group-hover:from-accent/[0.04] transition-colors duration-300">
           <LobsterPreview
             appearance={appearance}
             size={80}
