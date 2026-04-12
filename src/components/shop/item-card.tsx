@@ -79,6 +79,7 @@ export function ItemCard({ item, onClick }: ItemCardProps) {
     const appearance = itemToAppearance(item);
     const categoryKey = getCategoryTranslationKey(item.category);
     const categoryLabel = categoryKey ? t(categoryKey) : item.category;
+    const description = item.description.trim();
 
     return (
       <button
@@ -101,9 +102,11 @@ export function ItemCard({ item, onClick }: ItemCardProps) {
               <h3 className="text-base font-semibold text-foreground truncate">
                 {item.name}
               </h3>
-              <p className="mt-1 text-sm text-muted line-clamp-2 leading-relaxed">
-                {item.description}
-              </p>
+              {description && (
+                <p className="mt-1 text-sm text-muted line-clamp-2 leading-relaxed">
+                  {description}
+                </p>
+              )}
             </div>
           </div>
 

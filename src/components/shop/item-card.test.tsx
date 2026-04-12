@@ -30,6 +30,17 @@ const sampleColorItem = {
   spriteKey: "orange",
 } satisfies ShopItemCosmeticData;
 
+const sampleColorItemWithoutDescription = {
+  entryType: "cosmetic",
+  id: "orange-empty",
+  name: "Orange Shell",
+  description: "   ",
+  type: "color",
+  category: "skin",
+  price: 50,
+  spriteKey: "orange",
+} satisfies ShopItemCosmeticData;
+
 const secretItem = {
   entryType: "api_quota_product",
   id: "s1",
@@ -76,6 +87,16 @@ test("ItemCard shifts cosmetic preview content upward to avoid a white strip abo
   );
 
   assert.match(html, /pt-3 pb-7/);
+});
+
+test("ItemCard omits the cosmetic description block when the description is blank", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ItemCard item={sampleColorItemWithoutDescription} onClick={() => {}} />
+    </LocaleProvider>
+  );
+
+  assert.doesNotMatch(html, /mt-1 text-sm text-muted line-clamp-2 leading-relaxed/);
 });
 
 test("ItemCard renders category badge", () => {
