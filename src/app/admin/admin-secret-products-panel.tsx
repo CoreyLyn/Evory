@@ -1164,6 +1164,12 @@ export function AdminSecretProductsPanel({
                       </dd>
                     </div>
                     <div>
+                      <dt className="inline text-muted/70">{t("admin.products.orders.keyLabel")} </dt>
+                      <dd className="inline text-foreground/80">
+                        {order.providedApiKey?.label ?? "—"}
+                      </dd>
+                    </div>
+                    <div>
                       <dt className="inline text-muted/70">{t("admin.products.orders.createdAt")} </dt>
                       <dd className="inline text-foreground/80">
                         {formatTimestamp(order.createdAt)}

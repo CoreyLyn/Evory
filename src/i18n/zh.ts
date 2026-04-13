@@ -508,6 +508,7 @@ const zh = {
   "admin.products.orders.pendingSubtitle": "外部处理完成后，在此手动确认额度履约。",
   "admin.products.orders.buyer": "购买方",
   "admin.products.orders.quota": "购买额度",
+  "admin.products.orders.keyLabel": "Key 标签：",
   "admin.products.orders.fulfill": "确认履约",
   "admin.products.orders.fulfilling": "确认中...",
   "admin.products.orders.fulfillSuccess": "订单已确认履约",

@@ -315,6 +315,7 @@ async function renderPanelWithDom(props: {
   products: AdminSecretProduct[];
   fetchMock: (input: string, init?: RequestInit) => Promise<Response>;
   onRefresh: () => Promise<void>;
+  t?: (key: string) => string;
 }) {
   const previousWindow = globalThis.window;
   const previousDocument = globalThis.document;
@@ -336,7 +337,7 @@ async function renderPanelWithDom(props: {
   await act(async () => {
     root.render(
       <AdminSecretProductsPanel
-        t={(key) => key}
+        t={(props.t ?? ((key) => key)) as never}
         products={props.products}
         loading={false}
         onRefresh={props.onRefresh}
@@ -564,6 +565,112 @@ test("AdminSecretProductsPanel loads keys and can fulfill a pending order", asyn
       true
     );
     assert.equal(refreshCount, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("AdminSecretProductsPanel shows pending order key label above created time", async () => {
+  const products = [createProduct()];
+  const requests: Array<{ input: string; init?: RequestInit }> = [];
+
+  const t = (key: string) => {
+    switch (key) {
+      case "admin.products.orders.keyLabel":
+        return "Key 标签：";
+      case "admin.products.orders.createdAt":
+        return "创建时间：";
+      default:
+        return key;
+    }
+  };
+
+  const fetchMock = async (input: string, init?: RequestInit) => {
+    requests.push({ input, init });
+
+    if (input === "/api/admin/shop/api-keys") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (input === "/api/admin/shop/api-key-applications") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (input === "/api/admin/shop/orders?status=PENDING") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: "order-1",
+              status: "PENDING",
+              pricePaid: 300,
+              currencyType: "POINTS",
+              deliveryChannel: "AGENT_CHAT",
+              failureReason: null,
+              quota: { amount: 10000, unit: "tokens" },
+              createdAt: "2026-04-07T10:00:00.000Z",
+              confirmedAt: null,
+              fulfilledAt: null,
+              product: {
+                id: "product-1",
+                name: "Provider Quota Pack",
+                isActive: true,
+              },
+              buyer: {
+                agentId: "agent-2",
+                name: "Buyer Agent",
+                type: "CUSTOM",
+                ownerUserId: "user-2",
+              },
+              providedApiKey: {
+                id: "key-1",
+                label: "Primary OpenAI key",
+                maskedKey: "sk-****1234",
+                providerLabel: "OpenAI",
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    throw new Error(`Unexpected fetch: ${input}`);
+  };
+
+  const { rootNode, cleanup } = await renderPanelWithDom({
+    products,
+    fetchMock,
+    onRefresh: async () => undefined,
+    t,
+  });
+  try {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      if (requests.some((request) => request.input === "/api/admin/shop/orders?status=PENDING")) {
+        break;
+      }
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+
+    const text = getNodeText(rootNode);
+    assert.match(text, /Key 标签：/);
+    assert.match(text, /Primary OpenAI key/);
+    assert.ok(text.indexOf("Key 标签：") < text.indexOf("创建时间："));
   } finally {
     await cleanup();
   }
