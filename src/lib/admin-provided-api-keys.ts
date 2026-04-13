@@ -7,7 +7,7 @@ export type AdminProvidedApiKeyInput = {
 
 export type AdminProvidedApiKeyUpdateInput = {
   label: string;
-  providerLabel: string | null;
+  providerLabel?: string | null;
   isActive: boolean;
 };
 
