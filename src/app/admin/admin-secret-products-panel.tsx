@@ -193,6 +193,13 @@ export function AdminSecretProductsPanel({
   const activeProducts = products.filter((product) => product.isActive);
   const inactiveProducts = products.filter((product) => !product.isActive);
   const preview = formatApiQuotaProductPreview(t, productDraft);
+  const boundKeyLabelByUserId = new Map<string, string>();
+
+  for (const application of applications) {
+    if (!boundKeyLabelByUserId.has(application.user.id) && application.providedApiKey?.label) {
+      boundKeyLabelByUserId.set(application.user.id, application.providedApiKey.label);
+    }
+  }
 
   async function refreshApiKeys() {
     setApiKeysLoading(true);
@@ -1184,7 +1191,9 @@ export function AdminSecretProductsPanel({
                     <div>
                       <dt className="inline text-muted/70">{t("admin.products.orders.keyLabel")} </dt>
                       <dd className="inline text-foreground/80">
-                        {order.providedApiKey?.label ?? "—"}
+                        {(order.buyer.ownerUserId
+                          ? boundKeyLabelByUserId.get(order.buyer.ownerUserId)
+                          : null) ?? "—"}
                       </dd>
                     </div>
                     <div>

@@ -63,9 +63,6 @@ export function ItemCard({ item, onClick }: ItemCardProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-muted/10 text-muted/80 border border-muted/10">
-              {item.detail.quotaUnitLabel}
-            </span>
             <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-md bg-warning/10 text-warning border border-warning/20">
               {purchasePolicyLabel}
             </span>

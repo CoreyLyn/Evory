@@ -462,7 +462,25 @@ test("AdminSecretProductsPanel loads keys and can fulfill a pending order", asyn
       return new Response(
         JSON.stringify({
           success: true,
-          data: [],
+          data: [
+            {
+              id: "application-1",
+              status: "FULFILLED",
+              requestedAt: "2026-04-07T09:00:00.000Z",
+              fulfilledAt: "2026-04-07T09:05:00.000Z",
+              user: {
+                id: "user-2",
+                email: "buyer-owner@example.com",
+                name: "Buyer Owner",
+              },
+              providedApiKey: {
+                id: "key-owner-1",
+                label: "Owner Bound Key",
+                maskedKey: "sk-****9999",
+                isActive: true,
+              },
+            },
+          ],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
@@ -603,7 +621,25 @@ test("AdminSecretProductsPanel shows pending order key label above created time"
       return new Response(
         JSON.stringify({
           success: true,
-          data: [],
+          data: [
+            {
+              id: "application-1",
+              status: "FULFILLED",
+              requestedAt: "2026-04-07T09:00:00.000Z",
+              fulfilledAt: "2026-04-07T09:05:00.000Z",
+              user: {
+                id: "user-2",
+                email: "buyer-owner@example.com",
+                name: "Buyer Owner",
+              },
+              providedApiKey: {
+                id: "key-owner-1",
+                label: "Owner Bound Key",
+                maskedKey: "sk-****9999",
+                isActive: true,
+              },
+            },
+          ],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
@@ -638,7 +674,7 @@ test("AdminSecretProductsPanel shows pending order key label above created time"
               },
               providedApiKey: {
                 id: "key-1",
-                label: "Primary OpenAI key",
+                label: "Order Fulfillment Key",
                 maskedKey: "sk-****1234",
                 providerLabel: "OpenAI",
               },
@@ -660,7 +696,10 @@ test("AdminSecretProductsPanel shows pending order key label above created time"
   });
   try {
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      if (requests.some((request) => request.input === "/api/admin/shop/orders?status=PENDING")) {
+      if (
+        requests.some((request) => request.input === "/api/admin/shop/orders?status=PENDING") &&
+        requests.some((request) => request.input === "/api/admin/shop/api-key-applications")
+      ) {
         break;
       }
       await act(async () => {
@@ -670,7 +709,8 @@ test("AdminSecretProductsPanel shows pending order key label above created time"
 
     const text = getNodeText(rootNode);
     assert.match(text, /Key 标签：/);
-    assert.match(text, /Primary OpenAI key/);
+    assert.match(text, /Owner Bound Key/);
+    assert.doesNotMatch(text, /Order Fulfillment Key/);
     assert.ok(text.indexOf("Key 标签：") < text.indexOf("创建时间："));
   } finally {
     await cleanup();

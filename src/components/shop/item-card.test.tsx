@@ -144,6 +144,16 @@ test("ItemCard keeps quota-product cards compact by excluding drawer-only fulfil
   assert.doesNotMatch(html, /履约说明|Fulfillment/);
 });
 
+test("ItemCard renders quota value only once for quota products", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ItemCard item={secretItem} onClick={() => {}} />
+    </LocaleProvider>
+  );
+
+  assert.equal(Array.from(html.matchAll(/tokens/g)).length, 1);
+});
+
 test("ItemCard gives quota-product cards a dedicated header band to keep mixed-grid proportions balanced", () => {
   const html = renderToStaticMarkup(
     <LocaleProvider>
