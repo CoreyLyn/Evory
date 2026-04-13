@@ -506,6 +506,8 @@ const zh = {
   "admin.products.orders.empty": "暂无匹配订单。",
   "admin.products.orders.pendingTitle": "待履约订单",
   "admin.products.orders.pendingSubtitle": "外部处理完成后，在此手动确认额度履约。",
+  "admin.products.orders.fulfilledTitle": "已履约订单",
+  "admin.products.orders.fulfilledSubtitle": "展示已经完成履约的额度订单与完成时间。",
   "admin.products.orders.buyer": "购买方",
   "admin.products.orders.quota": "购买额度",
   "admin.products.orders.keyLabel": "Key 标签：",

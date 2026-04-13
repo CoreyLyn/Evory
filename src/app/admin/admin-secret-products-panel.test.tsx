@@ -368,7 +368,7 @@ async function renderPanelWithDom(props: {
   return { rootNode, cleanup };
 }
 
-test("AdminSecretProductsPanel renders quota, provided key, bindings, and pending order sections", () => {
+test("AdminSecretProductsPanel renders quota, provided key, bindings, pending, and fulfilled order sections", () => {
   const html = renderToStaticMarkup(
     <AdminSecretProductsPanel
       t={(key) => key}
@@ -385,6 +385,7 @@ test("AdminSecretProductsPanel renders quota, provided key, bindings, and pendin
   assert.match(html, /admin\.products\.keys\.title/);
   assert.match(html, /admin\.products\.bindings\.title/);
   assert.match(html, /admin\.products\.orders\.pendingTitle/);
+  assert.match(html, /admin\.products\.orders\.fulfilledTitle/);
   assert.doesNotMatch(html, /admin\.products\.inventory\.secrets/);
 });
 
@@ -520,6 +521,16 @@ test("AdminSecretProductsPanel loads keys and can fulfill a pending order", asyn
       );
     }
 
+    if (input === "/api/admin/shop/orders?status=FULFILLED") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     if (input === "/api/admin/shop/orders/order-1/fulfill") {
       return new Response(
         JSON.stringify({
@@ -546,7 +557,8 @@ test("AdminSecretProductsPanel loads keys and can fulfill a pending order", asyn
       if (
         requests.some((request) => request.input === "/api/admin/shop/api-keys") &&
         requests.some((request) => request.input === "/api/admin/shop/api-key-applications") &&
-        requests.some((request) => request.input === "/api/admin/shop/orders?status=PENDING")
+        requests.some((request) => request.input === "/api/admin/shop/orders?status=PENDING") &&
+        requests.some((request) => request.input === "/api/admin/shop/orders?status=FULFILLED")
       ) {
         break;
       }
@@ -583,6 +595,129 @@ test("AdminSecretProductsPanel loads keys and can fulfill a pending order", asyn
       true
     );
     assert.equal(refreshCount, 1);
+    assert.equal(
+      requests.some((request) => request.input === "/api/admin/shop/orders?status=FULFILLED"),
+      true
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("AdminSecretProductsPanel renders fulfilled orders in a separate section", async () => {
+  const products = [createProduct()];
+  const requests: Array<{ input: string; init?: RequestInit }> = [];
+
+  const t = (key: string) => {
+    switch (key) {
+      case "admin.products.orders.pendingTitle":
+        return "待履约订单";
+      case "admin.products.orders.fulfilledTitle":
+        return "已履约订单";
+      case "admin.products.orders.fulfilledAt":
+        return "完成时间：";
+      case "admin.products.orders.createdAt":
+        return "创建时间：";
+      case "admin.products.orders.fulfill":
+        return "确认履约";
+      default:
+        return key;
+    }
+  };
+
+  const fetchMock = async (input: string, init?: RequestInit) => {
+    requests.push({ input, init });
+
+    if (input === "/api/admin/shop/api-keys") {
+      return new Response(JSON.stringify({ success: true, data: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (input === "/api/admin/shop/api-key-applications") {
+      return new Response(JSON.stringify({ success: true, data: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (input === "/api/admin/shop/orders?status=PENDING") {
+      return new Response(JSON.stringify({ success: true, data: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (input === "/api/admin/shop/orders?status=FULFILLED") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: "order-fulfilled-1",
+              status: "FULFILLED",
+              pricePaid: 300,
+              currencyType: "POINTS",
+              deliveryChannel: "AGENT_CHAT",
+              failureReason: null,
+              quota: { amount: 10000, unit: "tokens" },
+              createdAt: "2026-04-07T10:00:00.000Z",
+              confirmedAt: "2026-04-07T10:03:00.000Z",
+              fulfilledAt: "2026-04-07T10:05:00.000Z",
+              product: {
+                id: "product-1",
+                name: "Provider Quota Pack",
+                isActive: true,
+              },
+              buyer: {
+                agentId: "agent-2",
+                name: "Buyer Agent",
+                type: "CUSTOM",
+                ownerUserId: "user-2",
+              },
+              providedApiKey: {
+                id: "key-1",
+                label: "Fulfillment Key",
+                maskedKey: "sk-****1234",
+                providerLabel: "OpenAI",
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    throw new Error(`Unexpected fetch: ${input}`);
+  };
+
+  const { rootNode, cleanup } = await renderPanelWithDom({
+    products,
+    fetchMock,
+    onRefresh: async () => undefined,
+    t,
+  });
+
+  try {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      if (
+        requests.some((request) => request.input === "/api/admin/shop/orders?status=PENDING") &&
+        requests.some((request) => request.input === "/api/admin/shop/orders?status=FULFILLED")
+      ) {
+        break;
+      }
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+
+    const text = getNodeText(rootNode);
+    assert.match(text, /待履约订单/);
+    assert.match(text, /已履约订单/);
+    assert.match(text, /Buyer Agent/);
+    assert.match(text, /完成时间：/);
+    assert.doesNotMatch(text, /确认履约/);
   } finally {
     await cleanup();
   }
@@ -679,6 +814,16 @@ test("AdminSecretProductsPanel shows pending order key label above created time"
               },
             },
           ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (input === "/api/admin/shop/orders?status=FULFILLED") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );

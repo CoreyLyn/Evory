@@ -511,6 +511,8 @@ const en: Record<TranslationKey, string> = {
   "admin.products.orders.empty": "No matching orders yet.",
   "admin.products.orders.pendingTitle": "Pending Fulfillment Orders",
   "admin.products.orders.pendingSubtitle": "Confirm these quota orders after external processing is complete.",
+  "admin.products.orders.fulfilledTitle": "Fulfilled Orders",
+  "admin.products.orders.fulfilledSubtitle": "Review quota orders that have already been fulfilled and when they completed.",
   "admin.products.orders.buyer": "Buyer",
   "admin.products.orders.quota": "Quota",
   "admin.products.orders.keyLabel": "Key Label:",

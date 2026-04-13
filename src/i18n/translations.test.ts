@@ -68,6 +68,8 @@ test("admin secret product translation keys exist in both locales", () => {
     "admin.products.inventory.title",
     "admin.products.inventory.secrets",
     "admin.products.inventory.importSuccess",
+    "admin.products.orders.fulfilledTitle",
+    "admin.products.orders.fulfilledSubtitle",
   ] as const;
 
   for (const key of requiredKeys) {

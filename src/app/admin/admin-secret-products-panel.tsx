@@ -59,6 +59,8 @@ type ApiBaseUrlDraft = {
   anthropicBaseUrl: string;
 };
 
+type OrderSectionVariant = "pending" | "fulfilled";
+
 function createInitialApiKeyDraft(): ApiKeyDraft {
   return {
     label: "",
@@ -177,7 +179,8 @@ export function AdminSecretProductsPanel({
   const [fulfillingOrderId, setFulfillingOrderId] = useState<string | null>(null);
   const [apiKeys, setApiKeys] = useState<AdminProvidedApiKey[]>([]);
   const [apiKeysLoading, setApiKeysLoading] = useState(false);
-  const [orderRows, setOrderRows] = useState<AdminSecretProductOrder[]>([]);
+  const [pendingOrderRows, setPendingOrderRows] = useState<AdminSecretProductOrder[]>([]);
+  const [fulfilledOrderRows, setFulfilledOrderRows] = useState<AdminSecretProductOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [applications, setApplications] = useState<AdminApiKeyApplication[]>([]);
   const [applicationsLoading, setApplicationsLoading] = useState(false);
@@ -215,13 +218,20 @@ export function AdminSecretProductsPanel({
   async function refreshOrders() {
     setOrdersLoading(true);
     try {
-      const data = await fetchAdminSecretProductOrders(fetch, {
-        status: "PENDING",
-      });
-      setOrderRows(data);
+      const [pendingOrders, fulfilledOrders] = await Promise.all([
+        fetchAdminSecretProductOrders(fetch, {
+          status: "PENDING",
+        }),
+        fetchAdminSecretProductOrders(fetch, {
+          status: "FULFILLED",
+        }),
+      ]);
+      setPendingOrderRows(pendingOrders);
+      setFulfilledOrderRows(fulfilledOrders);
     } catch (error) {
       onError(getErrorMessage(error, t("admin.actionFailed")));
-      setOrderRows([]);
+      setPendingOrderRows([]);
+      setFulfilledOrderRows([]);
     } finally {
       setOrdersLoading(false);
     }
@@ -532,6 +542,76 @@ export function AdminSecretProductsPanel({
     } finally {
       setFulfillingOrderId(null);
     }
+  }
+
+  function renderOrderRows(items: AdminSecretProductOrder[], variant: OrderSectionVariant) {
+    if (ordersLoading) {
+      return <p className="text-sm text-muted">{t("common.loading")}</p>;
+    }
+
+    if (items.length === 0) {
+      return <p className="text-sm text-muted">{t("admin.products.orders.empty")}</p>;
+    }
+
+    return items.map((order) => (
+      <div
+        key={order.id}
+        className="rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="text-sm font-semibold text-foreground">{order.product.name}</div>
+          <Badge variant={variant === "pending" ? "warning" : "success"}>
+            {getOrderStatusLabel(order.status, t)}
+          </Badge>
+        </div>
+        <dl className="mt-3 grid gap-2 text-xs text-muted">
+          <div>
+            <dt className="inline text-muted/70">{t("admin.products.orders.buyer")}: </dt>
+            <dd className="inline text-foreground/80">
+              {order.buyer.name} ({order.buyer.agentId})
+            </dd>
+          </div>
+          <div>
+            <dt className="inline text-muted/70">{t("admin.products.orders.quota")}: </dt>
+            <dd className="inline text-foreground/80">
+              {order.quota.amount} {order.quota.unit}
+            </dd>
+          </div>
+          <div>
+            <dt className="inline text-muted/70">{t("admin.products.orders.keyLabel")} </dt>
+            <dd className="inline text-foreground/80">
+              {(order.buyer.ownerUserId
+                ? boundKeyLabelByUserId.get(order.buyer.ownerUserId)
+                : null) ?? "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className="inline text-muted/70">{t("admin.products.orders.createdAt")} </dt>
+            <dd className="inline text-foreground/80">{formatTimestamp(order.createdAt)}</dd>
+          </div>
+          {variant === "fulfilled" ? (
+            <div>
+              <dt className="inline text-muted/70">{t("admin.products.orders.fulfilledAt")} </dt>
+              <dd className="inline text-foreground/80">{formatTimestamp(order.fulfilledAt)}</dd>
+            </div>
+          ) : null}
+        </dl>
+
+        {variant === "pending" ? (
+          <div className="mt-4 flex justify-end">
+            <Button
+              type="button"
+              disabled={fulfillingOrderId === order.id}
+              onClick={() => void handleFulfillOrder(order)}
+            >
+              {fulfillingOrderId === order.id
+                ? t("admin.products.orders.fulfilling")
+                : t("admin.products.orders.fulfill")}
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    ));
   }
 
   function renderProducts(itemsToRender: AdminSecretProduct[], active: boolean) {
@@ -1141,65 +1221,20 @@ export function AdminSecretProductsPanel({
           </div>
 
           <div className="mt-6 space-y-3">
-            {ordersLoading ? (
-              <p className="text-sm text-muted">{t("common.loading")}</p>
-            ) : orderRows.length === 0 ? (
-              <p className="text-sm text-muted">{t("admin.products.orders.empty")}</p>
-            ) : (
-              orderRows.map((order) => (
-                <div
-                  key={order.id}
-                  className="rounded-2xl border border-card-border/40 bg-background/20 px-4 py-3"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="text-sm font-semibold text-foreground">{order.product.name}</div>
-                    <Badge variant="warning">
-                      {getOrderStatusLabel(order.status, t)}
-                    </Badge>
-                  </div>
-                  <dl className="mt-3 grid gap-2 text-xs text-muted">
-                    <div>
-                      <dt className="inline text-muted/70">{t("admin.products.orders.buyer")}: </dt>
-                      <dd className="inline text-foreground/80">
-                        {order.buyer.name} ({order.buyer.agentId})
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="inline text-muted/70">{t("admin.products.orders.quota")}: </dt>
-                      <dd className="inline text-foreground/80">
-                        {order.quota.amount} {order.quota.unit}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="inline text-muted/70">{t("admin.products.orders.keyLabel")} </dt>
-                      <dd className="inline text-foreground/80">
-                        {(order.buyer.ownerUserId
-                          ? boundKeyLabelByUserId.get(order.buyer.ownerUserId)
-                          : null) ?? "—"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="inline text-muted/70">{t("admin.products.orders.createdAt")} </dt>
-                      <dd className="inline text-foreground/80">
-                        {formatTimestamp(order.createdAt)}
-                      </dd>
-                    </div>
-                  </dl>
+            {renderOrderRows(pendingOrderRows, "pending")}
+          </div>
+        </Card>
 
-                  <div className="mt-4 flex justify-end">
-                    <Button
-                      type="button"
-                      disabled={fulfillingOrderId === order.id}
-                      onClick={() => void handleFulfillOrder(order)}
-                    >
-                      {fulfillingOrderId === order.id
-                        ? t("admin.products.orders.fulfilling")
-                        : t("admin.products.orders.fulfill")}
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
+        <Card className="border-card-border/50 bg-card/70">
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-foreground">
+              {t("admin.products.orders.fulfilledTitle")}
+            </h3>
+            <p className="text-sm text-muted">{t("admin.products.orders.fulfilledSubtitle")}</p>
+          </div>
+
+          <div className="mt-6 space-y-3">
+            {renderOrderRows(fulfilledOrderRows, "fulfilled")}
           </div>
         </Card>
       </div>
