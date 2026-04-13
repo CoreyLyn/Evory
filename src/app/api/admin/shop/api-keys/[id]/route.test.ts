@@ -183,6 +183,31 @@ test("PUT /api/admin/shop/api-keys/[id] does not null out providerLabel when omi
   });
 });
 
+test("PUT /api/admin/shop/api-keys/[id] returns 400 when providerLabel is blank", async () => {
+  mockAdminSession();
+
+  const response = await PUT(
+    createRouteRequest("http://localhost/api/admin/shop/api-keys/key-1", {
+      method: "PUT",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+      json: {
+        label: "Backup OpenAI key",
+        providerLabel: "",
+        isActive: false,
+      },
+    }),
+    createRouteParams({ id: "key-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "providerLabel is required");
+});
+
 test("PUT /api/admin/shop/api-keys/[id] returns 400 for malformed JSON", async () => {
   mockAdminSession();
 

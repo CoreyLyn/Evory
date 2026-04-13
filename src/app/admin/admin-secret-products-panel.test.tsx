@@ -383,6 +383,7 @@ test("AdminSecretProductsPanel renders quota, provided key, bindings, and pendin
   assert.match(html, /admin\.products\.form\.quotaAmount/);
   assert.match(html, /admin\.products\.form\.quotaUnitLabel/);
   assert.match(html, /admin\.products\.keys\.title/);
+  assert.match(html, /admin\.products\.keys\.form\.providerLabel/);
   assert.match(html, /admin\.products\.bindings\.title/);
   assert.match(html, /admin\.products\.orders\.pendingTitle/);
   assert.doesNotMatch(html, /admin\.products\.inventory\.secrets/);

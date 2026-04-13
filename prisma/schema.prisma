@@ -690,7 +690,7 @@ model UserProvidedApiKeyApplication {
 model ProvidedApiKey {
   id              String    @id @default(cuid())
   label           String
-  providerLabel   String?
+  providerLabel   String
   maskedKey       String
   encryptedKey    String
   isActive        Boolean   @default(true)

@@ -223,6 +223,30 @@ test("POST /api/admin/shop/api-keys returns 400 for malformed JSON", async () =>
   assert.equal(json.error, "Invalid request body");
 });
 
+test("POST /api/admin/shop/api-keys returns 400 when providerLabel is missing", async () => {
+  mockAdminSession();
+
+  const response = await POST(
+    createRouteRequest("http://localhost/api/admin/shop/api-keys", {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+      json: {
+        label: "Primary OpenAI key",
+        apiKey: "sk-live-123456789",
+        isActive: true,
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "providerLabel is required");
+});
+
 test("POST /api/admin/shop/api-keys returns a clear 500 when encryption key is missing", async () => {
   mockAdminSession();
   delete process.env.SECRET_INVENTORY_ENCRYPTION_KEY;

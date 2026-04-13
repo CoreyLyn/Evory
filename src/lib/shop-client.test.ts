@@ -653,6 +653,37 @@ test("createAdminProvidedApiKey, updateAdminProvidedApiKey, and fulfillAdminQuot
   assert.equal(requests[2]?.init?.body, undefined);
 });
 
+test("createAdminProvidedApiKey sends providerLabel as a required field", async () => {
+  const requests: Array<{ input: string; init?: RequestInit }> = [];
+
+  const fetcher = async (input: string, init?: RequestInit) => {
+    requests.push({ input, init });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: { id: "key-1" },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  };
+
+  await createAdminProvidedApiKey(fetcher, {
+    label: "Primary OpenAI key",
+    providerLabel: "OpenAI",
+    apiKey: "sk-live-123",
+  });
+
+  assert.deepEqual(JSON.parse(String(requests[0]?.init?.body)), {
+    label: "Primary OpenAI key",
+    providerLabel: "OpenAI",
+    apiKey: "sk-live-123",
+    isActive: true,
+  });
+});
+
 test("updateAdminProvidedApiKey omits providerLabel when it is not supplied", async () => {
   const requests: Array<{ input: string; init?: RequestInit }> = [];
 
