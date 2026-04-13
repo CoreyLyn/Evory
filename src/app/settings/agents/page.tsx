@@ -33,6 +33,10 @@ import {
 
 export type UserApiBaseUrls = ShopUserApiBaseUrls;
 
+export function shouldRenderUserProvidedApiKeyCard(baseUrls: UserApiBaseUrls) {
+  return baseUrls.hasActiveProvidedApiKey;
+}
+
 type UserSummary = {
   id: string;
   email: string;
@@ -810,6 +814,7 @@ export default function ManageAgentsPage() {
   const [userApiBaseUrls, setUserApiBaseUrls] = useState<UserApiBaseUrls>({
     openAiBaseUrl: null,
     anthropicBaseUrl: null,
+    hasActiveProvidedApiKey: false,
   });
   const [userProvidedApiKeyBusy, setUserProvidedApiKeyBusy] = useState(false);
   const [connectedAgentId, setConnectedAgentId] = useState<string | null>(null);
@@ -875,6 +880,7 @@ export default function ManageAgentsPage() {
         setUserApiBaseUrls({
           openAiBaseUrl: null,
           anthropicBaseUrl: null,
+          hasActiveProvidedApiKey: false,
         });
         return;
       }
@@ -1289,18 +1295,20 @@ export default function ManageAgentsPage() {
             </div>
           )}
 
-          <UserProvidedApiKeyCard
-            summary={
-              userProvidedApiKeySummary ?? {
-                status: "NONE",
-                application: null,
-                providedApiKey: null,
+          {shouldRenderUserProvidedApiKeyCard(userApiBaseUrls) ? (
+            <UserProvidedApiKeyCard
+              summary={
+                userProvidedApiKeySummary ?? {
+                  status: "NONE",
+                  application: null,
+                  providedApiKey: null,
+                }
               }
-            }
-            baseUrls={userApiBaseUrls}
-            busy={userProvidedApiKeyBusy}
-            onRequest={() => void handleUserProvidedApiKeyRequest()}
-          />
+              baseUrls={userApiBaseUrls}
+              busy={userProvidedApiKeyBusy}
+              onRequest={() => void handleUserProvidedApiKeyRequest()}
+            />
+          ) : null}
 
           {latestIssuedCredential ? (
             <LatestIssuedCredentialCard issuedCredential={latestIssuedCredential} />

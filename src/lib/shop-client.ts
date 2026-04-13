@@ -124,6 +124,7 @@ export type UserProvidedApiKeySummary = {
 export type UserApiBaseUrls = {
   openAiBaseUrl: string | null;
   anthropicBaseUrl: string | null;
+  hasActiveProvidedApiKey: boolean;
 };
 
 export type AdminSecretProductOrder = {

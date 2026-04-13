@@ -12,6 +12,7 @@ import {
   LatestIssuedCredentialCard,
   ManagedAgentActions,
   ManagedAgentOwnerVisibilityControl,
+  shouldRenderUserProvidedApiKeyCard,
   type UserApiBaseUrls,
   UserForumPostManagementList,
   UserProvidedApiKeyCard,
@@ -248,11 +249,37 @@ test("resolveUserProvidedApiKeySummary returns the summary payload directly", as
   assert.deepEqual(result, summary);
 });
 
+test("shouldRenderUserProvidedApiKeyCard returns false when no admin-provided api key is enabled", () => {
+  assert.equal(
+    shouldRenderUserProvidedApiKeyCard({
+      openAiBaseUrl: "https://coding.example.com/v1",
+      anthropicBaseUrl: null,
+      hasActiveProvidedApiKey: false,
+    }),
+    false
+  );
+});
+
+test("shouldRenderUserProvidedApiKeyCard returns true when an admin-provided api key is enabled", () => {
+  assert.equal(
+    shouldRenderUserProvidedApiKeyCard({
+      openAiBaseUrl: null,
+      anthropicBaseUrl: null,
+      hasActiveProvidedApiKey: true,
+    }),
+    true
+  );
+});
+
 test("UserProvidedApiKeyCard renders the account-level request state", () => {
   const html = renderToStaticMarkup(
     <UserProvidedApiKeyCard
       summary={{ status: "NONE", application: null, providedApiKey: null }}
-      baseUrls={{ openAiBaseUrl: null, anthropicBaseUrl: null }}
+      baseUrls={{
+        openAiBaseUrl: null,
+        anthropicBaseUrl: null,
+        hasActiveProvidedApiKey: true,
+      }}
       busy={false}
       onRequest={() => undefined}
     />
@@ -277,7 +304,11 @@ test("UserProvidedApiKeyCard renders the sold-out state", () => {
         },
         providedApiKey: null,
       }}
-      baseUrls={{ openAiBaseUrl: null, anthropicBaseUrl: null }}
+      baseUrls={{
+        openAiBaseUrl: null,
+        anthropicBaseUrl: null,
+        hasActiveProvidedApiKey: true,
+      }}
       busy={false}
       onRequest={() => undefined}
     />
@@ -305,7 +336,11 @@ test("UserProvidedApiKeyCard renders masked key and copy action once fulfilled",
           copyValue: "sk-live-secret-1234",
         },
       }}
-      baseUrls={{ openAiBaseUrl: null, anthropicBaseUrl: null }}
+      baseUrls={{
+        openAiBaseUrl: null,
+        anthropicBaseUrl: null,
+        hasActiveProvidedApiKey: true,
+      }}
       busy={false}
       onRequest={() => undefined}
     />
@@ -322,6 +357,7 @@ test("UserProvidedApiKeyCard renders both base urls when the key is fulfilled", 
   const baseUrls: UserApiBaseUrls = {
     openAiBaseUrl: "https://coding.example.com/v1",
     anthropicBaseUrl: "https://coding.example.com/apps/anthropic",
+    hasActiveProvidedApiKey: true,
   };
   const html = renderToStaticMarkup(
     <UserProvidedApiKeyCard
@@ -370,6 +406,7 @@ test("UserProvidedApiKeyCard hides the base url section before fulfillment", () 
       baseUrls={{
         openAiBaseUrl: "https://coding.example.com/v1",
         anthropicBaseUrl: "https://coding.example.com/apps/anthropic",
+        hasActiveProvidedApiKey: true,
       }}
       busy={false}
       onRequest={() => undefined}
@@ -396,7 +433,11 @@ test("UserProvidedApiKeyCard shows deactivated state when key is inactive", () =
         // Key is deactivated (isActive: false in DB, so providedApiKey is null)
         providedApiKey: null,
       }}
-      baseUrls={{ openAiBaseUrl: null, anthropicBaseUrl: null }}
+      baseUrls={{
+        openAiBaseUrl: null,
+        anthropicBaseUrl: null,
+        hasActiveProvidedApiKey: true,
+      }}
       busy={false}
       onRequest={() => undefined}
     />
