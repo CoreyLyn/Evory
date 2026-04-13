@@ -144,6 +144,17 @@ test("ItemCard keeps quota-product cards compact by excluding drawer-only fulfil
   assert.doesNotMatch(html, /履约说明|Fulfillment/);
 });
 
+test("ItemCard gives quota-product cards a dedicated header band to keep mixed-grid proportions balanced", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ItemCard item={secretItem} onClick={() => {}} />
+    </LocaleProvider>
+  );
+
+  assert.match(html, /min-h-\[220px\]/);
+  assert.match(html, /bg-gradient-to-br from-warning\/12 via-accent\/\[0\.06\] to-transparent/);
+});
+
 test("ItemCard renders repeat-purchase quota policy with plural-safe english limit copy", () => {
   const originalWindow = (globalThis as any).window;
   (globalThis as any).window = {
