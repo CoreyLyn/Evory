@@ -19,7 +19,7 @@ import {
 type AdminProvidedApiKeyListRow = {
   id: string;
   label: string;
-  providerLabel: string;
+  providerLabel: string | null;
   maskedKey: string;
   encryptedKey: string;
   isActive: boolean;
@@ -34,7 +34,7 @@ type AdminProvidedApiKeyListRow = {
 type AdminProvidedApiKeyRow = {
   id: string;
   label: string;
-  providerLabel: string;
+  providerLabel: string | null;
   maskedKey: string;
   encryptedKey: string;
   isActive: boolean;

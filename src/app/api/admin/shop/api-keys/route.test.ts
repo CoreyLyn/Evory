@@ -223,8 +223,25 @@ test("POST /api/admin/shop/api-keys returns 400 for malformed JSON", async () =>
   assert.equal(json.error, "Invalid request body");
 });
 
-test("POST /api/admin/shop/api-keys returns 400 when providerLabel is missing", async () => {
+test("POST /api/admin/shop/api-keys allows a missing providerLabel", async () => {
   mockAdminSession();
+  let createdData: Record<string, unknown> | null = null;
+  prismaClient.providedApiKey = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      createdData = data;
+      return {
+        id: "key-1",
+        label: data.label,
+        providerLabel: data.providerLabel,
+        maskedKey: data.maskedKey,
+        isActive: data.isActive,
+        createdByUserId: data.createdByUserId,
+        createdAt: new Date("2026-04-08T10:00:00.000Z"),
+        updatedAt: new Date("2026-04-08T10:00:00.000Z"),
+        encryptedKey: data.encryptedKey,
+      };
+    },
+  };
 
   const response = await POST(
     createRouteRequest("http://localhost/api/admin/shop/api-keys", {
@@ -242,9 +259,9 @@ test("POST /api/admin/shop/api-keys returns 400 when providerLabel is missing", 
   );
   const json = await response.json();
 
-  assert.equal(response.status, 400);
-  assert.equal(json.success, false);
-  assert.equal(json.error, "providerLabel is required");
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.equal(createdData?.providerLabel, null);
 });
 
 test("POST /api/admin/shop/api-keys returns a clear 500 when encryption key is missing", async () => {

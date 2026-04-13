@@ -38,8 +38,7 @@ export async function POST(
   const { id } = await params;
 
   try {
-    const now = new Date();
-    const updated = await prisma.purchaseOrder.updateMany({
+    const order = await prisma.purchaseOrder.findFirst({
       where: {
         id,
         status: "PENDING",
@@ -47,8 +46,66 @@ export async function POST(
           productType: "API_QUOTA",
         },
       },
+      select: {
+        id: true,
+        buyerAgent: {
+          select: {
+            ownerUserId: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return notForAgentsResponse(
+        Response.json(
+          {
+            success: false,
+            error: "Purchase order not found",
+          },
+          { status: 404 }
+        )
+      );
+    }
+
+    const application = order.buyerAgent.ownerUserId
+      ? await prisma.userProvidedApiKeyApplication.findFirst({
+          where: {
+            userId: order.buyerAgent.ownerUserId,
+            status: "FULFILLED",
+            providedApiKeyId: { not: null },
+            providedApiKey: {
+              isActive: true,
+            },
+          },
+          orderBy: [{ fulfilledAt: "desc" }, { requestedAt: "desc" }],
+          select: {
+            providedApiKeyId: true,
+          },
+        })
+      : null;
+
+    if (!application?.providedApiKeyId) {
+      return notForAgentsResponse(
+        Response.json(
+          {
+            success: false,
+            error: "Provided API key not found",
+          },
+          { status: 404 }
+        )
+      );
+    }
+
+    const now = new Date();
+    const updated = await prisma.purchaseOrder.updateMany({
+      where: {
+        id,
+        status: "PENDING",
+      },
       data: {
         status: "FULFILLED",
+        providedApiKeyId: application.providedApiKeyId,
         confirmedByUserId: auth.user.id,
         confirmedAt: now,
         fulfilledAt: now,
@@ -73,6 +130,7 @@ export async function POST(
         data: {
           id,
           status: "FULFILLED",
+          providedApiKeyId: application.providedApiKeyId,
           confirmedByUserId: auth.user.id,
           confirmedAt: now,
           fulfilledAt: now,

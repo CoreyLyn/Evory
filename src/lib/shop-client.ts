@@ -82,7 +82,7 @@ export type AdminSecretProduct = AdminSecretProductRecord & {
 export type AdminProvidedApiKey = {
   id: string;
   label: string;
-  providerLabel: string;
+  providerLabel: string | null;
   maskedKey: string;
   isActive: boolean;
   createdByUserId: string;
@@ -223,14 +223,14 @@ export type AdminSecretProductUpdateInput = AdminSecretProductCreateInput & {
 
 export type AdminProvidedApiKeyCreateInput = {
   label: string;
-  providerLabel: string;
+  providerLabel?: string | null;
   apiKey: string;
   isActive?: boolean;
 };
 
 export type AdminProvidedApiKeyUpdateInput = {
   label: string;
-  providerLabel?: string;
+  providerLabel?: string | null;
   isActive: boolean;
 };
 
@@ -643,7 +643,7 @@ export async function createAdminProvidedApiKey(
     },
     body: JSON.stringify({
       label: input.label,
-      providerLabel: input.providerLabel,
+      providerLabel: input.providerLabel ?? null,
       apiKey: input.apiKey,
       isActive: input.isActive ?? true,
     }),
@@ -659,7 +659,7 @@ export async function updateAdminProvidedApiKey(
 ) {
   const body: {
     label: string;
-    providerLabel?: string;
+    providerLabel?: string | null;
     isActive: boolean;
   } = {
     label: input.label,
@@ -667,7 +667,7 @@ export async function updateAdminProvidedApiKey(
   };
 
   if (input.providerLabel !== undefined) {
-    body.providerLabel = input.providerLabel;
+    body.providerLabel = input.providerLabel ?? null;
   }
 
   const response = await fetcher(`/api/admin/shop/api-keys/${keyId}`, {

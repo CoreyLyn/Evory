@@ -15,7 +15,7 @@ import { enforceSameOriginControlPlaneRequest } from "@/lib/request-security";
 type AdminProvidedApiKeyRow = {
   id: string;
   label: string;
-  providerLabel: string;
+  providerLabel: string | null;
   maskedKey: string;
   encryptedKey: string;
   isActive: boolean;

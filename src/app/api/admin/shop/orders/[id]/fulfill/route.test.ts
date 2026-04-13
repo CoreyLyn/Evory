@@ -3,6 +3,7 @@ import { afterEach, beforeEach, test } from "node:test";
 
 import prisma from "@/lib/prisma";
 import {
+  createAgentFixture,
   createUserFixture,
   createUserSessionFixture,
 } from "@/test/factories";
@@ -19,6 +20,7 @@ const originalMethods = {
   rateLimitCounter: prismaClient.rateLimitCounter,
   purchaseOrder: prismaClient.purchaseOrder,
   providedApiKey: prismaClient.providedApiKey,
+  userProvidedApiKeyApplication: prismaClient.userProvidedApiKeyApplication,
 };
 
 const ADMIN_TOKEN = "admin-session-token";
@@ -49,24 +51,55 @@ afterEach(() => {
   prismaClient.rateLimitCounter = originalMethods.rateLimitCounter;
   prismaClient.purchaseOrder = originalMethods.purchaseOrder;
   prismaClient.providedApiKey = originalMethods.providedApiKey;
+  prismaClient.userProvidedApiKeyApplication =
+    originalMethods.userProvidedApiKeyApplication;
 });
 
-test("POST /api/admin/shop/orders/[id]/fulfill marks a pending api quota order as fulfilled", async () => {
+test("POST /api/admin/shop/orders/[id]/fulfill marks a pending api quota order as fulfilled with the buyer owner's bound API key", async () => {
   mockAdminSession();
 
+  let findFirstArgs: unknown = null;
   let updateArgs: unknown = null;
 
   prismaClient.purchaseOrder = {
+    findFirst: async (args: unknown) => {
+      findFirstArgs = args;
+      return {
+        id: "order-1",
+        buyerAgent: createAgentFixture({
+          id: "agent-2",
+          ownerUserId: "user-2",
+        }),
+      };
+    },
     updateMany: async (args: unknown) => {
       updateArgs = args;
       return { count: 1 };
     },
   };
-  prismaClient.providedApiKey = {
-    findFirst: async () => {
-      throw new Error("provided key lookup should not run");
+  prismaClient.userProvidedApiKeyApplication = {
+    findFirst: async (args: unknown) => {
+      assert.deepEqual(args, {
+        where: {
+          userId: "user-2",
+          status: "FULFILLED",
+          providedApiKeyId: { not: null },
+          providedApiKey: {
+            isActive: true,
+          },
+        },
+        orderBy: [{ fulfilledAt: "desc" }, { requestedAt: "desc" }],
+        select: {
+          providedApiKeyId: true,
+        },
+      });
+
+      return {
+        providedApiKeyId: "provided-key-1",
+      };
     },
   };
+  prismaClient.providedApiKey = {};
 
   const response = await POST(
     createRouteRequest("http://localhost/api/admin/shop/orders/order-1/fulfill", {
@@ -87,11 +120,12 @@ test("POST /api/admin/shop/orders/[id]/fulfill marks a pending api quota order a
   assert.deepEqual(json.data, {
     id: "order-1",
     status: "FULFILLED",
+    providedApiKeyId: "provided-key-1",
     confirmedByUserId: "admin-1",
     confirmedAt: confirmedAt.toISOString(),
     fulfilledAt: fulfilledAt.toISOString(),
   });
-  assert.deepEqual(updateArgs, {
+  assert.deepEqual(findFirstArgs, {
     where: {
       id: "order-1",
       status: "PENDING",
@@ -99,8 +133,23 @@ test("POST /api/admin/shop/orders/[id]/fulfill marks a pending api quota order a
         productType: "API_QUOTA",
       },
     },
+    select: {
+      id: true,
+      buyerAgent: {
+        select: {
+          ownerUserId: true,
+        },
+      },
+    },
+  });
+  assert.deepEqual(updateArgs, {
+    where: {
+      id: "order-1",
+      status: "PENDING",
+    },
     data: {
       status: "FULFILLED",
+      providedApiKeyId: "provided-key-1",
       confirmedByUserId: "admin-1",
       confirmedAt,
       fulfilledAt,
@@ -124,13 +173,11 @@ test("POST /api/admin/shop/orders/[id]/fulfill returns 404 when the pending api 
   mockAdminSession();
 
   prismaClient.purchaseOrder = {
+    findFirst: async () => null,
     updateMany: async () => ({ count: 0 }),
   };
-  prismaClient.providedApiKey = {
-    findFirst: async () => {
-      throw new Error("provided key lookup should not run");
-    },
-  };
+  prismaClient.userProvidedApiKeyApplication = {};
+  prismaClient.providedApiKey = {};
 
   const response = await POST(
     createRouteRequest("http://localhost/api/admin/shop/orders/missing/fulfill", {
@@ -147,4 +194,41 @@ test("POST /api/admin/shop/orders/[id]/fulfill returns 404 when the pending api 
   assert.equal(response.status, 404);
   assert.equal(json.success, false);
   assert.equal(json.error, "Purchase order not found");
+});
+
+test("POST /api/admin/shop/orders/[id]/fulfill returns 404 when the buyer owner has no bound API key", async () => {
+  mockAdminSession();
+
+  prismaClient.purchaseOrder = {
+    findFirst: async () => ({
+      id: "order-1",
+      buyerAgent: createAgentFixture({
+        id: "agent-2",
+        ownerUserId: "user-2",
+      }),
+    }),
+    updateMany: async () => {
+      throw new Error("order update should not run without a bound key");
+    },
+  };
+  prismaClient.userProvidedApiKeyApplication = {
+    findFirst: async () => null,
+  };
+  prismaClient.providedApiKey = {};
+
+  const response = await POST(
+    createRouteRequest("http://localhost/api/admin/shop/orders/order-1/fulfill", {
+      method: "POST",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+    }),
+    createRouteParams({ id: "order-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 404);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Provided API key not found");
 });

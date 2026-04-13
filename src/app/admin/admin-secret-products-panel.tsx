@@ -43,7 +43,6 @@ type MutationResponse = {
 
 type ApiKeyDraft = {
   label: string;
-  providerLabel: string;
   apiKey: string;
   isActive: boolean;
 };
@@ -63,7 +62,6 @@ type ApiBaseUrlDraft = {
 function createInitialApiKeyDraft(): ApiKeyDraft {
   return {
     label: "",
-    providerLabel: "",
     apiKey: "",
     isActive: true,
   };
@@ -915,22 +913,6 @@ export function AdminSecretProductsPanel({
                   onChange={(event) =>
                     setApiKeyDraft((current) => ({ ...current, label: event.target.value }))
                   }
-                  className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
-                />
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs font-semibold text-muted">
-                  {t("admin.products.keys.form.providerLabel")}
-                </span>
-                <input
-                  value={apiKeyDraft.providerLabel}
-                  onChange={(event) =>
-                    setApiKeyDraft((current) => ({
-                      ...current,
-                      providerLabel: event.target.value,
-                    }))
-                  }
-                  required
                   className="w-full rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent/40"
                 />
               </label>

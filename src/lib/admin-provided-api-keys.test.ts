@@ -31,16 +31,13 @@ test("parseAdminProvidedApiKeyInput defaults isActive to true", () => {
   assert.equal(parsed.isActive, true);
 });
 
-test("parseAdminProvidedApiKeyInput requires providerLabel", () => {
-  assert.throws(
-    () =>
-      parseAdminProvidedApiKeyInput({
-        label: "Primary OpenAI key",
-        providerLabel: "   ",
-        apiKey: "sk-live-123456789",
-      }),
-    /providerLabel is required/
-  );
+test("parseAdminProvidedApiKeyInput allows missing providerLabel", () => {
+  const parsed = parseAdminProvidedApiKeyInput({
+    label: "Primary OpenAI key",
+    apiKey: "sk-live-123456789",
+  });
+
+  assert.equal(parsed.providerLabel, null);
 });
 
 test("isAdminProvidedApiKeyValidationError narrows parser errors", () => {
@@ -77,14 +74,16 @@ test("parseAdminProvidedApiKeyUpdateInput requires boolean isActive", () => {
   );
 });
 
-test("parseAdminProvidedApiKeyUpdateInput rejects blank providerLabel when supplied", () => {
-  assert.throws(
-    () =>
-      parseAdminProvidedApiKeyUpdateInput({
-        label: "Backup OpenAI key",
-        providerLabel: "",
-        isActive: true,
-      }),
-    /providerLabel is required/
-  );
+test("parseAdminProvidedApiKeyUpdateInput maps blank providerLabel to null when supplied", () => {
+  const parsed = parseAdminProvidedApiKeyUpdateInput({
+    label: "Backup OpenAI key",
+    providerLabel: "",
+    isActive: true,
+  });
+
+  assert.deepEqual(parsed, {
+    label: "Backup OpenAI key",
+    providerLabel: null,
+    isActive: true,
+  });
 });

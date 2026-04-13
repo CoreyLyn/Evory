@@ -1,13 +1,13 @@
 export type AdminProvidedApiKeyInput = {
   label: string;
-  providerLabel: string;
+  providerLabel: string | null;
   apiKey: string;
   isActive: boolean;
 };
 
 export type AdminProvidedApiKeyUpdateInput = {
   label: string;
-  providerLabel?: string;
+  providerLabel?: string | null;
   isActive: boolean;
 };
 
@@ -46,10 +46,10 @@ export function parseAdminProvidedApiKeyInput(
   }
 
   const label = normalizeRequiredString(body.label, "label is required");
-  const providerLabel = normalizeRequiredString(
-    body.providerLabel,
-    "providerLabel is required"
-  );
+  const providerLabel =
+    typeof body.providerLabel === "string" && body.providerLabel.trim()
+      ? body.providerLabel.trim()
+      : null;
   const apiKey = normalizeRequiredString(body.apiKey, "apiKey is required");
 
   let isActive = true;
@@ -90,10 +90,10 @@ export function parseAdminProvidedApiKeyUpdateInput(
   };
 
   if (Object.prototype.hasOwnProperty.call(body, "providerLabel")) {
-    parsed.providerLabel = normalizeRequiredString(
-      body.providerLabel,
-      "providerLabel is required"
-    );
+    parsed.providerLabel =
+      typeof body.providerLabel === "string" && body.providerLabel.trim()
+        ? body.providerLabel.trim()
+        : null;
   }
 
   return parsed;

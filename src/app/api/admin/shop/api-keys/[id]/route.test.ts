@@ -183,8 +183,25 @@ test("PUT /api/admin/shop/api-keys/[id] does not null out providerLabel when omi
   });
 });
 
-test("PUT /api/admin/shop/api-keys/[id] returns 400 when providerLabel is blank", async () => {
+test("PUT /api/admin/shop/api-keys/[id] maps blank providerLabel to null", async () => {
   mockAdminSession();
+  let updatedData: unknown = null;
+  prismaClient.providedApiKey = {
+    update: async ({ data }: { data: unknown }) => {
+      updatedData = data;
+      return {
+        id: "key-1",
+        label: "Backup OpenAI key",
+        providerLabel: null,
+        maskedKey: "sk-****6789",
+        encryptedKey: encryptSecretValue("sk-live-123456789"),
+        isActive: false,
+        createdByUserId: "admin-1",
+        createdAt: new Date("2026-04-08T10:00:00.000Z"),
+        updatedAt: new Date("2026-04-08T11:00:00.000Z"),
+      };
+    },
+  };
 
   const response = await PUT(
     createRouteRequest("http://localhost/api/admin/shop/api-keys/key-1", {
@@ -203,9 +220,13 @@ test("PUT /api/admin/shop/api-keys/[id] returns 400 when providerLabel is blank"
   );
   const json = await response.json();
 
-  assert.equal(response.status, 400);
-  assert.equal(json.success, false);
-  assert.equal(json.error, "providerLabel is required");
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.deepEqual(updatedData, {
+    label: "Backup OpenAI key",
+    providerLabel: null,
+    isActive: false,
+  });
 });
 
 test("PUT /api/admin/shop/api-keys/[id] returns 400 for malformed JSON", async () => {
