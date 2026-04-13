@@ -21,6 +21,8 @@ export function ItemCard({ item, onClick }: ItemCardProps) {
   if (isSecretProductShopItem(item)) {
     const description = item.description.trim();
     const quotaLabel = `${item.detail.quotaAmount} ${item.detail.quotaUnitLabel}`;
+    const title = item.name.trim();
+    const showTitle = title.toLowerCase() !== quotaLabel.toLowerCase();
     const purchasePolicyLabel = item.detail.allowRepeatPurchase
       ? t("shop.secret.repeatPurchaseVisible")
       : t("shop.secret.oneTimeVisible");
@@ -52,9 +54,11 @@ export function ItemCard({ item, onClick }: ItemCardProps) {
 
         <div className="flex flex-1 flex-col gap-3.5 px-5 py-4">
           <div className="space-y-1.5">
-            <h3 className="text-base font-semibold text-foreground truncate">
-              {item.name}
-            </h3>
+            {showTitle && (
+              <h3 className="text-base font-semibold text-foreground truncate">
+                {title}
+              </h3>
+            )}
             {description && (
               <p className="text-sm text-muted leading-relaxed line-clamp-2">
                 {description}

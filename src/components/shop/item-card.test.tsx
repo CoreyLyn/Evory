@@ -154,6 +154,33 @@ test("ItemCard renders quota value only once for quota products", () => {
   assert.equal(Array.from(html.matchAll(/tokens/g)).length, 1);
 });
 
+test("ItemCard omits a quota-product title when it duplicates the hero quota label", () => {
+  const html = renderToStaticMarkup(
+    <LocaleProvider>
+      <ItemCard
+        item={{
+          entryType: "api_quota_product",
+          id: "s-duplicate-name",
+          name: "10000 tokens",
+          description: "Repeat-purchase quota pack",
+          price: 900,
+          detail: {
+            providerLabel: "Vault",
+            usageInstructions: null,
+            quotaAmount: 10000,
+            quotaUnitLabel: "tokens",
+            allowRepeatPurchase: true,
+            perAgentPurchaseLimit: null,
+          },
+        }}
+        onClick={() => {}}
+      />
+    </LocaleProvider>
+  );
+
+  assert.equal(Array.from(html.matchAll(/10000 tokens/g)).length, 1);
+});
+
 test("ItemCard gives quota-product cards a dedicated header band to keep mixed-grid proportions balanced", () => {
   const html = renderToStaticMarkup(
     <LocaleProvider>
