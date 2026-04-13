@@ -722,11 +722,11 @@ export function UserProvidedApiKeyCard({
                 Base URL
               </p>
 
-              {baseUrls.openAiBaseUrl ? (
+              {baseUrls.anthropicBaseUrl ? (
                 <div className="space-y-2">
-                  <p className="text-sm text-muted">兼容 OpenAI 接口协议工具</p>
+                  <p className="text-sm text-muted">兼容 Anthropic 接口协议工具</p>
                   <CopyableCodeBlock
-                    value={baseUrls.openAiBaseUrl}
+                    value={baseUrls.anthropicBaseUrl}
                     copyButtonClassName={PROMPT_CODE_BLOCK_CHROME.copyButtonClassName}
                     style={PROMPT_CODE_BLOCK_CHROME.style}
                     preStyle={PROMPT_CODE_BLOCK_CHROME.preStyle}
@@ -735,11 +735,11 @@ export function UserProvidedApiKeyCard({
                 </div>
               ) : null}
 
-              {baseUrls.anthropicBaseUrl ? (
+              {baseUrls.openAiBaseUrl ? (
                 <div className="space-y-2">
-                  <p className="text-sm text-muted">兼容 Anthropic 接口协议工具</p>
+                  <p className="text-sm text-muted">兼容 OpenAI 接口协议工具</p>
                   <CopyableCodeBlock
-                    value={baseUrls.anthropicBaseUrl}
+                    value={baseUrls.openAiBaseUrl}
                     copyButtonClassName={PROMPT_CODE_BLOCK_CHROME.copyButtonClassName}
                     style={PROMPT_CODE_BLOCK_CHROME.style}
                     preStyle={PROMPT_CODE_BLOCK_CHROME.preStyle}
