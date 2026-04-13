@@ -80,19 +80,23 @@ export function parseAdminProvidedApiKeyUpdateInput(
   }
 
   const label = normalizeRequiredString(body.label, "label is required");
-  const providerLabel =
-    typeof body.providerLabel === "string" && body.providerLabel.trim()
-      ? body.providerLabel.trim()
-      : null;
   if (typeof body.isActive !== "boolean") {
     validationError("isActive is required");
   }
 
-  return {
+  const parsed: AdminProvidedApiKeyUpdateInput = {
     label,
-    providerLabel,
     isActive: body.isActive,
   };
+
+  if (Object.prototype.hasOwnProperty.call(body, "providerLabel")) {
+    parsed.providerLabel =
+      typeof body.providerLabel === "string" && body.providerLabel.trim()
+        ? body.providerLabel.trim()
+        : null;
+  }
+
+  return parsed;
 }
 
 export function isAdminProvidedApiKeyValidationError(

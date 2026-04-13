@@ -657,16 +657,25 @@ export async function updateAdminProvidedApiKey(
   keyId: string,
   input: AdminProvidedApiKeyUpdateInput
 ) {
+  const body: {
+    label: string;
+    providerLabel?: string | null;
+    isActive: boolean;
+  } = {
+    label: input.label,
+    isActive: input.isActive,
+  };
+
+  if (input.providerLabel !== undefined) {
+    body.providerLabel = input.providerLabel ?? null;
+  }
+
   const response = await fetcher(`/api/admin/shop/api-keys/${keyId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      label: input.label,
-      providerLabel: input.providerLabel ?? null,
-      isActive: input.isActive,
-    }),
+    body: JSON.stringify(body),
   });
 
   return readEnvelope<AdminProvidedApiKey>(response);

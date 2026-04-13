@@ -440,6 +440,7 @@ export function AdminSecretProductsPanel({
     try {
       await updateAdminProvidedApiKey(fetch, key.id, {
         label: key.label,
+        providerLabel: key.providerLabel,
         isActive: nextIsActive,
       });
       await Promise.all([refreshApiKeys(), refreshApplications()]);

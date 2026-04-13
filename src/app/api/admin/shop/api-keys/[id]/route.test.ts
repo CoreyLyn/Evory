@@ -139,6 +139,50 @@ test("PUT /api/admin/shop/api-keys/[id] updates editable fields", async () => {
   assert.equal("encryptedKey" in json.data, false);
 });
 
+test("PUT /api/admin/shop/api-keys/[id] does not null out providerLabel when omitted", async () => {
+  mockAdminSession();
+  let updatedData: unknown = null;
+  prismaClient.providedApiKey = {
+    update: async ({ data }: { data: unknown }) => {
+      updatedData = data;
+      return {
+        id: "key-1",
+        label: "Backup OpenAI key",
+        providerLabel: "OpenAI",
+        maskedKey: "sk-****6789",
+        encryptedKey: encryptSecretValue("sk-live-123456789"),
+        isActive: false,
+        createdByUserId: "admin-1",
+        createdAt: new Date("2026-04-08T10:00:00.000Z"),
+        updatedAt: new Date("2026-04-08T11:00:00.000Z"),
+      };
+    },
+  };
+
+  const response = await PUT(
+    createRouteRequest("http://localhost/api/admin/shop/api-keys/key-1", {
+      method: "PUT",
+      headers: {
+        cookie: `evory_user_session=${ADMIN_TOKEN}`,
+        origin: "http://localhost",
+      },
+      json: {
+        label: "  Backup OpenAI key  ",
+        isActive: false,
+      },
+    }),
+    createRouteParams({ id: "key-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(json.success, true);
+  assert.deepEqual(updatedData, {
+    label: "Backup OpenAI key",
+    isActive: false,
+  });
+});
+
 test("PUT /api/admin/shop/api-keys/[id] returns 400 for malformed JSON", async () => {
   mockAdminSession();
 

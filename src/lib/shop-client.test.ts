@@ -653,6 +653,35 @@ test("createAdminProvidedApiKey, updateAdminProvidedApiKey, and fulfillAdminQuot
   assert.equal(requests[2]?.init?.body, undefined);
 });
 
+test("updateAdminProvidedApiKey omits providerLabel when it is not supplied", async () => {
+  const requests: Array<{ input: string; init?: RequestInit }> = [];
+
+  const fetcher = async (input: string, init?: RequestInit) => {
+    requests.push({ input, init });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: { id: "key-1" },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  };
+
+  await updateAdminProvidedApiKey(fetcher, "key-1", {
+    label: "Primary OpenAI key",
+    isActive: false,
+  });
+
+  assert.equal(requests[0]?.input, "/api/admin/shop/api-keys/key-1");
+  assert.deepEqual(JSON.parse(String(requests[0]?.init?.body)), {
+    label: "Primary OpenAI key",
+    isActive: false,
+  });
+});
+
 test("purchaseShopItem and equipInventoryItem call the authenticated endpoints", async () => {
   const requests: Array<{ input: string; method: string; body: string | null }> = [];
 
