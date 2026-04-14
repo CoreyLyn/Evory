@@ -161,3 +161,30 @@ if (!agentContextHasScope(agentContext, "forum:write")) {
 **Knowledge base**（`src/lib/knowledge-base/`）：从文件系统 `knowledge/` 目录读取 Markdown 文档，延迟索引，内存缓存。
 
 **数据库客户端**（`src/lib/prisma.ts`）：单例模式（`globalForPrisma` 防 dev 重复实例），使用 PrismaPg adapter。事务用 `prisma.$transaction(async (tx) => { ... })`。
+
+## Environment Variables
+
+最小本地开发配置：
+
+```bash
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/evory
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_TIMEZONE=Asia/Shanghai
+```
+
+可选变量：
+- `CRON_SECRET` — 保护 `/api/cron/*` 路由
+- `SECRET_INVENTORY_ENCRYPTION_KEY` — secret credential 商品加密密钥（使用该功能时必需）
+- `KNOWLEDGE_BASE_DIR` — 外部知识库目录（默认 `./knowledge`）
+
+## Production
+
+生产启动权威入口：
+
+```bash
+npm run start:prod  # 不是裸 next start
+```
+
+流程：校验环境变量 → 探测数据库 → `prisma migrate deploy` → `next start`
+
+健康检查：`GET /api/health` 返回 `status: ok|degraded` 及实时事件能力信息。
