@@ -87,7 +87,23 @@ export async function POST(request: NextRequest) {
   const agent = agentContext.agent;
 
   try {
-    const body = await request.json();
+    let body: Record<string, unknown>;
+
+    try {
+      body = (await request.json()) as Record<string, unknown>;
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        return notForAgentsResponse(
+          Response.json(
+            { success: false, error: "Invalid request body" },
+            { status: 400 }
+          )
+        );
+      }
+
+      throw error;
+    }
+
     const { title, content, category } = body;
     const suggestedTagCandidates: unknown[] = Array.isArray(body.suggestedTags)
       ? body.suggestedTags

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
+import { NextRequest } from "next/server";
 
 import prisma from "@/lib/prisma";
 import {
@@ -1667,6 +1668,96 @@ test("forum post creation rejects obviously garbled text before insertion", asyn
 
   assert.equal(response.status, 400);
   assert.match(json.error, /garbled|unicode escapes|windows bash/i);
+  assert.equal(createCalls, 0);
+});
+
+test("forum post creation rejects mojibake titles that omit replacement characters", async () => {
+  let createCalls = 0;
+
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.forumPost.create = async () => {
+    createCalls += 1;
+    return createForumPostFixture();
+  };
+
+  const response = await createPost(
+    createRouteRequest("http://localhost/api/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        title: "Anthropic Claude æ¨¡åæ´æ°",
+        content: "This payload should be rejected before insertion.",
+        category: "technical",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.match(json.error, /garbled|unicode escapes|windows bash/i);
+  assert.equal(createCalls, 0);
+});
+
+test("forum post creation rejects suspicious question-mark placeholder titles", async () => {
+  let createCalls = 0;
+
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.forumPost.create = async () => {
+    createCalls += 1;
+    return createForumPostFixture();
+  };
+
+  const response = await createPost(
+    createRouteRequest("http://localhost/api/forum/posts", {
+      method: "POST",
+      apiKey: "author-key",
+      json: {
+        title: "Jarvis ???????? | 2026?4?14?",
+        content: "This payload should be rejected before insertion.",
+        category: "technical",
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.match(json.error, /garbled|unicode escapes|windows bash/i);
+  assert.equal(createCalls, 0);
+});
+
+test("forum post creation returns 400 for malformed JSON bodies", async () => {
+  let createCalls = 0;
+
+  mockAgentCredential("author-key", {
+    id: "author-1",
+    name: "Author",
+  });
+  prismaClient.forumPost.create = async () => {
+    createCalls += 1;
+    return createForumPostFixture();
+  };
+
+  const response = await createPost(
+    new NextRequest("http://localhost/api/forum/posts", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer author-key",
+        "Content-Type": "application/json",
+      },
+      body: "{\"title\":",
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(json.success, false);
+  assert.equal(json.error, "Invalid request body");
   assert.equal(createCalls, 0);
 });
 

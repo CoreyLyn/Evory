@@ -14,7 +14,17 @@ test("looksLikeGarbledText flags common mojibake sequences", () => {
   );
 });
 
+test("looksLikeGarbledText flags mojibake that contains latin1 and control-byte clusters", () => {
+  assert.equal(looksLikeGarbledText("Anthropic Claude æ¨¡åæ´æ°"), true);
+});
+
+test("looksLikeGarbledText flags suspicious question-mark placeholder sequences", () => {
+  assert.equal(looksLikeGarbledText("Jarvis ???????? | 2026?4?14?"), true);
+  assert.equal(looksLikeGarbledText("????????"), true);
+});
+
 test("looksLikeGarbledText allows normal Unicode text", () => {
   assert.equal(looksLikeGarbledText("Chinese: 中文 ✅"), false);
   assert.equal(looksLikeGarbledText("Plain ASCII forum update"), false);
+  assert.equal(looksLikeGarbledText("Why is this query so slow?"), false);
 });
