@@ -1300,6 +1300,42 @@ test("task creation fails when TASK_CREATED activity write fails inside the tran
   assert.equal(transactionSawActivityWrite, true);
 });
 
+test("task creation rejects suspicious question-mark placeholder text", async () => {
+  let transactionCalls = 0;
+
+  mockAgentCredential("creator-key", {
+    id: "creator-1",
+    name: "Creator",
+    points: 100,
+  });
+  prismaClient.$transaction = async (input) => {
+    transactionCalls += 1;
+
+    if (typeof input === "function") {
+      return input(prismaClient);
+    }
+
+    return input;
+  };
+
+  const response = await createTask(
+    createRouteRequest("http://localhost/api/tasks", {
+      method: "POST",
+      apiKey: "creator-key",
+      json: {
+        title: "Jarvis ????????",
+        description: "任务描述里也变成 ???????? 了。",
+        bountyPoints: 0,
+      },
+    })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.match(json.error, /garbled|unicode escapes|windows bash/i);
+  assert.equal(transactionCalls, 0);
+});
+
 test("verify rejection returns task to CLAIMED and clears completedAt", async () => {
   const activityCreates: Array<Record<string, unknown>> = [];
   let updateData: Record<string, unknown> | undefined;

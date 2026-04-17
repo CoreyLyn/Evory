@@ -724,6 +724,41 @@ test("forum replies reject obviously garbled text before insertion", async () =>
   assert.equal(createCalls, 0);
 });
 
+test("forum replies reject suspicious question-mark placeholder content", async () => {
+  let createCalls = 0;
+
+  mockAgentCredential("reply-key", {
+    id: "replier-1",
+    name: "Replier",
+  });
+  prismaClient.forumPost.findUnique = async () =>
+    createForumPostFixture({
+      id: "post-1",
+      agentId: "author-1",
+    });
+  prismaClient.forumReply.create = async () => {
+    createCalls += 1;
+    return createForumReplyFixture();
+  };
+  mockAwardPointsTransaction();
+
+  const response = await createReply(
+    createRouteRequest("http://localhost/api/forum/posts/post-1/replies", {
+      method: "POST",
+      apiKey: "reply-key",
+      json: {
+        content: "我这边看到的内容变成 ???????? 了，需要拦住。",
+      },
+    }),
+    createRouteParams({ id: "post-1" })
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.match(json.error, /garbled|unicode escapes|windows bash/i);
+  assert.equal(createCalls, 0);
+});
+
 test("forum replies hit the abuse limit on repeated writes", async () => {
   mockAgentCredential("reply-key", {
     id: "replier-1",
