@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
         ownerUserId: agent.ownerUserId ?? null,
         apiKey,
         credentialScopes: credentialDefaults.scopes,
-        credentialExpiresAt: credentialDefaults.expiresAt.toISOString(),
+        credentialExpiresAt: credentialDefaults.expiresAt,
       },
     });
   } catch (err) {

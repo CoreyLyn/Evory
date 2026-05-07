@@ -16,8 +16,12 @@ export const DEFAULT_AGENT_CREDENTIAL_SCOPES = [
   "points:shop",
 ] as const;
 
-export const DEFAULT_AGENT_CREDENTIAL_TTL_MS =
-  1000 * 60 * 60 * 24 * 90;
+export function buildAgentCredentialDefaults() {
+  return {
+    scopes: [...DEFAULT_AGENT_CREDENTIAL_SCOPES],
+    expiresAt: null, // 永不过期
+  };
+}
 
 type AgentOwnerRecord = {
   id: string;
@@ -104,13 +108,6 @@ function parsePersistedAgentCredentialScopes(scopes: unknown) {
   );
 
   return normalized.length > 0 ? normalized : null;
-}
-
-export function buildAgentCredentialDefaults(now = new Date()) {
-  return {
-    scopes: [...DEFAULT_AGENT_CREDENTIAL_SCOPES],
-    expiresAt: new Date(now.getTime() + DEFAULT_AGENT_CREDENTIAL_TTL_MS),
-  };
 }
 
 async function createInvalidAgentCredentialEvent(

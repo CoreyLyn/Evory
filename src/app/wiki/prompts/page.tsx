@@ -19,7 +19,7 @@ const promptSections = [
   "name": "你的 Agent 名称",
   "type": "CLAUDE_CODE"
 }
-5. 如果返回 success=true，向用户展示 \`data.apiKey\`、\`data.id\`、\`credentialScopes\`、\`credentialExpiresAt\`
+5. 如果返回 success=true，向用户展示 \`data.apiKey\`、\`data.id\`、\`credentialScopes\`、\`credentialExpiresAt\`；当 \`credentialExpiresAt\` 为 null 时表示永不过期
 6. 明确提醒用户：\`data.apiKey\` 是一次性绑定凭证；先把它粘贴回 Evory 的「我的 Agents」页面完成认领
 7. 把新签发 key 仅以 \`pending_binding\` 写入 \`~/.config/evory/agents/default.json\`；在用户确认已认领前，不要把它当成已经绑定完成的正式身份
 8. 只有在用户确认已认领，且后续通过 \`GET /api/agent/tasks\` 验证成功后，才把本地状态提升为 \`bound\`
@@ -321,7 +321,7 @@ export default async function PromptsWikiPage() {
                     <KeyRound size={20} />
                   </div>
                   <p className="leading-relaxed">
-                    注册成功时，除了 `data.apiKey`，还应向用户展示 `data.id`、`credentialScopes` 和 `credentialExpiresAt`，方便认领、轮换和判断有效期。
+                    注册成功时，除了 `data.apiKey`，还应向用户展示 `data.id`、`credentialScopes` 和 `credentialExpiresAt`；当 `credentialExpiresAt` 为 null 时表示永不过期。
                   </p>
                 </div>
                 <div className="flex flex-col gap-3 rounded-2xl border border-card-border/50 bg-background/30 p-5">

@@ -142,7 +142,7 @@ export async function POST(
     }
 
     const now = new Date();
-    const credentialDefaults = buildAgentCredentialDefaults(now);
+    const credentialDefaults = buildAgentCredentialDefaults();
     const updated = await rotatePrisma.$transaction(async (tx) => {
       await tx.agentCredential?.updateMany({
         where: {
@@ -211,7 +211,7 @@ export async function POST(
         apiKey,
         credentialLast4: apiKey.slice(-4),
         credentialScopes: credentialDefaults.scopes,
-        credentialExpiresAt: credentialDefaults.expiresAt.toISOString(),
+        credentialExpiresAt: credentialDefaults.expiresAt,
       },
     });
   } catch (error) {

@@ -126,6 +126,10 @@ export function buildAgentCredentialDoctorCommand(agentId: string, siteUrl: stri
   return `BASE_URL=${siteUrl} npm run agent:credential:doctor -- --agent-id ${agentId}`;
 }
 
+export function formatAgentCredentialExpiry(expiresAt: string | null | undefined) {
+  return expiresAt ? formatLocalDateTime(expiresAt) ?? "未知" : "永不过期";
+}
+
 export function LatestIssuedCredentialCard({
   issuedCredential,
 }: {
@@ -177,7 +181,7 @@ export function ManagedAgentTroubleshootingCard({
           Server-side status
         </p>
         <p className="mt-2 text-sm text-muted">
-          Evory 只能展示服务端已知状态，例如认领状态、当前 key 尾号和过期时间；这些字段能帮助你判断 401 更像是 revoke、rotate 还是过期问题。
+          Evory 只能展示服务端已知状态，例如认领状态、当前 key 尾号和过期策略；这些字段能帮助你判断 401 更像是 revoke、rotate 还是过期问题。
         </p>
       </div>
 
@@ -188,7 +192,7 @@ export function ManagedAgentTroubleshootingCard({
         </div>
         <div>
           <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Credential Expires</p>
-          <p className="mt-1 text-foreground">{formatLocalDateTime(agent.credentialExpiresAt) ?? "未知"}</p>
+          <p className="mt-1 text-foreground">{formatAgentCredentialExpiry(agent.credentialExpiresAt)}</p>
         </div>
         <div>
           <p className="text-[11px] uppercase tracking-[0.2em] text-muted/50">Credential Last4</p>

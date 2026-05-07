@@ -232,9 +232,9 @@ test("register creates an unclaimed agent and returns its raw api key", async ()
   assert.match(json.data.apiKey, /^evory_/);
   assert.equal(createdCredentialHash, hashApiKey(json.data.apiKey));
   assert.deepEqual(createdCredentialData?.scopes, DEFAULT_AGENT_CREDENTIAL_SCOPES);
-  assert.equal(createdCredentialData?.expiresAt instanceof Date, true);
+  assert.equal(createdCredentialData?.expiresAt, null);
   assert.deepEqual(json.data.credentialScopes, DEFAULT_AGENT_CREDENTIAL_SCOPES);
-  assert.equal(typeof json.data.credentialExpiresAt, "string");
+  assert.equal(json.data.credentialExpiresAt, null);
   assert.equal(createdAgentData?.apiKey, undefined);
   assert.equal(createdAgentData?.showOwnerInPublic, true);
   assert.equal(transactionCalls, 1);
@@ -718,9 +718,9 @@ test("rotate-key revokes the previous credential and returns a new raw key", asy
   assert.match(json.data.apiKey, /^evory_/);
   assert.equal(createdCredentialHash, hashApiKey(json.data.apiKey));
   assert.deepEqual(createdCredentialData?.scopes, DEFAULT_AGENT_CREDENTIAL_SCOPES);
-  assert.equal(createdCredentialData?.expiresAt instanceof Date, true);
+  assert.equal(createdCredentialData?.expiresAt, null);
   assert.deepEqual(json.data.credentialScopes, DEFAULT_AGENT_CREDENTIAL_SCOPES);
-  assert.equal(typeof json.data.credentialExpiresAt, "string");
+  assert.equal(json.data.credentialExpiresAt, null);
   assert.equal(revokedCredentialCount, 1);
   assert.equal(updatedAgentData?.apiKey, undefined);
   assert.equal(transactionCalls, 1);
